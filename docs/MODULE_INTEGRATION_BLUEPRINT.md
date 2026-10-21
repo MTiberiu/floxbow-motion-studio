@@ -13,7 +13,7 @@ This is an inventory of the current boundaries, not a proposal to add a plugin f
 | Subtitle / lyric data | `@motion/lyrics-sync`, `@motion/lyrics-sync/subtitles` | Owns seconds-based word/line timing, reconciliation and SRT/LRC/JSON conversion. `subtitleClips` and `exportSubtitles` bridge that data to frame-based editor clips. |
 | Subtitle rendering component | `@motion/lyrics-sync/component` | Exports `subtitleModule`, its declared editable fields and the React renderer. Content/timing live on the clip; appearance and karaoke behavior live in props. |
 | Preview player and bridge | `@motion/player`, `@motion/player/host` | `StudioPlayer` hosts a Remotion composition. `mountPreview` receives the project module and manifest, exposes registered component metadata, and exchanges ready/frame/error/document/seek/play/pause messages on `motion-editor-v1`. The bridge checks the parent origin, source, channel and project ID. |
-| Desktop editor shell | `apps/desktop/src/main.tsx`, `TimelineEditor.tsx` | Discovers projects, loads a project's preview, edits the timeline and reads component metadata from the preview bridge. It currently imports the lyric workbench and subtitle data helpers directly. |
+| Desktop editor shell | `apps/desktop/src/main.tsx`, `WorkspaceManager.tsx`, `DockablePanel.tsx`, `TimelineEditor.tsx` | Discovers projects, manages the static shell panel registry and lifecycle, loads a project's preview, edits the timeline and reads component metadata from the preview bridge. The Editor is currently a composite panel containing Canvas, Timeline and Inspector. |
 | Renderer | `@motion/renderer` | `renderProject(root, id, still?)` resolves a project through the loader, bundles its declared entry with Remotion and writes a still or MP4. Rendering is outside the Electron renderer process. |
 | Animation library | `@motion/animations` | Exports reusable React motion components built on the SDK primitives. Projects opt in by importing them. |
 | Audio | `@motion/audio` | Currently exports a small Remotion `Narration` component. It uses `AudioReference` from the SDK; the player and editor do not discover audio capabilities through a registry yet. |
@@ -29,6 +29,14 @@ This is an inventory of the current boundaries, not a proposal to add a plugin f
 6. In the development shell, an optional project `media.json` is read by the host media store. The UI receives display names and availability only; a native picker supplies paths during registration. The public resolver returns a local path to Node callers only and is not a browser-preview API.
 
 For lyrics, canonical synchronization data is seconds-based while editable clips are frame-based. The subtitle bridge converts at the project FPS and stores word offsets relative to each segment. Import/export and the Lyrics Sync workbench are currently explicit user workflows; they are not a background editor service.
+
+### Desktop workspace panel boundary
+
+The desktop shell statically registers the existing Editor, Media, Lyrics Sync and Capabilities views in `apps/desktop/src/WorkspaceManager.tsx`. The registry is application-owned metadata, not a module/plugin loader. `DockablePanel` owns the shared title bar and hide control; `WorkspaceManager` owns which panel is active, hidden or has been opened. Modules and editor views provide only their content.
+
+Opened panels stay mounted when another view is selected or when they are hidden, so in-memory editor drafts, clip selection, playhead and lyric workbench edits survive navigation. The Editor remains one composite panel because `TimelineEditor` currently owns the preview, timeline, inspector and their shared state. It pauses preview playback and stops its revision poll while hidden. When reopened, its single preview iframe reloads the authoritative timeline and saved frame through the existing validated bridge, then resumes playback if it was playing. Media Registry polling likewise runs only while Media is active. Existing project formats and persistence routes are unchanged.
+
+This foundation supports one active workspace view with hide/reopen behavior. Drag & Dock, split resizing, native windows, layout persistence and separate Canvas/Timeline/Inspector panels remain future work; the latter requires a shared editor-session owner before those views can be mounted independently.
 
 ## Coupling and limits found
 

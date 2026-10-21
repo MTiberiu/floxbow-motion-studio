@@ -82,11 +82,11 @@ try {
   await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
 
   if (built) {
-    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(page.getByRole("button", { name: "Create Project" })).toBeDisabled();
     console.log("PASS built: empty starter, capability metadata, real preview and docs.");
   } else {
-    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    await page.getByRole("button", { name: "Editor", exact: true }).click();
     await page.getByRole("button", { name: "Create Project" }).click();
     await page.getByLabel("Project name").fill(id);
     await page.getByRole("button", { name: "Create project", exact: true }).click();
@@ -234,12 +234,12 @@ try {
     expect(missingRemovalConfirmed).toBe(true);
     expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(0);
 
-    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(page.getByRole("button", { name: /^Clip subtitle-/ })).toBeVisible();
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
-    const preview = page.frameLocator("iframe");
+    const preview = page.frameLocator('[data-panel-id="editor"] iframe');
     await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
@@ -271,6 +271,35 @@ try {
     await page.getByRole("button", { name: "Reload from disk", exact: true }).click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("External version to protect");
     await expect(preview.getByText("External version to protect", { exact: true })).toBeVisible();
+
+    // Hiding and switching panels keeps one editor mounted with its draft, selection and transport state.
+    const activeClip = page.locator(".timeline-clip.is-selected");
+    const activeClipId = await activeClip.getAttribute("data-clip-id");
+    expect(activeClipId).toBeTruthy();
+    await page.getByLabel("Text", { exact: true }).fill("Draft survives panel changes");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("42");
+    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Project media" })).toBeVisible();
+    await expect(page.locator('[data-panel-id="editor"]')).toBeHidden();
+    await expect(page.locator('[data-panel-id="editor"] .transport button').nth(1)).toHaveText("Play");
+    await page.getByRole("button", { name: "Editor", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Draft survives panel changes");
+    await expect(page.getByLabel("Playhead frame", { exact: true })).toHaveValue("42");
+    await expect(page.locator(`.timeline-clip[data-clip-id="${activeClipId}"]`)).toHaveClass(/is-selected/);
+    await expect(page.locator('[data-panel-id="editor"] .timeline-editor')).toHaveCount(1);
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Hide Editor panel" }).click();
+    await expect(page.getByRole("region", { name: "Project media" })).toBeVisible();
+    await expect(page.locator('[data-panel-id="editor"] .transport button').nth(1)).toHaveText("Play");
+    await page.locator(".workspace-view-menu summary").click();
+    await page.getByRole("button", { name: "Show Editor", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Draft survives panel changes");
+    await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
+    await expect(page.locator('[data-panel-id="editor"] .timeline-editor')).toHaveCount(1);
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await page.getByRole("button", { name: "Reload from disk", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("External version to protect");
 
     // Three independent project IDs can be created and switched without sharing editor state.
     const secondId = `${id}-two`;
@@ -306,11 +335,11 @@ try {
       expect(savedProject.clips[0].content.text).toBe(caption);
     }
     await selectProject(id);
-    await expect(page.frameLocator("iframe").getByText("External version to protect", { exact: true })).toBeVisible();
+    await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("External version to protect", { exact: true })).toBeVisible();
     await selectProject(secondId);
-    await expect(page.frameLocator("iframe").getByText("Caption belongs to project two", { exact: true })).toBeVisible();
+    await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("Caption belongs to project two", { exact: true })).toBeVisible();
     await selectProject(thirdId);
-    await expect(page.frameLocator("iframe").getByText("Caption belongs to project three", { exact: true })).toBeVisible();
+    await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("Caption belongs to project three", { exact: true })).toBeVisible();
     console.log("PASS development: clean starter, Explorer, three isolated projects, project switching, human save, external reload and conflict protection.");
   }
 } catch (error) {
