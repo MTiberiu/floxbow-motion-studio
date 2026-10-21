@@ -44,6 +44,16 @@ Capabilities are reusable implementations; examples are neutral technical demons
 
 Scoped branches from `dev`, tests, PR review, explicit user approval before merge; `main` is not casually modified. Technical API/format changes require accompanying tests/docs. Product management notes are maintained in English for the public repository.
 
+## D-009 — Proposed project-controlled editor modules (design intent)
+
+The visual editor should eventually expose **Settings → Modules**, allowing users to enable available tools for their current video project. An external AI coding agent should be able to make the same change in a documented, versioned, validated project-local JSON file rather than editing the editor's React code.
+
+**Responsibility split:** the application registers and authorizes trusted integration implementations; a project configuration names which available integrations are enabled; the editor owns placement in predefined UI extension slots (e.g. left tools, inspector, timeline actions, toolbar, specialized workbench). Human-facing visibility may differ from runtime dependence.
+
+**Important constraints:** switching `enabled` to true cannot install code, import arbitrary packages, or grant filesystem permissions. Unknown or unsupported module IDs must fail safely and be explained. Turning a tool off must not delete its existing project data or silently alter rendering. Keep the current `editorComponents` mechanism and preview sandbox boundary intact until a concrete integration requires extension.
+
+**Status:** discussed product direction, **not an implemented setting or approved schema**. No `editor.config.json` format, slot descriptor, or editor-module loader is standardized yet. Test the smallest feasible implementation against the upcoming Lyrics UI rather than designing a universal plugin system in advance.
+
 ## Open choices — not decisions
 
-The exact future media registry schema, portable/relative path policy, optional proxy/cache handling, model installation UX, multiple compositions per project, and extensibility of editor panels remain open. Do not treat these as settled architecture.
+The exact future media registry schema, portable/relative path policy, optional proxy/cache handling, model installation UX, multiple compositions per project, and the exact activation/visibility schema and editor extension slot API remain open. Do not treat these as settled architecture.
