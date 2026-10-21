@@ -1,5 +1,6 @@
 import { _electron as electron, expect } from "@playwright/test";
 import electronPath from "electron";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -81,6 +82,98 @@ try {
   await expect(page.getByLabel("Documentation")).toBeVisible();
   await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
 
+  const firstPanelRequest = {
+    panelId: "timeline" as const,
+    projectId: id,
+    sessionId: randomUUID(),
+  };
+  const panelApi = await page.evaluate(async (request) => {
+    const api = window.floxBowWindows;
+    if (!api) throw new Error("Electron window API is missing");
+    return {
+      keys: Object.keys(api).sort(),
+      context: await api.getContext(),
+      result: await api.openPanel(request),
+      nodeDisabled: !("require" in window) && typeof process === "undefined",
+    };
+  }, firstPanelRequest);
+  expect(panelApi.context).toEqual({ role: "primary", panelId: null });
+  expect(panelApi.keys).toEqual(["getContext", "onPanelClosed", "openPanel"]);
+  expect(panelApi.result.status).toBe("opened");
+  expect(panelApi.nodeDisabled).toBe(true);
+  await expect.poll(async () => (await app!.windows()).length).toBe(2);
+  let panelPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
+  expect(panelPage).toBeTruthy();
+  await expect(panelPage!.getByRole("heading", { name: "Timeline" })).toBeVisible();
+  await expect(panelPage!.locator("iframe")).toHaveCount(0);
+  await expect(panelPage!.locator(".timeline-editor")).toHaveCount(0);
+  const panelContext = await panelPage!.evaluate(() => window.floxBowWindows!.getContext());
+  expect(panelContext).toMatchObject({
+    role: "panel",
+    panelId: "timeline",
+    projectId: id,
+    sessionId: firstPanelRequest.sessionId,
+    instanceId: panelApi.result.instanceId,
+  });
+  const duplicatePanelResult = await page.evaluate(
+    (request) => window.floxBowWindows!.openPanel(request),
+    firstPanelRequest,
+  );
+  expect(duplicatePanelResult).toMatchObject({
+    status: "focused",
+    instanceId: panelApi.result.instanceId,
+  });
+  const deniedPanelOpen = await panelPage!.evaluate(async (request) => {
+    try {
+      await window.floxBowWindows!.openPanel(request);
+      return false;
+    } catch {
+      return true;
+    }
+  }, firstPanelRequest);
+  expect(deniedPanelOpen).toBe(true);
+  const malformedPanelOpen = await page.evaluate(async () => {
+    try {
+      await window.floxBowWindows!.openPanel({ panelId: "file", path: "C:/private" } as never);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  expect(malformedPanelOpen).toBe(true);
+
+  const replacementRequest = { ...firstPanelRequest, sessionId: randomUUID() };
+  const replacedPanelResult = await page.evaluate(
+    (request) => window.floxBowWindows!.openPanel(request),
+    replacementRequest,
+  );
+  expect(replacedPanelResult.status).toBe("opened");
+  expect(replacedPanelResult.instanceId).not.toBe(panelApi.result.instanceId);
+  await expect.poll(async () => (await app!.windows()).length).toBe(2);
+  panelPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
+  expect(panelPage).toBeTruthy();
+  await expect(panelPage!.getByRole("heading", { name: "Timeline" })).toBeVisible();
+  await expect(panelPage!.locator("iframe")).toHaveCount(0);
+  const panelClosed = page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error("Panel close notification timed out")), 10_000);
+        const unsubscribe = window.floxBowWindows!.onPanelClosed((event) => {
+          window.clearTimeout(timeout);
+          unsubscribe();
+          resolve(event);
+        });
+      }),
+  );
+  await panelPage!.close();
+  expect(await panelClosed).toMatchObject({
+    panelId: "timeline",
+    projectId: id,
+    sessionId: replacementRequest.sessionId,
+    instanceId: replacedPanelResult.instanceId,
+  });
+  await expect.poll(async () => (await app!.windows()).length).toBe(1);
+
   if (built) {
     await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(page.getByRole("button", { name: "Create Project" })).toBeDisabled();
@@ -91,6 +184,34 @@ try {
     await page.getByLabel("Project name").fill(id);
     await page.getByRole("button", { name: "Create project", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
+
+    const authoritativeSessionId = await page
+      .locator(".timeline-editor")
+      .getAttribute("data-editor-session-id");
+    expect(authoritativeSessionId).toBeTruthy();
+    const editorPanelResult = await page.evaluate(
+      (request) => window.floxBowWindows!.openPanel(request),
+      {
+        panelId: "timeline" as const,
+        projectId: id,
+        sessionId: authoritativeSessionId!,
+      },
+    );
+    expect(editorPanelResult.status).toBe("opened");
+    await expect.poll(async () => (await app!.windows()).length).toBe(2);
+    const editorPanelPage = (await app.windows()).find((candidate) =>
+      candidate.url().includes("#studio-panel=timeline"),
+    );
+    expect(editorPanelPage).toBeTruthy();
+    await expect(page.locator(".timeline-editor")).toHaveCount(1);
+    await expect(page.locator('[data-panel-id="editor"] iframe')).toHaveCount(1);
+    await expect(editorPanelPage!.locator(".timeline-editor")).toHaveCount(0);
+    await expect(editorPanelPage!.locator("iframe")).toHaveCount(0);
+    await expect(editorPanelPage!.locator("small")).toContainText(
+      `Project ${id} · Session ${authoritativeSessionId}`,
+    );
+    await editorPanelPage!.close();
+    await expect.poll(async () => (await app!.windows()).length).toBe(1);
 
     await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(page.getByRole("region", { name: "Project media" })).toBeVisible();
