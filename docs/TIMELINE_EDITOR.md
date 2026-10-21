@@ -70,6 +70,12 @@ Select a clip, drag its body horizontally, or trim using either edge handle. The
 
 Save project writes to the project JSON. Unsaved drafts survive switching/reloading in local storage. External file changes refresh clean documents; if the user has a draft, revision conflicts block saving until the user exports it or reloads from disk. Reload from disk discards the current draft. Saves use validated project paths, a 2 MB request cap, shell-origin checks, serialized writes, revision checks and atomic replacement. Code remains behind the existing Electron/browser sandbox boundaries.
 
+## Desktop workspace navigation
+
+The Electron shell uses a fixed-height editor workspace: project browser at left, composition canvas and Inspector in the center/right, and a docked multitrack timeline at the bottom. The document does not scroll; the project browser, Inspector and timeline scroll within their own panels. Drag the panel dividers to resize the project browser, Inspector or timeline; widths and timeline height are remembered locally.
+
+Canvas Fit scales the composition to the available preview area. Zoom in/out and Ctrl+mouse-wheel change only the editor view; 100% uses composition pixel dimensions. Space+drag pans the canvas, Reset view restores Fit and Escape exits the fullscreen canvas. These controls do not alter composition props, timeline timing or render resolution. Timeline zoom has its own Fit/2×/4× control and clip dragging/trimming uses the visible scrolled time region to convert pointer motion to frames.
+
 ## Import/export
 
 - Timing JSON: `{version:1,units:"seconds",segments:[{id,start,end,content}]}`. Segment times are absolute seconds; word times are segment-relative. Appearance is excluded. Apply another style to the same data without alignment again.
