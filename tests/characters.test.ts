@@ -1,6 +1,6 @@
 import {strict as assert} from 'node:assert';
 import {test} from 'node:test';
-import {addMascot,removeMascot,speechAtFrame} from '@motion/characters/actions';
+import {addMascot,removeMascot,speechAtFrame,composeMascotDance} from '@motion/characters/actions';
 import {parseEditTimeline} from '@motion/sdk/timeline';
 
 const base=()=>parseEditTimeline({
@@ -29,4 +29,19 @@ test('speech follows subtitle source frames and word offsets',()=>{
   const moved=structuredClone(t);moved.clips[0].from=90;
   assert.equal(speechAtFrame(moved,'hello',60).speaking,false);
   assert.equal(speechAtFrame(moved,'hello',90).word,'Hello');
+});
+
+test('AI choreography writes sequential editable clips deterministically',()=>{
+  const input=base();
+  const out=composeMascotDance(input,{idPrefix:'bloop',trackId:'characters',startFrame:0,props:{speechClipId:'hello'},steps:[
+    {motion:'walk',durationInFrames:30,x:40},{motion:'jump',durationInFrames:20},
+    {motion:'spin',durationInFrames:40},{motion:'dance',durationInFrames:60},
+    {motion:'wave',durationInFrames:20}
+  ]});
+  assert.deepEqual(out.clips.slice(1).map(c=>[c.id,c.from,c.props.motion]),[
+    ['bloop-1',0,'walk'],['bloop-2',30,'jump'],['bloop-3',50,'spin'],
+    ['bloop-4',90,'dance'],['bloop-5',150,'wave']]);
+  assert.equal(out.clips[1].props.x,40);
+  assert.equal(input.clips.length,1);
+  assert.throws(()=>composeMascotDance(input,{idPrefix:'bloop',trackId:'characters',startFrame:290,steps:[{motion:'dance',durationInFrames:20}]}));
 });
