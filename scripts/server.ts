@@ -5,6 +5,8 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import {readEditor,saveEditor} from './editor-store';
+import { readMediaRegistry, readMediaWithAvailability, registerAudioAsset, publicMediaAvailability } from "./media-store";
+import { pickAudioFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
@@ -24,7 +26,10 @@ const shellCsp = (preview: string) =>
   `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:*; frame-src ${preview}; object-src 'none'; base-uri 'none'`;
 const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
-export async function startServers(built = false, portOffset = 0) {
+export type ServerOptions = {
+  audioFilePicker?: () => Promise<string | undefined>;
+};
+export async function startServers(built = false, portOffset = 0, options: ServerOptions = {}) {
   let previewOrigin = "";
   let shellOrigin = "";
   const servers: http.Server[] = [];
@@ -109,6 +114,76 @@ export async function startServers(built = false, portOffset = 0) {
           }else if(req.method==='GET')result=await readEditor(path.join(projectsDir,id),p.manifest);
           else {res.writeHead(405).end();return;}
           res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
+        }
+        if (isShell && pathname.startsWith("/api/media/")) {
+          const id = decodeURIComponent(pathname.slice("/api/media/".length));
+          const project = (await getProjects()).find(
+            (candidate: { id: string; manifest?: unknown }) => candidate.id === id,
+          );
+          if (!project?.manifest) {
+            res.writeHead(404).end("Unknown project");
+            return;
+          }
+          if (built) {
+            res.writeHead(409).end("Media registration is available in the live development workspace.");
+            return;
+          }
+          const projectRoot = path.join(projectsDir, id);
+          if (req.method === "GET") {
+            const snapshot = await readMediaWithAvailability(projectRoot);
+            const availability = new Map(
+              snapshot.availability.map((entry) => [entry.assetId, publicMediaAvailability(entry)]),
+            );
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({
+              revision: snapshot.revision,
+              assets: snapshot.registry.assets.map((asset) => ({
+                id: asset.id,
+                type: asset.type,
+                displayName: asset.displayName,
+                status: availability.get(asset.id)?.status ?? "invalid",
+                message: availability.get(asset.id)?.message,
+              })),
+            }));
+            return;
+          }
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) {
+            res.writeHead(403).end("Only the studio shell can register audio");
+            return;
+          }
+          let body = "";
+          for await (const chunk of req) {
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 2_048) throw new Error("Media request too large");
+          }
+          const input = JSON.parse(body);
+          if (
+            !input ||
+            typeof input !== "object" ||
+            Array.isArray(input) ||
+            Object.keys(input).length !== 1 ||
+            typeof input.revision !== "string"
+          )
+            throw new Error("A media registry revision is required; file paths are not accepted");
+
+          const current = await readMediaRegistry(projectRoot);
+          if (current.revision !== input.revision) {
+            res.writeHead(409).end("CONFLICT: The media registry changed. Reload it before adding audio.");
+            return;
+          }
+          const selectedPath = await (options.audioFilePicker ?? pickAudioFile)();
+          if (!selectedPath) {
+            res.writeHead(204).end();
+            return;
+          }
+          const saved = await registerAudioAsset(projectRoot, selectedPath, input.revision);
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ revision: saved.revision }));
+          return;
         }
         if (isShell && pathname === "/api/projects" && req.method === "POST") {
           if (built) {

@@ -562,6 +562,122 @@ textarea {
   font-size: 9px;
   color: #c4ec8a;
 }
+.media-panel {
+  width: min(100%, 940px);
+  margin: 0 auto;
+  padding: 28px;
+  color: #e5e9ef;
+}
+.media-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #2c3746;
+}
+.media-panel-header h2 {
+  margin: 8px 0;
+  font-size: 22px;
+}
+.media-panel-header .muted {
+  max-width: 560px;
+  line-height: 1.5;
+}
+.media-panel-header button {
+  min-width: 112px;
+  margin-top: 5px;
+}
+.media-panel-header button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.media-assets {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+}
+.media-asset {
+  display: grid;
+  grid-template-columns: 34px minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #303c4c;
+  border-radius: 6px;
+  background: #171f2a;
+}
+.media-asset + .media-asset {
+  margin-top: 9px;
+}
+.media-asset-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 5px;
+  background: #293447;
+  color: #c7ed8b;
+}
+.media-asset-name {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.media-asset-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.media-asset-name small {
+  color: #8293a9;
+  font-size: 9px;
+}
+.media-asset-status {
+  color: #b7df83;
+  font-size: 10px;
+}
+.media-asset-status.missing,
+.media-asset-status.invalid {
+  color: #ffc071;
+}
+.media-asset-warning {
+  grid-column: 2 / -1;
+  color: #ffc071;
+  font-size: 10px;
+  line-height: 1.45;
+}
+.media-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 32px;
+  padding: 26px;
+  border: 1px dashed #354254;
+  border-radius: 7px;
+  color: #8fa1b9;
+  text-align: center;
+}
+.media-empty > span {
+  color: #c7ed8b;
+  font-size: 24px;
+}
+.media-error {
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px solid #765438;
+  border-radius: 5px;
+  background: #30251d;
+  color: #ffc071;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.media-notice {
+  margin: 14px 0;
+  color: #b7df83;
+  font-size: 11px;
+}
 @media (max-width: 1050px) {
   .app-toolbar {
     gap: 10px;

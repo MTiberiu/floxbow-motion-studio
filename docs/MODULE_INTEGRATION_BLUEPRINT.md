@@ -6,7 +6,7 @@ This is an inventory of the current boundaries, not a proposal to add a plugin f
 
 | Subsystem | Public entry points | Current responsibility and connection |
 | --- | --- | --- |
-| Project loader | `@motion/project-loader`, `@motion/project-loader/schema` | Parses project manifests, discovers project folders, validates IDs and resolves contained project files. The shell and renderer both consume it. |
+| Project loader and media registry | `@motion/project-loader`, `@motion/project-loader/schema`, `@motion/project-loader/media` | Parses project manifests, discovers project folders, validates IDs and resolves contained project files. The optional version-1 `media.json` schema and Node-side linked-audio resolver are also public here. The shell and renderer both consume the loader; only the host should call the resolver. |
 | Timeline data | `@motion/sdk/timeline` | Owns the version-1 frame-based edit document, clips, tracks, editable-field metadata, parsing, field validation and clip range changes. Project JSON uses this contract. |
 | Editable composition API | `@motion/sdk/editor` | Exposes `EditableComponent`, `EditableVideoProps` and `TimelineComposition`. A project exports its component registrations; the composition maps timeline component IDs to React renderers. |
 | Creative SDK | `@motion/sdk` | Exposes Remotion-backed scene primitives and frame helpers used by project compositions and reusable visual components. |
@@ -17,6 +17,7 @@ This is an inventory of the current boundaries, not a proposal to add a plugin f
 | Renderer | `@motion/renderer` | `renderProject(root, id, still?)` resolves a project through the loader, bundles its declared entry with Remotion and writes a still or MP4. Rendering is outside the Electron renderer process. |
 | Animation library | `@motion/animations` | Exports reusable React motion components built on the SDK primitives. Projects opt in by importing them. |
 | Audio | `@motion/audio` | Currently exports a small Remotion `Narration` component. It uses `AudioReference` from the SDK; the player and editor do not discover audio capabilities through a registry yet. |
+| Project media registry | `@motion/project-loader/media` and `scripts/media-store.ts` | Defines project-local linked MP3/WAV metadata and host resolution. The development shell provides native registration and availability UI. Source paths stay in the host and project JSON; preview, renderer, timeline and Whisper adapters are not implemented. See [Project Media Registry](PROJECT_MEDIA.md). |
 
 ### Data and runtime flow
 
@@ -25,6 +26,7 @@ This is an inventory of the current boundaries, not a proposal to add a plugin f
 3. The preview host renders the composition with the Remotion player. It sends serializable component metadata to the parent shell; the component functions remain inside the preview.
 4. The editor sends the current timeline and transport commands through the validated `motion-editor-v1` message channel. Timeline clips identify registered renderers by `componentId`.
 5. The renderer bundles the project's own composition entry. It shares the project and composition contracts but does not depend on the desktop editor UI.
+6. In the development shell, an optional project `media.json` is read by the host media store. The UI receives display names and availability only; a native picker supplies paths during registration. The public resolver returns a local path to Node callers only and is not a browser-preview API.
 
 For lyrics, canonical synchronization data is seconds-based while editable clips are frame-based. The subtitle bridge converts at the project FPS and stores word offsets relative to each segment. Import/export and the Lyrics Sync workbench are currently explicit user workflows; they are not a background editor service.
 
@@ -34,6 +36,7 @@ For lyrics, canonical synchronization data is seconds-based while editable clips
 - `TimelineComposition` and timeline schema are both exported by `@motion/sdk`; the timeline is a public reusable API, but it is not yet its own package boundary.
 - `@motion/sdk` re-exports lyric types, while `@motion/lyrics-sync` imports timeline/component contracts from `@motion/sdk`. This creates a package-level type dependency cycle, even though the exports used at runtime are explicit.
 - The preview bridge sends serializable component fields, not optional capability integrations such as media dependencies, custom inspector panels, or import/export actions. The editor therefore knows only the current common field controls plus subtitle-specific code.
+- Linked audio is registered and checked on the host, but no stable media-reference contract is wired into project compositions, preview, rendering, timeline clips, or Whisper. `media.json` paths are machine-specific, and this first slice does not include a relink or package-collection workflow.
 - Public formats carry version markers (`sdkVersion`, timeline `version`, lyrics `version`, bridge channel `motion-editor-v1`), but there is no general migration registry. Changes need to remain additive or include an explicit migration before old project files are rejected.
 - Package APIs are tested from the root test suite. Package-local API documentation and examples are uneven; the root timeline and lyrics docs currently carry much of the integration guidance.
 
