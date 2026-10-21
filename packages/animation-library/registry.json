@@ -173,8 +173,8 @@
       ],
       "integration": { "timeline": "Editable clip component with schema-declared inspector fields, segment timing and optional word timing.", "editor": "Registered by the project; generic field UI and subtitle-specific import/export are available in the current desktop editor." },
       "dependencies": ["React", "Remotion", "@motion/sdk/editor", "@motion/sdk/timeline"],
-      "limitations": ["Changing text clears that clip's word timings; automatic alignment is not launched from the editor."],
-      "documentation": "docs/TIMELINE_EDITOR.md",
+      "limitations": ["Text corrections preserve segment timing and word intervals. If the word labels no longer match their intervals, karaoke highlighting pauses until matching intervals are supplied; automatic alignment is not launched from the editor."],
+      "documentation": "packages/lyrics-sync/README.md",
       "exampleIds": ["subtitle-clip"]
     },
     {

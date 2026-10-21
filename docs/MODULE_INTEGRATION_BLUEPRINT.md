@@ -30,7 +30,7 @@ For lyrics, canonical synchronization data is seconds-based while editable clips
 
 ## Coupling and limits found
 
-- The editor shell has subtitle-specific behavior in `TimelineEditor.tsx` (`componentId === "subtitles"` for add/import/export and text-edit timing invalidation), while subtitle fields and rendering live in `@motion/lyrics-sync`. Other modules cannot currently declare equivalent custom editor actions through the component contract.
+- The editor shell still has subtitle-specific add/import/export actions in `TimelineEditor.tsx`; subtitle clip construction, text correction and stale-karaoke detection live in `@motion/lyrics-sync/subtitles`. Other modules cannot currently declare equivalent custom editor actions through the component contract. This task does not add a descriptor because there is not yet a second real module with the same integration need.
 - `TimelineComposition` and timeline schema are both exported by `@motion/sdk`; the timeline is a public reusable API, but it is not yet its own package boundary.
 - `@motion/sdk` re-exports lyric types, while `@motion/lyrics-sync` imports timeline/component contracts from `@motion/sdk`. This creates a package-level type dependency cycle, even though the exports used at runtime are explicit.
 - The preview bridge sends serializable component fields, not optional capability integrations such as media dependencies, custom inspector panels, or import/export actions. The editor therefore knows only the current common field controls plus subtitle-specific code.
