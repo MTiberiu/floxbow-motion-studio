@@ -12,6 +12,7 @@ import {
   readMediaRegistry,
   readMediaWithAvailability,
   registerAudioAsset,
+  removeMediaAsset,
 } from "../scripts/media-store";
 
 function wavFixture() {
@@ -149,6 +150,86 @@ test("projects without media.json stay readable and registration persists a link
     const reopened = await readMediaRegistry(projectRoot);
     assert.equal(reopened.revision, saved.revision);
     assert.deepEqual(reopened.registry, saved.registry);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("removal deletes only the chosen registry entry and preserves other IDs and source files", async () => {
+  const directory = await tempDirectory("floxbow-media-remove-");
+  try {
+    const projectRoot = path.join(directory, "project");
+    const firstSource = path.join(directory, "first.wav");
+    const secondSource = path.join(directory, "second.wav");
+    await mkdir(projectRoot);
+    await writeFile(firstSource, wavFixture());
+    await writeFile(secondSource, wavFixture());
+
+    const initial = await readMediaRegistry(projectRoot);
+    const first = await registerAudioAsset(projectRoot, firstSource, initial.revision);
+    const two = await registerAudioAsset(projectRoot, secondSource, first.revision);
+    const removed = await removeMediaAsset(
+      projectRoot,
+      two.registry.assets[0].id,
+      two.revision,
+    );
+
+    assert.deepEqual(removed.registry.assets.map((asset) => asset.id), [two.registry.assets[1].id]);
+    assert.equal(removed.registry.assets[0].source.path, secondSource);
+    assert.deepEqual(await readFile(firstSource), wavFixture());
+    assert.deepEqual(await readFile(secondSource), wavFixture());
+    assert.deepEqual((await readMediaRegistry(projectRoot)).registry, removed.registry);
+    await assert.rejects(
+      removeMediaAsset(projectRoot, two.registry.assets[0].id, two.revision),
+      /CONFLICT: The media registry changed/,
+    );
+    await assert.rejects(
+      removeMediaAsset(projectRoot, "not-registered", removed.revision),
+      /The media asset is not registered/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("removing a missing source is safe and concurrent add/remove reports a revision conflict", async () => {
+  const directory = await tempDirectory("floxbow-media-remove-race-");
+  try {
+    const projectRoot = path.join(directory, "project");
+    const existingSource = path.join(directory, "missing.wav");
+    const concurrentSource = path.join(directory, "concurrent.wav");
+    await mkdir(projectRoot);
+    await writeFile(existingSource, wavFixture());
+    await writeFile(concurrentSource, wavFixture());
+    const initial = await readMediaRegistry(projectRoot);
+    const saved = await registerAudioAsset(projectRoot, existingSource, initial.revision);
+    const id = saved.registry.assets[0].id;
+    await unlink(existingSource);
+
+    const removedMissing = await removeMediaAsset(projectRoot, id, saved.revision);
+    assert.equal(removedMissing.registry.assets.length, 0);
+    assert.equal((await readMediaRegistry(projectRoot)).revision, removedMissing.revision);
+
+    await writeFile(existingSource, wavFixture());
+    const withAsset = await registerAudioAsset(projectRoot, concurrentSource, removedMissing.revision);
+    const concurrent = await Promise.allSettled([
+      removeMediaAsset(projectRoot, withAsset.registry.assets[0].id, withAsset.revision),
+      registerAudioAsset(projectRoot, existingSource, withAsset.revision),
+    ]);
+    assert.equal(concurrent.filter((result) => result.status === "fulfilled").length, 1);
+    const rejected = concurrent.find((result) => result.status === "rejected");
+    assert.ok(rejected && rejected.status === "rejected");
+    assert.match(String(rejected.reason), /CONFLICT: The media registry changed/);
+
+    const final = await readMediaRegistry(projectRoot);
+    if (concurrent[0].status === "fulfilled") {
+      assert.equal(final.registry.assets.length, 0);
+    } else {
+      assert.equal(final.registry.assets.length, 2);
+      assert.equal(final.registry.assets[0].id, withAsset.registry.assets[0].id);
+      assert.deepEqual(await readFile(concurrentSource), wavFixture());
+    }
+    assert.deepEqual(await readFile(concurrentSource), wavFixture());
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

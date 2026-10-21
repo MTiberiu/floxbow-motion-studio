@@ -1,10 +1,11 @@
 import { _electron as electron, expect } from "@playwright/test";
 import electronPath from "electron";
-import { mkdtemp, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { startServers, root, projectsDir } from "./server";
 import { renderProject } from "../packages/renderer/src/render";
+import { mediaRegistrySchema } from "@motion/project-loader/media";
 
 const built = process.argv.includes("--built");
 const id = `golden-starter-${Date.now()}`;
@@ -139,6 +140,22 @@ try {
     await writeFile(mediaFile, `${JSON.stringify(externalRegistry, null, 2)}\n`);
     await expect(page.getByText("Added by external agent", { exact: true })).toBeVisible();
 
+    const removeUrl = new URL(`/api/media/${id}/assets/external-agent-audio`, servers.url).toString();
+    const currentMedia = await fetch(mediaUrl).then((response) => response.json());
+    const rejectedRemoveOrigin = await fetch(removeUrl, {
+      method: "DELETE",
+      headers: { Origin: "https://untrusted.example", "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: currentMedia.revision }),
+    });
+    expect(rejectedRemoveOrigin.status).toBe(403);
+    const rejectedRemovePayload = await fetch(removeUrl, {
+      method: "DELETE",
+      headers: { Origin: new URL(servers.url).origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: currentMedia.revision, path: "C:\\private\\do-not-delete.wav" }),
+    });
+    expect(rejectedRemovePayload.status).toBe(400);
+    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(2);
+
     await page.getByRole("button", { name: "Add Audio" }).click();
     await Promise.race([
       secondPickerStarted,
@@ -162,10 +179,60 @@ try {
     await expect(page.getByText("Agent change during file selection", { exact: true })).toBeVisible();
     expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(3);
 
+    let confirmationText = "";
+    const uiRemovedAsset = page.getByRole("listitem").filter({ hasText: "Added by external agent" });
+    page.once("dialog", async (dialog) => {
+      confirmationText = dialog.message();
+      await dialog.accept();
+    });
+    await uiRemovedAsset.getByRole("button", { name: "Remove from Project" }).click();
+    await expect(page.getByRole("status")).toContainText("The original audio file was not deleted");
+    expect(confirmationText).toContain("The original audio file will NOT be deleted");
+    const afterUiRemoval = mediaRegistrySchema.parse(JSON.parse(await readFile(mediaFile, "utf8")));
+    expect(afterUiRemoval.assets.map((asset) => asset.id)).toEqual([
+      registeredMedia.assets[0].id,
+      "agent-edit-during-picker",
+    ]);
+    expect((await stat(audioFixturePath)).size).toBe(audioFixture.length);
+
+    // Simulate an external coding agent removing the requested stable ID from the canonical file.
+    const beforeAgentRemoval = mediaRegistrySchema.parse(JSON.parse(await readFile(mediaFile, "utf8")));
+    const agentEdited = {
+      ...beforeAgentRemoval,
+      assets: beforeAgentRemoval.assets.filter((asset) => asset.id !== "agent-edit-during-picker"),
+    };
+    mediaRegistrySchema.parse(agentEdited);
+    const agentTemporaryFile = `${mediaFile}.agent-tmp`;
+    await writeFile(agentTemporaryFile, `${JSON.stringify(agentEdited, null, 2)}\n`, { flag: "wx" });
+    await rename(agentTemporaryFile, mediaFile);
+    await expect(page.getByText("Agent change during file selection", { exact: true })).toHaveCount(0);
+    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets.map((asset: { id: string }) => asset.id)).toEqual([
+      registeredMedia.assets[0].id,
+    ]);
+
+    const agentValidContents = await readFile(mediaFile, "utf8");
+    await writeFile(mediaFile, "{invalid registry", "utf8");
+    await expect(page.getByRole("alert")).toContainText(/JSON|property/i);
+    expect(await readFile(mediaFile, "utf8")).toBe("{invalid registry");
+    const repairedTemporaryFile = `${mediaFile}.repair-tmp`;
+    await writeFile(repairedTemporaryFile, agentValidContents, { flag: "wx" });
+    await rename(repairedTemporaryFile, mediaFile);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+
     await unlink(audioFixturePath);
     const missingAudio = page.getByRole("listitem").filter({ hasText: "flox-smoke-audio" });
     await expect(missingAudio.getByText("Missing file", { exact: true })).toBeVisible();
-    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(3);
+    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(1);
+
+    let missingRemovalConfirmed = false;
+    page.once("dialog", async (dialog) => {
+      missingRemovalConfirmed = dialog.message().includes("will NOT be deleted");
+      await dialog.accept();
+    });
+    await missingAudio.getByRole("button", { name: "Remove from Project" }).click();
+    await expect(page.getByText("No audio is registered for this project yet.")).toBeVisible();
+    expect(missingRemovalConfirmed).toBe(true);
+    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(0);
 
     await page.getByRole("button", { name: "Preview", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
