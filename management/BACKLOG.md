@@ -9,7 +9,8 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 | Project loader and project scaffolding | Implemented; single project directory, validated manifest and composition. |
 | Timeline / SDK / editable components | Implemented core frame-based timeline and clip editing; not a universal plugin host. |
 | Remotion player and renderer | Implemented, with separate preview and CLI render boundaries. |
-| Lyrics sync, subtitles, Whisper adapter | Partial tools exist; no complete in-editor song-import-to-timeline workflow. |
+| Lyrics sync and Whisper adapter | Partial tools exist; no complete in-editor song-import-to-timeline workflow. |
+| Subtitle editor integration contract | Implemented in TASK 005 / PR #6: editable subtitle timeline clips, stable segment timing and IDs, text correction, preview/reload behavior, and documented APIs. This does not provide the complete song-import/transcription workflow. |
 | Animation library (text, chat, pop, counter, karaoke, fade) | Reusable code examples; many are composition-level, not individually editable timeline clips. |
 | Capabilities Explorer | Implemented creator and developer/AI views; continue improving accuracy as modules mature. |
 
@@ -17,7 +18,6 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 
 | Idea | Status | Purpose / unresolved questions |
 | --- | --- | --- |
-| Subtitle editor integration contract | Next (TASK 005) | Establish documented, testable timeline, inspector, preview, render and file edit seams. |
 | Media Registry | Concept, needed before audio import | Reference local files by stable ID; store paths, types and minimal metadata; no implicit media duplication. |
 | Media Resolver | Concept | Resolve linked media for editor, audio analysis and rendering with suitable access/security boundaries; handle missing files. |
 | Link / Relink Media UI | Concept | User selects local assets; later reconnects moved sources without losing clip edits. |
@@ -25,7 +25,10 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 | Lyrics reconciliation / approximate timing | Planned vertical slice | Align authoritative lyric line breaks to imperfect word/segment estimates; carry uncertainty. |
 | Copy AI Alignment Task | Planned vertical slice | Generate a concise project-specific prompt with real document paths and task constraints. |
 | Canvas/timeline selection → Copy AI Edit Request | Concept | Clip ID, frame/time, selected element, user feedback; optional saved annotations. |
-| Module activation configuration (per project) | Concept / design before Lyrics UI | Human toggles available, trusted editor integrations in Settings; external AI can edit the same validated JSON without reading React internals. Configuration is not executable code. |\n| Editor extension slots | Concept / design before Lyrics UI | Stable UI areas such as left tools, inspector, toolbar, timeline actions, and specialized workspaces; modules declare intended contributions; shell owns positioning. |\n| Module catalog / activation boundaries | Concept | Distinguish installed/registered, enabled for project, and visible in UI. Handle unknown IDs, incompatible versions, dependencies and unavailable integrations clearly. |\n| Project-specific editor tool panels | Concept | Support specialized audio/animation/media workflows without embedding everything in one shell. |
+| Module activation configuration (per project) | Concept / design before broader module activation UI | Human toggles available, trusted editor integrations in Settings; external AI can edit the same validated JSON without reading React internals. Configuration is not executable code. |
+| Editor extension slots | Concept / design before broader module activation UI | Stable UI areas such as left tools, inspector, toolbar, timeline actions, and specialized workspaces; modules declare intended contributions; shell owns positioning. |
+| Module catalog / activation boundaries | Concept | Distinguish installed/registered, enabled for project, and visible in UI. Handle unknown IDs, incompatible versions, dependencies and unavailable integrations clearly. |
+| Project-specific editor tool panels | Concept | Support specialized audio/animation/media workflows without embedding everything in one shell. |
 | Scalable media browser / batch import | Concept | Hundreds or thousands of media references; performance and indexing require measured tests. |
 | Explicit collect/package project | Deferred | Intentionally copy linked assets for portability when requested. |
 | Audio waveform and improved word alignment | Concept | Useful for manual adjustments; complexity and accuracy to be measured. |
@@ -37,9 +40,11 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 2. How does the desktop securely grant a preview or renderer access to a linked source outside the project directory?
 3. Should a media reference optionally have a cache/proxy, and who owns its lifecycle?
 4. What does the editor do with a missing source during preview, analysis and rendering?
-5. How does a project opt into different editor panels without broad core modifications? Which slots and minimal descriptor are actually needed by the first Lyrics workflow?
+5. How does a project opt into additional editor panels without broad core modifications? Which slots, if any, are needed beyond the implemented subtitle integration?
 6. When are multiple compositions/outputs per project needed?
-7. Should application-wide module visibility defaults be inherited by project settings, and how are conflicts resolved?\n8. How should enabling/disabling modules affect existing clips, rendering and project portability? Disabling a UI tool must not delete content or silently break render.\n9. What exact annotation shape is useful for future AI edit requests, without building a notification service?
+7. Should application-wide module visibility defaults be inherited by project settings, and how are conflicts resolved?
+8. How should enabling/disabling modules affect existing clips, rendering and project portability? Disabling a UI tool must not delete content or silently break render.
+9. What exact annotation shape is useful for future AI edit requests, without building a notification service?
 
 ## Triage rule
 

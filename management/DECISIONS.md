@@ -52,7 +52,7 @@ The visual editor should eventually expose **Settings → Modules**, allowing us
 
 **Important constraints:** switching `enabled` to true cannot install code, import arbitrary packages, or grant filesystem permissions. Unknown or unsupported module IDs must fail safely and be explained. Turning a tool off must not delete its existing project data or silently alter rendering. Keep the current `editorComponents` mechanism and preview sandbox boundary intact until a concrete integration requires extension.
 
-**Status:** discussed product direction, **not an implemented setting or approved schema**. No `editor.config.json` format, slot descriptor, or editor-module loader is standardized yet. Test the smallest feasible implementation against the upcoming Lyrics UI rather than designing a universal plugin system in advance.
+**Status:** discussed product direction, **not an implemented setting or approved schema**. No `editor.config.json` format, slot descriptor, or editor-module loader is standardized yet. TASK 005 provides a concrete subtitle inspector integration, but does not implement project module activation or a general slot system. Use that integration as evidence when deciding whether more configuration is needed; do not design a universal plugin system in advance.
 
 ## Open choices — not decisions
 
