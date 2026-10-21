@@ -4,35 +4,35 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 
 ## Existing foundation — verify actual integration before reuse
 
-| Capability | Current position |
-| --- | --- |
-| Project loader and project scaffolding | Implemented; single project directory, validated manifest and composition. |
-| Timeline / SDK / editable components | Implemented core frame-based timeline and clip editing; not a universal plugin host. |
-| Remotion player and renderer | Implemented, with separate preview and CLI render boundaries. |
-| Lyrics sync and Whisper adapter | Partial tools exist; no complete in-editor song-import-to-timeline workflow. |
-| Subtitle editor integration contract | Implemented in TASK 005 / PR #6: editable subtitle timeline clips, stable segment timing and IDs, text correction, preview/reload behavior, and documented APIs. This does not provide the complete song-import/transcription workflow. |
-| Animation library (text, chat, pop, counter, karaoke, fade) | Reusable code examples; many are composition-level, not individually editable timeline clips. |
-| Capabilities Explorer | Implemented creator and developer/AI views; continue improving accuracy as modules mature. |
+| Capability                                                  | Current position                                                                                                                                                                                                                        |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Project loader and project scaffolding                      | Implemented; single project directory, validated manifest and composition.                                                                                                                                                              |
+| Timeline / SDK / editable components                        | Implemented core frame-based timeline and clip editing; not a universal plugin host.                                                                                                                                                    |
+| Remotion player and renderer                                | Implemented, with separate preview and CLI render boundaries.                                                                                                                                                                           |
+| Lyrics sync and Whisper adapter                             | Partial tools exist; no complete in-editor song-import-to-timeline workflow.                                                                                                                                                            |
+| Subtitle editor integration contract                        | Implemented in TASK 005 / PR #6: editable subtitle timeline clips, stable segment timing and IDs, text correction, preview/reload behavior, and documented APIs. This does not provide the complete song-import/transcription workflow. |
+| Animation library (text, chat, pop, counter, karaoke, fade) | Reusable code examples; many are composition-level, not individually editable timeline clips.                                                                                                                                           |
+| Capabilities Explorer                                       | Implemented creator and developer/AI views; continue improving accuracy as modules mature.                                                                                                                                              |
 
 ## Next candidate modules / integrations
 
-| Idea | Status | Purpose / unresolved questions |
-| --- | --- | --- |
-| Media Registry | Concept, needed before audio import | Reference local files by stable ID; store paths, types and minimal metadata; no implicit media duplication. |
-| Media Resolver | Concept | Resolve linked media for editor, audio analysis and rendering with suitable access/security boundaries; handle missing files. |
-| Link / Relink Media UI | Concept | User selects local assets; later reconnects moved sources without losing clip edits. |
-| Audio transcription runner | Planned vertical slice | Expose optional local Whisper analysis, failures and model prerequisites through a clear workflow. |
-| Lyrics reconciliation / approximate timing | Planned vertical slice | Align authoritative lyric line breaks to imperfect word/segment estimates; carry uncertainty. |
-| Copy AI Alignment Task | Planned vertical slice | Generate a concise project-specific prompt with real document paths and task constraints. |
-| Canvas/timeline selection → Copy AI Edit Request | Concept | Clip ID, frame/time, selected element, user feedback; optional saved annotations. |
-| Module activation configuration (per project) | Concept / design before broader module activation UI | Human toggles available, trusted editor integrations in Settings; external AI can edit the same validated JSON without reading React internals. Configuration is not executable code. |
-| Editor extension slots | Concept / design before broader module activation UI | Stable UI areas such as left tools, inspector, toolbar, timeline actions, and specialized workspaces; modules declare intended contributions; shell owns positioning. |
-| Module catalog / activation boundaries | Concept | Distinguish installed/registered, enabled for project, and visible in UI. Handle unknown IDs, incompatible versions, dependencies and unavailable integrations clearly. |
-| Project-specific editor tool panels | Concept | Support specialized audio/animation/media workflows without embedding everything in one shell. |
-| Scalable media browser / batch import | Concept | Hundreds or thousands of media references; performance and indexing require measured tests. |
-| Explicit collect/package project | Deferred | Intentionally copy linked assets for portability when requested. |
-| Audio waveform and improved word alignment | Concept | Useful for manual adjustments; complexity and accuracy to be measured. |
-| Optional character/mascot animation and 3D modules | Deferred | Reusable extensions after core human/AI editing workflow is proven. |
+| Idea                                               | Status                                               | Purpose / unresolved questions                                                                                                                                                        |
+| -------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Media Registry                                     | Concept, needed before audio import                  | Reference local files by stable ID; store paths, types and minimal metadata; no implicit media duplication.                                                                           |
+| Media Resolver                                     | Concept                                              | Resolve linked media for editor, audio analysis and rendering with suitable access/security boundaries; handle missing files.                                                         |
+| Link / Relink Media UI                             | Concept                                              | User selects local assets; later reconnects moved sources without losing clip edits.                                                                                                  |
+| Audio transcription runner                         | Planned vertical slice                               | Expose optional local Whisper analysis, failures and model prerequisites through a clear workflow.                                                                                    |
+| Lyrics reconciliation / approximate timing         | Planned vertical slice                               | Align authoritative lyric line breaks to imperfect word/segment estimates; carry uncertainty.                                                                                         |
+| Copy AI Alignment Task                             | Planned vertical slice                               | Generate a concise project-specific prompt with real document paths and task constraints.                                                                                             |
+| Canvas/timeline selection → Copy AI Edit Request   | Concept                                              | Clip ID, frame/time, selected element, user feedback; optional saved annotations.                                                                                                     |
+| Module activation configuration (per project)      | Concept / design before broader module activation UI | Human toggles available, trusted editor integrations in Settings; external AI can edit the same validated JSON without reading React internals. Configuration is not executable code. |
+| Editor extension slots                             | Concept / design before broader module activation UI | Stable UI areas such as left tools, inspector, toolbar, timeline actions, and specialized workspaces; modules declare intended contributions; shell owns positioning.                 |
+| Module catalog / activation boundaries             | Concept                                              | Distinguish installed/registered, enabled for project, and visible in UI. Handle unknown IDs, incompatible versions, dependencies and unavailable integrations clearly.               |
+| Project-specific editor tool panels                | Concept                                              | Support specialized audio/animation/media workflows without embedding everything in one shell.                                                                                        |
+| Scalable media browser / batch import              | Concept                                              | Hundreds or thousands of media references; performance and indexing require measured tests.                                                                                           |
+| Explicit collect/package project                   | Deferred                                             | Intentionally copy linked assets for portability when requested.                                                                                                                      |
+| Audio waveform and improved word alignment         | Concept                                              | Useful for manual adjustments; complexity and accuracy to be measured.                                                                                                                |
+| Optional character/mascot animation and 3D modules | Deferred                                             | Reusable extensions after core human/AI editing workflow is proven.                                                                                                                   |
 
 ## Questions to revisit
 
