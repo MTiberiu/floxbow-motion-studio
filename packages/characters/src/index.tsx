@@ -3,15 +3,15 @@ import {AbsoluteFill,useCurrentFrame,useVideoConfig} from 'remotion';
 import {TimelineComposition,type EditableComponent} from '@motion/sdk/editor';
 import {fieldValue,type EditTimeline,type EditableField,type TimelineClip} from '@motion/sdk/timeline';
 import {mascotPropsSchema,speechAtFrame} from './actions';
-export {addMascot,removeMascot,mascotPropsSchema,speechAtFrame} from './actions';
-export type {MascotProps,MascotMotion} from './actions';
+export {addMascot,removeMascot,composeMascotDance,choreographyStepSchema,mascotPropsSchema,speechAtFrame} from './actions';
+export type {MascotProps,MascotMotion,ChoreographyStep} from './actions';
 
 const TimelineContext=createContext<EditTimeline|null>(null);
 export function MascotTimelineComposition({timeline,components}:{timeline:EditTimeline;components:EditableComponent[]}) {
   return <TimelineContext.Provider value={timeline}><TimelineComposition timeline={timeline} components={components}/></TimelineContext.Provider>;
 }
 export const mascotFields:EditableField[]=[
-  {key:'motion',label:'Movement',target:'props',type:'select',default:'idle',options:['idle','walk','jump','dance']},
+  {key:'motion',label:'Movement',target:'props',type:'select',default:'idle',options:['idle','walk','jump','dance','spin','wave']},
   {key:'color',label:'Body',target:'props',type:'color',default:'#76d4ec'},
   {key:'accent',label:'Accent',target:'props',type:'color',default:'#f8c86d'},
   {key:'x',label:'X (%)',target:'props',type:'number',default:50,min:5,max:95,step:1},
@@ -33,17 +33,20 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const phase=t*Math.PI*2;
   const step=Math.sin(phase*2);
   const dance=props.motion==='dance';
+  const spin=props.motion==='spin';
+  const wave=props.motion==='wave';
   const jump=props.motion==='jump';
   const walk=props.motion==='walk';
   const bounce=jump?Math.abs(Math.sin(phase*0.7))*105:dance?Math.abs(Math.sin(phase))*30:walk?Math.abs(step)*10:Math.sin(phase*0.35)*6;
   const tilt=dance?Math.sin(phase)*13:walk?Math.sin(phase)*5:Math.sin(phase*0.35)*2;
+  const spinDegrees=spin?t*360:0;
   const leftArm=dance?-36+Math.sin(phase)*42:walk?Math.sin(phase)*26:jump?-42:0;
-  const rightArm=dance?36+Math.sin(phase+Math.PI)*42:walk?-Math.sin(phase)*26:jump?42:0;
+  const rightArm=wave?-110+Math.sin(phase*2)*22:dance?36+Math.sin(phase+Math.PI)*42:walk?-Math.sin(phase)*26:jump?42:0;
   const mouthOpen=speech.speaking&&(speech.wordTimed||(!speech.word&&Math.sin(localFrame*1.3)>-0.18));
   const shadowScale=1-Math.min(bounce/200,0.38);
   return <AbsoluteFill style={{pointerEvents:'none'}}>
     <div data-mascot-id={clip.id} data-motion={props.motion} data-speaking={!!speech.speaking}
-      style={{position:'absolute',left:props.x+'%',top:props.y+'%',width:320,height:390,transform:'translate(-50%,-50%) scale('+props.scale+')'}}>
+      style={{position:'absolute',left:props.x+'%',top:props.y+'%',width:320,height:390,transform:'translate(-50%,-50%) scale('+props.scale+') rotateY('+spinDegrees+'deg)'}}>
       <svg viewBox="0 0 320 390" width="320" height="390" aria-label="Animated cartoon mascot" role="img">
         <ellipse cx="160" cy="352" rx={76*shadowScale} ry={15*shadowScale} fill="#091a33" opacity=".22"/>
         <g transform={`translate(0 ${-bounce}) rotate(${tilt} 160 210)`}>
