@@ -844,7 +844,7 @@
         {
           "name": "speed",
           "type": "number",
-          "default": 1,
+          "default": "1",
           "description": "Speed multiplier for procedural motion."
         }
       ],
