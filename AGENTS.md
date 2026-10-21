@@ -20,6 +20,10 @@ Do not modify `apps/`, `packages/`, shared dependencies, scripts, SDK contracts,
 
 Components must be deterministic functions of frame and props: no Date.now, unseeded randomness, network fetches or time-based animation loops. Use `Scene` for relative frame positions. Do not invent trustworthy lyric timing: retain nulls and confidence zero for unmatched words; synthetic example timings must be labeled and never presented as aligned evidence.
 
+## Work on architecture or shared modules
+
+Before changing the editor shell, timeline, player, renderer, project loader, SDK, lyrics synchronization, audio, or reusable animation packages, read [the module integration blueprint](docs/MODULE_INTEGRATION_BLUEPRINT.md) and [the architecture overview](docs/ARCHITECTURE.md). Also read the relevant subsystem guide, such as [the timeline contract](docs/TIMELINE_EDITOR.md), [lyrics synchronization](docs/LYRICS_SYNC.md), or [the SDK guide](docs/MOTION_SDK.md). Follow their documented package exports and versioned contracts; update the relevant documentation and contract tests when a public connection changes. Do not create empty API/extension documents or add a plugin framework without a concrete integration need.
+
 ## Discover and reuse
 
 Capabilities are reusable implementations; examples are small technical demonstrations under `examples/`; projects under `projects/` are user videos. The registry contains stable IDs, APIs, parameters, integration notes, docs and example paths. Never create a user project just to demonstrate a capability. Stable imports include `@motion/sdk`, `@motion/animations`, `@motion/audio`, `@motion/lyrics-sync`, `@motion/player`, `@motion/renderer` and `@motion/project-loader`. Import only browser-safe package exports in compositions.

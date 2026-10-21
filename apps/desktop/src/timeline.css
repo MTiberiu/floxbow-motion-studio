@@ -1,5 +1,6 @@
 .timeline-editor {
   --timeline-height: 280px;
+  position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) var(--timeline-height);
   height: 100%;
@@ -35,11 +36,29 @@
   white-space: nowrap;
 }
 .editor-notice {
+  position: absolute;
+  z-index: 15;
+  top: 44px;
+  left: 8px;
+  max-width: min(640px, calc(100% - var(--inspector-width, 300px) - 28px));
+  max-height: 30vh;
+  overflow: auto;
   margin: 0;
   padding: 3px 10px;
   font-size: 10px;
   color: #c5dda7;
   background: #252d28;
+  border: 1px solid #435144;
+  border-radius: 3px;
+  box-shadow: 0 3px 12px #0008;
+}
+.timeline-editor > .error {
+  position: absolute;
+  z-index: 15;
+  top: 44px;
+  left: 8px;
+  max-width: min(640px, calc(100% - var(--inspector-width, 300px) - 28px));
+  max-height: 30vh;
 }
 .editor-columns {
   display: grid;
