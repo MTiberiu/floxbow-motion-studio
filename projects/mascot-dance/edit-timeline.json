@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "fps": 30,
+  "durationInFrames": 360,
+  "tracks": [
+    {
+      "id": "characters",
+      "name": "Characters"
+    },
+    {
+      "id": "captions",
+      "name": "Subtitles"
+    }
+  ],
+  "clips": [
+    {
+      "id": "mascot-intro",
+      "trackId": "characters",
+      "componentId": "mascot-2p5d",
+      "label": "Bloop dances",
+      "from": 0,
+      "durationInFrames": 360,
+      "content": {},
+      "props": {
+        "motion": "dance",
+        "color": "#76d4ec",
+        "accent": "#f8c86d",
+        "x": 48,
+        "y": 55,
+        "scale": 1.2,
+        "speed": 1.3,
+        "speechClipId": "hello",
+        "bubble": true
+      }
+    },
+    {
+      "id": "hello",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Demo speech (synthetic timing)",
+      "from": 60,
+      "durationInFrames": 100,
+      "content": {
+        "text": "Salut! Uite cum dansez!",
+        "status": "demo",
+        "words": [
+          {
+            "id": "w1",
+            "text": "Salut!",
+            "start": 0.1,
+            "end": 0.6
+          },
+          {
+            "id": "w2",
+            "text": "Uite",
+            "start": 0.8,
+            "end": 1.3
+          },
+          {
+            "id": "w3",
+            "text": "cum",
+            "start": 1.4,
+            "end": 1.8
+          },
+          {
+            "id": "w4",
+            "text": "dansez!",
+            "start": 1.9,
+            "end": 2.8
+          }
+        ]
+      },
+      "props": {
+        "x": 50,
+        "y": 88,
+        "fontSize": 45,
+        "color": "#ffffff",
+        "karaoke": true
+      }
+    }
+  ]
+}
