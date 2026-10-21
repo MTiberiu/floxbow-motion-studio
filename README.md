@@ -40,6 +40,12 @@ MP4s and stills go to `out/`. `npm start` opens the built snapshot; rebuild to i
 - `examples/capabilities`: small technical examples; these are not user projects.
 - `improvements`: proposals, isolated experiments, explicitly accepted changes.
 
+## Keep personal projects private
+
+Folders under `projects/` are ignored by Git by default. The tracked `projects/.gitkeep` only preserves the empty directory; it does not make your video projects part of the framework repository. This protects private scripts, media and unfinished work from an accidental framework commit.
+
+To deliberately version a project here, use `git add -f projects/<project-id>` once. Git then tracks that project's files normally. Review its contents, credentials and media licenses before publishing. For most projects, use a separate repository so framework changes and video content have independent histories and sharing permissions.
+
 ## Agent workflow
 
 Read [AGENTS.md](AGENTS.md), [CREATE_VIDEO](docs/CREATE_VIDEO.md), [the capability guide](docs/STYLE_CATALOG.md), and the [capability registry](packages/animation-library/registry.json). Create a project in the editor or run `npm run create:project -- my-video`; edit only that project. Default-export a component from the manifest entry. Reuse the public imports and technical examples. Start the studio, select the discovered project, iterate, validate, then render when requested.
@@ -67,4 +73,3 @@ Electron uses sandboxing, context isolation, disabled Node integration, denied p
 Build is a runnable local snapshot, not an installer; signed packaging and updates are future work. Frame reloads reset playback. Loopback ports 5173/5174 and HMR ports 24680/24681 must be free. Rendering is a CLI operation outside Electron. Built preview is not hot-reloaded. Audio is supported via explicit local imports but no song or narration is supplied. Dependency notices and licensing research are in [DEPENDENCIES](docs/DEPENDENCIES.md); Remotion has special licensing terms, not a blanket MIT license.
 
 See [VERIFICATION](docs/VERIFICATION.md) for actual execution results and the next milestone.
-
