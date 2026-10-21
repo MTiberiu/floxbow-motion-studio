@@ -241,6 +241,11 @@ try {
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
     const preview = page.frameLocator('[data-panel-id="editor"] iframe');
     await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeEnabled();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("New subtitle");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
     const saved = JSON.parse(await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"));
@@ -276,6 +281,8 @@ try {
     const activeClip = page.locator(".timeline-clip.is-selected");
     const activeClipId = await activeClip.getAttribute("data-clip-id");
     expect(activeClipId).toBeTruthy();
+    const editorSessionId = await page.locator(".timeline-editor").getAttribute("data-editor-session-id");
+    await expect(page.locator('[data-panel-id="editor"] iframe')).toHaveCount(1);
     await page.getByLabel("Text", { exact: true }).fill("Draft survives panel changes");
     await page.getByLabel("Playhead frame", { exact: true }).fill("42");
     await page.getByRole("button", { name: "Media", exact: true }).click();
@@ -287,6 +294,8 @@ try {
     await expect(page.getByLabel("Playhead frame", { exact: true })).toHaveValue("42");
     await expect(page.locator(`.timeline-clip[data-clip-id="${activeClipId}"]`)).toHaveClass(/is-selected/);
     await expect(page.locator('[data-panel-id="editor"] .timeline-editor')).toHaveCount(1);
+    await expect(page.locator('[data-panel-id="editor"] iframe')).toHaveCount(1);
+    await expect(page.locator(".timeline-editor")).toHaveAttribute("data-editor-session-id", editorSessionId!);
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Hide Editor panel" }).click();
@@ -297,6 +306,7 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Draft survives panel changes");
     await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeVisible();
     await expect(page.locator('[data-panel-id="editor"] .timeline-editor')).toHaveCount(1);
+    await expect(page.locator(".timeline-editor")).toHaveAttribute("data-editor-session-id", editorSessionId!);
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     await page.getByRole("button", { name: "Reload from disk", exact: true }).click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("External version to protect");
@@ -327,6 +337,7 @@ try {
       await expect(projectButton).toBeVisible();
       await expect(projectButton).toHaveClass(/active/);
       await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
       await page.getByRole("button", { name: "Add subtitle" }).click();
       await page.getByLabel("Text", { exact: true }).fill(caption);
       await page.getByRole("button", { name: "Save project", exact: true }).click();
@@ -339,6 +350,7 @@ try {
     await selectProject(secondId);
     await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("Caption belongs to project two", { exact: true })).toBeVisible();
     await selectProject(thirdId);
+    await expect(page.locator(".timeline-clip").filter({ hasText: "Caption belongs to project three" })).toBeVisible();
     await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("Caption belongs to project three", { exact: true })).toBeVisible();
     console.log("PASS development: clean starter, Explorer, three isolated projects, project switching, human save, external reload and conflict protection.");
   }
