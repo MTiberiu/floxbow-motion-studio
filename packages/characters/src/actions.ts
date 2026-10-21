@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {parseEditTimeline,type EditTimeline,type TimelineClip} from '@motion/sdk/timeline';
 
 export const mascotPropsSchema=z.object({
-  motion:z.enum(['idle','walk','jump','dance']).default('idle'),
+  motion:z.enum(['idle','walk','jump','dance','spin','wave']).default('idle'),
   color:z.string().regex(/^#[0-9a-f]{6}$/i).default('#76d4ec'),
   accent:z.string().regex(/^#[0-9a-f]{6}$/i).default('#f8c86d'),
   x:z.number().min(5).max(95).default(50),
@@ -44,4 +44,37 @@ export function speechAtFrame(timeline:EditTimeline,clipId:string,absoluteFrame:
   });
   const word=active&&!Array.isArray(active)&&typeof (active as Record<string,unknown>).text==='string'?String((active as Record<string,unknown>).text):'';
   return {speaking:true,text,word,wordTimed:!!active};
+}
+
+/** AI-facing choreography builder. Each step is an ordinary editable timeline clip. */
+export const choreographyStepSchema=z.object({
+  motion:mascotPropsSchema.shape.motion,
+  durationInFrames:z.number().int().positive(),
+  x:z.number().min(5).max(95).optional(),
+  y:z.number().min(10).max(90).optional(),
+  speed:z.number().min(0.25).max(4).optional(),
+  label:z.string().min(1).max(100).optional(),
+});
+export type ChoreographyStep=z.input<typeof choreographyStepSchema>;
+export function composeMascotDance(timeline:EditTimeline,input:{
+  idPrefix:string;trackId:string;startFrame:number;
+  steps:ChoreographyStep[];props?:Partial<MascotProps>;
+}):EditTimeline {
+  if(!/^[a-zA-Z0-9_-]{1,70}$/.test(input.idPrefix))throw new Error('Invalid choreography ID');
+  if(!Number.isInteger(input.startFrame)||input.startFrame<0)throw new Error('Invalid start frame');
+  if(input.steps.length===0||input.steps.length>48)throw new Error('Choreography needs 1-48 steps');
+  let cursor=input.startFrame;
+  let result=timeline;
+  const base=mascotPropsSchema.parse(input.props??{});
+  input.steps.forEach((raw,index)=>{
+    const step=choreographyStepSchema.parse(raw);
+    const props={...base,motion:step.motion,x:step.x??base.x,y:step.y??base.y,speed:step.speed??base.speed};
+    result=addMascot(result,{
+      id:`${input.idPrefix}-${index+1}`,
+      trackId:input.trackId,from:cursor,durationInFrames:step.durationInFrames,
+      label:step.label??`${index+1}. ${step.motion}`,props,
+    });
+    cursor+=step.durationInFrames;
+  });
+  return result;
 }
