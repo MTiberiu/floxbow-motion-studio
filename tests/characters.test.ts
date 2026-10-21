@@ -45,3 +45,19 @@ test('AI choreography writes sequential editable clips deterministically',()=>{
   assert.equal(input.clips.length,1);
   assert.throws(()=>composeMascotDance(input,{idPrefix:'bloop',trackId:'characters',startFrame:290,steps:[{motion:'dance',durationInFrames:20}]}));
 });
+
+test('choreography carries destination into next action and allows offscreen entry/exit',()=>{
+ const input=base();
+ const result=composeMascotDance(input,{idPrefix:'route',trackId:'characters',startFrame:0,props:{x:-20,y:60},steps:[
+  {motion:'walk',durationInFrames:60,endX:40},
+  {motion:'jump',durationInFrames:30},
+  {motion:'walk',durationInFrames:60,endX:105},
+  {motion:'dance',durationInFrames:30},
+  {motion:'walk',durationInFrames:60,endX:130},
+ ]});
+ const steps=result.clips.slice(1);
+ assert.deepEqual(steps.map(c=>[c.props.startX,c.props.endX]),[
+  [-20,40],[40,40],[40,105],[105,105],[105,130]
+ ]);
+ assert.deepEqual(steps.map(c=>c.from),[0,60,90,150,180]);
+});
