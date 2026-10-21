@@ -4,6 +4,7 @@ dist/
 out/
 *.log
 test-results/
+.test-tmp/
 .env*
 !.env.example
 *.pem

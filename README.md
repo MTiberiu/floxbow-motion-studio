@@ -13,7 +13,7 @@ npm install
 npm run dev
 ```
 
-Electron opens automatically with First Tutorial (or the last selected project). Select GI GO LO for a karaoke starter. Preview controls include play, seek, mute and fullscreen. No narration or song recording is bundled.
+Electron opens to a clean workspace when no user projects exist. Use **Create Project** to make an empty editable composition, or open **Capabilities** to explore reusable modules and their technical examples. Preview controls include play, seek, mute and fullscreen.
 
 ```sh
 npm run typecheck
@@ -22,8 +22,8 @@ npm run validate
 npm run test:smoke
 npm run build
 npm start
-npm run render -- first-tutorial
-npm run render:still -- gi-go-lo
+npm run render -- <project-id>
+npm run render:still -- <project-id>
 npm run create:project -- my-explainer
 ```
 
@@ -33,15 +33,16 @@ MP4s and stills go to `out/`. `npm start` opens the built snapshot; rebuild to i
 
 - `apps/desktop`: Electron host, React shell, isolated preview bootstrap.
 - `packages/player`, `renderer`: reusable Remotion player and Node render pipeline.
-- `packages/motion-sdk`, `animation-library`: stable imports, deterministic components, capability registry.
+- `packages/motion-sdk`, `animation-library`: stable imports, deterministic components, validated capability registry.
 - `packages/audio-engine`, `lyrics-sync`: audio references and canonical timing/reconciliation/export.
 - `packages/project-loader`: manifest validation and filesystem discovery.
 - `projects/<id>`: complete video content, local assets, timing and README.
+- `examples/capabilities`: small technical examples; these are not user projects.
 - `improvements`: proposals, isolated experiments, explicitly accepted changes.
 
 ## Agent workflow
 
-Read [AGENTS.md](AGENTS.md), [CREATE_VIDEO](docs/CREATE_VIDEO.md), and the [capability registry](packages/animation-library/registry.json). Run `npm run create:project -- my-video`; edit only that project. Default-export a component from the manifest entry. Reuse `@motion/sdk` and `@motion/animations`. Start the studio, select the discovered project, iterate, validate, then render when requested. No central imports or Electron edits are needed.
+Read [AGENTS.md](AGENTS.md), [CREATE_VIDEO](docs/CREATE_VIDEO.md), [the capability guide](docs/STYLE_CATALOG.md), and the [capability registry](packages/animation-library/registry.json). Create a project in the editor or run `npm run create:project -- my-video`; edit only that project. Default-export a component from the manifest entry. Reuse the public imports and technical examples. Start the studio, select the discovered project, iterate, validate, then render when requested.
 
 ## Loading and preview
 
@@ -49,15 +50,15 @@ The Node process enumerates and validates manifests. The shell polls the list; t
 
 ## Lyrics sync
 
-The inspector imports canonical JSON, edits word boundaries and exports JSON, word JSON, SRT or LRC. Edits remain in the panel until downloaded; replace the project file to update the video. Missing timing remains null. Incomplete lines are omitted from subtitle exports. Demo timing is visibly labeled. Original lyrics can be reconciled against WhisperX, stable-ts or Whisper word JSON with order-preserving matching; this is not a substitute for listening and reviewing.
+The Lyrics Sync workbench imports canonical JSON, edits word boundaries and exports JSON, word JSON, SRT or LRC. Edits remain in the panel until downloaded; replace the project file to update the video. Missing timing remains null. Incomplete lines are omitted from subtitle exports. Original lyrics can be reconciled against WhisperX, stable-ts or Whisper word JSON with order-preserving matching; this is not a substitute for listening and reviewing. Subtitle clips keep their synchronization data separate from appearance so the same timing can be reused with another visual style.
 
 An optional Python Whisper worker is implemented and tested on generated speech in this environment. It requires `openai-whisper`, PyTorch, FFmpeg and a cached `base.pt` model. It never silently downloads models. Set `STUDIO_PYTHON` to select Python.
 
 ```sh
-npm run sync:lyrics -- gi-go-lo assets/song.wav assets/lyrics.txt
+npm run sync:lyrics -- <project-id> assets/song.wav assets/lyrics.txt
 ```
 
-This writes unverified results to `out/gi-go-lo/`; inspect before replacing the project timeline. No vocal separation, WhisperX forced alignment, AI correction provider, or song-accuracy guarantee is included. See [LYRICS_SYNC](docs/LYRICS_SYNC.md).
+This writes unverified results beneath the selected project in `out/`; inspect before replacing project timing data. No vocal separation, WhisperX forced alignment, AI correction provider, or song-accuracy guarantee is included. See [LYRICS_SYNC](docs/LYRICS_SYNC.md).
 
 ## Boundaries and limitations
 

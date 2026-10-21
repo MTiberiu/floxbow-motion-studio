@@ -5,6 +5,7 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import {readEditor,saveEditor} from './editor-store';
+import { createProject } from "./project-scaffold";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
 const mime: Record<string, string> = {
@@ -109,6 +110,27 @@ export async function startServers(built = false, portOffset = 0) {
           else {res.writeHead(405).end();return;}
           res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
         }
+        if (isShell && pathname === "/api/projects" && req.method === "POST") {
+          if (built) {
+            res.writeHead(409).end("Project creation is available in the live development workspace. Restart with npm run dev to edit source projects.");
+            return;
+          }
+          if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) {
+            res.writeHead(403).end("Only the studio shell can create a project");
+            return;
+          }
+          let body = "";
+          for await (const chunk of req) {
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 2048) throw new Error("Project request too large");
+          }
+          const input = JSON.parse(body);
+          if (typeof input.id !== "string") throw new Error("Project ID is required");
+          const project = await createProject(projectsDir, input.id);
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ project: { id: project.id, manifest: project } }));
+          return;
+        }
         if (req.method !== "GET" && req.method !== "HEAD") {
           res.writeHead(405).end();
           return;
@@ -116,6 +138,18 @@ export async function startServers(built = false, portOffset = 0) {
         if (pathname === "/api/projects") {
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify(await getProjects()));
+          return;
+        }
+        if (isShell && pathname === "/api/capability-resource") {
+          const relative = new URL(req.url ?? "/", "http://localhost").searchParams.get("path") ?? "";
+          if (!(relative.startsWith("docs/") || relative.startsWith("examples/")))
+            throw new Error("Only public docs and examples can be opened here");
+          if (!/\.(md|tsx|ts)$/.test(relative)) throw new Error("Unsupported capability resource type");
+          const file = await safeFile(root, relative);
+          const info = await stat(file);
+          if (info.size > 500_000) throw new Error("Capability resource is too large");
+          res.setHeader("Content-Type", "text/plain; charset=utf-8");
+          res.end(await readFile(file, "utf8"));
           return;
         }
         if (isShell && pathname === "/api/state") {

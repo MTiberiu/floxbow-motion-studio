@@ -10,19 +10,19 @@ Do not modify `apps/`, `packages/`, shared dependencies, scripts, SDK contracts,
 
 ## Build a video
 
-1. Read `docs/CREATE_VIDEO.md`, `docs/MOTION_SDK.md` and `packages/animation-library/registry.json`.
-2. Run `npm run create:project -- unique-id`. IDs use lowercase letters, numbers and hyphens.
+1. Read `docs/CREATE_VIDEO.md`, `docs/MOTION_SDK.md`, `docs/STYLE_CATALOG.md` and `packages/animation-library/registry.json`.
+2. Create a project in the editor or run `npm run create:project -- unique-id`. IDs use lowercase letters, numbers and hyphens.
 3. Write a script and storyboard with explicit frame ranges. Use the registered components before adding project-specific motion.
 4. Edit the project's default-exported React component. Keep assets in the same project and import local asset URLs. Manifest SDK version is exactly `0.1.0`.
 5. Run `npm run validate`, `npm run typecheck`, and `npm test`. Run `npm run dev`; select the new project and inspect multiple points in playback. Edits reload the frame automatically.
 6. When requested, run `npm run render -- <id>`. Output is `out/<id>.mp4`. Use `--still` for a proof frame.
 7. Update the project README with scenes, assets, attribution, timing source and dependencies. Report what was actually tested.
 
-Components must be deterministic functions of frame and props: no Date.now, unseeded randomness, network fetches or time-based animation loops. Use `Scene` for relative frame positions. Do not invent trustworthy lyric timing: retain nulls and confidence zero for unmatched words; demo timing must remain labeled.
+Components must be deterministic functions of frame and props: no Date.now, unseeded randomness, network fetches or time-based animation loops. Use `Scene` for relative frame positions. Do not invent trustworthy lyric timing: retain nulls and confidence zero for unmatched words; synthetic example timings must be labeled and never presented as aligned evidence.
 
 ## Discover and reuse
 
-The registry distinguishes `style` (visual rules), `component` (reusable animation), `scene-template` (copyable arranged scene) and `composition` (whole video). Each entry includes a working example and component parameters. Stable imports are `@motion/sdk`, `@motion/animations`, `@motion/audio` and `@motion/lyrics-sync`. Import only the browser-safe project schema subpath in compositions.
+Capabilities are reusable implementations; examples are small technical demonstrations under `examples/`; projects under `projects/` are user videos. The registry contains stable IDs, APIs, parameters, integration notes, docs and example paths. Never create a user project just to demonstrate a capability. Stable imports include `@motion/sdk`, `@motion/animations`, `@motion/audio`, `@motion/lyrics-sync`, `@motion/player`, `@motion/renderer` and `@motion/project-loader`. Import only browser-safe package exports in compositions.
 
 ## Issues and improvements
 
