@@ -5,7 +5,13 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import {readEditor,saveEditor} from './editor-store';
-import { readMediaRegistry, readMediaWithAvailability, registerAudioAsset, publicMediaAvailability } from "./media-store";
+import {
+  publicMediaAvailability,
+  readMediaRegistry,
+  readMediaWithAvailability,
+  registerAudioAsset,
+  removeMediaAsset,
+} from "./media-store";
 import { pickAudioFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
 export const root = path.resolve(import.meta.dirname, "..");
@@ -116,7 +122,14 @@ export async function startServers(built = false, portOffset = 0, options: Serve
           res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
         }
         if (isShell && pathname.startsWith("/api/media/")) {
-          const id = decodeURIComponent(pathname.slice("/api/media/".length));
+          const route = pathname.slice("/api/media/".length).split("/");
+          const id = decodeURIComponent(route[0] ?? "");
+          const removingAsset = route.length === 3 && route[1] === "assets";
+          const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
+          if (route.length !== 1 && !removingAsset) {
+            res.writeHead(404).end("Unknown media operation");
+            return;
+          }
           const project = (await getProjects()).find(
             (candidate: { id: string; manifest?: unknown }) => candidate.id === id,
           );
@@ -129,6 +142,43 @@ export async function startServers(built = false, portOffset = 0, options: Serve
             return;
           }
           const projectRoot = path.join(projectsDir, id);
+          if (removingAsset) {
+            if (req.method !== "DELETE") {
+              res.writeHead(405).end();
+              return;
+            }
+            if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) {
+              res.writeHead(403).end("Only the studio shell can remove media assets");
+              return;
+            }
+            let body = "";
+            for await (const chunk of req) {
+              body += chunk.toString();
+              if (Buffer.byteLength(body) > 2_048) throw new Error("Media request too large");
+            }
+            const input = JSON.parse(body);
+            if (
+              !input ||
+              typeof input !== "object" ||
+              Array.isArray(input) ||
+              Object.keys(input).length !== 1 ||
+              typeof input.revision !== "string"
+            )
+              throw new Error("A media registry revision is required; arbitrary file data is not accepted");
+
+            try {
+              const saved = await removeMediaAsset(projectRoot, assetId, input.revision);
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ revision: saved.revision }));
+            } catch (error) {
+              if (error instanceof Error && error.message.startsWith("The media asset is not registered:")) {
+                res.writeHead(404).end(error.message);
+                return;
+              }
+              throw error;
+            }
+            return;
+          }
           if (req.method === "GET") {
             const snapshot = await readMediaWithAvailability(projectRoot);
             const availability = new Map(

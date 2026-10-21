@@ -21,6 +21,7 @@ export function MediaPanel({
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<string>();
 
   const refresh = useCallback(async () => {
     if (!projectId || built) {
@@ -50,7 +51,7 @@ export function MediaPanel({
   }, [refresh]);
 
   async function addAudio() {
-    if (!snapshot || adding || built) return;
+    if (!snapshot || adding || removing || built) return;
     setAdding(true);
     setNotice("");
     setError("");
@@ -72,6 +73,36 @@ export function MediaPanel({
     }
   }
 
+  async function removeAsset(asset: MediaAssetView) {
+    if (!snapshot || adding || removing || built) return;
+    const confirmed = window.confirm(
+      `Remove "${asset.displayName}" from this project? The original audio file will NOT be deleted.`,
+    );
+    if (!confirmed) return;
+
+    setRemoving(asset.id);
+    setNotice("");
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(asset.id)}`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ revision: snapshot.revision }),
+        },
+      );
+      if (!response.ok) throw new Error(await response.text());
+      await refresh();
+      setNotice(`${asset.displayName} was removed from this project. The original audio file was not deleted.`);
+    } catch (cause) {
+      await refresh();
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setRemoving(undefined);
+    }
+  }
+
   return (
     <section className="media-panel" aria-label="Project media">
       <header className="media-panel-header">
@@ -84,7 +115,7 @@ export function MediaPanel({
         </div>
         <button
           type="button"
-          disabled={!projectId || built || loading || adding || !snapshot}
+          disabled={!projectId || built || loading || adding || Boolean(removing) || !snapshot}
           onClick={addAudio}
         >
           {adding ? "Choosing file…" : "Add Audio"}
@@ -121,6 +152,14 @@ export function MediaPanel({
                   {asset.status === "missing" ? "The original file cannot be found. The registry entry is preserved." : asset.message}
                 </span>
               )}
+              <button
+                className="media-remove"
+                type="button"
+                disabled={adding || Boolean(removing) || built}
+                onClick={() => void removeAsset(asset)}
+              >
+                {removing === asset.id ? "Removing…" : "Remove from Project"}
+              </button>
             </li>
           ))}
         </ul>

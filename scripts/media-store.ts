@@ -121,6 +121,27 @@ export async function registerAudioAsset(
   return persistMediaRegistry(projectRoot, registry, expectedRevision);
 }
 
+export async function removeMediaAsset(
+  projectRoot: string,
+  assetId: string,
+  expectedRevision: string,
+): Promise<MediaSnapshot> {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(assetId) || assetId.length > 120)
+    throw new Error("The media asset ID is invalid.");
+
+  const current = await readMediaRegistry(projectRoot);
+  if (current.revision !== expectedRevision)
+    throw new Error("CONFLICT: The media registry changed on disk. Reload it before removing audio.");
+  if (!current.registry.assets.some((asset) => asset.id === assetId))
+    throw new Error(`The media asset is not registered: ${assetId}`);
+
+  const registry = mediaRegistrySchema.parse({
+    ...current.registry,
+    assets: current.registry.assets.filter((asset) => asset.id !== assetId),
+  });
+  return persistMediaRegistry(projectRoot, registry, expectedRevision);
+}
+
 export async function readMediaWithAvailability(projectRoot: string) {
   const snapshot = await readMediaRegistry(projectRoot);
   const availability = await Promise.all(

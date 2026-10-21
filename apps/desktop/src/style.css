@@ -599,7 +599,7 @@ textarea {
 }
 .media-asset {
   display: grid;
-  grid-template-columns: 34px minmax(160px, 1fr) auto;
+  grid-template-columns: 34px minmax(160px, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   padding: 13px;
@@ -643,10 +643,20 @@ textarea {
   color: #ffc071;
 }
 .media-asset-warning {
-  grid-column: 2 / -1;
+  grid-column: 2 / 4;
   color: #ffc071;
   font-size: 10px;
   line-height: 1.45;
+}
+.media-remove {
+  grid-column: 4;
+  grid-row: 2;
+  align-self: start;
+  white-space: nowrap;
+}
+.media-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 .media-empty {
   display: grid;

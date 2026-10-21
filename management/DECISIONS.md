@@ -24,7 +24,7 @@ Personal projects and media are not published to the framework repository by def
 
 Importing existing local audio/video/images should ordinarily record **references to source files**, not duplicate them into every project. Keep originals in place. Preserve stable asset identifiers and source locations in project data. When a file moves or disappears, retain edit data and offer a future **Relink Media** flow. An explicit **Copy/Collect/Package Project** operation may be added later.
 
-**Status:** the first linked-audio registry and development-shell registration flow are implemented on `feature/media-registry-first-slice` (TASK 007; PR pending review). The schema uses absolute host paths, so references can be machine-specific. Preview, render, timeline, playback, relinking and Whisper adapters remain unimplemented. An external agent must have real filesystem permission/access to read the media; path knowledge alone is insufficient.
+**Status:** the first linked-audio registry and development-shell registration flow are implemented in `dev` through PR #8. TASK 008 adds explicit removal of one registry entry and documents safe external-agent edits. The schema uses absolute host paths, so references can be machine-specific. Preview, render, timeline, playback, relinking and Whisper adapters remain unimplemented. An external agent must have real filesystem permission/access to read the media; path knowledge alone is insufficient.
 
 ## D-005 — Correct lyrics are authoritative; audio timing is evidence
 
