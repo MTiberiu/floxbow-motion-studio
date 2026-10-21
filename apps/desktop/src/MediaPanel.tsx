@@ -12,9 +12,11 @@ type MediaSnapshot = { revision: string; assets: MediaAssetView[] };
 export function MediaPanel({
   projectId,
   built,
+  active = true,
 }: {
   projectId: string;
   built: boolean;
+  active?: boolean;
 }) {
   const [snapshot, setSnapshot] = useState<MediaSnapshot>();
   const [error, setError] = useState("");
@@ -43,12 +45,13 @@ export function MediaPanel({
   }, [projectId, built]);
 
   useEffect(() => {
+    if (!active) return;
     setLoading(true);
     setNotice("");
     void refresh();
     const timer = setInterval(() => void refresh(), 1_800);
     return () => clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, active]);
 
   async function addAudio() {
     if (!snapshot || adding || removing || built) return;

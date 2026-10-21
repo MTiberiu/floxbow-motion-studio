@@ -1,0 +1,128 @@
+.workspace-tabs {
+  min-width: 0;
+  overflow-x: auto;
+}
+.workspace-tabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.workspace-view-menu {
+  position: relative;
+  z-index: 8;
+  flex: 0 0 auto;
+}
+.workspace-view-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  border: 1px solid #394451;
+  border-radius: 4px;
+  padding: 6px 10px;
+  color: #dce2e9;
+  background: #222a34;
+  font-size: 10px;
+}
+.workspace-view-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.workspace-view-menu[open] > summary,
+.workspace-view-menu > summary:hover {
+  background: #303b47;
+}
+.workspace-view-options {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid #394451;
+  border-radius: 4px;
+  background: #202832;
+  box-shadow: 0 8px 24px #0009;
+}
+.workspace-view-options button {
+  text-align: left;
+  white-space: nowrap;
+}
+.workspace-view-options span {
+  padding: 5px 7px;
+  color: #a6afbd;
+  font-size: 10px;
+}
+.workspace-panel-host {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.dockable-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: min(var(--panel-min-width), 100%);
+  min-height: min(var(--panel-min-height), 100%);
+  background: #141a21;
+  overflow: hidden;
+}
+.dockable-panel[hidden] {
+  display: none !important;
+}
+.dockable-panel-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 34px;
+  min-width: 0;
+  padding: 0 9px 0 13px;
+  border-bottom: 1px solid #303945;
+  background: #1a2028;
+}
+.dockable-panel-titlebar h2 {
+  margin: 0;
+  color: #dce4d5;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.dockable-panel-titlebar button {
+  width: 25px;
+  height: 24px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+}
+.dockable-panel-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.dockable-panel-body.overflow-panel-scroll {
+  overflow: auto;
+}
+.dockable-panel-body.overflow-content-managed {
+  overflow: hidden;
+}
+.dockable-panel-body > .timeline-editor {
+  min-width: 0;
+  min-height: 0;
+}
+.dockable-panel-body > .auxiliary-view {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.workspace-no-panel {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  color: #a6afbd;
+  font-size: 12px;
+  text-align: center;
+}

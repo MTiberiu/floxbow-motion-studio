@@ -49,12 +49,14 @@ export function TimelineEditor({
   manifest,
   previewOrigin,
   built,
+  active,
   reload,
   requestPreviewReload,
 }: {
   manifest: ProjectManifest;
   previewOrigin: string;
   built: boolean;
+  active: boolean;
   reload: number;
   requestPreviewReload: () => void;
 }) {
@@ -75,6 +77,9 @@ export function TimelineEditor({
     Math.min(manifest.fps * 2, manifest.durationInFrames - 1),
   );
   const [playing, setPlaying] = useState(false);
+  const [previewGeneration, setPreviewGeneration] = useState(0);
+  const wasActive = useRef(active);
+  const resumePlaybackAfterHide = useRef(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -118,6 +123,16 @@ export function TimelineEditor({
     },
     [manifest.id, previewOrigin],
   );
+  useEffect(() => {
+    if (wasActive.current === active) return;
+    wasActive.current = active;
+    if (!active) {
+      resumePlaybackAfterHide.current = playing;
+      if (playing) send("pause");
+      return;
+    }
+    setPreviewGeneration((generation) => generation + 1);
+  }, [active, playing, send]);
   const setClean = (disk: Disk, refreshPreview = false) => {
     docRef.current = disk.timeline;
     setDoc(disk.timeline);
@@ -133,17 +148,19 @@ export function TimelineEditor({
     setUndo([]);
     setRedo([]);
   };
+  const loadedTimeline = useRef(false);
   useEffect(() => {
-    if (!manifest.editTimeline) return;
-    let active = true;
-    const read = async (initial = false) => {
+    if (!manifest.editTimeline || !active) return;
+    let alive = true;
+    const read = async (initial = !loadedTimeline.current) => {
       try {
         const r = await fetch(`/api/edit/${manifest.id}`);
         if (!r.ok) throw new Error(await r.text());
         const disk: Disk = await r.json();
         disk.timeline = parseEditTimeline(disk.timeline, manifest);
-        if (!active) return;
+        if (!alive) return;
         if (initial) {
+          loadedTimeline.current = true;
           const raw = localStorage.getItem(draftKey);
           if (raw) {
             try {
@@ -172,16 +189,16 @@ export function TimelineEditor({
           }
         }
       } catch (e) {
-        if (active) setError(String(e));
+        if (alive) setError(String(e));
       }
     };
-    read(true);
+    read();
     const timer = setInterval(() => read(), 1800);
     return () => {
-      active = false;
+      alive = false;
       clearInterval(timer);
     };
-  }, [manifest.id, manifest.editTimeline]);
+  }, [active, manifest.id, manifest.editTimeline]);
   useEffect(() => {
     const canvas = canvasViewport.current;
     const timeline = timelineScroll.current;
@@ -257,6 +274,10 @@ export function TimelineEditor({
           setComponents(componentInfosSchema.parse(e.data.components));
           if (docRef.current) send("document", { timeline: docRef.current });
           send("seek", { frame: frameRef.current });
+          if (resumePlaybackAfterHide.current) {
+            resumePlaybackAfterHide.current = false;
+            send("play");
+          }
         } catch (e) {
           setError(String(e));
         }
@@ -711,7 +732,7 @@ export function TimelineEditor({
             >
               <iframe
                 ref={iframe}
-                key={reload}
+                key={`${reload}:${previewGeneration}`}
                 title="Composition preview"
                 sandbox="allow-scripts allow-same-origin"
                 allow="autoplay"

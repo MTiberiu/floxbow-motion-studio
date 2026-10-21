@@ -1,6 +1,6 @@
 # Proposal: Dockable Workspace Panels
 
-Status: proposed, revised for review
+Status: approved phased architecture; the first shell lifecycle foundation is implemented in TASK 011.
 
 ## Problem
 
@@ -11,12 +11,13 @@ This proposal defines shared layout and window infrastructure. Modules supply pa
 ## Current architecture findings
 
 - `apps/desktop/electron/main.cjs` creates one `BrowserWindow`. It enables sandboxing, context isolation and web security; disables Node integration; denies permissions, popups, navigation and webviews; and has no preload or IPC API. `window-all-closed` quits the application.
-- `apps/desktop/src/main.tsx` owns project selection and the top-level Preview, Media, Lyrics Sync, and Capabilities views. It conditionally renders the selected view, so switching away from Preview unmounts `TimelineEditor`.
+- `apps/desktop/src/main.tsx` owns project selection and composes the shell-owned `WorkspaceManager`. The static registry wraps Editor, Media, Lyrics Sync, and Capabilities. Opened panels stay mounted while inactive or hidden; Editor is still a composite view.
 - `TimelineEditor` owns the timeline document, revision hash, dirty/conflict state, save/reload flow, undo/redo history, selection, playback frame, and the preview iframe bridge. It renders the preview, inspector, and bottom timeline together. The iframe uses `motion-editor-v1` messages checked against source, origin, channel, and project ID.
 - Timeline persistence goes through `/api/edit/:projectId`. `scripts/editor-store.ts` validates data, compares the disk revision, writes a temporary file, checks the revision again, and atomically replaces the project JSON. `TimelineEditor` polls the disk revision every 1.8 seconds; a change blocks stale saves when a draft is dirty.
-- `MediaPanel` polls its project registry every 1.8 seconds and sends revision-bearing add/remove requests to the shell host. `Lyrics` owns transient timing state in its component, fetches on mount, and exports downloads; its UI says edits stay in the panel until exported.
-- `scripts/server.ts` exposes the shell HTTP API and current Vite project watcher. Docking does not require changing the project watcher or existing polling intervals.
-- `docs/MODULE_INTEGRATION_BLUEPRINT.md` describes explicit component registration and serializable preview metadata; there is no panel registry, `WorkspaceManager`, dock layout or cross-window session contract.
+- `MediaPanel` polls its project registry every 1.8 seconds only while active and sends revision-bearing add/remove requests to the shell host. `Lyrics` owns transient timing state in its component and exports downloads; keeping its panel mounted preserves those edits until exported.
+- `TimelineEditor` pauses preview playback while hidden, resumes it when active, and stops its disk-revision poll until shown again. Existing revision/hash persistence and conflict handling remain in the same component.
+- `scripts/server.ts` exposes the shell HTTP API and current Vite project watcher. TASK 011 does not change the project watcher or add a polling loop.
+- `docs/MODULE_INTEGRATION_BLUEPRINT.md` now documents the implemented static shell panel registry and its limits. There is still no drag/drop layout, native window or cross-window session contract.
 
 ## Proposed improvement
 
@@ -199,4 +200,4 @@ Each item is a separate, reviewable implementation PR. Review and approve this a
 
 ## Acceptance
 
-Pending explicit architecture review. This document-only proposal does not authorize implementation. No production code, dependency, project data, timeline behavior, subtitle behavior, Media Registry logic, watcher, or polling mechanism is changed by this proposal.
+The first implementation slice provides the shared container, static registry, active/docked/hidden lifecycle, View reopening, sizing/overflow metadata, and state-preserving panel mounting. It does not implement drag/drop docking, split resizing, native windows, IPC, fullscreen, layout persistence, or separate Canvas/Timeline/Inspector views. Those remain separate phases and require an explicit editor-session owner before the inner Editor surfaces can be detached safely.

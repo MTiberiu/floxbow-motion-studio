@@ -16,6 +16,12 @@ import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
 import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
 import { MediaPanel } from "./MediaPanel";
+import {
+  WorkspaceManager,
+  WorkspaceNavigation,
+  WorkspacePanels,
+  useWorkspaceManager,
+} from "./WorkspaceManager";
 type State = {
   previewOrigin: string;
   built: boolean;
@@ -196,12 +202,12 @@ function Lyrics({ id }: { id: string }) {
     </section>
   );
 }
-function App() {
+function StudioShell() {
+  const workspace = useWorkspaceManager();
   const [state, setState] = useState<State>();
   const [selected, setSelected] = useState(
     localStorage.getItem("motion-project") ?? "",
   );
-  const [tab, setTab] = useState("Preview");
   const [reload, setReload] = useState(0);
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -267,7 +273,7 @@ function App() {
       select(id);
       setProjectName("");
       setCreateOpen(false);
-      setTab("Preview");
+      workspace.activatePanel("editor");
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : String(error));
     }
@@ -305,17 +311,7 @@ function App() {
           <span className="dot" />
           <small>{state?.built ? "Built preview" : "Live development"}</small>
         </div>
-        <nav className="workspace-tabs" aria-label="Workspace views">
-          {["Preview", "Media", "Lyrics sync", "Capabilities"].map((t) => (
-            <button
-              className={tab === t ? "selected" : ""}
-              key={t}
-              onClick={() => setTab(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </nav>
+        <WorkspaceNavigation />
         <button
           className="toolbar-button"
           aria-label="Reload preview"
@@ -439,45 +435,57 @@ function App() {
             {error}
           </p>
         )}
-        {tab === "Preview" &&
-          (state && !state.projects.some((item) => item.manifest) ? (
-            <section className="empty-project-state">
-              <span className="eyebrow">A CLEAN WORKSPACE</span>
-              <h2>Create your first video project</h2>
-              <p>{state.built ? "This built snapshot has no projects. Start the live development workspace to create source projects." : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}</p>
-              <button disabled={state.built} onClick={() => { setCreateOpen(true); setCreateError(""); }}>Create Project</button>
-              <button className="secondary-action" onClick={() => setTab("Capabilities")}>Explore capabilities</button>
-            </section>
-          ) : project?.error ? (
-            <div className="error" role="alert">
-              <h2>Project needs attention</h2>
-              <pre>{project.error}</pre>
-            </div>
-          ) : m && state ? (
-            <TimelineEditor
-              key={selected}
-              manifest={m}
-              previewOrigin={state.previewOrigin}
-              built={state.built}
-              reload={reload}
-              requestPreviewReload={() => setReload((current) => current + 1)}
-            />
-          ) : (
-            <p>Discovering projects…</p>
-          ))}
-        {tab === "Lyrics sync" && (
-          <div className="auxiliary-view">
-            <Lyrics key={selected} id={selected} />
-          </div>
-        )}
-        {tab === "Media" && (
-          <div className="auxiliary-view">
-            <MediaPanel key={selected} projectId={selected} built={state?.built ?? false} />
-          </div>
-        )}
-        {tab === "Capabilities" && <div className="auxiliary-view"><CapabilitiesExplorer /></div>}
+        <WorkspacePanels
+          renderPanel={(id, active) => {
+            if (id === "editor") {
+              return state && !state.projects.some((item) => item.manifest) ? (
+                <section className="empty-project-state">
+                  <span className="eyebrow">A CLEAN WORKSPACE</span>
+                  <h2>Create your first video project</h2>
+                  <p>{state.built ? "This built snapshot has no projects. Start the live development workspace to create source projects." : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}</p>
+                  <button disabled={state.built} onClick={() => { setCreateOpen(true); setCreateError(""); }}>Create Project</button>
+                  <button className="secondary-action" onClick={() => workspace.activatePanel("capabilities")}>Explore capabilities</button>
+                </section>
+              ) : project?.error ? (
+                <div className="error" role="alert">
+                  <h2>Project needs attention</h2>
+                  <pre>{project.error}</pre>
+                </div>
+              ) : m && state ? (
+                <TimelineEditor
+                  key={selected}
+                  manifest={m}
+                  previewOrigin={state.previewOrigin}
+                  built={state.built}
+                  reload={reload}
+                  active={active}
+                  requestPreviewReload={() => setReload((current) => current + 1)}
+                />
+              ) : (
+                <p>Discovering projects…</p>
+              );
+            }
+            if (id === "lyrics-sync")
+              return <div className="auxiliary-view"><Lyrics key={selected} id={selected} /></div>;
+            if (id === "media")
+              return <div className="auxiliary-view"><MediaPanel key={selected} projectId={selected} built={state?.built ?? false} active={active} /></div>;
+            if (id === "capabilities")
+              return <div className="auxiliary-view"><CapabilitiesExplorer /></div>;
+            const exhaustive: never = id;
+            return exhaustive;
+          }}
+        />
       </main>
     </div>
   );
 }
+
+function App() {
+  return (
+    <WorkspaceManager>
+      <StudioShell />
+    </WorkspaceManager>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
