@@ -1,6 +1,6 @@
 # Capability and Idea Backlog
 
-This is a **product idea inventory**, not a promise or authorization to implement every item. Consult [ROADMAP.md](ROADMAP.md) for sequencing and [DECISIONS.md](DECISIONS.md) for agreed principles. Technical, evidence-backed changes belong in `improvements/proposals/`.
+This is a **product idea inventory**, not a promise or authorization to implement every item. Consult [PRODUCT_VISION.md](PRODUCT_VISION.md) for preserved exploratory product scenarios (including scene-local timelines, global audio, audio-reactive effects and 2.5D characters), [ROADMAP.md](ROADMAP.md) for sequencing, and [DECISIONS.md](DECISIONS.md) for agreed principles. Technical, evidence-backed changes belong in `improvements/proposals/`.
 
 ## Existing foundation — verify actual integration before reuse
 
