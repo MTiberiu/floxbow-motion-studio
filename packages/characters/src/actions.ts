@@ -7,6 +7,11 @@ export const mascotPropsSchema=z.object({
   accent:z.string().regex(/^#[0-9a-f]{6}$/i).default('#f8c86d'),
   x:z.number().min(5).max(95).default(50),
   y:z.number().min(10).max(90).default(58),
+  startX:z.number().min(-40).max(140).optional(),
+  endX:z.number().min(-40).max(140).optional(),
+  startY:z.number().min(-40).max(140).optional(),
+  endY:z.number().min(-40).max(140).optional(),
+  easing:z.enum(['linear','ease-in-out']).default('linear'),
   scale:z.number().min(0.4).max(2).default(1),
   speed:z.number().min(0.25).max(4).default(1),
   speechClipId:z.union([z.literal(''),z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)]).default(''),
@@ -50,8 +55,10 @@ export function speechAtFrame(timeline:EditTimeline,clipId:string,absoluteFrame:
 export const choreographyStepSchema=z.object({
   motion:mascotPropsSchema.shape.motion,
   durationInFrames:z.number().int().positive(),
-  x:z.number().min(5).max(95).optional(),
-  y:z.number().min(10).max(90).optional(),
+  x:z.number().min(-40).max(140).optional(),
+  y:z.number().min(-40).max(140).optional(),
+  endX:z.number().min(-40).max(140).optional(),
+  endY:z.number().min(-40).max(140).optional(),
   speed:z.number().min(0.25).max(4).optional(),
   label:z.string().min(1).max(100).optional(),
 });
@@ -66,9 +73,17 @@ export function composeMascotDance(timeline:EditTimeline,input:{
   let cursor=input.startFrame;
   let result=timeline;
   const base=mascotPropsSchema.parse(input.props??{});
+  let currentX=base.endX??base.startX??base.x;
+  let currentY=base.endY??base.startY??base.y;
   input.steps.forEach((raw,index)=>{
     const step=choreographyStepSchema.parse(raw);
-    const props={...base,motion:step.motion,x:step.x??base.x,y:step.y??base.y,speed:step.speed??base.speed};
+    const startX=step.x??currentX;
+    const startY=step.y??currentY;
+    const endX=step.endX??startX;
+    const endY=step.endY??startY;
+    const props={...base,motion:step.motion,x:startX,y:startY,startX,endX,startY,endY,speed:step.speed??base.speed};
+    currentX=endX;
+    currentY=endY;
     result=addMascot(result,{
       id:`${input.idPrefix}-${index+1}`,
       trackId:input.trackId,from:cursor,durationInFrames:step.durationInFrames,
