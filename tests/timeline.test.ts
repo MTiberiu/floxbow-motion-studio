@@ -127,7 +127,8 @@ test("subtitle text corrections preserve stable segment and word timing", () => 
     clip.content as ReturnType<typeof subtitleContentSchema.parse>,
     "Frame follows time!",
   );
-  assert.equal(clip.id, "lyric-1");
+  const correctedClip = { ...clip, content: corrected };
+  assert.equal(correctedClip.id, "lyric-1");
   assert.equal(corrected.text, "Frame follows time!");
   assert.deepEqual(corrected.words, [
     { id: "word-1", text: "Frame", start: 0.5, end: 1 },
@@ -153,8 +154,8 @@ test("subtitle text corrections preserve stable segment and word timing", () => 
     false,
     "stale intervals are not silently reassigned after an intervening word-count change",
   );
-  assert.equal(clip.from, source.from);
-  assert.equal(clip.durationInFrames, source.durationInFrames);
+  assert.equal(correctedClip.from, source.from);
+  assert.equal(correctedClip.durationInFrames, source.durationInFrames);
 });
 
 test("subtitle constructors and content parsing reject invalid clip data", () => {
