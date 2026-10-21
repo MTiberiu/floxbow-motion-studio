@@ -9,17 +9,25 @@ export const editTimelineSchema=z.object({version:z.literal(1),fps:z.number().in
 export type EditTimeline=z.infer<typeof editTimelineSchema>;
 export type TimelineClip=z.infer<typeof clipSchema>;
 export const fieldSchema=z.object({key:id,label:z.string().max(100),target:z.enum(['content','props']).default('props'),type:z.enum(['text','number','color','select','boolean']),default:z.union([z.string(),z.number(),z.boolean()]),min:z.number().optional(),max:z.number().optional(),step:z.number().positive().optional(),options:z.array(z.string()).max(50).optional()});
-export const componentInfoSchema=z.object({id,name:z.string().max(100),fields:z.array(fieldSchema).max(50)});
+export const componentInfoSchema=z.object({id,name:z.string().max(100),fields:z.array(fieldSchema).max(50),timelineBehavior:z.string().regex(/^[a-z][a-z0-9-]*$/).max(80).optional()});
 export const componentInfosSchema=z.array(componentInfoSchema).max(100);
 export type ComponentInfo=z.infer<typeof componentInfoSchema>;
 export type EditableField=z.infer<typeof fieldSchema>;
+export type TimelineRange={from:number;durationInFrames:number};
+/** Trusted editor-side behavior hooks. Only serializable IDs cross the preview bridge. */
+export type TimelineBehavior={
+ id:string;
+ resizeContent?:(content:TimelineClip['content'],oldRange:TimelineRange,nextRange:TimelineRange,fps:number)=>TimelineClip['content'];
+ duplicateContent?:(content:TimelineClip['content'],sourceId:string)=>TimelineClip['content'];
+ editContent?:(content:TimelineClip['content'],key:string,value:string|number|boolean)=>{content:TimelineClip['content'];notice?:string}|undefined;
+};
 export function parseEditTimeline(input:unknown,expected?:{fps:number;durationInFrames:number}){const t=editTimelineSchema.parse(input);if(expected&&(t.fps!==expected.fps||t.durationInFrames!==expected.durationInFrames))throw new Error('Timeline FPS and duration must match project.json');return t;}
-/** Moving carries word offsets. Trimming preserves the absolute position of spoken words. */
-export function changeClipRange(t:EditTimeline,id:string,from:number,end:number,trim=false):EditTimeline{
+/** Generic range changes preserve content; registered behavior may transform it for trims. */
+export function changeClipRange(t:EditTimeline,id:string,from:number,end:number,trim=false,behavior?:TimelineBehavior):EditTimeline{
  const next=structuredClone(t);const c=next.clips.find(c=>c.id===id);if(!c)return t;
  from=Math.max(0,Math.min(t.durationInFrames-1,Math.round(from)));end=Math.max(from+1,Math.min(t.durationInFrames,Math.round(end)));
- if(trim&&Array.isArray(c.content.words)){const delta=(c.from-from)/t.fps;c.content.words=c.content.words.map(w=>{if(w&&typeof w==='object'&&!Array.isArray(w)&&typeof w.start==='number'&&typeof w.end==='number')return {...w,start:w.start+delta,end:w.end+delta};return w;});}
- c.from=from;c.durationInFrames=end-from;if(c.content.status&&c.content.status!=='demo')c.content.status='unverified';return parseEditTimeline(next);
+ if(trim&&behavior?.resizeContent)c.content=behavior.resizeContent(c.content,{from:c.from,durationInFrames:c.durationInFrames},{from,durationInFrames:end-from},t.fps);
+ c.from=from;c.durationInFrames=end-from;return parseEditTimeline(next);
 }
 export function fieldValue(clip:TimelineClip,field:EditableField){return clip[field.target][field.key]??field.default;}
 export function validateField(field:EditableField,value:unknown){

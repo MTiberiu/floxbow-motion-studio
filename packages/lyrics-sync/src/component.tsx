@@ -13,6 +13,7 @@ import {
 import {
   subtitleContentSchema,
   subtitleWordTimingMatchesText,
+  subtitleTimelineBehavior,
 } from "./subtitles";
 export const subtitleFields: EditableField[] = [
   { key: "text", target: "content", label: "Text", type: "text", default: "" },
@@ -167,5 +168,6 @@ export const subtitleModule: EditableComponent = {
   id: "subtitles",
   name: "Subtitles / Lyrics",
   fields: subtitleFields,
+  timelineBehavior: subtitleTimelineBehavior.id,
   component: Subtitles,
 };
