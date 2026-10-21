@@ -6,5 +6,5 @@ The mascot's `speechClipId: "hello"` refers to the real subtitle clip. Moving or
 
 No 3D assets, external fonts, WebGL, downloads or runtime network requests.
 
-## Choreography v2
-The timeline now includes six editable motion clips in order: Walk → Jump → Spin → Dance → Wave → Dance. Each clip has independently editable motion and speed; select any character clip in the editor Inspector. The linked `hello` subtitle triggers comic speech on whichever character motion is playing. No audio playback or prompt-to-chat UI is added.
+## AI choreography experiment
+The saved baseline is deliberately **one dancing mascot clip** plus the synthetic subtitle clip. No prebuilt walk/jump/spin/wave sequence is stored in the project. An external coding agent should create or replace clips in this project's edit-timeline.json, using the documented @motion/characters API and without changing shared module code. To test the AI, instruct it to replace the baseline dance with a choreography; the resulting clips should appear on the existing timeline after reload.
