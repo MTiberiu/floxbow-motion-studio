@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
-import os from "node:os";
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { manifestSchema, discover, safeFile } from "@motion/project-loader";
 import {
@@ -13,6 +12,9 @@ import {
   toLRC,
   toWords,
 } from "@motion/lyrics-sync";
+import { parseCapabilityRegistry } from "@motion/animations/registry";
+import { createProject } from "../scripts/project-scaffold";
+import { parseEditTimeline } from "@motion/sdk/timeline";
 const manifest = {
   id: "test-video",
   name: "Test",
@@ -39,7 +41,9 @@ test("manifest rejects traversal, incompatible SDK and invalid dimensions", () =
     assert.throws(() => manifestSchema.parse({ ...manifest, ...patch }));
 });
 test("discovery isolates malformed projects and detects added folders", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "motion-test-"));
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const root = await mkdtemp(path.join(tempRoot, "motion-test-"));
   try {
     await mkdir(path.join(root, "broken"));
     await writeFile(path.join(root, "broken/project.json"), "{");
@@ -115,4 +119,55 @@ test("timeline rejects reversed intervals, duplicate IDs and invalid repeats", (
   const overlap = structuredClone(t);
   overlap.lines[0].words[1].start = 1.5;
   assert.throws(() => parseTimeline(overlap));
+});
+
+test("capability registry imports, docs, examples and references resolve", async () => {
+  const registry = parseCapabilityRegistry(
+    JSON.parse(await readFile("packages/animation-library/registry.json", "utf8")),
+  );
+  const packageRecords = await Promise.all(
+    (await readdir("packages", { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory())
+      .map(async (entry) => {
+        const directory = path.join("packages", entry.name);
+        const metadata = JSON.parse(await readFile(path.join(directory, "package.json"), "utf8"));
+        return { directory, metadata };
+      }),
+  );
+  for (const capability of registry.capabilities) {
+    const owner = packageRecords.find(({ metadata }) => metadata.name === capability.api.importPath.split("/").slice(0, 2).join("/"));
+    assert.ok(owner, `Missing package for ${capability.api.importPath}`);
+    const subpath = capability.api.importPath.slice(owner.metadata.name.length);
+    const exportKey = subpath ? `.${subpath}` : ".";
+    const target = typeof owner.metadata.exports === "string"
+      ? owner.metadata.exports
+      : owner.metadata.exports?.[exportKey];
+    assert.equal(typeof target, "string", `Unexported path ${capability.api.importPath}`);
+    await readFile(path.join(owner.directory, target.slice(2)));
+    await readFile(capability.documentation);
+  }
+  for (const example of registry.examples) {
+    assert.ok(!example.path.startsWith("projects/"), "Examples must not be user projects");
+    await readFile(example.path);
+  }
+});
+
+test("Create Project scaffold creates a blank, valid editable project", async () => {
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const projects = await mkdtemp(path.join(tempRoot, "motion-starter-"));
+  try {
+    const manifest = await createProject(projects, "neutral-video");
+    assert.equal(manifest.id, "neutral-video");
+    assert.equal(manifest.name, "Neutral Video");
+    const timeline = parseEditTimeline(
+      JSON.parse(await readFile(path.join(projects, manifest.id, manifest.editTimeline), "utf8")),
+      manifest,
+    );
+    assert.equal(timeline.clips.length, 0);
+    assert.deepEqual(timeline.tracks.map((track) => track.name), ["Visuals", "Captions"]);
+    await assert.rejects(createProject(projects, "../escape"));
+  } finally {
+    await rm(projects, { recursive: true, force: true });
+  }
 });

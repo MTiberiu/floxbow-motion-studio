@@ -51,7 +51,7 @@ const title = {
 // MyTitle reads clip.content.headline; export it in editorComponents.
 ```
 
-No editor changes are needed for the field to appear. Components must actually consume the declared values; metadata cannot make an arbitrary hard-coded value editable. The existing tutorial scenes expose timing only. Their internal animation code remains in the project; this milestone does not pretend to introspect nested JSX.
+No editor changes are needed for the field to appear. Components must actually consume the declared values; metadata cannot make an arbitrary hard-coded value editable. Project-authored scene components can expose timing only; their internal animation code remains in the project. The editor does not introspect nested JSX.
 
 ## The one reusable module: Subtitles / Lyrics
 

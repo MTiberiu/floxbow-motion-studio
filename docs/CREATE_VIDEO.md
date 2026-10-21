@@ -1,10 +1,12 @@
 # Create a video
 
+The editor starts without bundled user videos. Click **Create Project** to make an empty project with an editable timeline and local `assets/`, `scenes/` and `timing/` folders. The same scaffold is available from the CLI:
+
 ```sh
-npm run create:project -- solar-system
+npm run create:project -- my-video
 ```
 
-Edit `projects/solar-system/project.json` to set name, type, resolution, fps, duration and entry. Required fields:
+The scaffold creates `projects/my-video/`. Edit its `project.json` to set name, type, resolution, FPS, duration and entry. Required fields:
 
 ```json
 {"id":"solar-system","name":"Solar System","type":"explainer","width":1920,"height":1080,"fps":30,"durationInFrames":300,"entry":"Composition.tsx","sdkVersion":"0.1.0"}
@@ -14,16 +16,15 @@ Edit `projects/solar-system/project.json` to set name, type, resolution, fps, du
 
 ```tsx
 import {Canvas, Scene, Fade} from '@motion/sdk';
-import {KineticText, ChatBubble} from '@motion/animations';
+import {KineticText} from '@motion/animations';
 export default function Video() {
-  return <>
-    <Scene from={0} duration={150}><Canvas><Fade><KineticText text="Our solar system"/></Fade></Canvas></Scene>
-    <Scene from={150} duration={150}><Canvas><ChatBubble text="Eight planets. One star."/></Canvas></Scene>
-  </>;
+  return <Scene from={0} duration={180}>
+    <Canvas><Fade><KineticText text="Replace with your own title"/></Fade></Canvas>
+  </Scene>;
 }
 ```
 
-Run `npm run dev`, choose Solar System, and edit the composition. It is automatically transformed by Vite. New folders appear within roughly two seconds. Do not add central imports. For compile errors, fix the entry and reload preview if needed; switching to another project remains available.
+Run `npm run dev`, select your project, and edit the composition. It is automatically transformed by Vite. New folders appear within roughly two seconds. Do not add central imports. For compile errors, fix the entry and reload preview if needed; switching to another project remains available. Small reusable-module demonstrations live in `examples/capabilities/` and the Capabilities Explorer; do not copy example content into a user project unless it is intended for that video.
 
 Import media directly: `import photo from './assets/photo.png'`, then `<Img src={photo}/>` from the SDK. For audio use `import narration from './assets/narration.wav'` and `<Narration src={narration}/>` from `@motion/audio`. These URLs are supported by the preview and Remotion bundler. Declaring `audio` in the manifest validates existence but does not automatically play it; the composition controls playback. Include attribution and license in the project README.
 

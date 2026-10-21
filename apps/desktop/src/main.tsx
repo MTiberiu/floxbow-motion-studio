@@ -12,9 +12,9 @@ import {
   alignmentStatus,
   type LyricTimeline,
 } from "@motion/lyrics-sync";
-import registry from "../../../packages/animation-library/registry.json";
 import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
+import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
 type State = {
   previewOrigin: string;
   built: boolean;
@@ -198,11 +198,14 @@ function Lyrics({ id }: { id: string }) {
 function App() {
   const [state, setState] = useState<State>();
   const [selected, setSelected] = useState(
-    localStorage.getItem("motion-project") ?? "first-tutorial",
+    localStorage.getItem("motion-project") ?? "",
   );
   const [tab, setTab] = useState("Preview");
   const [reload, setReload] = useState(0);
   const [error, setError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [createError, setCreateError] = useState("");
   const [leftWidth, setLeftWidth] = useState(
     () => Number(localStorage.getItem("motion-left-width")) || 248,
   );
@@ -229,10 +232,12 @@ function App() {
     };
   }, []);
   useEffect(() => {
-    if (state && !state.projects.some((p) => p.id === selected)) {
-      const fallback = state.projects.find((p) => p.manifest)?.id;
-      if (fallback) setSelected(fallback);
-    }
+    if (!state) return;
+    if (state.projects.some((project) => project.id === selected && project.manifest)) return;
+    const fallback = state.projects.find((project) => project.manifest)?.id ?? "";
+    setSelected(fallback);
+    if (fallback) localStorage.setItem("motion-project", fallback);
+    else localStorage.removeItem("motion-project");
   }, [state, selected]);
   const project = state?.projects.find((p) => p.id === selected);
   const m = project?.manifest;
@@ -240,6 +245,31 @@ function App() {
     setSelected(id);
     localStorage.setItem("motion-project", id);
     setReload(0);
+  }
+  async function createProject(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const id = projectName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!id) {
+      setCreateError("Enter a name using letters or numbers.");
+      return;
+    }
+    try {
+      setCreateError("");
+      const response = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const data: { project: ProjectRecord } = await response.json();
+      setState((current) => current ? { ...current, projects: [...current.projects, data.project] } : current);
+      select(id);
+      setProjectName("");
+      setCreateOpen(false);
+      setTab("Preview");
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : String(error));
+    }
   }
   function resizeLeft(e: React.PointerEvent<HTMLButtonElement>) {
     if (!resizing.current) return;
@@ -300,7 +330,35 @@ function App() {
           <span className="browser-count">{state?.projects.length ?? 0}</span>
         </div>
         <div className="browser-scroll">
-          <h3>Projects</h3>
+          <div className="browser-section-heading">
+            <h3>Projects</h3>
+            <button
+              className="create-project-button"
+              disabled={state?.built}
+              title={state?.built ? "Create projects from the live development workspace." : "Create a new project"}
+              onClick={() => { setCreateOpen((open) => !open); setCreateError(""); }}
+            >
+              + Create
+            </button>
+          </div>
+          {createOpen && !state?.built && (
+            <form className="create-project-form" onSubmit={createProject}>
+              <label htmlFor="new-project-name">Project name</label>
+              <input
+                id="new-project-name"
+                autoFocus
+                maxLength={80}
+                placeholder="My video"
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+              />
+              {createError && <p role="alert">{createError}</p>}
+              <div>
+                <button type="submit">Create project</button>
+                <button type="button" onClick={() => { setCreateOpen(false); setCreateError(""); }}>Cancel</button>
+              </div>
+            </form>
+          )}
           <nav>
             {state?.projects.map((p, i) => (
               <button
@@ -380,7 +438,15 @@ function App() {
           </p>
         )}
         {tab === "Preview" &&
-          (project?.error ? (
+          (state && !state.projects.some((item) => item.manifest) ? (
+            <section className="empty-project-state">
+              <span className="eyebrow">A CLEAN WORKSPACE</span>
+              <h2>Create your first video project</h2>
+              <p>{state.built ? "This built snapshot has no projects. Start the live development workspace to create source projects." : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}</p>
+              <button disabled={state.built} onClick={() => { setCreateOpen(true); setCreateError(""); }}>Create Project</button>
+              <button className="secondary-action" onClick={() => setTab("Capabilities")}>Explore capabilities</button>
+            </section>
+          ) : project?.error ? (
             <div className="error" role="alert">
               <h2>Project needs attention</h2>
               <pre>{project.error}</pre>
@@ -401,22 +467,7 @@ function App() {
             <Lyrics key={selected} id={selected} />
           </div>
         )}
-        {tab === "Capabilities" && (
-          <section className="capabilities auxiliary-view">
-            <span className="eyebrow">THE REUSABLE TOOLKIT</span>
-            <h2>Build once. Set anything in motion.</h2>
-            <div className="cap-grid">
-              {registry.capabilities.map((c) => (
-                <article key={c.id}>
-                  <span className="pill">{c.kind}</span>
-                  <h3>{c.name}</h3>
-                  <p>{c.description}</p>
-                  <code>{c.id}</code>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
+        {tab === "Capabilities" && <div className="auxiliary-view"><CapabilitiesExplorer /></div>}
       </main>
     </div>
   );

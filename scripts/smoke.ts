@@ -1,140 +1,79 @@
-import { _electron as electron } from "@playwright/test";
+import { _electron as electron, expect } from "@playwright/test";
 import electronPath from "electron";
-import { mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import assert from "node:assert/strict";
 import { startServers, root, projectsDir } from "./server";
+
 const built = process.argv.includes("--built");
-const servers = await startServers(built, 1000);
-const env: Record<string, string> = {};
-for (const [k, v] of Object.entries(process.env))
-  if (v !== undefined && k !== "ELECTRON_RUN_AS_NODE") env[k] = v;
+const id = `golden-starter-${Date.now()}`;
+const projectPath = path.join(projectsDir, id);
+const servers = await startServers(built, 10);
+const env = Object.fromEntries(
+  Object.entries(process.env).filter(
+    ([key, value]) => value !== undefined && key !== "ELECTRON_RUN_AS_NODE",
+  ),
+) as Record<string, string>;
 env.STUDIO_URL = servers.url;
+
 let app: Awaited<ReturnType<typeof electron.launch>> | undefined;
-const fixture = path.join(projectsDir, "smoke-fixture");
-let fixtureOwned = false;
 try {
   app = await electron.launch({
     executablePath: electronPath as unknown as string,
     args: [path.join(root, "apps/desktop/electron/main.cjs")],
     env,
-    timeout: 60000,
   });
   const page = await app.firstWindow();
-  page.on("pageerror", (e) => console.error("PAGE ERROR", e.message));
-  page.on("console", (m) => {
-    if (m.type() === "error") console.error("CONSOLE", m.text());
+  page.setDefaultTimeout(20_000);
+  await page.evaluate(() => {
+    localStorage.removeItem("motion-project");
+    for (const key of Object.keys(localStorage))
+      if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
-  await page.waitForLoadState("domcontentloaded");
-  await page.getByRole("button", { name: /First Tutorial/ }).click();
-  await page
-    .getByRole("heading", { name: "First Tutorial", exact: true })
-    .waitFor();
-  const frame = page.frameLocator("iframe");
-  await frame
-    .getByText("Great stories start with an idea.")
-    .waitFor({ timeout: 60000 })
-    .catch(async (e) => {
-      console.error(await page.locator("iframe").getAttribute("src"));
-      console.error(await page.frames()[1]?.locator("body").innerText());
-      await page.screenshot({ path: path.join(root, "out/smoke-failure.png") });
-      throw e;
-    });
-  assert.equal(
-    await page.evaluate(
-      () => typeof (window as unknown as { require: unknown }).require,
-    ),
-    "undefined",
-  );
-  await mkdir(path.join(root, "out"), { recursive: true });
-  await page.screenshot({
-    path: path.join(root, "out/studio-smoke.png"),
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: /GI GO LO/ }).click();
-  await frame.getByText(/ILLUSTRATIVE TIMING ONLY/).waitFor();
-  await page.getByRole("button", { name: "Lyrics sync", exact: true }).click();
-  await page.getByLabel("c1w1 start").waitFor();
-  await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await page.reload();
+  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible();
+  await expect(page.getByText("Create your first video project")).toBeVisible();
+
+  await page.getByRole("button", { name: "Explore capabilities" }).click();
+  await expect(page.getByRole("region", { name: "Capabilities explorer" })).toBeVisible();
+  await expect(page.locator(".capability-preview")).toBeVisible();
+  await page.getByRole("tab", { name: "Developer / AI" }).click();
+  await expect(page.getByText("Public API", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Read docs\// }).click();
+  await expect(page.getByLabel("Documentation")).toBeVisible();
+  await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
+
   if (built) {
-    await frame.getByText(/ILLUSTRATIVE TIMING ONLY/).waitFor();
-    await page.reload();
-    await page
-      .getByRole("heading", { name: "GI GO LO", exact: true })
-      .waitFor();
-    await page.getByRole("button", { name: /First Tutorial/ }).click();
-    console.log(
-      "PASS: built Electron previews, switching, lyrics and selection persistence.",
-    );
+    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Create Project" })).toBeDisabled();
+    console.log("PASS built: empty starter, capability metadata, real preview and docs.");
   } else {
-    await mkdir(fixture);
-    fixtureOwned = true;
-    await writeFile(
-      path.join(fixture, "Composition.tsx"),
-      `export default function Video(){return <h1>Discovered independently</h1>}`,
-    );
-    await writeFile(
-      path.join(fixture, "project.json"),
-      JSON.stringify({
-        id: "smoke-fixture",
-        name: "Smoke Fixture",
-        type: "custom",
-        width: 1280,
-        height: 720,
-        fps: 30,
-        durationInFrames: 90,
-        entry: "Composition.tsx",
-        sdkVersion: "0.1.0",
-      }),
-    );
-    await page
-      .getByRole("button", { name: /Smoke Fixture/ })
-      .click({ timeout: 20000 });
-    await frame
-      .getByText("Discovered independently")
-      .waitFor({ timeout: 30000 });
-    await writeFile(
-      path.join(fixture, "Composition.tsx"),
-      `export default function Video(){return <h1>Live edit applied</h1>}`,
-    );
-    await frame.getByText("Live edit applied").waitFor({ timeout: 30000 });
-    await writeFile(
-      path.join(fixture, "Composition.tsx"),
-      "export default function Broken( {",
-    );
-    await frame.getByRole("alert").waitFor({ timeout: 30000 });
-    await page.getByRole("button", { name: /First Tutorial/ }).click();
-    await frame
-      .getByText("Great stories start with an idea.")
-      .waitFor({ timeout: 30000 });
-    await writeFile(
-      path.join(fixture, "Composition.tsx"),
-      `export default function Video(){return <h1>Recovered composition</h1>}`,
-    );
-    await page.getByRole("button", { name: /Smoke Fixture/ }).click();
-    await frame.getByText("Recovered composition").waitFor({ timeout: 30000 });
-    await writeFile(
-      path.join(fixture, "Composition.tsx"),
-      `export default function Video(){throw new Error('Intentional runtime failure');return null}`,
-    );
-    await frame.getByRole("alert").waitFor({ timeout: 30000 });
-    await page.getByRole("button", { name: /First Tutorial/ }).click();
-    await frame
-      .getByText("Great stories start with an idea.")
-      .waitFor({ timeout: 30000 });
-    console.log(
-      "PASS: Electron launch, player, switching, lyrics, discovery, live edit, compile/runtime isolation, recovery, Node disabled.",
-    );
+    await page.getByRole("button", { name: "Preview", exact: true }).click();
+    await page.getByRole("button", { name: "Create Project" }).click();
+    await page.getByLabel("Project name").fill(id);
+    await page.getByRole("button", { name: "Create project", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
+    await page.getByRole("button", { name: "Add subtitle" }).click();
+    await expect(page.getByRole("button", { name: /^Clip subtitle-/ })).toBeVisible();
+    await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
+    const preview = page.frameLocator("iframe");
+    await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Save project", exact: true }).click();
+    await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
+    const saved = JSON.parse(await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"));
+    expect(saved.clips).toHaveLength(1);
+    expect(saved.clips[0].content.text).toBe("Human edited caption");
+    expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual(["Visuals", "Captions"]);
+    console.log("PASS development: clean starter, Explorer, project creation, editable subtitle and disk save.");
   }
+} catch (error) {
+  if (app) {
+    const page = await app.firstWindow().catch(() => undefined);
+    if (page) console.error("UI:", await page.locator("body").innerText().catch(() => "unavailable"));
+  }
+  throw error;
 } finally {
-  await app?.close();
+  await app?.close().catch(() => undefined);
   await servers.close();
-  // This fixed test-only folder is created above exclusively; never remove user projects.
-  if (
-    fixtureOwned &&
-    (
-      await readFile(path.join(fixture, "project.json"), "utf8").catch(() => "")
-    ).includes('"id":"smoke-fixture"')
-  )
-    await rm(fixture, { recursive: true, force: true });
+  if (!built) await rm(projectPath, { recursive: true, force: true });
 }

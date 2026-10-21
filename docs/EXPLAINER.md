@@ -1,12 +1,12 @@
 # Explainer workflow
 
-Input contract: script, optional narration and measured timestamps, requested style, dimensions/fps, and media assets. No AI provider API is embedded. An external agent interprets these inputs and writes code inside one project.
+Input contract: script, optional narration and measured timestamps, desired visual approach, dimensions/FPS and local media. No AI provider API is embedded; a human or external coding agent writes the composition inside a single project.
 
-1. Read script and identify a small set of ideas.
-2. Write storyboard entries with purpose, start frame, duration and selected registry components.
-3. Use measured narration timestamps where supplied; otherwise label durations as editorial estimates.
-4. Create scenes with `Scene` and stable SDK imports.
-5. Import local narration with `@motion/audio` when available.
-6. Preview, revise composition files, inspect transitions and render on request.
+1. Read the script and identify the visual beats.
+2. Draft a storyboard with scene purpose, explicit frame ranges and the capabilities to reuse.
+3. Use measured narration timestamps where supplied; otherwise label timing as an editorial estimate.
+4. Compose scenes with the stable SDK imports and a project-owned `Composition.tsx`.
+5. Import local narration from the project when available.
+6. Preview, inspect transitions at exact frames and render when requested.
 
-`projects/first-tutorial/storyboard.json` is a concrete input/output example with three 180-frame scenes. Its title scene, conversation and toolkit summary demonstrate six shared animations. It has no narration and makes no claim of speech synchronization. Timing conversion is `Math.round(seconds * fps)`. Keep source seconds in synchronization files and frame ranges in the storyboard.
+Use `examples/capabilities/` for short API demonstrations. It contains no complete story or user project. Timing conversion is `Math.round(seconds * fps)`; keep source synchronization in seconds and rendered clip boundaries in integer frames.
