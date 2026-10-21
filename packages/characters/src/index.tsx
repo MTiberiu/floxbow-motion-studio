@@ -14,6 +14,11 @@ export const mascotFields:EditableField[]=[
   {key:'motion',label:'Movement',target:'props',type:'select',default:'idle',options:['idle','walk','jump','dance','spin','wave']},
   {key:'color',label:'Body',target:'props',type:'color',default:'#76d4ec'},
   {key:'accent',label:'Accent',target:'props',type:'color',default:'#f8c86d'},
+  {key:'startX',label:'Start X (%)',target:'props',type:'number',default:50,min:-40,max:140,step:1},
+  {key:'endX',label:'End X (%)',target:'props',type:'number',default:50,min:-40,max:140,step:1},
+  {key:'startY',label:'Start Y (%)',target:'props',type:'number',default:58,min:-40,max:140,step:1},
+  {key:'endY',label:'End Y (%)',target:'props',type:'number',default:58,min:-40,max:140,step:1},
+  {key:'easing',label:'Path easing',target:'props',type:'select',default:'linear',options:['linear','ease-in-out']},
   {key:'x',label:'X (%)',target:'props',type:'number',default:50,min:5,max:95,step:1},
   {key:'y',label:'Y (%)',target:'props',type:'number',default:58,min:10,max:90,step:1},
   {key:'scale',label:'Size',target:'props',type:'number',default:1,min:0.4,max:2,step:0.05},
@@ -30,6 +35,10 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const absoluteFrame=clip.from+localFrame;
   const speech=timeline&&props.speechClipId?speechAtFrame(timeline,props.speechClipId,absoluteFrame):{speaking:false,text:'',word:'',wordTimed:false};
   const t=localFrame/fps*props.speed;
+  const progress=Math.max(0,Math.min(1,localFrame/Math.max(1,clip.durationInFrames-1)));
+  const eased=props.easing==='ease-in-out'?progress*progress*(3-2*progress):progress;
+  const positionX=(props.startX??props.x)+((props.endX??props.x)-(props.startX??props.x))*eased;
+  const positionY=(props.startY??props.y)+((props.endY??props.y)-(props.startY??props.y))*eased;
   const phase=t*Math.PI*2;
   const step=Math.sin(phase*2);
   const dance=props.motion==='dance';
@@ -46,7 +55,7 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const shadowScale=1-Math.min(bounce/200,0.38);
   return <AbsoluteFill style={{pointerEvents:'none'}}>
     <div data-mascot-id={clip.id} data-motion={props.motion} data-speaking={!!speech.speaking}
-      style={{position:'absolute',left:props.x+'%',top:props.y+'%',width:320,height:390,transform:'translate(-50%,-50%) scale('+props.scale+') rotateY('+spinDegrees+'deg)'}}>
+      style={{position:'absolute',left:positionX+'%',top:positionY+'%',width:320,height:390,transform:'translate(-50%,-50%) scale('+props.scale+') rotateY('+spinDegrees+'deg)'}}>
       <svg viewBox="0 0 320 390" width="320" height="390" aria-label="Animated cartoon mascot" role="img">
         <ellipse cx="160" cy="352" rx={76*shadowScale} ry={15*shadowScale} fill="#091a33" opacity=".22"/>
         <g transform={`translate(0 ${-bounce}) rotate(${tilt} 160 210)`}>
