@@ -363,6 +363,7 @@ function App() {
             {state?.projects.map((p, i) => (
               <button
                 className={`project ${p.id === selected ? "active" : ""}`}
+                data-project-id={p.id}
                 onClick={() => select(p.id)}
                 key={p.id}
               >
@@ -458,6 +459,7 @@ function App() {
               previewOrigin={state.previewOrigin}
               built={state.built}
               reload={reload}
+              requestPreviewReload={() => setReload((current) => current + 1)}
             />
           ) : (
             <p>Discovering projects…</p>

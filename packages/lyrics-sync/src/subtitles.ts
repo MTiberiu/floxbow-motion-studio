@@ -1,9 +1,57 @@
 import {z} from 'zod';
-import type {TimelineClip,EditTimeline} from '@motion/sdk/timeline';
+import {clipSchema,type TimelineClip,type EditTimeline} from '@motion/sdk/timeline';
 import {parseTimeline} from './index';
 const word=z.object({id:z.string(),text:z.string(),start:z.number().finite(),end:z.number().finite()}).refine(w=>w.end>w.start,'Word end must follow start');
 export const subtitleContentSchema=z.object({text:z.string().max(20000),section:z.string().optional(),repeatOf:z.string().optional(),status:z.enum(['demo','unverified','reviewed']).default('unverified'),words:z.array(word).optional()});
 export type SubtitleContent=z.infer<typeof subtitleContentSchema>;
+/** Correct visible words without changing segment boundaries or word timing. */
+export function correctSubtitleText(
+  content: SubtitleContent,
+  text: string,
+): SubtitleContent {
+  const current = subtitleContentSchema.parse(content);
+  const next = { ...current, text };
+  if (current.status !== "demo") next.status = "unverified";
+  if (current.words) {
+    const tokens = text.trim().match(/\S+/g) ?? [];
+    if (
+      subtitleWordTimingMatchesText(current) &&
+      tokens.length === current.words.length
+    )
+      next.words = current.words.map((word, index) => ({
+        ...word,
+        text: tokens[index],
+      }));
+  }
+  return subtitleContentSchema.parse(next);
+}
+export function subtitleWordTimingMatchesText(
+  content: SubtitleContent,
+): boolean {
+  if (!content.words?.length) return false;
+  const tokens = content.text.trim().match(/\S+/g) ?? [];
+  return (
+    tokens.length === content.words.length &&
+    tokens.every((token, index) => token === content.words![index].text)
+  );
+}
+/** Construct a validated frame-based subtitle clip for the project's edit timeline. */
+export function createSubtitleClip(input: {
+  id: string;
+  trackId: string;
+  from: number;
+  durationInFrames: number;
+  content: SubtitleContent;
+  props?: TimelineClip["props"];
+}): TimelineClip {
+  return clipSchema.parse({
+    label: input.content.section ?? "Subtitle",
+    componentId: "subtitles",
+    props: {},
+    ...input,
+    content: subtitleContentSchema.parse(input.content),
+  });
+}
 const segment=z.object({id:z.string().min(1),start:z.number().finite().nonnegative(),end:z.number().finite().positive(),content:subtitleContentSchema}).refine(s=>s.end>s.start,'Segment end must follow start');
 export const subtitleTimingSchema=z.object({version:z.literal(1),units:z.literal('seconds'),segments:z.array(segment).max(3000)}).superRefine((t,ctx)=>{if(new Set(t.segments.map(s=>s.id)).size!==t.segments.length)ctx.addIssue({code:'custom',message:'Duplicate segment IDs'});});
 export type SubtitleTiming=z.infer<typeof subtitleTimingSchema>;
