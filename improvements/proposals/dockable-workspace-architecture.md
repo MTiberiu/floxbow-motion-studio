@@ -1,177 +1,202 @@
 # Proposal: Dockable Workspace Panels
 
-Status: proposed, not approved
+Status: proposed, revised for review
 
 ## Problem
 
-The editor currently places its timeline inside the main workspace and switches Media, Lyrics Sync, Preview, and Capabilities by replacing the active view. Users need a reusable way to hide, reopen, detach, and reattach editor panels. Detaching must create a native desktop window for a second monitor while keeping one project session and one authoritative editor state.
+FloxBow currently switches Preview, Media, Lyrics Sync, and Capabilities in a single workspace view, while the timeline and inspector are embedded in the Preview editor. Users need one shell-managed mechanism for moving panels among workspace areas, grouping them as tabs, hiding and reopening them, and detaching them into native windows. Canvas/Preview must be movable too, so portrait projects can place it in a taller right-side area.
 
-This proposal describes a shared panel shell and lifecycle. It does not add a dynamic module or plugin loader.
+This proposal defines shared layout and window infrastructure. Modules supply panel content and sizing metadata; they do not implement their own docking, window, close, maximize, or persistence mechanisms. No dynamic plugin loader or external docking framework is proposed.
 
 ## Current architecture findings
 
-- `apps/desktop/electron/main.cjs` creates one `BrowserWindow`. It enables sandboxing, context isolation, web security, disables Node integration, denies permissions, popups, navigation, and webviews. There is no preload or IPC API today. `window-all-closed` quits the application.
-- `apps/desktop/src/main.tsx` owns project selection and the top-level Preview, Media, Lyrics Sync, and Capabilities views. It persists selected project and left-browser width in local storage. The current view is conditionally rendered, so switching away from Preview unmounts `TimelineEditor`.
-- `TimelineEditor` currently owns the timeline document, revision hash, dirty/conflict state, save/reload flow, undo/redo history, selection, playback frame, and communication with the preview iframe. It also renders both the preview/inspector area and the bottom timeline. The frame and document bridge is `motion-editor-v1` and validates iframe source, origin, channel, and project ID.
-- Timeline persistence is performed by the shell through `/api/edit/:projectId`. `scripts/editor-store.ts` validates the timeline, compares the disk revision, writes a temporary file, checks the revision again, and atomically replaces the project JSON. `TimelineEditor` polls the disk revision every 1.8 seconds; a changed disk revision blocks stale saves when there is a dirty draft.
-- `MediaPanel` fetches its project registry every 1.8 seconds and sends revision-bearing add/remove requests to the shell host. It does not edit the timeline. `Lyrics` owns transient local timing state, fetches its project data when mounted, and exports downloads; the UI says edits stay in the panel until exported.
-- `scripts/server.ts` exposes the shell HTTP API and keeps the existing Vite project watcher and project-state polling contract. Those watcher/polling mechanisms need not change for docking.
-- `docs/MODULE_INTEGRATION_BLUEPRINT.md` describes explicit component registration and serializable preview metadata. It rejects arbitrary executable plugin loading. There is no shared panel registration, panel lifecycle, or cross-window session contract yet.
+- `apps/desktop/electron/main.cjs` creates one `BrowserWindow`. It enables sandboxing, context isolation and web security; disables Node integration; denies permissions, popups, navigation and webviews; and has no preload or IPC API. `window-all-closed` quits the application.
+- `apps/desktop/src/main.tsx` owns project selection and the top-level Preview, Media, Lyrics Sync, and Capabilities views. It conditionally renders the selected view, so switching away from Preview unmounts `TimelineEditor`.
+- `TimelineEditor` owns the timeline document, revision hash, dirty/conflict state, save/reload flow, undo/redo history, selection, playback frame, and the preview iframe bridge. It renders the preview, inspector, and bottom timeline together. The iframe uses `motion-editor-v1` messages checked against source, origin, channel, and project ID.
+- Timeline persistence goes through `/api/edit/:projectId`. `scripts/editor-store.ts` validates data, compares the disk revision, writes a temporary file, checks the revision again, and atomically replaces the project JSON. `TimelineEditor` polls the disk revision every 1.8 seconds; a change blocks stale saves when a draft is dirty.
+- `MediaPanel` polls its project registry every 1.8 seconds and sends revision-bearing add/remove requests to the shell host. `Lyrics` owns transient timing state in its component, fetches on mount, and exports downloads; its UI says edits stay in the panel until exported.
+- `scripts/server.ts` exposes the shell HTTP API and current Vite project watcher. Docking does not require changing the project watcher or existing polling intervals.
+- `docs/MODULE_INTEGRATION_BLUEPRINT.md` describes explicit component registration and serializable preview metadata; there is no panel registry, `WorkspaceManager`, dock layout or cross-window session contract.
 
 ## Proposed improvement
 
-Use a separate Electron `BrowserWindow` for a detached panel, coordinated by a small allow-listed panel lifecycle API. Keep the primary renderer as the sole owner of the active project/editor session. A detached window renders a panel view and sends user-intent commands to that owner; it never creates a second `TimelineEditor`, independently loads an edit document, or calls the timeline save path.
+Introduce a universal shell-owned `DockablePanel` container and a `WorkspaceManager` for every supported editor panel, including Canvas/Preview. The manager owns each panel's current placement, lifecycle state, and return location. The common container provides title bar, Drag & Dock, Detach, Attach, Close/Hide/Reopen, resizing, and detached-window controls. Individual modules render only their UI content inside the container and declare metadata such as title, default location, fallback location, minimum size, preferred size, and internal overflow behavior.
 
-The main process owns native window creation, the one-window-per-panel rule, and lifecycle transitions. The primary React application owns the active project and editor data. The detached renderer owns only its visible panel presentation and disposable view details such as scroll position. The main process relays validated snapshots and commands; it does not become a second timeline store.
+Keep the panel registry static and application-owned. Registration selects code already bundled with FloxBow; project data cannot provide a renderer, route, IPC handler, or executable extension. No new dependency is needed: the in-editor layout is shell UI, and Electron's existing `BrowserWindow` API is sufficient for native windows.
 
-### Static panel identity and registration
+### Shared panel registration and placement contract
 
-Add one static, application-owned registry for built-in panels. A registration should provide:
+The type sketch below describes a shell contract, not a persisted project schema or final API naming:
 
 ```ts
-type PanelId = "timeline" | "media" | "lyrics" | "inspector";
-type PanelRegistration = {
-  id: PanelId;              // stable protocol identity
-  title: string;            // shared title bar label
-  dockSlot: "bottom" | "center" | "right";
-  // renderer and supported actions are statically imported by the shell
+type PanelId = "canvas" | "timeline" | "media" | "lyrics" | "inspector";
+type DockArea = "left" | "right" | "center" | "bottom";
+type DockEdge = "left" | "right" | "top" | "bottom";
+type DockLocation = {
+  area: DockArea;
+  groupId: string;
+  tabIndex: number;
 };
-type PanelLifecycle = "docked" | "detached" | "hidden";
+type PanelSize = { width: number; height: number };
+type PanelRegistration = {
+  id: PanelId;
+  title: string;
+  defaultLocation: DockLocation;
+  fallbackLocation: DockLocation;
+  minSize: PanelSize;
+  preferredSize: PanelSize;
+  overflow: "panel-scroll" | "content-managed";
+  // UI content is statically registered in the Editor Shell.
+};
+type PanelPlacement = {
+  panelId: PanelId;
+  lifecycle: "docked" | "detached" | "hidden";
+  currentLocation?: DockLocation;
+  homeLocation: DockLocation;
+  detachedWindowId?: string;
+};
 ```
 
-The first registry only needs Timeline. Later built-in registrations can add Media, Lyrics, and Inspector. Registration selects code already bundled with the desktop application; project data and preview metadata cannot provide a renderer, IPC channel, or executable behavior. Reject duplicate/unknown IDs rather than loading them dynamically.
+`defaultLocation` seeds a panel's first placement in a new workspace. `homeLocation` is the panel's last actual docking area, group, and tab position. `fallbackLocation` is the safe registered placement used when a remembered group no longer exists. These are distinct values: defaults do not overwrite a user's later docking choice, and attaching does not blindly return a moved panel to its first-run position.
 
-Each panel uses the same title bar and lifecycle controls. In a docked panel, **Detach** moves it into its native window and **Close** hides it. A shell **View** menu or equivalent reopens hidden panels. In a detached panel, **Attach** returns it to its registered dock slot. Closing the detached native window also attaches it back by default. The panel stays visible in exactly one place; the old dock slot shows a small “Timeline is detached” placeholder with an Attach action.
+`WorkspaceManager` in the primary shell owns `PanelPlacement` and layout changes. When a docked panel is moved, the manager updates its `currentLocation` and `homeLocation`. Detaching records that exact current location into `homeLocation` before switching lifecycle to `detached`. Attach or native close restores the saved group and clamps the tab index to its current bounds. If that group no longer exists, use `fallbackLocation`, then update `homeLocation` to the location actually restored. Closing a docked panel changes lifecycle to `hidden` but retains its `homeLocation`; reopening uses that location or the fallback.
 
-Lifecycle transitions:
+### Minimal in-editor docking model
 
-```text
-             Detach
-     docked -----------> detached
-       ^                    |
-       | Attach / window X  | Close window
-       +--------------------+
-       |
-       | Close (hide)       | View > Timeline
-       v                    v
-     hidden <------------ docked
-```
+The initial layout has four named regions: left, right, center, and bottom. Each region contains a tab group; a tab group may have more than one panel, with one active panel body at a time. The main workspace uses resizable split boundaries between regions. Canvas/Preview is an ordinary registered panel whose first-run location is center; it may be dropped into the right area to provide more vertical room for 9:16 content.
 
-The explicit detached **Close** control should follow the native-window-close rule and attach the panel, rather than silently hide it. Hiding is available from the main docked panel. Docked/detached/hidden is shell layout state; it is not project data.
+Dragging begins on the shared title-bar handle, not on buttons or editable panel content. During a drag, the shell shows targets for:
 
-### Window ownership and multi-monitor behavior
+- **Tab drop:** the center of a tab group adds the panel at the indicated tab index and activates it.
+- **Area drop:** a named left, right, center, or bottom target moves the panel into that region's tab group.
+- **Split drop:** the edge of a group creates an adjacent split in that direction. Left/right drops place groups side by side with a vertical divider; top/bottom drops stack groups with a horizontal divider. The group's region identity remains with that layout branch.
+- **Resize:** dragging a visible split boundary adjusts adjacent area/group sizes, respecting registered minimum sizes. Tab strips do not resize panels independently.
 
-The primary window remains the application/session owner. The main process keeps a map from the registered `PanelId` to at most one detached `BrowserWindow`, plus the owning primary window. It creates a child window only in response to a validated request for a registered panel. The child loads a fixed local shell route for that panel; it never loads a project composition, arbitrary URL, or project-supplied module.
+Keep the first layout model small: four base regions, tab groups, and simple split nodes with bounded ratios. A `WorkspaceManager` layout tree may describe those groups/splits, but the initial UI should not attempt arbitrary nesting/reparenting, floating layouts inside the main window, auto-hide drawers, or a complete CAD-style docking framework. Hidden panels remain discoverable through the View menu. Inactive tabs do not mount a second live editor for the same panel.
 
-The child is a real top-level `BrowserWindow`, so the operating system can move it to any connected monitor. On detach, place it on the display nearest the pointer (or the primary display) and constrain its initial bounds to that display's work area. The user can then drag it to another monitor. If a monitor is unplugged, recover off-screen bounds to a connected display. Persisting window positions is outside the first slice.
+### Common `DockablePanel` behavior and lifecycle
 
-The main window remains alive while its panel is detached. Closing the primary window closes its detached children and follows the existing application quit behavior; a child cannot outlive or reopen an orphaned editor session.
+The common shell container wraps Canvas, Timeline, Media, Lyrics, Inspector, and future built-in panel bodies. Its title bar provides a consistent drag handle and lifecycle controls. Docked panels expose Detach and Close (Close hides). A View menu reopens hidden panels. The dock slot shows a placeholder while its panel is detached, with an Attach action.
 
-### Cross-window state and command synchronization
+Lifecycle behavior:
 
-The primary renderer owns one `EditorSession` per active project. For the initial Timeline slice, lift the relevant state currently held by `TimelineEditor` into a root-level session owner that remains mounted when the Timeline panel is detached or hidden and when the user visits another top-level view. Switching the selected project replaces the active session and invalidates messages from the prior session.
+| Current state | Action                                          | Result                                                                 |
+| ------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
+| Docked        | Drag & Dock                                     | Docked at the drop target; update `homeLocation`.                      |
+| Docked        | Detach                                          | Detached native window; save exact current location as `homeLocation`. |
+| Docked        | Close                                           | Hidden; keep location and panel/session data.                          |
+| Hidden        | View > panel                                    | Docked at `homeLocation`; use fallback if needed.                      |
+| Detached      | Attach                                          | Docked at `homeLocation`; use fallback if needed.                      |
+| Detached      | Native window close (including title-bar Close) | Attach to the main editor by default; use fallback if needed.          |
 
-The detached Timeline window is a remote view of this owner:
+The explicit detached **Attach** control and native **Close** control therefore both restore the panel to its saved dock position. To hide a detached panel, the user first attaches it, then uses the docked Close control. Lifecycle state is workspace state, never project content.
 
-1. On ready, it registers its `panelId`, native window identity, and session handshake with the main process.
-2. The primary renderer sends the current serializable snapshot: `projectId`, opaque `sessionId`, monotonically increasing in-memory `stateVersion`, timeline, selected clip, playhead frame, playback state, and the panel metadata needed to label tracks/actions.
-3. The detached panel renders that snapshot and sends commands such as select clip, seek, move/resize clip, duplicate/delete, add track, and supported timeline edits. It does not mutate an independent document.
-4. The primary session validates and applies each command once, updates the same preview iframe, dirty/undo state and inspector, and broadcasts the resulting authoritative snapshot to the detached panel.
-5. Commands carry a unique `commandId`, `panelId`, `projectId`, `sessionId`, and last-seen `stateVersion`. The owner rejects stale or mismatched commands and returns a current snapshot. A project switch or owner shutdown makes the previous session ID invalid.
+### Detached native windows and monitors
 
-The preview iframe stays in the primary window and remains the playback source. Timeline seeks from the detached view go to the primary session, which uses the existing `motion-editor-v1` frame messages. Player frame reports from the primary are broadcast back to the detached playhead. Selection and edits use the same direction: detached intent to primary owner, authoritative state back to both views. The inspector and canvas remain in the primary window in the first slice and reflect selection changes made in the detached Timeline.
+Native detachment is a later phase, but it uses the same registration, `DockablePanel`, `WorkspaceManager` state, and panel identity as in-editor docking. The Electron main process owns physical `BrowserWindow` handles and at most one detached window per panel ID; it does not own or duplicate project documents. A child loads a fixed local shell route for the registered panel, not a composition or arbitrary project module.
 
-For transport, prefer narrow `contextBridge` methods in a new sandboxed preload and allow-listed `ipcMain`/`ipcRenderer` messages. Use structured serializable payloads and explicit schemas; do not expose raw `ipcRenderer`, filesystem, or generic invoke methods. The main process routes messages between the known primary and panel windows but stores no project document. Keep the editor command reducer/store in the primary renderer so timeline behavior and future editing semantics execute in one place.
+Detached panels support native movement between monitors, free resizing, maximize/restore, real fullscreen, Attach, and Close. Maximize and fullscreen are distinct window states. Initial bounds should be placed on the display nearest the pointer (or primary display) and constrained to its work area. If a monitor disappears, recover the window to a connected display. Window positions and dimensions are not persisted in this proposal's implementation scope.
 
-Do not use `localStorage` as a live synchronization protocol. The windows share an origin and may see the same storage, but storage provides neither ordered commands nor single-writer ownership. Similarly, creating a second full shell/editor and relying on disk revision conflicts would only detect a race after the fact; it would not preserve one live selection, undo history, or playback session.
+Closing the primary window closes its detached children and follows the current quit behavior; no panel window may outlive or reopen an orphaned editor session. Native close of a child notifies `WorkspaceManager`, which restores the panel in its home location.
 
-### Persistence and revision conflicts
+### One authoritative editor session and cross-window synchronization
 
-Only the primary `EditorSession` reads and writes `/api/edit/:projectId`, owns the current disk revision, keeps the draft and undo/redo history, and handles Save/Reload. Saving remains the existing revision-checked atomic operation in `scripts/editor-store.ts`; no child window calls `saveEditor` or independently writes `edit-timeline.json`. The existing disk revision poll remains in this owner and is not duplicated by the detached panel. A conflict remains visible in the main editor; the detached timeline can display a read-only conflict status but cannot overwrite or clear the owner's draft.
+The primary renderer owns one `EditorSession` per active project. For native Timeline detachment, lift timeline document, disk revision, dirty/conflict state, draft, undo/redo, selection, playhead, playback state, and preview messages into an owner that stays mounted when panels are hidden or detached and when top-level views change. Switching projects replaces the session and invalidates commands from the previous session.
 
-Detaching, attaching, hiding, or reopening a panel must not reset `EditorSession`, clear local draft storage, reload from disk, or create another save owner. Project switches continue to use the existing per-project draft and revision rules. Media Registry changes continue through their existing host endpoints and revision checks; they are separate data from timeline saves. Lyrics currently holds transient timing data in component state, so before detaching Lyrics in a later slice its in-memory state must be lifted into the same session owner or transferred through an explicit serializable panel-state adapter. A remount must not discard unexported lyric edits.
+The detached Timeline window is a controlled view, not a second editor. It receives serializable snapshots and sends user-intent commands to the primary owner. A command includes `panelId`, `projectId`, `sessionId`, `commandId`, and last-seen `stateVersion`; the owner validates and applies it once, then publishes the authoritative result. A stale or mismatched command is rejected with a current snapshot. Timeline selection, drag/trim, edits, undo/redo, and playhead actions all pass through the same session and update the same main preview and inspector. Player frame reports from the existing preview iframe update the detached playhead.
+
+For transport, use narrowly scoped methods in a sandboxed preload and validated IPC routing. The primary renderer/`WorkspaceManager` is the authority for panel placement and editor data; Electron main maps the known native window to a registered `panelId`, forwards lifecycle and snapshot/command messages, and holds no project document. Do not expose raw `ipcRenderer`, filesystem access, generic invoke methods, or project-provided executable handlers. Do not use `localStorage` as a live event bus; shared-origin storage does not provide command ordering or a single writer.
+
+### Persistence, conflicts, and workspace layout state
+
+Only the primary `EditorSession` reads or writes `/api/edit/:projectId`, owns the revision hash, persists/restores the unsaved draft, maintains undo/redo, and handles Save/Reload. The detached panel never independently loads an edit document or writes `edit-timeline.json`. Retain the existing revision-checked atomic save procedure and the existing disk-revision poll in the one owner. External changes while a dirty draft exists continue to block stale saving; the detached view may show the conflict read-only but cannot clear it or overwrite the draft.
+
+Detaching, attaching, hiding, tab switching, and reopening must not reset the project session or discard panel state. Media Registry mutation remains on its existing host routes and revision checks; it is not another timeline save path. Lyrics currently keeps unexported edits in component state, so it cannot be detached safely until that state is owned by the shell session or an explicit serializable panel-state adapter.
+
+Later, `WorkspaceManager` may serialize a versioned workspace layout containing panel placements, group/tab order, split ratios, visibility, and detached window geometry. Store it as user/workspace preference state outside `projects/<id>/`; never put it in the project timeline or Media Registry. Restore invalid/stale group IDs via each panel's fallback location and clamp saved sizes/bounds to current displays. Layout persistence is explicitly out of scope for this architecture-only proposal and the initial implementation slices.
+
+### Responsive panel sizing contract
+
+Every registration declares `minSize`, `preferredSize`, and an overflow policy. The container enforces available geometry, split bounds, title-bar space, and scroll clipping; module content is responsible for responsive internals. Content roots use shrinkable layout constraints (`min-width: 0`, `min-height: 0`) so a child cannot expand the workspace past its assigned area.
+
+- **Canvas/Preview:** contain the composition at its declared aspect ratio (including 9:16), letterbox as needed, and allow canvas navigation without stretching the video.
+- **Timeline:** adapt labels and controls to the panel width and use internal horizontal/vertical scrolling for tracks and the time range.
+- **Inspector:** keep fields usable through a single scroll region and reorganize control columns at narrower widths.
+- **Media/Lyrics:** wrap metadata/actions where useful and scroll long asset or word lists within the panel.
+
+Do not shrink a dock group below the maximum minimum size of its active tab. If the workspace cannot satisfy all minima, prioritize the active group, allow inactive tabs to remain selectable, and scroll panel contents; never allow content to paint over an adjacent group. Detached `BrowserWindow` minimum size must include the panel's declared minimum plus common title-bar/chrome dimensions. Exact per-panel pixel values should be chosen during implementation from rendered UI evidence, not invented here.
 
 ## Alternatives
 
-| Option | Advantages | Limitations | Decision |
-| --- | --- | --- | --- |
-| Separate Electron `BrowserWindow` with a primary-owned session and narrow IPC | Creates a real OS window that can move between monitors; permits native close/attach lifecycle; commands and state have one explicit owner. | Requires a small reviewed preload/IPC surface and a panel view/command refactor. | Recommended for the requested feature. |
-| Existing-window routing or shell-managed tabs/visibility | Reuses the current one-window security model; simplest way to hide, reopen, or rearrange views. | Cannot move a panel onto another monitor as a separate OS window. | Useful for the View menu and docking controls, but not sufficient for detaching. |
-| DOM drag-out or opening a second full editor | Superficially simple in UI code. | DOM dragging does not create an OS window; popups are currently denied. A second editor would duplicate document, selection, undo, preview and save owners, making synchronization and conflict races likely. | Reject. |
+| Option                                                                                                         | Advantages                                                                                                                                            | Limitations                                                                                                                                              | Decision                                                                 |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Shell-owned `WorkspaceManager` plus universal `DockablePanel`, then Electron `BrowserWindow` for native detach | One reusable path for internal docking and native windows; exact home/fallback locations; one project/session/save owner; supports multiple monitors. | Requires a panel layout refactor, responsive content work, and a small reviewed preload/IPC surface for native windows.                                  | Recommended, phased.                                                     |
+| Existing-window tabs and visibility only                                                                       | Reuses the current single-window security model and is the smallest way to hide/reopen panels.                                                        | Cannot move Canvas or another panel into a second operating-system window/monitor; no in-editor region/tab docking by itself.                            | Useful as the first lifecycle foundation, insufficient as the end state. |
+| Second full editor window or independent module-specific detach code                                           | Could reuse current full editor quickly for one panel.                                                                                                | Creates duplicate session/save owners or repeated bespoke window logic; breaks the universal container and increases synchronization/conflict risk.      | Reject.                                                                  |
+| DOM drag-out or external docking framework                                                                     | Might offer prebuilt interactions.                                                                                                                    | DOM dragging does not create an OS window; current Electron denies popups. A framework adds dependency and layout complexity before a demonstrated need. | Reject for this scope.                                                   |
 
-No new dependency is needed. The existing Electron `BrowserWindow` API supplies native windows; the shared docking behavior remains shell infrastructure, not a per-module window implementation.
+## Revised implementation sequence
 
-## Recommended smallest implementation slice: Timeline only
+Each item is a separate, reviewable implementation PR. Review and approve this architecture before starting implementation.
 
-1. Add the static panel identity/registration contract and shared title bar/lifecycle controller for one built-in `timeline` panel.
-2. Add a fixed detached-panel route and a minimal sandboxed preload exposing only lifecycle and typed session-message methods. Keep popup and navigation denial in place.
-3. Extract an `EditorSession` owner that stays mounted in the primary shell and owns timeline state, revision, draft, history, selected clip, frame, player messages, and the sole save/reload functions.
-4. Extract the timeline rendering surface as a controlled panel: it receives snapshots and emits commands; it contains no independent persistence or edit document.
-5. Add explicit docked/detached/hidden transitions, an attach placeholder, the View reopen action, and the rule that closing a detached window re-docks it.
-6. Retain the main preview and inspector in the primary window. Validate each routed timeline command in the owner and use existing timeline behavior dispatch there; never reimplement edit semantics in the child window.
-7. Leave Media, Lyrics Sync, Inspector detachment, timeline core/contracts, Media Registry logic, and all existing watcher/polling intervals unchanged in this slice.
-
-Do not implement multi-panel dragging, free-form docking layouts, saved monitor geometry, arbitrary floating project windows, or runtime module installation as part of this first slice.
-
-## Extension path
-
-- **Media:** register the existing panel with the same title bar, identity and lifecycle API. Keep media registry reads/writes in the current host API and retain its revision checks. Ensure only one visible panel instance performs the current polling and mutation flow.
-- **Lyrics Sync:** first lift its transient timeline/original-lyrics/error state into the primary panel session or add a documented serializable state adapter. Continue using the existing import/export formats; do not add another writer for project files.
-- **Inspector:** use the same panel registry and lifecycle controls. Keep property edits routed to the primary `EditorSession`; it must remain synchronized with timeline selection and behavior dispatch.
-- **Future built-ins:** add a static registration entry and typed snapshot/command adapter, with one owner and one view at a time. Module registration may provide IDs and supported UI integration metadata, but may not supply executable IPC handlers, arbitrary routes, or code to install at runtime.
-
-## Security and Electron constraints
-
-- Apply the current `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, and `webSecurity: true` settings to every new window. The preload must be as small and typed as possible.
-- Continue denying permissions, webviews, popups, and navigation away from the exact shell origin. Open detached windows through a main-process request, not a project composition's `window.open` or arbitrary URL.
-- Validate `webContents` identity and expected role (primary or registered panel) for every IPC message. Validate channel, panel ID, project ID, session ID, command ID, payload schema, and reasonable payload size. The main process must not accept filesystem paths, generic URLs, or executable content from renderers.
-- Only the shell origin participates in the panel protocol. Project compositions remain in the separately sandboxed preview origin; they get no preload bridge or access to panel commands.
-- Treat the loopback server as a local boundary rather than authentication. A detached panel must use the known same-session shell route, not broaden project-file endpoints or expose host paths.
-- On child crash or unexpected renderer exit, clear the native window registration and attach the panel back if the primary is still alive. On primary close, close children and quit as today.
+1. **Universal panel container and registry:** add the static `PanelId`/registration contract, `WorkspaceManager`, shared `DockablePanel` title bar, shell-controlled content slot, docked/hidden states, View reopen, minimum/preferred sizing, and responsive overflow rules. Keep the initial four workspace areas and built-in modules statically registered. Do not add native windows or layout persistence yet.
+2. **In-editor Dock & Resize foundation:** add drag targets, tab groups, basic split areas, remembered `homeLocation`/fallback behavior, and bounded split resize. Move Canvas/Preview between center and right as the first proof of flexible layout; exercise Timeline and Inspector regions too. Limit nesting/layout complexity and keep all panels in the main window.
+3. **Single session owner and controlled panel views:** separate editor session ownership from panel mounting so hiding, tab changes, or future detach do not unmount state. Keep one timeline document/revision/draft/history/player owner and one existing save path. Add typed user-intent actions that views dispatch to that owner.
+4. **Reusable native-window bridge:** add the fixed panel route, sandboxed minimal preload, allow-listed IPC and main-process one-window-per-panel lifecycle. Implement Timeline Detach/Attach using its exact `homeLocation`; support native move/resize, maximize/restore, fullscreen, child-close reattach, and disconnected-monitor recovery. The infrastructure must accept any statically registered panel ID even though Timeline is the first detached panel.
+5. **Panel synchronization and hardening:** verify snapshots, command acknowledgements, session invalidation on project switch, owner-only save, conflict display, child crash cleanup, and secure routing. Add regression tests for one owner and no duplicate mounted panel.
+6. **Extend shared lifecycle:** enable Canvas, Media, Lyrics, and Inspector through registrations, one at a time. Before detaching any stateful panel, make its in-memory state owner explicit and prove that moving it does not lose edits. Do not duplicate polling or add new writer paths.
+7. **Workspace layout persistence:** in a separate PR, save/restore versioned user workspace layout (locations, tabs, split ratios, hidden panels, and detached geometry), handle schema migration, and recover layouts across display changes. Keep it outside project data.
 
 ## Acceptance tests
 
-1. The static registry rejects duplicate and unknown panel IDs; the detached route cannot select arbitrary files, paths, or project modules.
-2. **Detach Timeline** creates exactly one native child window. The primary dock slot shows a detached placeholder and contains no second interactive Timeline.
-3. Moving the detached window between displays works; if its display is removed, it returns to a visible work area.
-4. Select a clip and seek/drag/trim/duplicate/delete from the detached timeline. The primary inspector and preview update, and the detached panel receives the same authoritative selection/document/frame.
-5. Play in the primary preview and seek in the detached timeline; playhead state remains synchronized. Opening two detach requests for Timeline does not create two panel windows.
-6. Make an edit while detached, then Save from the primary editor. There is one write, and reopening/attaching shows the saved document. The child cannot issue an independent save or reload.
-7. Change the project in the primary window while Timeline is detached. The detached panel changes to the new session; a stale command from the old `sessionId` is rejected. The new project's existing disk revision/draft behavior remains intact.
-8. Change the project file externally while the owner has a dirty draft. The existing revision poll reports a conflict, preserves the draft, and prevents stale save even if Timeline is detached.
-9. Close the detached window with the native close control; Timeline reappears in the original bottom dock slot with state intact. Explicit Attach has the same result.
-10. Close docked Timeline; it becomes hidden without clearing data. Reopen it from View and verify selection, playhead, draft and revision state are intact.
-11. Denied popup/navigation behavior, project preview isolation, and current permission restrictions remain effective for the primary and detached windows.
-12. Existing Media, Lyrics Sync, project discovery, external-edit polling and media revision-conflict tests continue to pass without changed polling intervals.
+### In-editor container and docking
 
-## Implementation sequence
+1. All registered panels use the same `DockablePanel` title bar, drag handle, and lifecycle controls; a module supplies content/metadata only and cannot implement a second window manager.
+2. Move Canvas/Preview from center to right and confirm the exact location is reflected by `WorkspaceManager`; its composition remains undistorted at 9:16 and 16:9.
+3. Drop on a tab target and confirm one tab group with exactly one active/mounted content panel. Drop on an edge target and confirm a split in the correct direction.
+4. Resize left/right, center/right, and center/bottom boundaries. Respect the registered minima; at narrow workspace sizes, panel-local scrolling or inactive tabs remain usable without overlap.
+5. Close a docked panel, switch projects/views, and reopen it. It returns to its home tab/order and does not lose its session state.
+6. Move a panel from center to right, then detach and attach it. It returns to right, not its default center location. Remove the remembered group and verify fallback placement.
 
-1. Review and approve the panel lifecycle, single-owner rule, command boundary, and preload/IPC security surface.
-2. Add typed panel IDs, registrations, lifecycle states, detached route, and one-window-per-panel native lifecycle for Timeline.
-3. Extract the primary `EditorSession` and controlled Timeline view; keep Save/Reload, revision checks, draft restoration, undo/redo and preview ownership in the primary renderer.
-4. Add snapshot/command messages with session identity, command acknowledgements, stale-command rejection, and lifecycle cleanup.
-5. Add title bars, detach/attach/close behavior, dock placeholder, View reopen action, and multi-monitor initial positioning/recovery.
-6. Add contract, lifecycle, synchronization, persistence-conflict and security regression tests; run the existing validation suite and exercise the app on a multi-monitor setup.
-7. Add Media, Lyrics and Inspector only as separately reviewed extensions after their state/command ownership is explicit. Do not merge a module until its detach/attach path preserves its in-memory state.
+### Native detachment and authoritative session
+
+7. Detach Timeline and confirm exactly one native child window for the panel ID, an attach placeholder in its remembered slot, and only one interactive Timeline view.
+8. Move/resize the detached window between monitors; verify maximize/restore and real fullscreen. Disconnect its monitor and confirm recovery to a visible work area.
+9. Select, seek, drag, trim, duplicate, delete, undo, and redo in the detached Timeline. The primary preview and inspector reflect changes; the detached panel shows the same authoritative document, selection, and frame.
+10. Save from the primary owner once. Confirm the detached view cannot independently write or reload a project timeline and the saved revision is visible in both views.
+11. Change projects while Timeline is detached. The detached panel follows the active session; a message with the old session ID is rejected. External edits with a dirty draft retain current conflict behavior.
+12. Click Attach or close the detached native window. It returns to its exact home group/tab position. Close while docked, then reopen through View, preserving the active session.
+13. Verify current project preview isolation, popup/navigation denial, permission restrictions, Media Registry revision handling, and the existing watcher/polling intervals.
+
+## Security and Electron constraints
+
+- Apply `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, and `webSecurity: true` to every `BrowserWindow`. Use a minimal, typed `contextBridge` preload; never expose raw `ipcRenderer`, Node, filesystem, or generic invoke methods.
+- Continue denying permissions, webviews, popups, and navigation away from the exact shell origin. The shell requests a registered panel window through the main process using a `PanelId`, not a URL. The detached route is fixed and shell-owned.
+- Validate sending `webContents` identity and role, registered panel ID, channel, project ID, session ID, command ID, payload schema, and message size for IPC. The main process maps child windows to registered IDs but does not trust a renderer-supplied return location or arbitrary bounds.
+- Only the shell origin participates in panel synchronization. Project compositions stay in the separately sandboxed preview origin and receive no preload or panel command access.
+- Treat loopback servers as local development boundaries, not authentication. Do not broaden edit/media HTTP APIs or expose host file paths for docking.
+- On child crash/renderer exit, clear its native-window registration and restore the panel to its home/fallback location if the primary is alive. Closing the primary closes its children and follows existing quit behavior.
 
 ## Risks and compatibility
 
-- Extracting the current monolithic `TimelineEditor` is the largest risk. Keep the persisted timeline `version: 1`, SDK version, preview bridge protocol, project file layout, and current revision/hash write flow unchanged in the first docking slice.
-- IPC state may be stale or arrive during project switches. Session IDs, state versions, acknowledgements, and owner-only command application are required; window presence alone must never authorize a save.
-- A detached window increases memory and another renderer process. One detached Timeline window is sufficient for the first slice; avoid mounting a second player or composition.
-- The proposal assumes desktop Electron. Browser-only preview and web mode should keep the current single-window layout and omit detach controls.
-- No dependency or third-party license changes are proposed.
+- Refactoring the current monolithic `TimelineEditor` into session owner and panel content is the largest risk. Keep persisted timeline `version: 1`, SDK version, `motion-editor-v1`, project paths, and revision/hash save flow unchanged.
+- General docking can become a large layout framework. Limit the first in-editor model to named regions, tabs, simple splits, and bounded resizing; defer arbitrary nested layouts and persistence.
+- Stale cross-window commands and project switching require session IDs, state versions, acknowledgements, and owner-only command application. Window presence must not authorize a save.
+- Canvas, Timeline, Inspector, Media, and Lyrics have different minimums and responsive behavior. Let registrations describe shell-level sizes and require module content to adapt; validate using actual rendered evidence before fixing pixel values.
+- Every detached window adds renderer memory. Do not mount another player or composition to detach Timeline.
+- This applies to desktop Electron. Browser-only preview remains a single-window shell with in-editor docking and no native Detach controls.
+- No package dependency or third-party license changes are proposed.
 
 ## Evidence
 
-- `apps/desktop/electron/main.cjs`: current single-window creation and Electron security settings.
-- `apps/desktop/src/main.tsx`: top-level navigation, active project selection, and conditional panel mounting.
-- `apps/desktop/src/TimelineEditor.tsx`: current timeline/playback/save state owner, preview message bridge, draft persistence, and 1.8-second revision poll.
-- `apps/desktop/src/MediaPanel.tsx`: Media Registry UI polling and revision-bearing host requests.
-- `scripts/editor-store.ts` and `scripts/server.ts`: revision/hash validation, atomic timeline write, shell API routing, and existing project watcher.
-- `packages/player/src/host.tsx`: isolated preview bridge and origin/project/channel checks.
-- `docs/ARCHITECTURE.md`, `docs/MODULE_INTEGRATION_BLUEPRINT.md`, and `docs/TIMELINE_EDITOR.md`: current runtime, security, module and persistence contracts.
+- [`apps/desktop/electron/main.cjs`](../../apps/desktop/electron/main.cjs): single-window creation and Electron security settings.
+- [`apps/desktop/src/main.tsx`](../../apps/desktop/src/main.tsx): project selection, top-level navigation, and conditional panel mounting.
+- [`apps/desktop/src/TimelineEditor.tsx`](../../apps/desktop/src/TimelineEditor.tsx): timeline/playback/save state owner, preview message bridge, draft persistence, and revision poll.
+- [`apps/desktop/src/MediaPanel.tsx`](../../apps/desktop/src/MediaPanel.tsx): Media Registry UI polling and revision-bearing host requests.
+- [`scripts/editor-store.ts`](../../scripts/editor-store.ts) and [`scripts/server.ts`](../../scripts/server.ts): revision/hash validation, atomic timeline write, shell API routing, and existing watcher.
+- [`packages/player/src/host.tsx`](../../packages/player/src/host.tsx): isolated preview bridge and origin/project/channel checks.
+- [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md), [`docs/MODULE_INTEGRATION_BLUEPRINT.md`](../../docs/MODULE_INTEGRATION_BLUEPRINT.md), and [`docs/TIMELINE_EDITOR.md`](../../docs/TIMELINE_EDITOR.md): current runtime, security, module, and persistence contracts.
 
 ## Acceptance
 
-Pending explicit architecture review. This document-only proposal does not authorize implementation. No production code, package dependency, timeline behavior, subtitle behavior, Media Registry code, or watcher/polling mechanism is changed by this proposal.
+Pending explicit architecture review. This document-only proposal does not authorize implementation. No production code, dependency, project data, timeline behavior, subtitle behavior, Media Registry logic, watcher, or polling mechanism is changed by this proposal.
