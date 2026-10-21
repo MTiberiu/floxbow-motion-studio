@@ -2,7 +2,7 @@
 
 Status: proposed, not approved
 
-This proposal follows the product direction in the [`feature/manager` roadmap](https://github.com/MTiberiu/floxbow-motion-studio/blob/feature/manager/management/ROADMAP.md), [decisions](https://github.com/MTiberiu/floxbow-motion-studio/blob/feature/manager/management/DECISIONS.md), and [backlog](https://github.com/MTiberiu/floxbow-motion-studio/blob/feature/manager/management/BACKLOG.md). Those files are on a separate branch and are references, not changes in this proposal branch. PR #6 remains open and is not assumed to be merged.
+This proposal follows the product direction in [`management/ROADMAP.md`](../../management/ROADMAP.md), [`management/DECISIONS.md`](../../management/DECISIONS.md), and [`management/BACKLOG.md`](../../management/BACKLOG.md), which are now part of `dev`. PR [#6](https://github.com/MTiberiu/floxbow-motion-studio/pull/6) implemented and merged the reusable subtitle editing integration into `dev` at `bf1f0bfd0ec4e956e6ca86bd2b740d30e78bceb4`. This proposal remains a design proposal; it does not implement the linked-media or project-module contracts below.
 
 ## Problem
 
@@ -20,7 +20,7 @@ The goal is a small, versioned contract for media references and editor integrat
 - **Preview and render resources:** the preview is served by Vite from the repository root with filesystem strictness enabled; project resources are resolved with project-local `safeFile()` checks. `packages/renderer/src/render.ts` bundles a project entry using Remotion and does not use a shared media resolver. `packages/lyrics-sync/whisper_adapter.py` accepts a filesystem path directly when explicitly run, so it can read only what the local process and OS account can access. These are separate paths, not a unified media API.
 - **External edits and conflicts:** Vite watches project files and reloads previews on changes. The editor polls `project.json` and editable timeline state; `scripts/editor-store.ts` uses a content hash, atomic replacement and conflict checks for timeline saves. No editor configuration is watched or conflict-protected yet.
 
-The existing code does not implement linked external media, relinking, packaging, project module activation, a trusted editor integration registry, or general extension slots. The current timeline, preview bridge, renderer, and lyrics package are working connection points that the proposal can preserve.
+PR #6 added the reusable subtitle component and timing API, editable subtitle timeline clips, schema-driven inspector properties, and tested preview/reload behavior. It did not add linked external media, relinking, packaging, project module activation, a trusted editor integration registry, or general extension slots. The current timeline, preview bridge, renderer, and lyrics package are working connection points that this proposal can preserve.
 
 ## Proposed improvement
 
@@ -78,7 +78,7 @@ Add a versioned `editor.config.json` as the shared persisted setting for the vis
 }
 ```
 
-The editor owns a static trusted registry, initially in `apps/desktop/src/integrations/registry.ts`. Each registry entry identifies an integration, user-facing name, compatible configuration version, and its allowed UI contributions. The application registry answers **available in this application**; `editor.config.json` answers **enabled for this project**; rendered slot contributions answer **visible in the editor now**. The visual `subtitleModule` registered in the project's composition remains separate: hiding Lyrics Sync tools must not remove subtitle clips, imports, or rendering code.
+The editor owns a static trusted registry, initially in `apps/desktop/src/integrations/registry.ts`. Each registry entry identifies an integration, user-facing name, compatible configuration version, and its allowed UI contributions. The application registry answers **available in this application**; `editor.config.json` answers **enabled for this project**; rendered slot contributions answer **visible in the editor now**. The reusable `subtitles` component is registered by compositions through `editorComponents`; that rendering registration remains separate from any future editor-tool activation. Hiding Lyrics tools must not remove subtitle clips, timing, or rendering code.
 
 Unknown IDs and IDs unavailable in the current application should be ignored for activation and shown as actionable warnings. Preserve unknown keys when the Settings UI writes known settings so an older editor does not erase configuration added by a newer one. Invalid JSON or an unsupported configuration version should fail closed for new tools, preserve existing project content, and offer a readable error. Enabling an ID selects an already-registered implementation; it never installs a package, imports project-provided executable code, or changes filesystem permissions.
 
@@ -184,7 +184,7 @@ Before implementation, review the browser capability URL threat model, exact pat
 - [`apps/desktop/src/main.tsx`](../../apps/desktop/src/main.tsx), [`apps/desktop/src/TimelineEditor.tsx`](../../apps/desktop/src/TimelineEditor.tsx)
 - [`packages/player/src/host.tsx`](../../packages/player/src/host.tsx), [`packages/motion-sdk/src/timeline.ts`](../../packages/motion-sdk/src/timeline.ts)
 - [`packages/renderer/src/render.ts`](../../packages/renderer/src/render.ts), [`packages/lyrics-sync/whisper_adapter.py`](../../packages/lyrics-sync/whisper_adapter.py)
-- [`feature/manager` roadmap](https://github.com/MTiberiu/floxbow-motion-studio/blob/feature/manager/management/ROADMAP.md), [`decisions`](https://github.com/MTiberiu/floxbow-motion-studio/blob/feature/manager/management/DECISIONS.md), and [`backlog`](https://github.com/MTiberiu/floxbow-motion-studio/blob/feature/manager/management/BACKLOG.md)
+- [`management/ROADMAP.md`](../../management/ROADMAP.md), [`management/DECISIONS.md`](../../management/DECISIONS.md), and [`management/BACKLOG.md`](../../management/BACKLOG.md)
 
 ## Acceptance
 
