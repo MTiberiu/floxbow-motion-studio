@@ -827,7 +827,8 @@
         {
           "name": "motion",
           "type": "idle | walk | jump | dance",
-          "default": "idle"
+          "default": "idle",
+          "description": "Select the deterministic motion preset."
         },
         {
           "name": "speechClipId",
@@ -837,12 +838,14 @@
         {
           "name": "color",
           "type": "hex color",
-          "default": "#76d4ec"
+          "default": "#76d4ec",
+          "description": "Fill color of the SVG mascot body."
         },
         {
           "name": "speed",
           "type": "number",
-          "default": 1
+          "default": 1,
+          "description": "Speed multiplier for procedural motion."
         }
       ],
       "integration": {
@@ -859,7 +862,9 @@
         "No motion paths or WebGL"
       ],
       "documentation": "packages/characters/README.md",
-      "exampleIds": []
+      "exampleIds": [
+        "mascot-2p5d"
+      ]
     }
   ],
   "examples": [
@@ -996,6 +1001,15 @@
       "path": "examples/capabilities/audio.tsx",
       "capabilityIds": [
         "narration-audio"
+      ]
+    },
+    {
+      "id": "mascot-2p5d",
+      "title": "Editable mascot dance",
+      "summary": "Demonstrates the SVG mascot module with frame-driven dance and optional subtitle reference.",
+      "path": "examples/capabilities/mascot.tsx",
+      "capabilityIds": [
+        "mascot-2p5d"
       ]
     }
   ]
