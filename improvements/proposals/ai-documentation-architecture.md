@@ -32,6 +32,17 @@ The current exports also ground an important creative example: `@motion/animatio
 
 ## Proposed documentation levels and ownership
 
+| Documentation surface                                      | Owns                                                                                                                                    | Read it when                                                                                                    |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `README.md`, `AGENTS.md`, and central `docs/` guides       | Application behavior, repository-wide safety/compatibility rules, cross-system architecture, and navigation                             | First run, ordinary video creation, or any task needing system-wide context                                     |
+| Module guide and its concise roadmap                       | One module's implemented capabilities, limitations, APIs, examples, workflows, extension contract, compatibility, and next improvements | The task has been routed to that module                                                                         |
+| `management/ROADMAP.md`, `DECISIONS.md`, and `BACKLOG.md`  | Cross-module product priorities, durable product decisions, and candidate ideas, respectively                                           | Application planning or when a relevant product decision/priority is needed                                     |
+| `improvements/proposals/`, `experiments/`, and `accepted/` | Detailed engineering designs, investigations, acceptance criteria, and recorded technical decisions                                     | Application/core development that needs the relevant design history; never required for ordinary video creation |
+
+### Navigation by task
+
+For ordinary video creation, read the root entry guidance, use the module index to select the relevant implemented capability, and open only that module's workflow/API guide plus the project-creation instructions. Do not require reading management records, experiments, or engineering proposals. For application or core development, start with the same concise entry guidance, then read the architecture overview, the affected subsystem guide, and only the relevant engineering record under `improvements/`; consult management records only when the change affects product sequencing or an established product decision.
+
 ### Level 1 — Application map and rules
 
 Keep the root [`README.md`](../../README.md) user-oriented: what FloxBow currently does, installation/first run, project privacy, and links to the next guide. Keep [`AGENTS.md`](../../AGENTS.md) short and action-oriented: repository safety/compatibility constraints, project-versus-shared-code boundaries, and a route to the relevant task guide. Neither should repeat complete API tables, module roadmaps, or implementation internals.
@@ -90,7 +101,9 @@ Use a small controlled vocabulary, always with evidence scoped to a commit or re
 - **Deferred** — intentionally not scheduled for implementation.
 - **Retired** — no longer supported; provide a migration or replacement path where one exists.
 
-Use the same status words in module guides and the discovery index. An API is not “implemented” merely because a proposal describes it. Capability registry membership means a concrete capability is represented there; it does not certify that every broader integration is complete. For example, `Narration` being implemented does not mean linked Media Registry audio is wired to preview or rendering. Module-owned roadmaps contain the detail; the index holds only status plus a link. Completed history should point to relevant PRs or an existing changelog without reproducing the full roadmap.
+Use the same status words in module guides and the discovery index. A module guide is the source of truth for the implementation status and roadmap of that module. `management/ROADMAP.md` owns cross-module milestone order and application-level progress; it links to module guides for capability status and must not restate their detailed implementation state or plans. `management/DECISIONS.md` owns durable product/working decisions, and `management/BACKLOG.md` owns cross-cutting candidate ideas, not implementation status. An engineering proposal owns the status of its design/review/implementation record, not the status of a shipped capability. An API is not “implemented” merely because a proposal describes it. Capability registry membership means a concrete capability is represented there; it does not certify that every broader integration is complete. For example, `Narration` being implemented does not mean linked Media Registry audio is wired to preview or rendering.
+
+When a PR completes, update the affected module guide in the same implementation PR with the current behavior, limitations, compatibility, and a short history link. Mark a related engineering proposal as implemented/decided and link the PR while retaining its detailed rationale and evidence. Update `management/ROADMAP.md` only if cross-module sequencing or milestone progress changes; update `DECISIONS.md` only when a durable product rule changes. Link to the authoritative record instead of copying its history or technical plan. The discovery index holds only routing, status, and links.
 
 ## Human–AI workflow and task routing
 
