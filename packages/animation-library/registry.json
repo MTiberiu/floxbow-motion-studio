@@ -812,12 +812,13 @@
       "category": "Characters",
       "purpose": "Animated procedural SVG mascot with subtitle-linked comic mouth and bubble",
       "creatorActions": [
-        "Make a mascot dance, walk, jump or idle",
+        "Make a mascot dance, walk, jump, spin, wave or idle",
         "Change color, position and speed",
         "Link comic speech to a subtitle clip ID"
       ],
       "suggestedPrompts": [
-        "Add mascotModule to the timeline, make it dance and link speechClipId to an existing subtitle clip; do not invent audio timings."
+        "Add mascotModule to the timeline, make it dance and link speechClipId to an existing subtitle clip; do not invent audio timings.",
+        "Use composeMascotDance to create six sequential editable clips: walk, jump, spin, dance, wave, dance."
       ],
       "api": {
         "importPath": "@motion/characters",
@@ -826,7 +827,7 @@
       "parameters": [
         {
           "name": "motion",
-          "type": "idle | walk | jump | dance",
+          "type": "idle | walk | jump | dance | spin | wave",
           "default": "idle",
           "description": "Select the deterministic motion preset."
         },
