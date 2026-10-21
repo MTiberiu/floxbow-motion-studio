@@ -37,34 +37,40 @@
       "id": "hello",
       "trackId": "captions",
       "componentId": "subtitles",
-      "label": "Demo speech (synthetic timing)",
+      "label": "Look at me, I'm dancing! (demo timing)",
       "from": 60,
       "durationInFrames": 100,
       "content": {
-        "text": "Salut! Uite cum dansez!",
+        "text": "Look at me, I'm dancing!",
         "status": "demo",
         "words": [
           {
             "id": "w1",
-            "text": "Salut!",
+            "text": "Look",
             "start": 0.1,
-            "end": 0.6
+            "end": 0.48
           },
           {
             "id": "w2",
-            "text": "Uite",
-            "start": 0.8,
-            "end": 1.3
+            "text": "at",
+            "start": 0.52,
+            "end": 0.79
           },
           {
             "id": "w3",
-            "text": "cum",
+            "text": "me,",
+            "start": 0.83,
+            "end": 1.22
+          },
+          {
+            "id": "w4",
+            "text": "I'm",
             "start": 1.4,
             "end": 1.8
           },
           {
-            "id": "w4",
-            "text": "dansez!",
+            "id": "w5",
+            "text": "dancing!",
             "start": 1.9,
             "end": 2.8
           }
