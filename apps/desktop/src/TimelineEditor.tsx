@@ -12,17 +12,18 @@ import {
   fieldValue,
   validateField,
   type EditTimeline,
-  type TimelineClip,
   type EditableField,
 } from "@motion/sdk/timeline";
 import { useEditorSession } from "./EditorSession";
 import { resolveTimelineBehavior } from "./timeline-behaviors";
+import { CanvasView } from "./CanvasView";
+import { TimelineView } from "./TimelineView";
+import { InspectorView } from "./InspectorView";
 import {
   exportSubtitles,
   createSubtitleClip,
   importSubtitles,
   subtitleClips,
-  subtitleWordTimingMatchesText,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
@@ -35,14 +36,6 @@ function download(name: string, text: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-type Drag = {
-  clip: TimelineClip;
-  mode: "move" | "left" | "right";
-  x: number;
-  timeline: EditTimeline;
-  pixels: number;
-  scrollLeft: number;
-};
 export function TimelineEditor({
   manifest,
   previewOrigin,
@@ -59,8 +52,6 @@ export function TimelineEditor({
   requestPreviewReload: () => void;
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
-  const canvasViewport = useRef<HTMLDivElement>(null);
-  const timelineScroll = useRef<HTMLDivElement>(null);
   const send = useCallback(
     (type: string, payload: Record<string, unknown> = {}) => {
       iframe.current?.contentWindow?.postMessage(
@@ -113,89 +104,15 @@ export function TimelineEditor({
     setError,
     setNotice,
   } = commands;
-  const [zoom, setZoom] = useState(1);
   const [inspectorWidth, setInspectorWidth] = useState(
     () => Number(localStorage.getItem("motion-inspector-width")) || 270,
   );
   const [timelineHeight, setTimelineHeight] = useState(
     () => Number(localStorage.getItem("motion-timeline-height")) || 280,
   );
-  const [timelineViewportWidth, setTimelineViewportWidth] = useState(900);
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [canvasScale, setCanvasScale] = useState<number | null>(null);
-  const [canvasFullscreen, setCanvasFullscreen] = useState(false);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [spaceHeld, setSpaceHeld] = useState(false);
   const panelResize = useRef<
     { kind: "inspector" | "timeline"; start: number; size: number } | undefined
   >(undefined);
-  const canvasDrag = useRef<
-    { x: number; y: number; panX: number; panY: number } | undefined
-  >(undefined);
-  const spaceRef = useRef(false);
-  const drag = useRef<Drag | undefined>(undefined);
-  const ruler = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const canvas = canvasViewport.current;
-    const timeline = timelineScroll.current;
-    if (canvas) {
-      const observer = new ResizeObserver(([entry]) =>
-        setCanvasSize({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        }),
-      );
-      observer.observe(canvas);
-      return () => observer.disconnect();
-    }
-    return;
-  }, []);
-  useEffect(() => {
-    const exit = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && canvasFullscreen)
-        setCanvasFullscreen(false);
-    };
-    window.addEventListener("keydown", exit);
-    return () => window.removeEventListener("keydown", exit);
-  }, [canvasFullscreen]);
-  useEffect(() => {
-    const element = timelineScroll.current;
-    if (!element) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setTimelineViewportWidth(entry.contentRect.width),
-    );
-    observer.observe(element);
-    setTimelineViewportWidth(element.clientWidth);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        e.code === "Space" &&
-        target &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) &&
-        !target.isContentEditable
-      ) {
-        e.preventDefault();
-        spaceRef.current = true;
-        setSpaceHeld(true);
-      }
-    };
-    const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        spaceRef.current = false;
-        setSpaceHeld(false);
-        canvasDrag.current = undefined;
-      }
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, []);
   useEffect(() => {
     const receive = (event: MessageEvent) =>
       receivePreviewMessage(event, iframe.current?.contentWindow ?? null);
@@ -221,123 +138,6 @@ export function TimelineEditor({
     } catch (e) {
       setError(String(e));
     }
-  }
-  function begin(e: ReactPointerEvent, clip: TimelineClip, mode: Drag["mode"]) {
-    if (!doc || !ruler.current) return;
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setSelected(clip.id);
-    send("pause");
-    checkpoint();
-    drag.current = {
-      clip: structuredClone(clip),
-      mode,
-      x: e.clientX,
-      timeline: structuredClone(doc),
-      pixels: ruler.current.getBoundingClientRect().width,
-      scrollLeft: timelineScroll.current?.scrollLeft ?? 0,
-    };
-  }
-  function move(e: ReactPointerEvent) {
-    const d = drag.current;
-    if (!d) return;
-    const scrollDelta =
-      (timelineScroll.current?.scrollLeft ?? d.scrollLeft) - d.scrollLeft;
-    const delta = Math.round(
-      ((e.clientX - d.x + scrollDelta) / d.pixels) * manifest.durationInFrames,
-    );
-    let start = d.clip.from,
-      end = start + d.clip.durationInFrames;
-    if (d.mode === "move") {
-      start = Math.max(
-        0,
-        Math.min(
-          manifest.durationInFrames - d.clip.durationInFrames,
-          start + delta,
-        ),
-      );
-      end = start + d.clip.durationInFrames;
-    } else if (d.mode === "left")
-      start = Math.max(0, Math.min(end - 1, start + delta));
-    else
-      end = Math.max(
-        start + 1,
-        Math.min(manifest.durationInFrames, end + delta),
-      );
-    edit(
-      changeClipRange(
-        d.timeline,
-        d.clip.id,
-        start,
-        end,
-        d.mode !== "move",
-        resolveTimelineBehavior(d.clip.componentId, components),
-      ),
-      false,
-    );
-  }
-  const finish = () => {
-    drag.current = undefined;
-  };
-  function scrub(e: ReactPointerEvent) {
-    if (!ruler.current) return;
-    const r = ruler.current.getBoundingClientRect();
-    seek(((e.clientX - r.left) / r.width) * manifest.durationInFrames);
-  }
-  const fitScale = Math.min(
-    (canvasSize.width - 32) / manifest.width,
-    (canvasSize.height - 32) / manifest.height,
-  );
-  const currentScale = canvasScale ?? Math.max(0.05, fitScale || 0.1);
-  function setCanvasZoom(mode: "fit" | "actual" | "in" | "out") {
-    if (mode === "fit") {
-      setCanvasScale(null);
-      setPan({ x: 0, y: 0 });
-      return;
-    }
-    if (mode === "actual") {
-      setCanvasScale(1);
-      return;
-    }
-    setCanvasScale(
-      Math.max(
-        0.1,
-        Math.min(4, currentScale * (mode === "in" ? 1.2 : 1 / 1.2)),
-      ),
-    );
-  }
-  function canvasWheel(e: React.WheelEvent) {
-    if (!e.ctrlKey || !canvasViewport.current) return;
-    e.preventDefault();
-    const rect = canvasViewport.current.getBoundingClientRect();
-    const ratio = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const next = Math.max(0.1, Math.min(4, currentScale * ratio));
-    const ox = e.clientX - (rect.left + rect.width / 2);
-    const oy = e.clientY - (rect.top + rect.height / 2);
-    setPan((p) => ({
-      x: ox * (1 - next / currentScale) + (p.x * next) / currentScale,
-      y: oy * (1 - next / currentScale) + (p.y * next) / currentScale,
-    }));
-    setCanvasScale(next);
-  }
-  function canvasPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
-    if (e.button === 1 || (spaceRef.current && e.button === 0)) {
-      e.preventDefault();
-      e.currentTarget.setPointerCapture(e.pointerId);
-      canvasDrag.current = {
-        x: e.clientX,
-        y: e.clientY,
-        panX: pan.x,
-        panY: pan.y,
-      };
-    }
-  }
-  function canvasPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
-    const d = canvasDrag.current;
-    if (d) setPan({ x: d.panX + e.clientX - d.x, y: d.panY + e.clientY - d.y });
-  }
-  function canvasPointerUp() {
-    canvasDrag.current = undefined;
   }
   function resizePanel(e: ReactPointerEvent<HTMLButtonElement>) {
     const d = panelResize.current;
@@ -410,6 +210,24 @@ export function TimelineEditor({
   }
   const clip = doc?.clips.find((c) => c.id === selected);
   const definition = components.find((c) => c.id === clip?.componentId);
+  function changeRange(start: number, end: number) {
+    if (!doc || !clip) return;
+    edit(
+      changeClipRange(
+        doc,
+        clip.id,
+        start,
+        end,
+        true,
+        resolveTimelineBehavior(clip.componentId, components),
+      ),
+    );
+  }
+  function deleteClip() {
+    if (!doc || !clip) return;
+    edit({ ...doc, clips: doc.clips.filter((item) => item.id !== clip.id) });
+    setSelected("");
+  }
   function addSubtitle() {
     if (!doc) return;
     const trackId = clip?.trackId ?? doc.tracks.at(-1)!.id;
@@ -506,592 +324,80 @@ export function TimelineEditor({
       )}
       <div
         className="editor-columns"
-        style={
-          { "--inspector-width": `${inspectorWidth}px` } as React.CSSProperties
-        }
+        style={{ "--inspector-width": `${inspectorWidth}px` } as React.CSSProperties}
       >
-        <div className="preview-pane">
-          <div className="canvas-toolbar" aria-label="Canvas navigation">
-            <button onClick={() => setCanvasZoom("fit")}>Fit</button>
-            <button aria-label="Zoom out" onClick={() => setCanvasZoom("out")}>
-              −
-            </button>
-            <button aria-label="Zoom in" onClick={() => setCanvasZoom("in")}>
-              +
-            </button>
-            <button onClick={() => setCanvasZoom("actual")}>100%</button>
-            <button
-              aria-label="Reset canvas view"
-              onClick={() => {
-                setCanvasZoom("fit");
-                setPan({ x: 0, y: 0 });
-              }}
-            >
-              Reset view
-            </button>
-            <span>{Math.round(currentScale * 100)}%</span>
-            <button
-              onClick={() => setCanvasFullscreen(true)}
-              title="Fullscreen video preview"
-            >
-              Fullscreen
-            </button>
-          </div>
-          <div
-            className={`preview-stage ${canvasFullscreen ? "preview-fullscreen" : ""}`}
-            ref={canvasViewport}
-            onWheel={canvasWheel}
-          >
-            {canvasFullscreen && (
-              <button
-                className="canvas-fullscreen-exit"
-                onClick={() => setCanvasFullscreen(false)}
-              >
-                Exit fullscreen · Esc
-              </button>
-            )}
-            <div
-              className="canvas-surface"
-              style={{
-                width: manifest.width,
-                height: manifest.height,
-                translate: `${pan.x}px ${pan.y}px`,
-                transform: `translate(-50%,-50%) scale(${currentScale})`,
-              }}
-            >
-              <iframe
-                ref={iframe}
-                key={`${reload}:${previewGeneration}`}
-                title="Composition preview"
-                sandbox="allow-scripts allow-same-origin"
-                allow="autoplay"
-                onLoad={() => send("hello")}
-                src={
-                  built
-                    ? `${previewOrigin}/${manifest.id}/index.html`
-                    : `${previewOrigin}/preview.html?project=${encodeURIComponent(manifest.id)}`
-                }
-              />
-              <div
-                className={`canvas-pan-input ${spaceHeld ? "space-pan" : ""}`}
-                onPointerDown={canvasPointerDown}
-                onPointerMove={canvasPointerMove}
-                onPointerUp={canvasPointerUp}
-                onPointerCancel={canvasPointerUp}
-              />
-            </div>
-            <div
-              className="canvas-pan-surface"
-              onPointerDown={canvasPointerDown}
-              onPointerMove={canvasPointerMove}
-              onPointerUp={canvasPointerUp}
-              onPointerCancel={canvasPointerUp}
-            />
-          </div>
-          <div className="transport">
-            <button onClick={() => seek(frame - 1)} aria-label="Previous frame">
-              −1 frame
-            </button>
-            <button onClick={playing ? pause : play}>
-              {playing ? "Pause" : "Play"}
-            </button>
-            <button onClick={() => seek(frame + 1)} aria-label="Next frame">
-              +1 frame
-            </button>
-            <label>
-              Frame{" "}
-              <input
-                aria-label="Playhead frame"
-                type="number"
-                min={0}
-                max={manifest.durationInFrames - 1}
-                value={frame}
-                onChange={(e) => seek(Number(e.target.value))}
-              />
-            </label>
-            <output data-testid="frame-readout">
-              {frame} / {manifest.durationInFrames - 1} ·{" "}
-              {(frame / manifest.fps).toFixed(3)}s
-            </output>
-          </div>
-        </div>
+        <CanvasView
+          manifest={manifest}
+          previewOrigin={previewOrigin}
+          built={built}
+          reload={reload}
+          previewGeneration={previewGeneration}
+          frame={frame}
+          playing={playing}
+          iframeRef={iframe}
+          onPreviewLoad={() => send("hello")}
+          onSeek={seek}
+          onPlay={play}
+          onPause={pause}
+        />
         <button
           className="panel-splitter inspector-splitter"
           aria-label="Resize inspector"
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
             panelResize.current = {
               kind: "inspector",
-              start: e.clientX,
+              start: event.clientX,
               size: inspectorWidth,
             };
           }}
           onPointerMove={resizePanel}
           onPointerUp={endPanelResize}
         />
-        <section className="properties" aria-label="Clip properties">
-          <span className="eyebrow">INSPECTOR</span>
-          {clip ? (
-            <>
-              <h3>{definition?.name ?? clip.componentId}</h3>
-              <small data-testid="declared-fields">
-                {definition?.fields.map((f) => f.key).join(",") ??
-                  "metadata pending"}
-              </small>
-              <small>{clip.id}</small>
-              <label>
-                Track
-                <select
-                  aria-label="Clip track"
-                  value={clip.trackId}
-                  onChange={(e) =>
-                    edit({
-                      ...doc!,
-                      clips: doc!.clips.map((c) =>
-                        c.id === clip.id
-                          ? { ...c, trackId: e.target.value }
-                          : c,
-                      ),
-                    })
-                  }
-                >
-                  {doc?.tracks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="range-fields">
-                <label>
-                  Start frame
-                  <input
-                    aria-label="Clip start frame"
-                    type="number"
-                    min={0}
-                    max={clip.from + clip.durationInFrames - 1}
-                    value={clip.from}
-                    onChange={(e) =>
-                      edit(
-                        changeClipRange(
-                          doc!,
-                          clip.id,
-                          Number(e.target.value),
-                          clip.from + clip.durationInFrames,
-                          true,
-                          resolveTimelineBehavior(clip.componentId, components),
-                        ),
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  End frame
-                  <input
-                    aria-label="Clip end frame"
-                    type="number"
-                    min={clip.from + 1}
-                    max={manifest.durationInFrames}
-                    value={clip.from + clip.durationInFrames}
-                    onChange={(e) =>
-                      edit(
-                        changeClipRange(
-                          doc!,
-                          clip.id,
-                          clip.from,
-                          Number(e.target.value),
-                          true,
-                          resolveTimelineBehavior(clip.componentId, components),
-                        ),
-                      )
-                    }
-                  />
-                </label>
-              </div>
-              <small>
-                {(clip.from / manifest.fps).toFixed(3)}s →{" "}
-                {((clip.from + clip.durationInFrames) / manifest.fps).toFixed(
-                  3,
-                )}
-                s · end is exclusive
-              </small>
-              {definition?.fields.map((field) => (
-                <PropertyControl
-                  key={field.key}
-                  field={field}
-                  value={fieldValue(clip, field)}
-                  onChange={(v) => property(field, v)}
-                />
-              ))}
-              {!definition?.fields.length && (
-                <p className="muted">
-                  This scene exposes timing only. Its animation stays in the
-                  project’s component.
-                </p>
-              )}
-              {clip.componentId === "subtitles" && (
-                <p className="muted">
-                  {Array.isArray(clip.content.words)
-                    ? subtitleWordTimingMatchesText(
-                        clip.content as Parameters<
-                          typeof subtitleWordTimingMatchesText
-                        >[0],
-                      )
-                      ? `${clip.content.words.length} timed words. Moving and trimming preserve their spoken positions.`
-                      : "Word timing is preserved, but does not match this text; karaoke highlighting is paused."
-                    : "No word timing. Text editing never invents karaoke timing."}
-                  <br />
-                  Timing: {String(clip.content.status ?? "unverified")}
-                  {clip.content.repeatOf && (
-                    <> · repeat of {String(clip.content.repeatOf)}</>
-                  )}
-                </p>
-              )}
-              <div className="tools">
-                <button onClick={duplicate}>Duplicate clip</button>
-                <button
-                  onClick={() => {
-                    edit({
-                      ...doc!,
-                      clips: doc!.clips.filter((c) => c.id !== clip.id),
-                    });
-                    setSelected("");
-                  }}
-                >
-                  Delete clip
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h3>Composition</h3>
-              <p className="muted">{manifest.name}</p>
-              <div className="composition-facts">
-                <span>Resolution</span>
-                <strong>
-                  {manifest.width} × {manifest.height}
-                </strong>
-                <span>Frame rate</span>
-                <strong>{manifest.fps} FPS</strong>
-                <span>Duration</span>
-                <strong>
-                  {(manifest.durationInFrames / manifest.fps).toFixed(2)} s
-                </strong>
-                <span>Elements</span>
-                <strong>{doc?.clips.length ?? 0}</strong>
-              </div>
-              <p className="muted">
-                Select an element on the timeline to edit its timing and
-                declared properties.
-              </p>
-            </>
-          )}
-        </section>
+        <InspectorView
+          manifest={manifest}
+          document={doc}
+          clip={clip}
+          definition={definition}
+          onEdit={edit}
+          onChangeProperty={property}
+          onChangeRange={changeRange}
+          onDuplicate={duplicate}
+          onDelete={deleteClip}
+        />
       </div>
-      {doc ? (
-        <div className="timeline-dock">
-          <button
-            className="timeline-resize"
-            aria-label="Resize timeline height"
-            onPointerDown={(e) => {
-              e.currentTarget.setPointerCapture(e.pointerId);
-              panelResize.current = {
-                kind: "timeline",
-                start: e.clientY,
-                size: timelineHeight,
-              };
-            }}
-            onPointerMove={resizePanel}
-            onPointerUp={endPanelResize}
-          />
-          <div className="timeline-actions">
-            <h3>
-              Timeline{" "}
-              <small>
-                {doc.fps} FPS · {doc.tracks.length} tracks
-              </small>
-            </h3>
-            <button
-              disabled={!components.some((c) => c.id === "subtitles")}
-              onClick={addSubtitle}
-            >
-              Add subtitle
-            </button>
-            <button
-              onClick={() =>
-                edit({
-                  ...doc,
-                  tracks: [
-                    ...doc.tracks,
-                    {
-                      id: `track-${crypto.randomUUID()}`,
-                      name: `Track ${doc.tracks.length + 1}`,
-                    },
-                  ],
-                })
-              }
-            >
-              Add track
-            </button>
-            <label>
-              Zoom{" "}
-              <select
-                aria-label="Timeline zoom"
-                value={zoom}
-                onChange={(e) => setZoom(+e.target.value)}
-              >
-                <option value={1}>Fit</option>
-                <option value={2}>2×</option>
-                <option value={4}>4×</option>
-              </select>
-            </label>
-            <label>
-              View{" "}
-              <input
-                aria-label="Timeline playhead frame"
-                type="number"
-                min={0}
-                max={manifest.durationInFrames - 1}
-                value={frame}
-                onChange={(e) => seek(Number(e.target.value))}
-              />
-            </label>
-          </div>
-          <div className="timeline-scroll" ref={timelineScroll}>
-            <div
-              className="timeline-canvas"
-              style={{
-                minWidth:
-                  zoom === 1
-                    ? "100%"
-                    : `${Math.max(760, timelineViewportWidth - 120) * zoom + 120}px`,
-              }}
-            >
-              <div className="ruler-row">
-                <div className="track-label">TRACKS</div>
-                <div
-                  className="time-ruler"
-                  ref={ruler}
-                  role="slider"
-                  aria-label="Timeline playhead"
-                  aria-valuemin={0}
-                  aria-valuemax={manifest.durationInFrames - 1}
-                  aria-valuenow={frame}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowLeft") {
-                      e.preventDefault();
-                      seek(frame - 1);
-                    }
-                    if (e.key === "ArrowRight") {
-                      e.preventDefault();
-                      seek(frame + 1);
-                    }
-                  }}
-                  onPointerDown={(e) => {
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    scrub(e);
-                  }}
-                  onPointerMove={(e) => {
-                    if (e.buttons === 1) scrub(e);
-                  }}
-                >
-                  {Array.from({ length: 11 }, (_, i) => (
-                    <span key={i} style={{ left: `${i * 10}%` }}>
-                      {(((doc.durationInFrames / doc.fps) * i) / 10).toFixed(1)}
-                      s
-                    </span>
-                  ))}
-                  <div
-                    className="playhead-line"
-                    style={{ left: `${(frame / doc.durationInFrames) * 100}%` }}
-                  />
-                  <div
-                    className="playhead-cap"
-                    style={{ left: `${(frame / doc.durationInFrames) * 100}%` }}
-                  />
-                </div>
-              </div>
-              {doc.tracks.map((track) => (
-                <div className="track-row" key={track.id}>
-                  <div className="track-label">{track.name}</div>
-                  <div
-                    className="track-lane"
-                    data-track={track.id}
-                    onPointerDown={() => setSelected("")}
-                  >
-                    {doc.clips
-                      .filter((c) => c.trackId === track.id)
-                      .map((c) => (
-                        <div
-                          key={c.id}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Clip ${c.id}`}
-                          aria-pressed={selected === c.id}
-                          data-clip-id={c.id}
-                          className={`timeline-clip ${c.componentId === "subtitles" ? "subtitle-clip" : ""} ${selected === c.id ? "is-selected" : ""}`}
-                          style={{
-                            left: `${(c.from / doc.durationInFrames) * 100}%`,
-                            width: `${(c.durationInFrames / doc.durationInFrames) * 100}%`,
-                          }}
-                          onPointerDown={(e) => begin(e, c, "move")}
-                          onPointerMove={move}
-                          onPointerUp={finish}
-                          onPointerCancel={finish}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setSelected(c.id);
-                            }
-                            if (
-                              e.key === "ArrowLeft" ||
-                              e.key === "ArrowRight"
-                            ) {
-                              e.preventDefault();
-                              const start = Math.max(
-                                0,
-                                Math.min(
-                                  doc.durationInFrames - c.durationInFrames,
-                                  c.from + (e.key === "ArrowRight" ? 1 : -1),
-                                ),
-                              );
-                              edit(
-                                changeClipRange(
-                                  doc,
-                                  c.id,
-                                  start,
-                                  start + c.durationInFrames,
-                                ),
-                              );
-                            }
-                          }}
-                        >
-                          <button
-                            className="resize-handle left"
-                            aria-label={`Resize start ${c.id}`}
-                            onPointerDown={(e) => begin(e, c, "left")}
-                          />
-                          <span className="clip-title">
-                            {String(c.content.text ?? c.label)}
-                          </span>
-                          <small>
-                            {c.from}–{c.from + c.durationInFrames}
-                          </small>
-                          <button
-                            className="resize-handle right"
-                            aria-label={`Resize end ${c.id}`}
-                            onPointerDown={(e) => begin(e, c, "right")}
-                          />
-                        </div>
-                      ))}
-                    <div
-                      className="playhead-line"
-                      style={{
-                        left: `${(frame / doc.durationInFrames) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="timeline-footer">
-            <label className="button">
-              Import subtitles / timeline
-              <input
-                aria-label="Import subtitles"
-                type="file"
-                accept=".json,.srt,.lrc"
-                onChange={(e) => {
-                  importFile(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <button onClick={() => exportTiming("json")}>
-              Export timing JSON
-            </button>
-            <button onClick={() => exportTiming("srt")}>Export SRT</button>
-            <button onClick={() => exportTiming("lrc")}>Export LRC</button>
-            <button
-              onClick={() =>
-                download(
-                  `${manifest.id}.timeline.json`,
-                  JSON.stringify(doc, null, 2),
-                )
-              }
-            >
-              Export editable timeline
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="muted timeline-loading">
-          {manifest.editTimeline
-            ? "Loading editable timeline…"
-            : "This code-only project has no declared timeline. Playback remains available."}
-        </p>
-      )}
+      <TimelineView
+        manifest={manifest}
+        document={doc}
+        components={components}
+        selectedClipId={selected}
+        frame={frame}
+        onEdit={edit}
+        onSelectClip={setSelected}
+        onSeek={seek}
+        onPause={pause}
+        onCheckpoint={checkpoint}
+        onResizeStart={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          panelResize.current = {
+            kind: "timeline",
+            start: event.clientY,
+            size: timelineHeight,
+          };
+        }}
+        onResizeMove={resizePanel}
+        onResizeEnd={endPanelResize}
+        onAddSubtitle={addSubtitle}
+        onImportFile={importFile}
+        onExportTiming={exportTiming}
+        onExportDocument={() =>
+          doc &&
+          download(
+            `${manifest.id}.timeline.json`,
+            JSON.stringify(doc, null, 2),
+          )
+        }
+      />
     </section>
-  );
-}
-function PropertyControl({
-  field,
-  value,
-  onChange,
-}: {
-  field: EditableField;
-  value: unknown;
-  onChange: (v: unknown) => void;
-}) {
-  const label = field.label;
-  if (field.type === "boolean")
-    return (
-      <label className="checkbox-property">
-        <input
-          aria-label={label}
-          type="checkbox"
-          checked={value === true}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        {label}
-      </label>
-    );
-  return (
-    <label>
-      {label}
-      {field.type === "text" ? (
-        <textarea
-          aria-label={label}
-          value={String(value)}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      ) : field.type === "select" ? (
-        <select
-          aria-label={label}
-          value={String(value)}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          {field.options?.map((o) => (
-            <option key={o}>{o}</option>
-          ))}
-        </select>
-      ) : (
-        <input
-          aria-label={label}
-          type={field.type === "color" ? "color" : "number"}
-          value={String(value)}
-          min={field.min}
-          max={field.max}
-          step={field.step ?? 1}
-          onChange={(e) =>
-            onChange(
-              field.type === "number" ? Number(e.target.value) : e.target.value,
-            )
-          }
-        />
-      )}
-    </label>
   );
 }
