@@ -236,6 +236,9 @@ try {
 
     await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
+    await expect(page.locator('[data-editor-view="canvas"]')).toHaveCount(1);
+    await expect(page.locator('[data-editor-view="timeline"]')).toHaveCount(1);
+    await expect(page.locator('[data-editor-view="inspector"]')).toHaveCount(1);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(page.getByRole("button", { name: /^Clip subtitle-/ })).toBeVisible();
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
@@ -245,6 +248,31 @@ try {
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("New subtitle");
     await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
+
+    await page.getByRole("button", { name: "Duplicate clip", exact: true }).click();
+    await expect(page.locator(".timeline-clip")).toHaveCount(2);
+    const duplicateClipId = await page
+      .locator(".timeline-clip.is-selected")
+      .getAttribute("data-clip-id");
+    expect(duplicateClipId).toBeTruthy();
+    await page.getByLabel("Text", { exact: true }).fill("Second selected caption");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("120");
+    await expect(preview.getByText("Second selected caption", { exact: true })).toBeVisible();
+    const originalClip = page
+      .locator(".timeline-clip")
+      .filter({ hasText: "Human edited caption" })
+      .first();
+    await originalClip.click();
+    await expect(originalClip).toHaveClass(/is-selected/);
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("60");
+    await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+    await page.locator(`.timeline-clip[data-clip-id="${duplicateClipId}"]`).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Second selected caption");
+    await page.getByRole("button", { name: "Delete clip", exact: true }).click();
+    await expect(page.locator(".timeline-clip")).toHaveCount(1);
+    await originalClip.click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
 
     let markSaveStarted!: () => void;
