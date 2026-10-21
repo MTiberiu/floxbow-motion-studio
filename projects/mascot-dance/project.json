@@ -1,0 +1,12 @@
+{
+  "id": "mascot-dance",
+  "name": "Mascot Dance Playground",
+  "type": "custom",
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "durationInFrames": 360,
+  "entry": "Composition.tsx",
+  "sdkVersion": "0.1.0",
+  "editTimeline": "edit-timeline.json"
+}
