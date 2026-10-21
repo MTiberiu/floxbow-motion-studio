@@ -38,8 +38,10 @@ export function speechAtFrame(timeline:EditTimeline,clipId:string,absoluteFrame:
   const text=typeof clip.content.text==='string'?clip.content.text:'';
   const offset=(absoluteFrame-clip.from)/timeline.fps;
   const words=Array.isArray(clip.content.words)?clip.content.words:[];
-  const active=words.find(w=>w&&typeof w==='object'&&
-    typeof w.start==='number'&&typeof w.end==='number'&&offset>=w.start&&offset<w.end);
-  const word=active&&typeof active.text==='string'?active.text:'';
+  const active=words.find(w=>{if(!w||typeof w!=='object'||Array.isArray(w))return false;
+    const item=w as Record<string,unknown>;
+    return typeof item.start==='number'&&typeof item.end==='number'&&offset>=item.start&&offset<item.end;
+  });
+  const word=active&&!Array.isArray(active)&&typeof (active as Record<string,unknown>).text==='string'?String((active as Record<string,unknown>).text):'';
   return {speaking:true,text,word,wordTimed:!!active};
 }
