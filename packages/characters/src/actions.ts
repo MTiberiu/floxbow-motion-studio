@@ -9,7 +9,7 @@ export const mascotPropsSchema=z.object({
   y:z.number().min(10).max(90).default(58),
   scale:z.number().min(0.4).max(2).default(1),
   speed:z.number().min(0.25).max(4).default(1),
-  speechClipId:z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100).default(''),
+  speechClipId:z.union([z.literal(''),z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)]).default(''),
   bubble:z.boolean().default(true),
 });
 export type MascotProps=z.infer<typeof mascotPropsSchema>;
