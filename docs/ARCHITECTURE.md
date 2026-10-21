@@ -19,3 +19,5 @@ The Remotion renderer CLI creates a temporary registerRoot entry, bundles only o
 - Important limits: loopback ports are not authentication. Vite exposes development source inside its allowed workspace. Project imports are not confined to their own folder by an OS policy. Infinite loops, resource exhaustion, browser exploits and malicious build-time imports are outside this boundary. Inspect external code; use a disposable OS account/container for hostile content. Production packaging, per-project worker processes and stronger resource isolation remain future work.
 
 The file-system separation is an agent contract, not an adversarial sandbox. Tests cover ordinary compile/runtime exceptions, not arbitrary denial of service.
+
+See [Module APIs and Integration Blueprint](MODULE_INTEGRATION_BLUEPRINT.md) for current public entry points, cross-module connection contracts, and the smallest recommended steps toward independently extensible capabilities.
