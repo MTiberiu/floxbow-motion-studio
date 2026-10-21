@@ -14,112 +14,12 @@
   ],
   "clips": [
     {
-      "id": "bloop-step-1",
+      "id": "mascot-intro",
       "trackId": "characters",
       "componentId": "mascot-2p5d",
-      "label": "1. walk",
+      "label": "Bloop dances",
       "from": 0,
-      "durationInFrames": 45,
-      "content": {},
-      "props": {
-        "motion": "walk",
-        "color": "#76d4ec",
-        "accent": "#f8c86d",
-        "x": 37,
-        "y": 55,
-        "scale": 1.2,
-        "speed": 1.3,
-        "speechClipId": "hello",
-        "bubble": true
-      }
-    },
-    {
-      "id": "bloop-step-2",
-      "trackId": "characters",
-      "componentId": "mascot-2p5d",
-      "label": "2. jump",
-      "from": 45,
-      "durationInFrames": 45,
-      "content": {},
-      "props": {
-        "motion": "jump",
-        "color": "#76d4ec",
-        "accent": "#f8c86d",
-        "x": 42,
-        "y": 55,
-        "scale": 1.2,
-        "speed": 1.3,
-        "speechClipId": "hello",
-        "bubble": true
-      }
-    },
-    {
-      "id": "bloop-step-3",
-      "trackId": "characters",
-      "componentId": "mascot-2p5d",
-      "label": "3. spin",
-      "from": 90,
-      "durationInFrames": 45,
-      "content": {},
-      "props": {
-        "motion": "spin",
-        "color": "#76d4ec",
-        "accent": "#f8c86d",
-        "x": 48,
-        "y": 55,
-        "scale": 1.2,
-        "speed": 1,
-        "speechClipId": "hello",
-        "bubble": true
-      }
-    },
-    {
-      "id": "bloop-step-4",
-      "trackId": "characters",
-      "componentId": "mascot-2p5d",
-      "label": "4. dance",
-      "from": 135,
-      "durationInFrames": 105,
-      "content": {},
-      "props": {
-        "motion": "dance",
-        "color": "#76d4ec",
-        "accent": "#f8c86d",
-        "x": 50,
-        "y": 55,
-        "scale": 1.2,
-        "speed": 1.3,
-        "speechClipId": "hello",
-        "bubble": true
-      }
-    },
-    {
-      "id": "bloop-step-5",
-      "trackId": "characters",
-      "componentId": "mascot-2p5d",
-      "label": "5. wave",
-      "from": 240,
-      "durationInFrames": 45,
-      "content": {},
-      "props": {
-        "motion": "wave",
-        "color": "#76d4ec",
-        "accent": "#f8c86d",
-        "x": 52,
-        "y": 55,
-        "scale": 1.2,
-        "speed": 1.3,
-        "speechClipId": "hello",
-        "bubble": true
-      }
-    },
-    {
-      "id": "bloop-step-6",
-      "trackId": "characters",
-      "componentId": "mascot-2p5d",
-      "label": "6. dance",
-      "from": 285,
-      "durationInFrames": 75,
+      "durationInFrames": 360,
       "content": {},
       "props": {
         "motion": "dance",
