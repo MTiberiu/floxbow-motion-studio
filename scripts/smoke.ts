@@ -1,13 +1,15 @@
 import { _electron as electron, expect } from "@playwright/test";
 import electronPath from "electron";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { startServers, root, projectsDir } from "./server";
+import { renderProject } from "../packages/renderer/src/render";
 
 const built = process.argv.includes("--built");
 const id = `golden-starter-${Date.now()}`;
 const createdIds = [id];
 const projectPath = path.join(projectsDir, id);
+let renderedStill: string | undefined;
 const servers = await startServers(built, 10);
 const env = Object.fromEntries(
   Object.entries(process.env).filter(
@@ -65,6 +67,8 @@ try {
     expect(saved.clips).toHaveLength(1);
     expect(saved.clips[0].content.text).toBe("Human edited caption");
     expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual(["Visuals", "Captions"]);
+    renderedStill = await renderProject(root, id, true);
+    expect((await stat(renderedStill)).size).toBeGreaterThan(1024);
 
     // Scenario B: an external process updates the saved timeline while the editor is clean.
     const editPath = path.join(projectPath, "edit-timeline.json");
@@ -91,16 +95,13 @@ try {
     // Three independent project IDs can be created and switched without sharing editor state.
     const secondId = `${id}-two`;
     const thirdId = `${id}-three`;
-    const displayName = (projectId: string) => projectId.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
     async function selectProject(projectId: string) {
       const buttons = page!.locator(".project");
       await expect(buttons).toHaveCount(3);
-      const target = displayName(projectId);
-      const labels = await buttons.allInnerTexts();
-      const index = labels.findIndex((label) => new RegExp(`${target}\\s+Explainer video`).test(label));
-      expect(index).toBeGreaterThanOrEqual(0);
-      await buttons.nth(index).click();
-      await expect(page!.locator(".project.active")).toContainText(target);
+      const button = page!.locator(`.project[data-project-id="${projectId}"]`);
+      await expect(button).toHaveCount(1);
+      await button.click();
+      await expect(button).toHaveClass(/active/);
     }
     for (const [projectId, caption] of [
       [secondId, "Caption belongs to project two"],
@@ -108,8 +109,14 @@ try {
     ]) {
       createdIds.push(projectId);
       await page.getByRole("button", { name: "+ Create", exact: true }).click();
-      await page.getByLabel("Project name").fill(projectId);
+      const nameField = page.getByLabel("Project name");
+      await expect(nameField).toBeVisible();
+      await nameField.fill(projectId);
+      await expect(nameField).toHaveValue(projectId);
       await page.getByRole("button", { name: "Create project", exact: true }).click();
+      const projectButton = page.locator(`.project[data-project-id="${projectId}"]`);
+      await expect(projectButton).toBeVisible();
+      await expect(projectButton).toHaveClass(/active/);
       await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
       await page.getByRole("button", { name: "Add subtitle" }).click();
       await page.getByLabel("Text", { exact: true }).fill(caption);
@@ -135,6 +142,7 @@ try {
 } finally {
   await app?.close().catch(() => undefined);
   await servers.close();
+  if (renderedStill) await rm(renderedStill, { force: true });
   if (!built)
     await Promise.all(createdIds.map((projectId) => rm(path.join(projectsDir, projectId), { recursive: true, force: true })));
 }

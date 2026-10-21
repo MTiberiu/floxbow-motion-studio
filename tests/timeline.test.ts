@@ -9,8 +9,12 @@ import {
 } from "@motion/sdk/timeline";
 import {
   exportSubtitles,
+  correctSubtitleText,
+  createSubtitleClip,
   importSubtitles,
+  subtitleContentSchema,
   subtitleClips,
+  subtitleWordTimingMatchesText,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
@@ -107,6 +111,72 @@ test("subtitle timing is independent from styling; JSON/SRT/LRC preserve documen
   assert.equal(repeats.segments.length, 2);
   assert.throws(() => importSubtitles("1\n00:00:04,000 --> 00:00:01,000\nInvalid", "srt", 12));
   assert.throws(() => subtitleClips({ ...data, segments: [{ ...data.segments[0], end: 20 }] }, t, "captions"));
+});
+
+test("subtitle text corrections preserve stable segment and word timing", () => {
+  const source = timeline().clips[0];
+  const clip = createSubtitleClip({
+    id: source.id,
+    trackId: source.trackId,
+    from: source.from,
+    durationInFrames: source.durationInFrames,
+    content: subtitleContentSchema.parse(source.content),
+    props: source.props,
+  });
+  const corrected = correctSubtitleText(
+    clip.content as ReturnType<typeof subtitleContentSchema.parse>,
+    "Frame follows time!",
+  );
+  const correctedClip = { ...clip, content: corrected };
+  assert.equal(correctedClip.id, "lyric-1");
+  assert.equal(corrected.text, "Frame follows time!");
+  assert.deepEqual(corrected.words, [
+    { id: "word-1", text: "Frame", start: 0.5, end: 1 },
+    { id: "word-2", text: "follows", start: 1.2, end: 2 },
+    { id: "word-3", text: "time!", start: 2, end: 2.5 },
+  ]);
+  assert.equal(subtitleWordTimingMatchesText(corrected), true);
+
+  const differentCount = correctSubtitleText(
+    corrected,
+    "Frame now follows time!",
+  );
+  assert.deepEqual(
+    differentCount.words,
+    corrected.words,
+    "word IDs and timestamps remain available as timing evidence",
+  );
+  assert.equal(subtitleWordTimingMatchesText(differentCount), false);
+  const laterSameCount = correctSubtitleText(differentCount, "Frame now!");
+  assert.deepEqual(laterSameCount.words, corrected.words);
+  assert.equal(
+    subtitleWordTimingMatchesText(laterSameCount),
+    false,
+    "stale intervals are not silently reassigned after an intervening word-count change",
+  );
+  assert.equal(correctedClip.from, source.from);
+  assert.equal(correctedClip.durationInFrames, source.durationInFrames);
+});
+
+test("subtitle constructors and content parsing reject invalid clip data", () => {
+  assert.throws(() =>
+    createSubtitleClip({
+      id: "invalid id",
+      trackId: "captions",
+      from: 0,
+      durationInFrames: 10,
+      content: subtitleContentSchema.parse({
+        text: "Caption",
+        status: "unverified",
+      }),
+    }),
+  );
+  assert.throws(() =>
+    subtitleContentSchema.parse({
+      text: "bad",
+      words: [{ id: "w", text: "bad", start: 2, end: 1 }],
+    }),
+  );
 });
 
 test("declared property controls validate their values", () => {
