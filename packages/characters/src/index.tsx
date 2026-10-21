@@ -1,7 +1,7 @@
 import {createContext,useContext,type ReactNode} from 'react';
 import {AbsoluteFill,useCurrentFrame,useVideoConfig} from 'remotion';
 import {TimelineComposition,type EditableComponent} from '@motion/sdk/editor';
-import {fieldValue,type EditTimeline,type EditableField,type TimelineClip} from '@motion/sdk/timeline';
+import {type EditTimeline,type EditableField,type TimelineClip} from '@motion/sdk/timeline';
 import {mascotPropsSchema,speechAtFrame} from './actions';
 export {addMascot,removeMascot,composeMascotDance,choreographyStepSchema,mascotPropsSchema,speechAtFrame} from './actions';
 export type {MascotProps,MascotMotion,ChoreographyStep} from './actions';
@@ -31,7 +31,7 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const localFrame=useCurrentFrame();
   const {fps}=useVideoConfig();
   const timeline=useContext(TimelineContext);
-  const props=mascotPropsSchema.parse(Object.fromEntries(mascotFields.map(f=>[f.key,fieldValue(clip,f)])));
+  const props=mascotPropsSchema.parse(clip.props);
   const absoluteFrame=clip.from+localFrame;
   const speech=timeline&&props.speechClipId?speechAtFrame(timeline,props.speechClipId,absoluteFrame):{speaking:false,text:'',word:'',wordTimed:false};
   const t=localFrame/fps*props.speed;
