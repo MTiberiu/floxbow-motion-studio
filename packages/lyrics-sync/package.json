@@ -1,0 +1,7 @@
+{
+  "name": "@motion/lyrics-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {".":"./src/index.ts","./subtitles":"./src/subtitles.ts","./component":"./src/component.tsx"}
+}

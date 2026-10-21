@@ -1,0 +1,50 @@
+{
+  "name": "ai-motion-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "tsx scripts/dev.ts",
+    "build": "tsx scripts/build.ts",
+    "start": "tsx scripts/dev.ts --built",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:editor": "node --import tsx scripts/test-editor.ts",
+    "test:editor:built": "node --import tsx scripts/test-editor.ts --built",
+    "validate": "tsx scripts/projects.ts validate",
+    "create:project": "tsx scripts/projects.ts create",
+    "render": "tsx packages/renderer/src/cli.ts",
+    "test:smoke": "tsx scripts/smoke.ts",
+    "test:built": "tsx scripts/smoke.ts --built",
+    "render:still": "tsx packages/renderer/src/cli.ts --still",
+    "sync:lyrics": "tsx packages/lyrics-sync/src/cli.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.537",
+    "@remotion/player": "4.0.537",
+    "@remotion/renderer": "4.0.537",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.537",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "44.9.2",
+    "prettier": "3.9.10",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

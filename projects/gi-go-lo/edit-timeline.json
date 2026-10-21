@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "fps": 30,
+  "durationInFrames": 360,
+  "tracks": [
+    {
+      "id": "visuals",
+      "name": "Visuals"
+    },
+    {
+      "id": "lyrics",
+      "name": "Lyrics"
+    }
+  ],
+  "clips": [
+    {
+      "id": "background",
+      "trackId": "visuals",
+      "componentId": "background",
+      "label": "Music backdrop",
+      "from": 0,
+      "durationInFrames": 360,
+      "content": {},
+      "props": {}
+    },
+    {
+      "id": "chorus-1",
+      "trackId": "lyrics",
+      "componentId": "subtitles",
+      "label": "chorus",
+      "from": 0,
+      "durationInFrames": 180,
+      "content": {
+        "text": "GI GO LO",
+        "section": "chorus",
+        "status": "demo",
+        "words": [
+          {
+            "id": "c1w1",
+            "text": "GI",
+            "start": 0,
+            "end": 2
+          },
+          {
+            "id": "c1w2",
+            "text": "GO",
+            "start": 2,
+            "end": 4
+          },
+          {
+            "id": "c1w3",
+            "text": "LO",
+            "start": 4,
+            "end": 6
+          }
+        ]
+      },
+      "props": {
+        "fontSize": 100,
+        "y": 50,
+        "color": "#9299ab",
+        "karaoke": true
+      }
+    },
+    {
+      "id": "chorus-2",
+      "trackId": "lyrics",
+      "componentId": "subtitles",
+      "label": "chorus",
+      "from": 180,
+      "durationInFrames": 180,
+      "content": {
+        "text": "GI GO LO",
+        "section": "chorus",
+        "status": "demo",
+        "words": [
+          {
+            "id": "c2w1",
+            "text": "GI",
+            "start": 0,
+            "end": 2
+          },
+          {
+            "id": "c2w2",
+            "text": "GO",
+            "start": 2,
+            "end": 4
+          },
+          {
+            "id": "c2w3",
+            "text": "LO",
+            "start": 4,
+            "end": 6
+          }
+        ],
+        "repeatOf": "chorus-1"
+      },
+      "props": {
+        "fontSize": 100,
+        "y": 50,
+        "color": "#9299ab",
+        "karaoke": true
+      }
+    }
+  ]
+}

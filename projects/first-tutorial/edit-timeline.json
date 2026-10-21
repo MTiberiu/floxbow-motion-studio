@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "fps": 30,
+  "durationInFrames": 540,
+  "tracks": [
+    {
+      "id": "scenes",
+      "name": "Scenes"
+    },
+    {
+      "id": "captions",
+      "name": "Subtitles"
+    }
+  ],
+  "clips": [
+    {
+      "id": "scene-1",
+      "trackId": "scenes",
+      "componentId": "title",
+      "label": "The idea",
+      "durationInFrames": 180,
+      "content": {},
+      "props": {},
+      "from": 0
+    },
+    {
+      "id": "scene-2",
+      "trackId": "scenes",
+      "componentId": "conversation",
+      "label": "The conversation",
+      "durationInFrames": 180,
+      "content": {},
+      "props": {},
+      "from": 180
+    },
+    {
+      "id": "scene-3",
+      "trackId": "scenes",
+      "componentId": "toolkit",
+      "label": "The toolkit",
+      "durationInFrames": 180,
+      "content": {},
+      "props": {},
+      "from": 360
+    },
+    {
+      "id": "caption-1",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Caption",
+      "from": 30,
+      "durationInFrames": 120,
+      "content": {
+        "text": "Give your ideas a reusable toolkit.",
+        "status": "demo"
+      },
+      "props": {
+        "fontSize": 40,
+        "y": 91,
+        "color": "#c5f18a",
+        "animation": "fade"
+      }
+    },
+    {
+      "id": "caption-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Caption",
+      "from": 210,
+      "durationInFrames": 120,
+      "content": {
+        "text": "Describe it. Build it. Refine it.",
+        "status": "demo"
+      },
+      "props": {
+        "fontSize": 40,
+        "y": 91,
+        "color": "#c5f18a",
+        "animation": "fade"
+      }
+    },
+    {
+      "id": "caption-3",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Caption",
+      "from": 390,
+      "durationInFrames": 120,
+      "content": {
+        "text": "Create. Reuse. Evolve.",
+        "status": "demo"
+      },
+      "props": {
+        "fontSize": 40,
+        "y": 91,
+        "color": "#c5f18a",
+        "animation": "fade"
+      }
+    }
+  ]
+}

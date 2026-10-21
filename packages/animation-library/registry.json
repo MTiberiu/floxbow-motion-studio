@@ -1,0 +1,104 @@
+{
+  "sdkVersion": "0.1.0",
+  "capabilities": [
+    {
+      "id": "editorial-dark",
+      "name": "Editorial dark",
+      "kind": "style",
+      "description": "Ink backgrounds, lime accents, large typography and generous spacing.",
+      "example": "projects/first-tutorial/Composition.tsx"
+    },
+    {
+      "id": "KineticText",
+      "name": "Kinetic typography",
+      "kind": "component",
+      "description": "Frame-driven staggered word entrances.",
+      "import": "@motion/animations",
+      "parameters": {
+        "text": "string (required)",
+        "delay": "frames = 0",
+        "size": "pixels = 82",
+        "color": "CSS color = inherit"
+      },
+      "example": "projects/first-tutorial/Composition.tsx"
+    },
+    {
+      "id": "ChatBubble",
+      "name": "Conversational scenes",
+      "kind": "component",
+      "description": "Spring-animated messages with left or right alignment.",
+      "import": "@motion/animations",
+      "parameters": {
+        "text": "string (required)",
+        "side": "left | right = left",
+        "delay": "frames = 0"
+      },
+      "example": "projects/first-tutorial/Composition.tsx"
+    },
+    {
+      "id": "ComicPop",
+      "name": "Comic text pop",
+      "kind": "component",
+      "description": "A spring entrance with rotation and offset shadow.",
+      "import": "@motion/animations",
+      "parameters": {
+        "text": "string (required)",
+        "color": "CSS color = #c5f18a"
+      },
+      "example": "projects/first-tutorial/Composition.tsx"
+    },
+    {
+      "id": "Counter",
+      "name": "Animated counter",
+      "kind": "component",
+      "description": "Deterministic integer count over a frame interval.",
+      "import": "@motion/animations",
+      "parameters": {
+        "to": "number (required)",
+        "from": "number = 0",
+        "frames": "positive frames = 60",
+        "suffix": "string = empty"
+      },
+      "example": "projects/first-tutorial/Composition.tsx"
+    },
+    {
+      "id": "KaraokeWords",
+      "name": "Word highlighting",
+      "kind": "component",
+      "description": "Highlights only words with supplied timing; never estimates timestamps.",
+      "import": "@motion/animations",
+      "parameters": {
+        "words": "TimedWord[] (required)",
+        "time": "seconds, defaults to current frame / fps",
+        "color": "CSS color = #c5f18a"
+      },
+      "example": "projects/gi-go-lo/Composition.tsx"
+    },
+    {
+      "id": "Fade",
+      "name": "Scene fade",
+      "kind": "component",
+      "description": "Opacity entrance and exit using the current Sequence duration.",
+      "import": "@motion/sdk",
+      "parameters": {
+        "children": "ReactNode",
+        "frames": "positive frames = 15"
+      },
+      "example": "projects/first-tutorial/Composition.tsx"
+    },
+    {
+      "id": "title-scene",
+      "name": "Editorial title scene",
+      "kind": "scene-template",
+      "description": "Copyable title scene combining Canvas, Fade and KineticText.",
+      "example": "projects/first-tutorial/scenes/TitleScene.tsx"
+    },
+    {
+      "id": "first-tutorial",
+      "name": "First Tutorial",
+      "kind": "composition",
+      "description": "Complete three-scene explainer showing the toolkit workflow.",
+      "example": "projects/first-tutorial/Composition.tsx"
+    }
+  ]
+}
