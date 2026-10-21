@@ -6,7 +6,9 @@ import {
   parseEditTimeline,
   changeClipRange,
   validateField,
+  componentInfosSchema,
 } from "@motion/sdk/timeline";
+import { serializableComponentInfo } from "@motion/sdk/editor";
 import {
   exportSubtitles,
   correctSubtitleText,
@@ -15,11 +17,14 @@ import {
   subtitleContentSchema,
   subtitleClips,
   subtitleWordTimingMatchesText,
+  subtitleTimelineBehavior,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
 import { manifestSchema } from "@motion/project-loader/schema";
 import { readEditor, saveEditor } from "../scripts/editor-store";
+import { resolveTimelineBehavior } from "../apps/desktop/src/timeline-behaviors";
+import { subtitleModule } from "@motion/lyrics-sync/component";
 
 function timeline() {
   return parseEditTimeline({
@@ -80,12 +85,40 @@ test("timeline moves on frame boundaries and trimming keeps spoken word position
   const c = moved.clips.find((clip) => clip.id === "lyric-1")!;
   assert.equal(c.from, 30);
   assert.deepEqual(c.content.words, t.clips[0].content.words);
-  const trim = changeClipRange(t, "lyric-1", 30, 180, true).clips[0];
+  const trim = changeClipRange(t, "lyric-1", 30, 180, true, subtitleTimelineBehavior).clips[0];
   const word = (trim.content.words as { start: number; end: number }[])[2];
   assert.equal(word.start + trim.from / t.fps, 2);
   assert.equal(trim.durationInFrames, 150);
   assert.throws(() => parseEditTimeline({ ...t, clips: [{ ...t.clips[0], from: 500 }] }));
   assert.throws(() => parseEditTimeline({ ...t, clips: [t.clips[0], t.clips[0]] }));
+});
+
+test("timeline behavior metadata is serializable and dispatches only trusted built-ins", () => {
+  const metadata = serializableComponentInfo(subtitleModule);
+  assert.equal(metadata.timelineBehavior, "subtitle");
+  assert.equal("component" in metadata, false);
+  assert.deepEqual(componentInfosSchema.parse(JSON.parse(JSON.stringify([metadata]))), [metadata]);
+  assert.equal(resolveTimelineBehavior("subtitles", []).id, "subtitle", "legacy subtitle registration keeps its editing behavior");
+  assert.equal(resolveTimelineBehavior("generic-title", []).id, "generic-visual");
+  assert.equal(resolveTimelineBehavior("generic-title", [{ ...metadata, id: "generic-title", timelineBehavior: "unknown-custom" }]).id, "generic-visual");
+  assert.equal(resolveTimelineBehavior("generic-title", [{ ...metadata, id: "generic-title", timelineBehavior: "subtitle" }]).id, "subtitle");
+});
+
+test("generic content with words and status is unchanged by range edits; subtitle behavior remains specialized", () => {
+  const t = timeline();
+  const generic = structuredClone(t);
+  generic.clips[0].componentId = "generic-title";
+  generic.clips[0].content = { words: [{ id: "w", text: "Label", start: 1, end: 2 }], status: "reviewed" };
+  const resized = changeClipRange(generic, "lyric-1", 30, 150, true).clips[0];
+  assert.deepEqual(resized.content, generic.clips[0].content);
+  const subtitle = structuredClone(t.clips[0]);
+  subtitle.content.status = "reviewed";
+  t.clips[0] = subtitle;
+  const trimmed = changeClipRange(t, subtitle.id, 30, 150, true, subtitleTimelineBehavior).clips[0];
+  assert.equal(trimmed.content.status, "unverified");
+  assert.equal((trimmed.content.words as { start: number }[])[0].start, -0.5);
+  const duplicated = subtitleTimelineBehavior.duplicateContent!(subtitle.content, subtitle.id);
+  assert.equal(duplicated.repeatOf, subtitle.id);
 });
 
 test("subtitle timing is independent from styling; JSON/SRT/LRC preserve documented semantics", () => {
@@ -212,6 +245,30 @@ test("project saves are validated, persistent and reject stale agent revisions",
     assert.notEqual(saved.revision, disk.revision);
     await assert.rejects(saveEditor(directory, manifest, t, disk.revision), /CONFLICT/);
     await assert.rejects(saveEditor(directory, manifest, { ...t, fps: 60 }, saved.revision), /match/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("version 1 save/reload preserves generic clip metadata without interpreting it", async () => {
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const directory = await mkdtemp(path.join(tempRoot, "motion-v1-behavior-"));
+  try {
+    const t = timeline();
+    const visual = t.clips[0];
+    visual.componentId = "generic-title";
+    visual.content = { words: [{ id: "w", text: "Title", start: 0.2, end: 0.8 }], status: "reviewed" };
+    const manifest = manifestSchema.parse({ id: "v1-fixture", name: "V1 Fixture", type: "explainer", width: 1920, height: 1080, fps: 30, durationInFrames: 360, entry: "Composition.tsx", editTimeline: "edit.json", sdkVersion: "0.1.0" });
+    await writeFile(path.join(directory, "edit.json"), JSON.stringify(t));
+    const disk = await readEditor(directory, manifest);
+    const changed = changeClipRange(disk.timeline, visual.id, 30, 150, true, resolveTimelineBehavior(visual.componentId, []));
+    const saved = await saveEditor(directory, manifest, changed, disk.revision);
+    const reloaded = await readEditor(directory, manifest);
+    assert.equal(reloaded.timeline.version, 1);
+    assert.equal(reloaded.timeline.clips[0].componentId, "generic-title");
+    assert.deepEqual(reloaded.timeline.clips[0].content, visual.content);
+    assert.equal(saved.timeline.clips[0].from, 30);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

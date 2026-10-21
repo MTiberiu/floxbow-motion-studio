@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {clipSchema,type TimelineClip,type EditTimeline} from '@motion/sdk/timeline';
+import {clipSchema,type TimelineClip,type EditTimeline,type TimelineBehavior} from '@motion/sdk/timeline';
 import {parseTimeline} from './index';
 const word=z.object({id:z.string(),text:z.string(),start:z.number().finite(),end:z.number().finite()}).refine(w=>w.end>w.start,'Word end must follow start');
 export const subtitleContentSchema=z.object({text:z.string().max(20000),section:z.string().optional(),repeatOf:z.string().optional(),status:z.enum(['demo','unverified','reviewed']).default('unverified'),words:z.array(word).optional()});
@@ -35,6 +35,28 @@ export function subtitleWordTimingMatchesText(
     tokens.every((token, index) => token === content.words![index].text)
   );
 }
+/** Serializable subtitle clips opt into these trusted editor-side semantics by metadata ID. */
+export const subtitleTimelineBehavior:TimelineBehavior={
+ id:'subtitle',
+ resizeContent(content,oldRange,nextRange,fps){
+  const next=structuredClone(content);
+  if(Array.isArray(next.words)){
+   const delta=(oldRange.from-nextRange.from)/fps;
+   next.words=next.words.map(w=>w&&typeof w==='object'&&!Array.isArray(w)&&typeof w.start==='number'&&typeof w.end==='number'?{...w,start:w.start+delta,end:w.end+delta}:w);
+  }
+  if(next.status&&next.status!=='demo')next.status='unverified';
+  return next;
+ },
+ duplicateContent(content,sourceId){return {...structuredClone(content),repeatOf:sourceId};},
+ editContent(content,key,value){
+  if(key!=='text'||typeof value!=='string')return undefined;
+  const next=correctSubtitleText(content as unknown as SubtitleContent,value);
+  const hasWords=Array.isArray(next.words)&&next.words.length>0;
+  return {content:next as unknown as TimelineClip['content'],notice:hasWords&&!subtitleWordTimingMatchesText(next)
+   ?'Text changed. Segment and word timing were preserved; karaoke highlighting is paused because the word timings no longer match this text.'
+   :'Text changed. Existing segment and word timing were preserved.'};
+ },
+};
 /** Construct a validated frame-based subtitle clip for the project's edit timeline. */
 export function createSubtitleClip(input: {
   id: string;

@@ -38,7 +38,9 @@ The optional `timeline` prop carries live editor state. The imported JSON is the
 
 ## Declared properties, not editor-specific controls
 
-`EditableComponent` contains `id`, `name`, a React `component({clip})`, and a JSON-serializable `fields` list. Each field declares `key`, `label`, `target` (`content` or `props`), `type`, `default`, and optional min/max/step/options. Supported UI controls: text, number, color, select and boolean. The editor receives only metadata from the isolated preview; it never executes a project's UI functions.
+`EditableComponent` contains `id`, `name`, a React `component({clip})`, a JSON-serializable `fields` list, and optional `timelineBehavior` metadata. Each field declares `key`, `label`, `target` (`content` or `props`), `type`, `default`, and optional min/max/step/options. Supported UI controls: text, number, color, select and boolean. The editor receives only serializable metadata from the isolated preview; renderer functions and behavior functions never cross the bridge.
+
+Timeline behavior IDs are resolved by a static trusted map in the desktop editor. The metadata selects only behavior code already registered by the application; it cannot name or install executable code. Missing behavior metadata uses generic visual editing, except for the documented compatibility fallback for legacy `subtitles` registrations. Unknown IDs also use generic editing. The version-1 timeline format is unchanged and does not persist behavior IDs on clips. Built-in behavior hooks currently cover content changes on trim, duplicate, and declared content fields. Subtitle behavior preserves word offsets and status semantics; generic range edits never infer meaning from fields such as `words` or `status`.
 
 For example, a project-owned component can declare:
 

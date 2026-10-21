@@ -2,7 +2,7 @@ import {useEffect,useRef,useState,type ComponentType} from 'react';
 import {createRoot} from 'react-dom/client';
 import type {PlayerRef,CallbackListener} from '@remotion/player';
 import type {ProjectManifest} from '@motion/project-loader/schema';
-import type {EditableVideoProps,EditableComponent} from '@motion/sdk/editor';
+import {serializableComponentInfo,type EditableVideoProps,type EditableComponent} from '@motion/sdk/editor';
 import {componentInfosSchema,parseEditTimeline,type EditTimeline} from '@motion/sdk/timeline';
 import {StudioPlayer} from './index';
 type VideoModule={default:ComponentType<EditableVideoProps>;editorComponents?:EditableComponent[]};
@@ -12,7 +12,7 @@ function PreviewHost({module,manifest}:{module:VideoModule;manifest:ProjectManif
  useEffect(()=>{
  if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(parentOrigin))return;
  const send=(type:string,extra:Record<string,unknown>={})=>parent.postMessage({channel:'motion-editor-v1',projectId:manifest.id,type,...extra},parentOrigin);
- const ready=()=>{const components=componentInfosSchema.parse((module.editorComponents??[]).map(({component,...info})=>info));send('ready',{components});};
+ const ready=()=>{const components=componentInfosSchema.parse((module.editorComponents??[]).map(serializableComponentInfo));send('ready',{components});};
  const report=()=>send('frame',{frame:player.current?.getCurrentFrame()??0,playing:player.current?.isPlaying()??false});
  const onFrame:CallbackListener<'frameupdate'>=()=>report();
  const receive=(e:MessageEvent)=>{if(e.source!==parent||e.origin!==parentOrigin||e.data?.channel!=='motion-editor-v1'||e.data.projectId!==manifest.id)return;

@@ -1,8 +1,13 @@
 import type {ComponentType} from 'react';
 import {AbsoluteFill,Sequence} from 'remotion';
-import {parseEditTimeline,type EditTimeline,type TimelineClip,type ComponentInfo} from './timeline';
+import {componentInfoSchema,parseEditTimeline,type EditTimeline,type TimelineClip,type ComponentInfo} from './timeline';
 export type EditableComponent=ComponentInfo&{component:ComponentType<{clip:TimelineClip}>};
 export type EditableVideoProps={timeline?:EditTimeline};
+/** Strip executable renderer code before metadata crosses the isolated preview bridge. */
+export function serializableComponentInfo(component:EditableComponent):ComponentInfo{
+ const {component:_renderer,...info}=component;
+ return componentInfoSchema.parse(info);
+}
 export function TimelineComposition({timeline,components}:{timeline:EditTimeline;components:EditableComponent[]}){
  const t=parseEditTimeline(timeline);
  return <AbsoluteFill style={{background:'#101725'}}>{t.tracks.flatMap(track=>t.clips.filter(c=>c.trackId===track.id).map(clip=>{

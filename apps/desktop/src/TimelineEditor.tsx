@@ -17,12 +17,12 @@ import {
   type ComponentInfo,
   type EditableField,
 } from "@motion/sdk/timeline";
+import { resolveTimelineBehavior } from "./timeline-behaviors";
 import {
   exportSubtitles,
   createSubtitleClip,
   importSubtitles,
   subtitleClips,
-  correctSubtitleText,
   subtitleWordTimingMatchesText,
   subtitlesToSRT,
   subtitlesToLRC,
@@ -352,28 +352,13 @@ export function TimelineEditor({
       const next = structuredClone(doc);
       const c = next.clips.find((c) => c.id === selected)!;
       const validated = validateField(field, value);
-      if (
-        c.componentId === "subtitles" &&
-        field.target === "content" &&
-        field.key === "text"
-      ) {
-        const oldContent = doc.clips.find(
-          (item) => item.id === selected,
-        )!.content;
-        c.content = correctSubtitleText(
-          oldContent as Parameters<typeof correctSubtitleText>[0],
-          String(validated),
-        );
-        const hasWords =
-          Array.isArray(c.content.words) && c.content.words.length > 0;
-        setNotice(
-          hasWords &&
-            !subtitleWordTimingMatchesText(
-              c.content as Parameters<typeof subtitleWordTimingMatchesText>[0],
-            )
-            ? "Text changed. Segment and word timing were preserved; karaoke highlighting is paused because the word timings no longer match this text."
-            : "Text changed. Existing segment and word timing were preserved.",
-        );
+      const behavior = resolveTimelineBehavior(c.componentId, components);
+      const behaviorEdit = field.target === "content"
+        ? behavior.editContent?.(c.content, field.key, validated)
+        : undefined;
+      if (behaviorEdit) {
+        c.content = behaviorEdit.content;
+        if (behaviorEdit.notice) setNotice(behaviorEdit.notice);
       } else c[field.target][field.key] = validated;
       edit(next);
     } catch (e) {
@@ -424,7 +409,7 @@ export function TimelineEditor({
         Math.min(manifest.durationInFrames, end + delta),
       );
     edit(
-      changeClipRange(d.timeline, d.clip.id, start, end, d.mode !== "move"),
+      changeClipRange(d.timeline, d.clip.id, start, end, d.mode !== "move", resolveTimelineBehavior(d.clip.componentId, components)),
       false,
     );
   }
@@ -584,7 +569,8 @@ export function TimelineEditor({
       copy.from + copy.durationInFrames,
     );
     copy.label = clip.label + " (repeat)";
-    if (copy.componentId === "subtitles") copy.content.repeatOf = clip.id;
+    const duplicateContent = resolveTimelineBehavior(clip.componentId, components).duplicateContent;
+    if (duplicateContent) copy.content = duplicateContent(clip.content, clip.id);
     edit({ ...doc, clips: [...doc.clips, copy] });
     setSelected(copy.id);
   }
@@ -843,6 +829,7 @@ export function TimelineEditor({
                           Number(e.target.value),
                           clip.from + clip.durationInFrames,
                           true,
+                          resolveTimelineBehavior(clip.componentId, components),
                         ),
                       )
                     }
@@ -864,6 +851,7 @@ export function TimelineEditor({
                           clip.from,
                           Number(e.target.value),
                           true,
+                          resolveTimelineBehavior(clip.componentId, components),
                         ),
                       )
                     }
