@@ -233,8 +233,14 @@ function App() {
   }, []);
   useEffect(() => {
     if (!state) return;
-    if (state.projects.some((project) => project.id === selected && project.manifest)) return;
-    const fallback = state.projects.find((project) => project.manifest)?.id ?? "";
+    if (
+      state.projects.some(
+        (project) => project.id === selected && project.manifest,
+      )
+    )
+      return;
+    const fallback =
+      state.projects.find((project) => project.manifest)?.id ?? "";
     setSelected(fallback);
     if (fallback) localStorage.setItem("motion-project", fallback);
     else localStorage.removeItem("motion-project");
@@ -248,7 +254,11 @@ function App() {
   }
   async function createProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const id = projectName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const id = projectName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
     if (!id) {
       setCreateError("Enter a name using letters or numbers.");
       return;
@@ -262,7 +272,11 @@ function App() {
       });
       if (!response.ok) throw new Error(await response.text());
       const data: { project: ProjectRecord } = await response.json();
-      setState((current) => current ? { ...current, projects: [...current.projects, data.project] } : current);
+      setState((current) =>
+        current
+          ? { ...current, projects: [...current.projects, data.project] }
+          : current,
+      );
       select(id);
       setProjectName("");
       setCreateOpen(false);
@@ -335,8 +349,15 @@ function App() {
             <button
               className="create-project-button"
               disabled={state?.built}
-              title={state?.built ? "Create projects from the live development workspace." : "Create a new project"}
-              onClick={() => { setCreateOpen((open) => !open); setCreateError(""); }}
+              title={
+                state?.built
+                  ? "Create projects from the live development workspace."
+                  : "Create a new project"
+              }
+              onClick={() => {
+                setCreateOpen((open) => !open);
+                setCreateError("");
+              }}
             >
               + Create
             </button>
@@ -355,7 +376,15 @@ function App() {
               {createError && <p role="alert">{createError}</p>}
               <div>
                 <button type="submit">Create project</button>
-                <button type="button" onClick={() => { setCreateOpen(false); setCreateError(""); }}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateOpen(false);
+                    setCreateError("");
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           )}
@@ -363,6 +392,7 @@ function App() {
             {state?.projects.map((p, i) => (
               <button
                 className={`project ${p.id === selected ? "active" : ""}`}
+                data-project-id={p.id}
                 onClick={() => select(p.id)}
                 key={p.id}
               >
@@ -442,9 +472,26 @@ function App() {
             <section className="empty-project-state">
               <span className="eyebrow">A CLEAN WORKSPACE</span>
               <h2>Create your first video project</h2>
-              <p>{state.built ? "This built snapshot has no projects. Start the live development workspace to create source projects." : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}</p>
-              <button disabled={state.built} onClick={() => { setCreateOpen(true); setCreateError(""); }}>Create Project</button>
-              <button className="secondary-action" onClick={() => setTab("Capabilities")}>Explore capabilities</button>
+              <p>
+                {state.built
+                  ? "This built snapshot has no projects. Start the live development workspace to create source projects."
+                  : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}
+              </p>
+              <button
+                disabled={state.built}
+                onClick={() => {
+                  setCreateOpen(true);
+                  setCreateError("");
+                }}
+              >
+                Create Project
+              </button>
+              <button
+                className="secondary-action"
+                onClick={() => setTab("Capabilities")}
+              >
+                Explore capabilities
+              </button>
             </section>
           ) : project?.error ? (
             <div className="error" role="alert">
@@ -458,6 +505,7 @@ function App() {
               previewOrigin={state.previewOrigin}
               built={state.built}
               reload={reload}
+              requestPreviewReload={() => setReload((current) => current + 1)}
             />
           ) : (
             <p>Discovering projects…</p>
@@ -467,7 +515,11 @@ function App() {
             <Lyrics key={selected} id={selected} />
           </div>
         )}
-        {tab === "Capabilities" && <div className="auxiliary-view"><CapabilitiesExplorer /></div>}
+        {tab === "Capabilities" && (
+          <div className="auxiliary-view">
+            <CapabilitiesExplorer />
+          </div>
+        )}
       </main>
     </div>
   );

@@ -11,26 +11,49 @@ The two original demos now declare project-owned clips. No new animation framewo
   "version": 1,
   "fps": 30,
   "durationInFrames": 180,
-  "tracks": [{"id":"visuals","name":"Visuals"},{"id":"captions","name":"Subtitles"}],
-  "clips": [{
-    "id":"line-1","trackId":"captions","componentId":"subtitles","label":"Opening",
-    "from":0,"durationInFrames":180,
-    "content":{"text":"An idea in motion.","status":"unverified"},
-    "props":{"fontSize":68,"color":"#ffffff","x":50,"y":82,"animation":"fade"}
-  }]
+  "tracks": [
+    { "id": "visuals", "name": "Visuals" },
+    { "id": "captions", "name": "Subtitles" }
+  ],
+  "clips": [
+    {
+      "id": "line-1",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Opening",
+      "from": 0,
+      "durationInFrames": 180,
+      "content": { "text": "An idea in motion.", "status": "unverified" },
+      "props": {
+        "fontSize": 68,
+        "color": "#ffffff",
+        "x": 50,
+        "y": 82,
+        "animation": "fade"
+      }
+    }
+  ]
 }
 ```
 
 Clip start is `from`; exclusive end is `from + durationInFrames`. All timeline boundaries are integer frames. Lower tracks in the editor render on top of earlier tracks. Within a track, later entries render on top. Overlap is allowed, not automatically rippled or collision-resolved.
 
 ```tsx
-import {TimelineComposition, type EditableVideoProps} from '@motion/sdk/editor';
-import {parseEditTimeline} from '@motion/sdk/timeline';
-import {subtitleModule} from '@motion/lyrics-sync/component';
-import data from './edit-timeline.json';
+import {
+  TimelineComposition,
+  type EditableVideoProps,
+} from "@motion/sdk/editor";
+import { parseEditTimeline } from "@motion/sdk/timeline";
+import { subtitleModule } from "@motion/lyrics-sync/component";
+import data from "./edit-timeline.json";
 export const editorComponents = [subtitleModule];
-export default function Video({timeline}: EditableVideoProps) {
-  return <TimelineComposition timeline={timeline ?? parseEditTimeline(data)} components={editorComponents}/>;
+export default function Video({ timeline }: EditableVideoProps) {
+  return (
+    <TimelineComposition
+      timeline={timeline ?? parseEditTimeline(data)}
+      components={editorComponents}
+    />
+  );
 }
 ```
 
@@ -44,9 +67,18 @@ For example, a project-owned component can declare:
 
 ```tsx
 const title = {
-  id: 'my-title', name: 'Project title', component: MyTitle,
-  fields: [{key:'headline', label:'Headline', target:'content' as const,
-    type:'text' as const, default:'Hello'}]
+  id: "my-title",
+  name: "Project title",
+  component: MyTitle,
+  fields: [
+    {
+      key: "headline",
+      label: "Headline",
+      target: "content" as const,
+      type: "text" as const,
+      default: "Hello",
+    },
+  ],
 };
 // MyTitle reads clip.content.headline; export it in editorComponents.
 ```
@@ -62,7 +94,7 @@ Import `subtitleModule` from `@motion/lyrics-sync/component`. Content is separat
 - `content.words`: optional `{id,text,start,end}` entries in **seconds relative to clip start**. Negative offsets or offsets beyond the visible end can occur after trimming; they preserve the original spoken positions.
 - `props`: fontFamily, fontSize, color, highlightColor, x/y percentage position, animation (`none`, `fade`, `rise`), animationFrames and karaoke boolean. Defaults/ranges live in `subtitleFields`, which generates the panel.
 
-Changing styling does not change synchronization data. Moving a clip shifts its words with the clip. Trimming moves only the visible boundary: word offsets adjust at the left edge so absolute word positions stay fixed. Text editing clears only that clip's old word timing, with an explicit notice; it never fabricates replacement timestamps. Duplicate creates an independent repeat with `repeatOf` metadata. Deleting or editing one occurrence does not silently change another.
+Changing styling does not change synchronization data. Moving a clip shifts with its segment-relative word offsets. Trimming moves only the visible boundary: word offsets adjust at the left edge so absolute word positions stay fixed. Text corrections preserve the clip ID, segment timing, word IDs and word intervals. If the corrected text has the same number of words, the module updates the visible word labels while retaining each interval. If the count changes, the original word intervals remain as timing evidence and karaoke highlighting pauses rather than showing stale word-to-time matches. No replacement timestamps are invented. Duplicate creates an independent repeat with `repeatOf` metadata. Deleting or editing one occurrence does not change another.
 
 ## Editing and persistence
 

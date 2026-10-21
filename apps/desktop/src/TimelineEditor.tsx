@@ -19,8 +19,11 @@ import {
 } from "@motion/sdk/timeline";
 import {
   exportSubtitles,
+  createSubtitleClip,
   importSubtitles,
   subtitleClips,
+  correctSubtitleText,
+  subtitleWordTimingMatchesText,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
@@ -47,11 +50,13 @@ export function TimelineEditor({
   previewOrigin,
   built,
   reload,
+  requestPreviewReload,
 }: {
   manifest: ProjectManifest;
   previewOrigin: string;
   built: boolean;
   reload: number;
+  requestPreviewReload: () => void;
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
   const canvasViewport = useRef<HTMLDivElement>(null);
@@ -100,8 +105,8 @@ export function TimelineEditor({
   const ruler = useRef<HTMLDivElement>(null);
   const draftKey = `motion-draft-v1:${manifest.id}`;
   const send = useCallback(
-    (type: string, payload: Record<string, unknown> = {}) =>
-      iframe.current?.contentWindow?.postMessage(
+    (type: string, payload: Record<string, unknown> = {}) => {
+      return iframe.current?.contentWindow?.postMessage(
         {
           channel: "motion-editor-v1",
           projectId: manifest.id,
@@ -109,12 +114,15 @@ export function TimelineEditor({
           ...payload,
         },
         previewOrigin,
-      ),
+      );
+    },
     [manifest.id, previewOrigin],
   );
-  const setClean = (disk: Disk) => {
+  const setClean = (disk: Disk, refreshPreview = false) => {
     docRef.current = disk.timeline;
     setDoc(disk.timeline);
+    send("document", { timeline: disk.timeline });
+    if (refreshPreview) requestPreviewReload();
     revisionRef.current = disk.revision;
     setRevision(disk.revision);
     dirtyRef.current = false;
@@ -159,7 +167,7 @@ export function TimelineEditor({
           if (dirtyRef.current) {
             setConflict(true);
           } else {
-            setClean(disk);
+            setClean(disk, true);
             setNotice("Updated from project files.");
           }
         }
@@ -270,7 +278,6 @@ export function TimelineEditor({
   }, [previewOrigin, manifest.id, send]);
   useEffect(() => {
     if (doc) {
-      send("document", { timeline: doc });
       if (dirty)
         try {
           localStorage.setItem(
@@ -283,7 +290,7 @@ export function TimelineEditor({
           );
         }
     }
-  }, [doc, dirty, revision, send]);
+  }, [doc, dirty, revision]);
   function edit(next: EditTimeline, checkpoint = true) {
     try {
       parseEditTimeline(next, manifest);
@@ -293,6 +300,7 @@ export function TimelineEditor({
       }
       docRef.current = next;
       setDoc(next);
+      send("document", { timeline: next });
       dirtyRef.current = true;
       setDirty(true);
       setError("");
@@ -332,7 +340,7 @@ export function TimelineEditor({
     try {
       const r = await fetch(`/api/edit/${manifest.id}`);
       if (!r.ok) throw new Error(await r.text());
-      setClean(await r.json());
+      setClean(await r.json(), true);
       setNotice("Loaded the file on disk.");
     } catch (e) {
       setError(String(e));
@@ -343,18 +351,30 @@ export function TimelineEditor({
     try {
       const next = structuredClone(doc);
       const c = next.clips.find((c) => c.id === selected)!;
-      c[field.target][field.key] = validateField(field, value);
+      const validated = validateField(field, value);
       if (
         c.componentId === "subtitles" &&
         field.target === "content" &&
         field.key === "text"
       ) {
-        delete c.content.words;
-        if (c.content.status !== "demo") c.content.status = "unverified";
-        setNotice(
-          "Text changed: word timing cleared for this clip. Segment timing is unchanged.",
+        const oldContent = doc.clips.find(
+          (item) => item.id === selected,
+        )!.content;
+        c.content = correctSubtitleText(
+          oldContent as Parameters<typeof correctSubtitleText>[0],
+          String(validated),
         );
-      }
+        const hasWords =
+          Array.isArray(c.content.words) && c.content.words.length > 0;
+        setNotice(
+          hasWords &&
+            !subtitleWordTimingMatchesText(
+              c.content as Parameters<typeof subtitleWordTimingMatchesText>[0],
+            )
+            ? "Text changed. Segment and word timing were preserved; karaoke highlighting is paused because the word timings no longer match this text."
+            : "Text changed. Existing segment and word timing were preserved.",
+        );
+      } else c[field.target][field.key] = validated;
       edit(next);
     } catch (e) {
       setError(String(e));
@@ -545,16 +565,13 @@ export function TimelineEditor({
   function addSubtitle() {
     if (!doc) return;
     const trackId = clip?.trackId ?? doc.tracks.at(-1)!.id;
-    const c: TimelineClip = {
+    const c = createSubtitleClip({
       id: `subtitle-${crypto.randomUUID()}`,
       trackId,
-      componentId: "subtitles",
-      label: "Subtitle",
       from: frame,
       durationInFrames: Math.min(doc.fps * 2, doc.durationInFrames - frame),
       content: { text: "New subtitle", status: "unverified" },
-      props: {},
-    };
+    });
     edit({ ...doc, clips: [...doc.clips, c] });
     setSelected(c.id);
   }
@@ -877,7 +894,13 @@ export function TimelineEditor({
               {clip.componentId === "subtitles" && (
                 <p className="muted">
                   {Array.isArray(clip.content.words)
-                    ? `${clip.content.words.length} timed words. Trimming preserves their spoken positions.`
+                    ? subtitleWordTimingMatchesText(
+                        clip.content as Parameters<
+                          typeof subtitleWordTimingMatchesText
+                        >[0],
+                      )
+                      ? `${clip.content.words.length} timed words. Moving and trimming preserve their spoken positions.`
+                      : "Word timing is preserved, but does not match this text; karaoke highlighting is paused."
                     : "No word timing. Text editing never invents karaoke timing."}
                   <br />
                   Timing: {String(clip.content.status ?? "unverified")}

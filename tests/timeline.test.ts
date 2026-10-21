@@ -9,8 +9,12 @@ import {
 } from "@motion/sdk/timeline";
 import {
   exportSubtitles,
+  correctSubtitleText,
+  createSubtitleClip,
   importSubtitles,
+  subtitleContentSchema,
   subtitleClips,
+  subtitleWordTimingMatchesText,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
@@ -80,15 +84,23 @@ test("timeline moves on frame boundaries and trimming keeps spoken word position
   const word = (trim.content.words as { start: number; end: number }[])[2];
   assert.equal(word.start + trim.from / t.fps, 2);
   assert.equal(trim.durationInFrames, 150);
-  assert.throws(() => parseEditTimeline({ ...t, clips: [{ ...t.clips[0], from: 500 }] }));
-  assert.throws(() => parseEditTimeline({ ...t, clips: [t.clips[0], t.clips[0]] }));
+  assert.throws(() =>
+    parseEditTimeline({ ...t, clips: [{ ...t.clips[0], from: 500 }] }),
+  );
+  assert.throws(() =>
+    parseEditTimeline({ ...t, clips: [t.clips[0], t.clips[0]] }),
+  );
 });
 
 test("subtitle timing is independent from styling; JSON/SRT/LRC preserve documented semantics", () => {
   const t = timeline();
   const data = exportSubtitles(t);
   const styled = structuredClone(t);
-  styled.clips[0].props = { color: "#ff0000", animation: "rise", fontFamily: "Georgia" };
+  styled.clips[0].props = {
+    color: "#ff0000",
+    animation: "rise",
+    fontFamily: "Georgia",
+  };
   assert.deepEqual(exportSubtitles(styled), data);
   const json = importSubtitles(JSON.stringify(data), "json", 12);
   assert.deepEqual(json, data);
@@ -103,14 +115,99 @@ test("subtitle timing is independent from styling; JSON/SRT/LRC preserve documen
   assert.equal(srt.segments[0].content.words, undefined);
   const lrc = importSubtitles(subtitlesToLRC(data), "lrc", 12);
   assert.equal(lrc.segments[1].start, 6);
-  const repeats = importSubtitles("[00:00.00][00:06.00]Repeated line", "lrc", 12);
+  const repeats = importSubtitles(
+    "[00:00.00][00:06.00]Repeated line",
+    "lrc",
+    12,
+  );
   assert.equal(repeats.segments.length, 2);
-  assert.throws(() => importSubtitles("1\n00:00:04,000 --> 00:00:01,000\nInvalid", "srt", 12));
-  assert.throws(() => subtitleClips({ ...data, segments: [{ ...data.segments[0], end: 20 }] }, t, "captions"));
+  assert.throws(() =>
+    importSubtitles("1\n00:00:04,000 --> 00:00:01,000\nInvalid", "srt", 12),
+  );
+  assert.throws(() =>
+    subtitleClips(
+      { ...data, segments: [{ ...data.segments[0], end: 20 }] },
+      t,
+      "captions",
+    ),
+  );
+});
+
+test("subtitle text corrections preserve stable segment and word timing", () => {
+  const source = timeline().clips[0];
+  const clip = createSubtitleClip({
+    id: source.id,
+    trackId: source.trackId,
+    from: source.from,
+    durationInFrames: source.durationInFrames,
+    content: subtitleContentSchema.parse(source.content),
+    props: source.props,
+  });
+  const corrected = correctSubtitleText(
+    clip.content as ReturnType<typeof subtitleContentSchema.parse>,
+    "Frame follows time!",
+  );
+  assert.equal(clip.id, "lyric-1");
+  assert.equal(corrected.text, "Frame follows time!");
+  assert.deepEqual(corrected.words, [
+    { id: "word-1", text: "Frame", start: 0.5, end: 1 },
+    { id: "word-2", text: "follows", start: 1.2, end: 2 },
+    { id: "word-3", text: "time!", start: 2, end: 2.5 },
+  ]);
+  assert.equal(subtitleWordTimingMatchesText(corrected), true);
+
+  const differentCount = correctSubtitleText(
+    corrected,
+    "Frame now follows time!",
+  );
+  assert.deepEqual(
+    differentCount.words,
+    corrected.words,
+    "word IDs and timestamps remain available as timing evidence",
+  );
+  assert.equal(subtitleWordTimingMatchesText(differentCount), false);
+  const laterSameCount = correctSubtitleText(differentCount, "Frame now!");
+  assert.deepEqual(laterSameCount.words, corrected.words);
+  assert.equal(
+    subtitleWordTimingMatchesText(laterSameCount),
+    false,
+    "stale intervals are not silently reassigned after an intervening word-count change",
+  );
+  assert.equal(clip.from, source.from);
+  assert.equal(clip.durationInFrames, source.durationInFrames);
+});
+
+test("subtitle constructors and content parsing reject invalid clip data", () => {
+  assert.throws(() =>
+    createSubtitleClip({
+      id: "invalid id",
+      trackId: "captions",
+      from: 0,
+      durationInFrames: 10,
+      content: subtitleContentSchema.parse({
+        text: "Caption",
+        status: "unverified",
+      }),
+    }),
+  );
+  assert.throws(() =>
+    subtitleContentSchema.parse({
+      text: "bad",
+      words: [{ id: "w", text: "bad", start: 2, end: 1 }],
+    }),
+  );
 });
 
 test("declared property controls validate their values", () => {
-  const field = { key: "size", label: "Size", target: "props" as const, type: "number" as const, default: 40, min: 12, max: 120 };
+  const field = {
+    key: "size",
+    label: "Size",
+    target: "props" as const,
+    type: "number" as const,
+    default: 40,
+    min: 12,
+    max: 120,
+  };
   assert.equal(validateField(field, 64), 64);
   assert.throws(() => validateField(field, -1));
   assert.throws(() => validateField(field, NaN));
@@ -140,8 +237,14 @@ test("project saves are validated, persistent and reject stale agent revisions",
     const saved = await saveEditor(directory, manifest, next, disk.revision);
     assert.equal(saved.timeline.clips[0].from, 15);
     assert.notEqual(saved.revision, disk.revision);
-    await assert.rejects(saveEditor(directory, manifest, t, disk.revision), /CONFLICT/);
-    await assert.rejects(saveEditor(directory, manifest, { ...t, fps: 60 }, saved.revision), /match/);
+    await assert.rejects(
+      saveEditor(directory, manifest, t, disk.revision),
+      /CONFLICT/,
+    );
+    await assert.rejects(
+      saveEditor(directory, manifest, { ...t, fps: 60 }, saved.revision),
+      /match/,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -174,12 +277,23 @@ test("external project-file updates are readable and block saves based on an old
 
     const reloaded = await readEditor(directory, manifest);
     assert.notEqual(reloaded.revision, loadedByEditor.revision);
-    assert.equal(reloaded.timeline.clips[0].content.text, "Changed by an external agent");
+    assert.equal(
+      reloaded.timeline.clips[0].content.text,
+      "Changed by an external agent",
+    );
     await assert.rejects(
-      saveEditor(directory, manifest, loadedByEditor.timeline, loadedByEditor.revision),
+      saveEditor(
+        directory,
+        manifest,
+        loadedByEditor.timeline,
+        loadedByEditor.revision,
+      ),
       /CONFLICT: The project changed on disk/,
     );
-    assert.equal(JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text, "Changed by an external agent");
+    assert.equal(
+      JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text,
+      "Changed by an external agent",
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
