@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { manifestSchema, discover, safeFile } from "@motion/project-loader";
 import {
@@ -15,6 +15,7 @@ import {
 import { parseCapabilityRegistry } from "@motion/animations/registry";
 import { createProject } from "../scripts/project-scaffold";
 import { parseEditTimeline } from "@motion/sdk/timeline";
+import { readEditor, saveEditor } from "../scripts/editor-store";
 const manifest = {
   id: "test-video",
   name: "Test",
@@ -167,6 +168,49 @@ test("Create Project scaffold creates a blank, valid editable project", async ()
     assert.equal(timeline.clips.length, 0);
     assert.deepEqual(timeline.tracks.map((track) => track.name), ["Visuals", "Captions"]);
     await assert.rejects(createProject(projects, "../escape"));
+  } finally {
+    await rm(projects, { recursive: true, force: true });
+  }
+});
+
+test("three scaffolded projects are independently discoverable and editable", async () => {
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const projects = await mkdtemp(path.join(tempRoot, "motion-isolated-projects-"));
+  try {
+    const ids = ["isolation-alpha", "isolation-bravo", "isolation-charlie"];
+    const manifests = await Promise.all(ids.map(async (id) => manifestSchema.parse(await createProject(projects, id))));
+    for (const manifest of manifests) {
+      const directory = path.join(projects, manifest.id);
+      for (const file of ["project.json", "Composition.tsx", "edit-timeline.json"])
+        await stat(path.join(directory, file));
+      for (const folder of ["assets", "scenes", "timing"])
+        assert.ok((await stat(path.join(directory, folder))).isDirectory());
+    }
+    assert.deepEqual((await discover(projects)).map((p) => p.id), ids);
+
+    const firstDirectory = path.join(projects, ids[0]);
+    const secondDirectory = path.join(projects, ids[1]);
+    const firstManifest = manifests[0];
+    const secondManifest = manifests[1];
+    const firstBefore = await readEditor(firstDirectory, firstManifest);
+    const secondBefore = await readEditor(secondDirectory, secondManifest);
+    const changed = structuredClone(firstBefore.timeline);
+    changed.clips.push({
+      id: "only-alpha",
+      trackId: "captions",
+      componentId: "subtitles",
+      label: "Alpha only",
+      from: 0,
+      durationInFrames: 90,
+      content: { text: "Alpha content", status: "unverified" },
+      props: {},
+    });
+    await saveEditor(firstDirectory, firstManifest, changed, firstBefore.revision);
+
+    assert.equal((await readEditor(firstDirectory, firstManifest)).timeline.clips[0].content.text, "Alpha content");
+    assert.deepEqual((await readEditor(secondDirectory, secondManifest)).timeline, secondBefore.timeline);
+    assert.equal((await discover(projects)).length, 3);
   } finally {
     await rm(projects, { recursive: true, force: true });
   }

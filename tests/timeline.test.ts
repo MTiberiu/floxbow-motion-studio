@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import {
   parseEditTimeline,
@@ -142,6 +142,44 @@ test("project saves are validated, persistent and reject stale agent revisions",
     assert.notEqual(saved.revision, disk.revision);
     await assert.rejects(saveEditor(directory, manifest, t, disk.revision), /CONFLICT/);
     await assert.rejects(saveEditor(directory, manifest, { ...t, fps: 60 }, saved.revision), /match/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("external project-file updates are readable and block saves based on an old revision", async () => {
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const directory = await mkdtemp(path.join(tempRoot, "motion-external-edit-"));
+  try {
+    const t = timeline();
+    const manifest = manifestSchema.parse({
+      id: "external-fixture",
+      name: "External Fixture",
+      type: "explainer",
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      durationInFrames: 360,
+      entry: "Composition.tsx",
+      editTimeline: "edit.json",
+      sdkVersion: "0.1.0",
+    });
+    const editPath = path.join(directory, "edit.json");
+    await writeFile(editPath, JSON.stringify(t));
+    const loadedByEditor = await readEditor(directory, manifest);
+    const external = structuredClone(t);
+    external.clips[0].content.text = "Changed by an external agent";
+    await writeFile(editPath, `${JSON.stringify(external, null, 2)}\n`);
+
+    const reloaded = await readEditor(directory, manifest);
+    assert.notEqual(reloaded.revision, loadedByEditor.revision);
+    assert.equal(reloaded.timeline.clips[0].content.text, "Changed by an external agent");
+    await assert.rejects(
+      saveEditor(directory, manifest, loadedByEditor.timeline, loadedByEditor.revision),
+      /CONFLICT: The project changed on disk/,
+    );
+    assert.equal(JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text, "Changed by an external agent");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

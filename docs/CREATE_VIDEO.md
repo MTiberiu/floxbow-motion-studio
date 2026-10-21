@@ -14,6 +14,8 @@ The scaffold creates `projects/my-video/`. Edit its `project.json` to set name, 
 
 `type` is explainer, lyrics or custom. Optional fields: description, timeline and audio (project-relative files). IDs equal directory names; absolute paths, traversal and backslashes are rejected. The executable schema is `packages/project-loader/src/schema.ts`.
 
+Project folders are ignored by Git by default so personal scripts and media are not accidentally published with the framework. To deliberately version a project in this repository, use `git add -f projects/<project-id>` and review the files before committing. Prefer a separate repository when a project needs its own access, history or publication lifecycle. `projects/.gitkeep` preserves the empty folder in a fresh checkout.
+
 ```tsx
 import {Canvas, Scene, Fade} from '@motion/sdk';
 import {KineticText} from '@motion/animations';
