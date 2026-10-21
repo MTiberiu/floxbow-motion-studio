@@ -37,9 +37,7 @@ try {
   await expect(page.getByText("Create your first video project")).toBeVisible();
 
   await page.getByRole("button", { name: "Explore capabilities" }).click();
-  await expect(
-    page.getByRole("region", { name: "Capabilities explorer" }),
-  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Capabilities explorer" })).toBeVisible();
   await expect(page.locator(".capability-preview")).toBeVisible();
   await page.getByRole("tab", { name: "Developer / AI" }).click();
   await expect(page.getByText("Public API", { exact: true })).toBeVisible();
@@ -49,94 +47,50 @@ try {
 
   if (built) {
     await page.getByRole("button", { name: "Preview", exact: true }).click();
-    await expect(
-      page.getByRole("button", { name: "Create Project" }),
-    ).toBeDisabled();
-    console.log(
-      "PASS built: empty starter, capability metadata, real preview and docs.",
-    );
+    await expect(page.getByRole("button", { name: "Create Project" })).toBeDisabled();
+    console.log("PASS built: empty starter, capability metadata, real preview and docs.");
   } else {
     await page.getByRole("button", { name: "Preview", exact: true }).click();
     await page.getByRole("button", { name: "Create Project" }).click();
     await page.getByLabel("Project name").fill(id);
-    await page
-      .getByRole("button", { name: "Create project", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Composition" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Add subtitle" }),
-    ).toBeEnabled();
+    await page.getByRole("button", { name: "Create project", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
     await page.getByRole("button", { name: "Add subtitle" }).click();
-    await expect(
-      page.getByRole("button", { name: /^Clip subtitle-/ }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Clip subtitle-/ })).toBeVisible();
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
     const preview = page.frameLocator("iframe");
-    await expect(
-      preview.getByText("Human edited caption", { exact: true }),
-    ).toBeVisible();
-    await page
-      .getByRole("button", { name: "Save project", exact: true })
-      .click();
-    await expect(
-      page.getByText("Saved to the project. Renders use these edits."),
-    ).toBeVisible();
-    const saved = JSON.parse(
-      await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
-    );
+    await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Save project", exact: true }).click();
+    await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
+    const saved = JSON.parse(await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"));
     expect(saved.clips).toHaveLength(1);
     expect(saved.clips[0].content.text).toBe("Human edited caption");
-    expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual([
-      "Visuals",
-      "Captions",
-    ]);
+    expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual(["Visuals", "Captions"]);
     renderedStill = await renderProject(root, id, true);
     expect((await stat(renderedStill)).size).toBeGreaterThan(1024);
 
-    const editPath = path.join(projectPath, "edit-timeline.json");
     // Scenario B: an external process updates the saved timeline while the editor is clean.
+    const editPath = path.join(projectPath, "edit-timeline.json");
     const externalUpdate = structuredClone(saved);
     externalUpdate.clips[0].content.text = "Updated by external agent";
     await writeFile(editPath, `${JSON.stringify(externalUpdate, null, 2)}\n`);
-    await expect(
-      preview.getByText("Updated by external agent", { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
-      "Updated by external agent",
-    );
+    await expect(preview.getByText("Updated by external agent", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Updated by external agent");
 
     // Scenario C: preserve both versions when external edits arrive during an unsaved UI draft.
     await page.getByLabel("Text", { exact: true }).fill("Unsaved human draft");
     const concurrentExternal = structuredClone(externalUpdate);
     concurrentExternal.clips[0].content.text = "External version to protect";
-    await writeFile(
-      editPath,
-      `${JSON.stringify(concurrentExternal, null, 2)}\n`,
-    );
-    await expect(page.locator(".timeline-editor .error")).toContainText(
-      "project changed on disk while you were editing",
-    );
-    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
-      "Unsaved human draft",
-    );
-    await expect(
-      page.getByRole("button", { name: "Save project", exact: true }),
-    ).toBeDisabled();
-    expect(
-      JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text,
-    ).toBe("External version to protect");
+    await writeFile(editPath, `${JSON.stringify(concurrentExternal, null, 2)}\n`);
+    await expect(page.locator(".timeline-editor .error")).toContainText("project changed on disk while you were editing");
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Unsaved human draft");
+    await expect(page.getByRole("button", { name: "Save project", exact: true })).toBeDisabled();
+    expect(JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text).toBe("External version to protect");
 
-    await page
-      .getByRole("button", { name: "Reload from disk", exact: true })
-      .click();
-    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
-      "External version to protect",
-    );
-    await expect(
-      preview.getByText("External version to protect", { exact: true }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Reload from disk", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("External version to protect");
+    await expect(preview.getByText("External version to protect", { exact: true })).toBeVisible();
 
     // Three independent project IDs can be created and switched without sharing editor state.
     const secondId = `${id}-two`;
@@ -155,62 +109,34 @@ try {
     ]) {
       createdIds.push(projectId);
       await page.getByRole("button", { name: "+ Create", exact: true }).click();
-      await page.getByLabel("Project name").fill(projectId);
-      await page
-        .getByRole("button", { name: "Create project", exact: true })
-        .click();
-      await expect(
-        page.getByRole("heading", { name: "Composition" }),
-      ).toBeVisible();
+      const nameField = page.getByLabel("Project name");
+      await expect(nameField).toBeVisible();
+      await nameField.fill(projectId);
+      await expect(nameField).toHaveValue(projectId);
+      await page.getByRole("button", { name: "Create project", exact: true }).click();
+      const projectButton = page.locator(`.project[data-project-id="${projectId}"]`);
+      await expect(projectButton).toBeVisible();
+      await expect(projectButton).toHaveClass(/active/);
+      await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
       await page.getByRole("button", { name: "Add subtitle" }).click();
       await page.getByLabel("Text", { exact: true }).fill(caption);
-      await page
-        .getByRole("button", { name: "Save project", exact: true })
-        .click();
-      await expect(
-        page.getByText("Saved to the project. Renders use these edits."),
-      ).toBeVisible();
-      const savedProject = JSON.parse(
-        await readFile(
-          path.join(projectsDir, projectId, "edit-timeline.json"),
-          "utf8",
-        ),
-      );
+      await page.getByRole("button", { name: "Save project", exact: true }).click();
+      await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
+      const savedProject = JSON.parse(await readFile(path.join(projectsDir, projectId, "edit-timeline.json"), "utf8"));
       expect(savedProject.clips[0].content.text).toBe(caption);
     }
     await selectProject(id);
-    await expect(
-      page
-        .frameLocator("iframe")
-        .getByText("External version to protect", { exact: true }),
-    ).toBeVisible();
+    await expect(page.frameLocator("iframe").getByText("External version to protect", { exact: true })).toBeVisible();
     await selectProject(secondId);
-    await expect(
-      page
-        .frameLocator("iframe")
-        .getByText("Caption belongs to project two", { exact: true }),
-    ).toBeVisible();
+    await expect(page.frameLocator("iframe").getByText("Caption belongs to project two", { exact: true })).toBeVisible();
     await selectProject(thirdId);
-    await expect(
-      page
-        .frameLocator("iframe")
-        .getByText("Caption belongs to project three", { exact: true }),
-    ).toBeVisible();
-    console.log(
-      "PASS development: clean starter, Explorer, three isolated projects, project switching, human save, external reload and conflict protection.",
-    );
+    await expect(page.frameLocator("iframe").getByText("Caption belongs to project three", { exact: true })).toBeVisible();
+    console.log("PASS development: clean starter, Explorer, three isolated projects, project switching, human save, external reload and conflict protection.");
   }
 } catch (error) {
   if (app) {
     const page = await app.firstWindow().catch(() => undefined);
-    if (page)
-      console.error(
-        "UI:",
-        await page
-          .locator("body")
-          .innerText()
-          .catch(() => "unavailable"),
-      );
+    if (page) console.error("UI:", await page.locator("body").innerText().catch(() => "unavailable"));
   }
   throw error;
 } finally {
@@ -218,9 +144,5 @@ try {
   await servers.close();
   if (renderedStill) await rm(renderedStill, { force: true });
   if (!built)
-    await Promise.all(
-      createdIds.map((projectId) =>
-        rm(path.join(projectsDir, projectId), { recursive: true, force: true }),
-      ),
-    );
+    await Promise.all(createdIds.map((projectId) => rm(path.join(projectsDir, projectId), { recursive: true, force: true })));
 }
