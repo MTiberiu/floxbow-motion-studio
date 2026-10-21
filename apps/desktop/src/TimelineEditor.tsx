@@ -9,14 +9,13 @@ import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
   parseEditTimeline,
   changeClipRange,
-  componentInfosSchema,
   fieldValue,
   validateField,
   type EditTimeline,
   type TimelineClip,
-  type ComponentInfo,
   type EditableField,
 } from "@motion/sdk/timeline";
+import { useEditorSession } from "./EditorSession";
 import { resolveTimelineBehavior } from "./timeline-behaviors";
 import {
   exportSubtitles,
@@ -36,7 +35,6 @@ function download(name: string, text: string) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-type Disk = { timeline: EditTimeline; revision: string };
 type Drag = {
   clip: TimelineClip;
   mode: "move" | "left" | "right";
@@ -63,29 +61,58 @@ export function TimelineEditor({
   const iframe = useRef<HTMLIFrameElement>(null);
   const canvasViewport = useRef<HTMLDivElement>(null);
   const timelineScroll = useRef<HTMLDivElement>(null);
-  const [doc, setDoc] = useState<EditTimeline>();
-  const docRef = useRef(doc);
-  docRef.current = doc;
-  const [revision, setRevision] = useState("");
-  const revisionRef = useRef("");
-  const [dirty, setDirty] = useState(false);
-  const dirtyRef = useRef(false);
-  const [components, setComponents] = useState<ComponentInfo[]>([]);
-  const [selected, setSelected] = useState("");
-  const [frame, setFrame] = useState(0);
-  const frameRef = useRef(
-    Math.min(manifest.fps * 2, manifest.durationInFrames - 1),
+  const send = useCallback(
+    (type: string, payload: Record<string, unknown> = {}) => {
+      iframe.current?.contentWindow?.postMessage(
+        {
+          channel: "motion-editor-v1",
+          projectId: manifest.id,
+          type,
+          ...payload,
+        },
+        previewOrigin,
+      );
+    },
+    [manifest.id, previewOrigin],
   );
-  const [playing, setPlaying] = useState(false);
-  const [previewGeneration, setPreviewGeneration] = useState(0);
-  const wasActive = useRef(active);
-  const resumePlaybackAfterHide = useRef(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [conflict, setConflict] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [undo, setUndo] = useState<EditTimeline[]>([]);
-  const [redo, setRedo] = useState<EditTimeline[]>([]);
+  const session = useEditorSession({
+    manifest,
+    previewOrigin,
+    active,
+    requestPreviewReload,
+    sendPreview: send,
+  });
+  const { snapshot, commands } = session;
+  const {
+    document: doc,
+    dirty,
+    components,
+    selectedClipId: selected,
+    frame,
+    playing,
+    previewGeneration,
+    error,
+    notice,
+    conflict,
+    saving,
+    undoCount,
+    redoCount,
+  } = snapshot;
+  const {
+    edit,
+    selectClip: setSelected,
+    seek,
+    save,
+    reloadFromDisk: reloadDisk,
+    play,
+    pause,
+    undo,
+    redo,
+    checkpoint,
+    receivePreviewMessage,
+    setError,
+    setNotice,
+  } = commands;
   const [zoom, setZoom] = useState(1);
   const [inspectorWidth, setInspectorWidth] = useState(
     () => Number(localStorage.getItem("motion-inspector-width")) || 270,
@@ -108,97 +135,6 @@ export function TimelineEditor({
   const spaceRef = useRef(false);
   const drag = useRef<Drag | undefined>(undefined);
   const ruler = useRef<HTMLDivElement>(null);
-  const draftKey = `motion-draft-v1:${manifest.id}`;
-  const send = useCallback(
-    (type: string, payload: Record<string, unknown> = {}) => {
-      return iframe.current?.contentWindow?.postMessage(
-        {
-          channel: "motion-editor-v1",
-          projectId: manifest.id,
-          type,
-          ...payload,
-        },
-        previewOrigin,
-      );
-    },
-    [manifest.id, previewOrigin],
-  );
-  useEffect(() => {
-    if (wasActive.current === active) return;
-    wasActive.current = active;
-    if (!active) {
-      resumePlaybackAfterHide.current = playing;
-      if (playing) send("pause");
-      return;
-    }
-    setPreviewGeneration((generation) => generation + 1);
-  }, [active, playing, send]);
-  const setClean = (disk: Disk, refreshPreview = false) => {
-    docRef.current = disk.timeline;
-    setDoc(disk.timeline);
-    send("document", { timeline: disk.timeline });
-    if (refreshPreview) requestPreviewReload();
-    revisionRef.current = disk.revision;
-    setRevision(disk.revision);
-    dirtyRef.current = false;
-    setDirty(false);
-    setConflict(false);
-    setError("");
-    localStorage.removeItem(draftKey);
-    setUndo([]);
-    setRedo([]);
-  };
-  const loadedTimeline = useRef(false);
-  useEffect(() => {
-    if (!manifest.editTimeline || !active) return;
-    let alive = true;
-    const read = async (initial = !loadedTimeline.current) => {
-      try {
-        const r = await fetch(`/api/edit/${manifest.id}`);
-        if (!r.ok) throw new Error(await r.text());
-        const disk: Disk = await r.json();
-        disk.timeline = parseEditTimeline(disk.timeline, manifest);
-        if (!alive) return;
-        if (initial) {
-          loadedTimeline.current = true;
-          const raw = localStorage.getItem(draftKey);
-          if (raw) {
-            try {
-              const draft = JSON.parse(raw);
-              const t = parseEditTimeline(draft.timeline, manifest);
-              docRef.current = t;
-              setDoc(t);
-              revisionRef.current = draft.revision;
-              setRevision(draft.revision);
-              dirtyRef.current = true;
-              setDirty(true);
-              setConflict(draft.revision !== disk.revision);
-              setNotice("Restored your unsaved draft.");
-              return;
-            } catch {
-              localStorage.removeItem(draftKey);
-            }
-          }
-          setClean(disk);
-        } else if (disk.revision !== revisionRef.current) {
-          if (dirtyRef.current) {
-            setConflict(true);
-          } else {
-            setClean(disk, true);
-            setNotice("Updated from project files.");
-          }
-        }
-      } catch (e) {
-        if (alive) setError(String(e));
-      }
-    };
-    read();
-    const timer = setInterval(() => read(), 1800);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-    };
-  }, [active, manifest.id, manifest.editTimeline]);
   useEffect(() => {
     const canvas = canvasViewport.current;
     const timeline = timelineScroll.current;
@@ -261,112 +197,11 @@ export function TimelineEditor({
     };
   }, []);
   useEffect(() => {
-    const receive = (e: MessageEvent) => {
-      if (
-        e.source !== iframe.current?.contentWindow ||
-        e.origin !== previewOrigin ||
-        e.data?.channel !== "motion-editor-v1" ||
-        e.data.projectId !== manifest.id
-      )
-        return;
-      if (e.data.type === "ready") {
-        try {
-          setComponents(componentInfosSchema.parse(e.data.components));
-          if (docRef.current) send("document", { timeline: docRef.current });
-          send("seek", { frame: frameRef.current });
-          if (resumePlaybackAfterHide.current) {
-            resumePlaybackAfterHide.current = false;
-            send("play");
-          }
-        } catch (e) {
-          setError(String(e));
-        }
-      }
-      if (
-        e.data.type === "frame" &&
-        Number.isInteger(e.data.frame) &&
-        e.data.frame >= 0 &&
-        e.data.frame < manifest.durationInFrames
-      ) {
-        setFrame(e.data.frame);
-        frameRef.current = e.data.frame;
-        setPlaying(e.data.playing === true);
-      }
-      if (e.data.type === "error") setError(String(e.data.message));
-    };
+    const receive = (event: MessageEvent) =>
+      receivePreviewMessage(event, iframe.current?.contentWindow ?? null);
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [previewOrigin, manifest.id, send]);
-  useEffect(() => {
-    if (doc) {
-      if (dirty)
-        try {
-          localStorage.setItem(
-            draftKey,
-            JSON.stringify({ timeline: doc, revision }),
-          );
-        } catch {
-          setError(
-            "Draft storage is full. Save the project or export your timeline.",
-          );
-        }
-    }
-  }, [doc, dirty, revision]);
-  function edit(next: EditTimeline, checkpoint = true) {
-    try {
-      parseEditTimeline(next, manifest);
-      if (checkpoint && docRef.current) {
-        setUndo((h) => [...h.slice(-49), structuredClone(docRef.current!)]);
-        setRedo([]);
-      }
-      docRef.current = next;
-      setDoc(next);
-      send("document", { timeline: next });
-      dirtyRef.current = true;
-      setDirty(true);
-      setError("");
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-  function seek(f: number) {
-    const value = Math.max(
-      0,
-      Math.min(manifest.durationInFrames - 1, Math.round(f)),
-    );
-    setFrame(value);
-    frameRef.current = value;
-    send("seek", { frame: value });
-  }
-  async function save() {
-    if (!doc) return;
-    setSaving(true);
-    try {
-      const r = await fetch(`/api/edit/${manifest.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ timeline: doc, revision }),
-      });
-      if (!r.ok) throw new Error(await r.text());
-      const disk: Disk = await r.json();
-      setClean(disk);
-      setNotice("Saved to the project. Renders use these edits.");
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setSaving(false);
-    }
-  }
-  async function reloadDisk() {
-    try {
-      const r = await fetch(`/api/edit/${manifest.id}`);
-      if (!r.ok) throw new Error(await r.text());
-      setClean(await r.json(), true);
-      setNotice("Loaded the file on disk.");
-    } catch (e) {
-      setError(String(e));
-    }
-  }
+  }, [receivePreviewMessage]);
   function property(field: EditableField, value: unknown) {
     if (!doc) return;
     try {
@@ -374,9 +209,10 @@ export function TimelineEditor({
       const c = next.clips.find((c) => c.id === selected)!;
       const validated = validateField(field, value);
       const behavior = resolveTimelineBehavior(c.componentId, components);
-      const behaviorEdit = field.target === "content"
-        ? behavior.editContent?.(c.content, field.key, validated)
-        : undefined;
+      const behaviorEdit =
+        field.target === "content"
+          ? behavior.editContent?.(c.content, field.key, validated)
+          : undefined;
       if (behaviorEdit) {
         c.content = behaviorEdit.content;
         if (behaviorEdit.notice) setNotice(behaviorEdit.notice);
@@ -392,8 +228,7 @@ export function TimelineEditor({
     e.currentTarget.setPointerCapture(e.pointerId);
     setSelected(clip.id);
     send("pause");
-    setUndo((h) => [...h.slice(-49), structuredClone(doc)]);
-    setRedo([]);
+    checkpoint();
     drag.current = {
       clip: structuredClone(clip),
       mode,
@@ -430,7 +265,14 @@ export function TimelineEditor({
         Math.min(manifest.durationInFrames, end + delta),
       );
     edit(
-      changeClipRange(d.timeline, d.clip.id, start, end, d.mode !== "move", resolveTimelineBehavior(d.clip.componentId, components)),
+      changeClipRange(
+        d.timeline,
+        d.clip.id,
+        start,
+        end,
+        d.mode !== "move",
+        resolveTimelineBehavior(d.clip.componentId, components),
+      ),
       false,
     );
   }
@@ -590,8 +432,12 @@ export function TimelineEditor({
       copy.from + copy.durationInFrames,
     );
     copy.label = clip.label + " (repeat)";
-    const duplicateContent = resolveTimelineBehavior(clip.componentId, components).duplicateContent;
-    if (duplicateContent) copy.content = duplicateContent(clip.content, clip.id);
+    const duplicateContent = resolveTimelineBehavior(
+      clip.componentId,
+      components,
+    ).duplicateContent;
+    if (duplicateContent)
+      copy.content = duplicateContent(clip.content, clip.id);
     edit({ ...doc, clips: [...doc.clips, copy] });
     setSelected(copy.id);
   }
@@ -619,6 +465,7 @@ export function TimelineEditor({
   return (
     <section
       className="timeline-editor"
+      data-editor-session-id={snapshot.sessionId}
       style={
         { "--timeline-height": `${timelineHeight}px` } as React.CSSProperties
       }
@@ -634,28 +481,10 @@ export function TimelineEditor({
           {dirty ? "Unsaved changes" : "Saved"}
           {built ? " · Built components" : ""}
         </span>
-        <button
-          disabled={!undo.length}
-          onClick={() => {
-            if (!doc) return;
-            const prev = undo.at(-1)!;
-            setUndo(undo.slice(0, -1));
-            setRedo((h) => [...h, doc]);
-            edit(prev, false);
-          }}
-        >
+        <button disabled={!undoCount} onClick={undo}>
           Undo
         </button>
-        <button
-          disabled={!redo.length}
-          onClick={() => {
-            if (!doc) return;
-            const next = redo.at(-1)!;
-            setRedo(redo.slice(0, -1));
-            setUndo((h) => [...h, doc]);
-            edit(next, false);
-          }}
-        >
+        <button disabled={!redoCount} onClick={redo}>
           Redo
         </button>
       </div>
@@ -763,7 +592,7 @@ export function TimelineEditor({
             <button onClick={() => seek(frame - 1)} aria-label="Previous frame">
               −1 frame
             </button>
-            <button onClick={() => send(playing ? "pause" : "play")}>
+            <button onClick={playing ? pause : play}>
               {playing ? "Pause" : "Play"}
             </button>
             <button onClick={() => seek(frame + 1)} aria-label="Next frame">
