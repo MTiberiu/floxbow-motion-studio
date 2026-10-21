@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ProjectRecord } from "@motion/project-loader/schema";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@motion/lyrics-sync";
 import registry from "../../../packages/animation-library/registry.json";
 import "./style.css";
-import {TimelineEditor} from "./TimelineEditor";
+import { TimelineEditor } from "./TimelineEditor";
 type State = {
   previewOrigin: string;
   built: boolean;
@@ -203,6 +203,10 @@ function App() {
   const [tab, setTab] = useState("Preview");
   const [reload, setReload] = useState(0);
   const [error, setError] = useState("");
+  const [leftWidth, setLeftWidth] = useState(
+    () => Number(localStorage.getItem("motion-left-width")) || 248,
+  );
+  const resizing = useRef<{ x: number; width: number } | undefined>(undefined);
   useEffect(() => {
     let active = true;
     const refresh = () =>
@@ -237,86 +241,40 @@ function App() {
     localStorage.setItem("motion-project", id);
     setReload(0);
   }
+  function resizeLeft(e: React.PointerEvent<HTMLButtonElement>) {
+    if (!resizing.current) return;
+    const width = Math.max(
+      190,
+      Math.min(380, resizing.current.width + e.clientX - resizing.current.x),
+    );
+    setLeftWidth(width);
+    localStorage.setItem("motion-left-width", String(width));
+  }
+  function stopResize() {
+    resizing.current = undefined;
+  }
   return (
-    <div className="studio">
-      <aside>
-        <div className="brand">
+    <div
+      className="studio"
+      style={{ "--left-width": `${leftWidth}px` } as React.CSSProperties}
+    >
+      <header className="app-toolbar">
+        <div className="brand compact-brand">
           <span className="brand-icon">
             m<span>✳</span>
           </span>
           <div>
-            motion<span>STUDIO / 001</span>
+            Motion Studio<span>WORKSPACE / 001</span>
           </div>
         </div>
-        <div className="workspace-label">
-          LOCAL WORKSPACE <span className="dot" />
+        <div className="toolbar-project">
+          <h1 className="toolbar-title">
+            {m?.name ?? "Discovering projects…"}
+          </h1>
+          <span className="dot" />
+          <small>{state?.built ? "Built preview" : "Live development"}</small>
         </div>
-        <h3>
-          Projects <span>{state?.projects.length ?? 0}</span>
-        </h3>
-        <nav>
-          {state?.projects.map((p, i) => (
-            <button
-              className={`project ${p.id === selected ? "active" : ""}`}
-              onClick={() => select(p.id)}
-              key={p.id}
-            >
-              <span className="project-icon">
-                {p.manifest?.type === "lyrics" ? "♫" : "◈"}
-              </span>
-              <span>
-                {p.manifest?.name ?? p.id}
-                <small>
-                  {p.error
-                    ? "Needs attention"
-                    : p.manifest?.type === "lyrics"
-                      ? "Lyrics & music"
-                      : "Explainer video"}
-                </small>
-              </span>
-              <span className="project-number">0{i + 1}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="agent-note">
-          <span>↗</span>
-          <h4>Made for your AI agent.</h4>
-          <p>
-            Create a project folder.
-            <br />
-            Write a composition.
-            <br />
-            See it come to life.
-          </p>
-          <code>projects/&lt;your-video&gt;/</code>
-        </div>
-        <footer>
-          <span className="dot" />{" "}
-          {state?.built ? "Built preview" : "Live development"}
-          <small>SDK 0.1.0 · Local workspace</small>
-        </footer>
-      </aside>
-      <main>
-        <header>
-          <div className="breadcrumb">
-            Workspace <span>/</span> {m?.name ?? "Project"}
-          </div>
-          <span className="pill">AI MOTION STUDIO</span>
-        </header>
-        <div className="page-heading">
-          <div>
-            <span className="eyebrow">YOUR IDEAS, IN MOTION</span>
-            <h1>{m?.name ?? "Choose a project"}</h1>
-            <p>
-              {m?.description ??
-                "Independent compositions. One reusable toolkit."}
-            </p>
-          </div>
-          <button onClick={() => setReload((r) => r + 1)}>
-            ↻ Reload preview
-          </button>
-        </div>
-        <div className="tabs">
+        <nav className="workspace-tabs" aria-label="Workspace views">
           {["Preview", "Lyrics sync", "Capabilities"].map((t) => (
             <button
               className={tab === t ? "selected" : ""}
@@ -326,17 +284,125 @@ function App() {
               {t}
             </button>
           ))}
-          <span>● {m ? "Project ready" : "Check project"}</span>
+        </nav>
+        <button
+          className="toolbar-button"
+          aria-label="Reload preview"
+          title="Reload preview"
+          onClick={() => setReload((r) => r + 1)}
+        >
+          ↻ Reload
+        </button>
+      </header>
+      <aside className="project-browser">
+        <div className="browser-heading">
+          <span>PROJECT BROWSER</span>
+          <span className="browser-count">{state?.projects.length ?? 0}</span>
         </div>
+        <div className="browser-scroll">
+          <h3>Projects</h3>
+          <nav>
+            {state?.projects.map((p, i) => (
+              <button
+                className={`project ${p.id === selected ? "active" : ""}`}
+                onClick={() => select(p.id)}
+                key={p.id}
+              >
+                <span className="project-icon">
+                  {p.manifest?.type === "lyrics" ? "♫" : "◈"}
+                </span>
+                <span>
+                  {p.manifest?.name ?? p.id}
+                  <small>
+                    {p.error
+                      ? "Needs attention"
+                      : p.manifest?.type === "lyrics"
+                        ? "Lyrics & music"
+                        : "Explainer video"}
+                  </small>
+                </span>
+                <span className="project-number">0{i + 1}</span>
+              </button>
+            ))}
+          </nav>
+          <h3>Project details</h3>
+          <div className="asset-list">
+            <div>
+              <span className="asset-icon">◈</span>
+              <span>
+                Composition<small>{m?.entry ?? "No project selected"}</small>
+              </span>
+            </div>
+            <div>
+              <span className="asset-icon">▤</span>
+              <span>
+                Timeline<small>{m?.editTimeline ?? "Code-only project"}</small>
+              </span>
+            </div>
+            <div>
+              <span className="asset-icon">♫</span>
+              <span>
+                Lyrics &amp; subtitles<small>Timing and appearance</small>
+              </span>
+            </div>
+          </div>
+          <div className="agent-note">
+            <span>↗</span>
+            <h4>Made for your AI agent.</h4>
+            <p>
+              Create a project folder.
+              <br />
+              Write a composition.
+              <br />
+              See it come to life.
+            </p>
+            <code>projects/&lt;your-video&gt;/</code>
+          </div>
+        </div>
+        <div className="browser-footer">
+          <span className="dot" /> Local workspace<small>SDK 0.1.0</small>
+        </div>
+      </aside>
+      <button
+        className="panel-splitter left-splitter"
+        aria-label="Resize project browser"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          resizing.current = { x: e.clientX, width: leftWidth };
+        }}
+        onPointerMove={resizeLeft}
+        onPointerUp={stopResize}
+      />
+      <main className="workspace-main">
         {error && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
-        {tab === "Preview" && (project?.error?<div className="error" role="alert"><h2>Project needs attention</h2><pre>{project.error}</pre></div>:m&&state?<TimelineEditor key={selected} manifest={m} previewOrigin={state.previewOrigin} built={state.built} reload={reload}/>:<p>Discovering projects…</p>)}
-        {tab === "Lyrics sync" && <Lyrics key={selected} id={selected} />}{" "}
+        {tab === "Preview" &&
+          (project?.error ? (
+            <div className="error" role="alert">
+              <h2>Project needs attention</h2>
+              <pre>{project.error}</pre>
+            </div>
+          ) : m && state ? (
+            <TimelineEditor
+              key={selected}
+              manifest={m}
+              previewOrigin={state.previewOrigin}
+              built={state.built}
+              reload={reload}
+            />
+          ) : (
+            <p>Discovering projects…</p>
+          ))}
+        {tab === "Lyrics sync" && (
+          <div className="auxiliary-view">
+            <Lyrics key={selected} id={selected} />
+          </div>
+        )}
         {tab === "Capabilities" && (
-          <section className="capabilities">
+          <section className="capabilities auxiliary-view">
             <span className="eyebrow">THE REUSABLE TOOLKIT</span>
             <h2>Build once. Set anything in motion.</h2>
             <div className="cap-grid">
