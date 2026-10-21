@@ -1,6 +1,7 @@
 import { _electron as electron, expect } from "@playwright/test";
 import electronPath from "electron";
-import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, unlink, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { startServers, root, projectsDir } from "./server";
 import { renderProject } from "../packages/renderer/src/render";
@@ -10,7 +11,41 @@ const id = `golden-starter-${Date.now()}`;
 const createdIds = [id];
 const projectPath = path.join(projectsDir, id);
 let renderedStill: string | undefined;
-const servers = await startServers(built, 10);
+const audioFixtureDirectory = await mkdtemp(path.join(os.tmpdir(), "flox-media-smoke-"));
+const audioFixturePath = path.join(audioFixtureDirectory, "flox-smoke-audio.wav");
+const audioFixture = Buffer.alloc(46);
+audioFixture.write("RIFF", 0, "ascii");
+audioFixture.writeUInt32LE(38, 4);
+audioFixture.write("WAVEfmt ", 8, "ascii");
+audioFixture.writeUInt32LE(16, 16);
+audioFixture.writeUInt16LE(1, 20);
+audioFixture.writeUInt16LE(1, 22);
+audioFixture.writeUInt32LE(8_000, 24);
+audioFixture.writeUInt32LE(16_000, 28);
+audioFixture.writeUInt16LE(2, 32);
+audioFixture.writeUInt16LE(16, 34);
+audioFixture.write("data", 36, "ascii");
+audioFixture.writeUInt32LE(2, 40);
+audioFixture.writeInt16LE(0, 44);
+await writeFile(audioFixturePath, audioFixture);
+let pickerCalls = 0;
+let markSecondPickerStarted!: () => void;
+let releaseSecondPicker!: (selectedPath: string | undefined) => void;
+const secondPickerStarted = new Promise<void>((resolve) => {
+  markSecondPickerStarted = resolve;
+});
+const servers = await startServers(built, 10, {
+  audioFilePicker: async () => {
+    pickerCalls += 1;
+    if (pickerCalls === 2) {
+      markSecondPickerStarted();
+      return new Promise((resolve) => {
+        releaseSecondPicker = resolve;
+      });
+    }
+    return audioFixturePath;
+  },
+});
 const env = Object.fromEntries(
   Object.entries(process.env).filter(
     ([key, value]) => value !== undefined && key !== "ELECTRON_RUN_AS_NODE",
@@ -55,6 +90,84 @@ try {
     await page.getByLabel("Project name").fill(id);
     await page.getByRole("button", { name: "Create project", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Project media" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add Audio" })).toBeEnabled();
+    await page.getByRole("button", { name: "Add Audio" }).click();
+    await expect(page.getByText("flox-smoke-audio", { exact: true })).toBeVisible();
+    await expect(page.getByText("Available", { exact: true })).toBeVisible();
+    const mediaFile = path.join(projectPath, "media.json");
+    const registeredMedia = JSON.parse(await readFile(mediaFile, "utf8"));
+    expect(registeredMedia.assets).toHaveLength(1);
+    expect(registeredMedia.assets[0].source.path).toBe(audioFixturePath);
+    expect((await stat(audioFixturePath)).size).toBe(audioFixture.length);
+
+    const mediaUrl = new URL(`/api/media/${id}`, servers.url).toString();
+    const publicState = await fetch(mediaUrl).then((response) => response.text());
+    const mediaSnapshot = JSON.parse(publicState);
+    expect(publicState.includes(audioFixturePath)).toBe(false);
+    const rejectedOrigin = await fetch(mediaUrl, {
+      method: "POST",
+      headers: { Origin: "https://untrusted.example", "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: mediaSnapshot.revision }),
+    });
+    expect(rejectedOrigin.status).toBe(403);
+    const rejectedPath = await fetch(mediaUrl, {
+      method: "POST",
+      headers: { Origin: new URL(servers.url).origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ revision: mediaSnapshot.revision, path: "C:\\private\\not-selected.wav" }),
+    });
+    expect(rejectedPath.status).toBe(400);
+    expect(pickerCalls).toBe(1);
+
+    await page.reload();
+    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await expect(page.getByText("flox-smoke-audio", { exact: true })).toBeVisible();
+    const externalRegistry = {
+      ...registeredMedia,
+      assets: [
+        ...registeredMedia.assets,
+        {
+          id: "external-agent-audio",
+          type: "audio",
+          displayName: "Added by external agent",
+          source: { kind: "external-file", path: audioFixturePath },
+        },
+      ],
+    };
+    await writeFile(mediaFile, `${JSON.stringify(externalRegistry, null, 2)}\n`);
+    await expect(page.getByText("Added by external agent", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Add Audio" }).click();
+    await Promise.race([
+      secondPickerStarted,
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Audio picker did not open")), 10_000)),
+    ]);
+    const concurrentRegistry = {
+      ...externalRegistry,
+      assets: [
+        ...externalRegistry.assets,
+        {
+          id: "agent-edit-during-picker",
+          type: "audio",
+          displayName: "Agent change during file selection",
+          source: { kind: "external-file", path: audioFixturePath },
+        },
+      ],
+    };
+    await writeFile(mediaFile, `${JSON.stringify(concurrentRegistry, null, 2)}\n`);
+    releaseSecondPicker(audioFixturePath);
+    await expect(page.getByRole("alert")).toContainText("CONFLICT: The media registry changed");
+    await expect(page.getByText("Agent change during file selection", { exact: true })).toBeVisible();
+    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(3);
+
+    await unlink(audioFixturePath);
+    const missingAudio = page.getByRole("listitem").filter({ hasText: "flox-smoke-audio" });
+    await expect(missingAudio.getByText("Missing file", { exact: true })).toBeVisible();
+    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(3);
+
+    await page.getByRole("button", { name: "Preview", exact: true }).click();
     await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(page.getByRole("button", { name: /^Clip subtitle-/ })).toBeVisible();
@@ -142,6 +255,7 @@ try {
 } finally {
   await app?.close().catch(() => undefined);
   await servers.close();
+  await rm(audioFixtureDirectory, { recursive: true, force: true });
   if (renderedStill) await rm(renderedStill, { force: true });
   if (!built)
     await Promise.all(createdIds.map((projectId) => rm(path.join(projectsDir, projectId), { recursive: true, force: true })));

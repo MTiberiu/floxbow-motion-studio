@@ -10,12 +10,14 @@ Build uses a generated entry per project under `.studio/build/`, followed by ind
 
 The Remotion renderer CLI creates a temporary registerRoot entry, bundles only one project with Remotion's supported bundler, selects its composition and renders H.264 in headless Chrome. Rendering is never performed in the Electron renderer. The optional Python Whisper process similarly runs outside the UI. FFmpeg used by Remotion is managed by Remotion; the local Python worker needs FFmpeg on PATH.
 
+Projects may also contain an optional `media.json` linked-media registry. Its public schema and Node resolver are exported from `@motion/project-loader/media`; the development shell mediates MP3/WAV selection through a native picker and returns only asset names and availability to the UI. The resolver's local file path must remain in a Node host process. This initial registry does not connect audio to preview, rendering, timeline clips, or Whisper. See [Project Media Registry](PROJECT_MEDIA.md).
+
 ## Security model
 
 - Electron: sandbox, context isolation and webSecurity enabled; Node disabled; no preload or IPC API. No remote navigation, popups or webviews; permissions denied.
 - Project frame: separate origin, `sandbox="allow-scripts allow-same-origin"`, no top navigation, popup or download grants. Same-origin is needed for Vite modules, but the preview has a different port from the shell, so it cannot remove its parent sandbox or read shell state.
 - CSP: only local origin scripts/media, inline styles, local HMR websocket. No external fetch, object embedding or nested frames. No remote fonts.
-- Node: loopback-only HTTP listeners; read-only endpoints; project paths validated; no generic filesystem or command endpoint.
+- Node: loopback-only HTTP listeners; project paths validated; no generic filesystem or command endpoint. Media registration accepts only a revision from the exact shell origin, gets a source path from a native picker, and returns no path to browser code.
 - Important limits: loopback ports are not authentication. Vite exposes development source inside its allowed workspace. Project imports are not confined to their own folder by an OS policy. Infinite loops, resource exhaustion, browser exploits and malicious build-time imports are outside this boundary. Inspect external code; use a disposable OS account/container for hostile content. Production packaging, per-project worker processes and stronger resource isolation remain future work.
 
 The file-system separation is an agent contract, not an adversarial sandbox. Tests cover ordinary compile/runtime exceptions, not arbitrary denial of service.

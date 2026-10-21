@@ -24,7 +24,7 @@ Personal projects and media are not published to the framework repository by def
 
 Importing existing local audio/video/images should ordinarily record **references to source files**, not duplicate them into every project. Keep originals in place. Preserve stable asset identifiers and source locations in project data. When a file moves or disappears, retain edit data and offer a future **Relink Media** flow. An explicit **Copy/Collect/Package Project** operation may be added later.
 
-**Status:** approved direction under discussion; the referenced media registry/resolver and UX are **not yet implemented**. Referenced paths can be machine-specific. An external agent must have real filesystem permission/access to read the media; path knowledge alone is insufficient.
+**Status:** the first linked-audio registry and development-shell registration flow are implemented on `feature/media-registry-first-slice` (TASK 007; PR pending review). The schema uses absolute host paths, so references can be machine-specific. Preview, render, timeline, playback, relinking and Whisper adapters remain unimplemented. An external agent must have real filesystem permission/access to read the media; path knowledge alone is insufficient.
 
 ## D-005 — Correct lyrics are authoritative; audio timing is evidence
 
@@ -56,4 +56,4 @@ The visual editor should eventually expose **Settings → Modules**, allowing us
 
 ## Open choices — not decisions
 
-The exact future media registry schema, portable/relative path policy, optional proxy/cache handling, model installation UX, multiple compositions per project, and the exact activation/visibility schema and editor extension slot API remain open. Do not treat these as settled architecture.
+The media registry's first schema is documented in `docs/PROJECT_MEDIA.md`; portability and relative-path policy, relinking, optional proxy/cache handling, model installation UX, multiple compositions per project, and the exact activation/visibility schema and editor extension slot API remain open. Do not treat these as settled architecture.

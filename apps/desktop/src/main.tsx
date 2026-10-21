@@ -15,6 +15,7 @@ import {
 import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
 import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
+import { MediaPanel } from "./MediaPanel";
 type State = {
   previewOrigin: string;
   built: boolean;
@@ -305,7 +306,7 @@ function App() {
           <small>{state?.built ? "Built preview" : "Live development"}</small>
         </div>
         <nav className="workspace-tabs" aria-label="Workspace views">
-          {["Preview", "Lyrics sync", "Capabilities"].map((t) => (
+          {["Preview", "Media", "Lyrics sync", "Capabilities"].map((t) => (
             <button
               className={tab === t ? "selected" : ""}
               key={t}
@@ -467,6 +468,11 @@ function App() {
         {tab === "Lyrics sync" && (
           <div className="auxiliary-view">
             <Lyrics key={selected} id={selected} />
+          </div>
+        )}
+        {tab === "Media" && (
+          <div className="auxiliary-view">
+            <MediaPanel key={selected} projectId={selected} built={state?.built ?? false} />
           </div>
         )}
         {tab === "Capabilities" && <div className="auxiliary-view"><CapabilitiesExplorer /></div>}
