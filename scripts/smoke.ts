@@ -246,11 +246,65 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("New subtitle");
     await page.getByRole("button", { name: "Redo", exact: true }).click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
+
+    let markSaveStarted!: () => void;
+    let markResponseFulfilled!: () => void;
+    let releaseSaveResponse!: () => void;
+    const saveStarted = new Promise<void>((resolve) => {
+      markSaveStarted = resolve;
+    });
+    const responseFulfilled = new Promise<void>((resolve) => {
+      markResponseFulfilled = resolve;
+    });
+    const responseGate = new Promise<void>((resolve) => {
+      releaseSaveResponse = resolve;
+    });
+    await page.route(`**/api/edit/${id}`, async (route) => {
+      if (route.request().method() !== "PUT") {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      markSaveStarted();
+      await responseGate;
+      await route.fulfill({ response });
+      markResponseFulfilled();
+    });
+    try {
+      await page
+        .getByRole("button", { name: "Save project", exact: true })
+        .click();
+      await saveStarted;
+      await page
+        .getByLabel("Text", { exact: true })
+        .fill("Newer concurrent draft");
+    } finally {
+      releaseSaveResponse();
+    }
+    await responseFulfilled;
+    await page.unroute(`**/api/edit/${id}`);
+    await expect(
+      page.getByText("Saved earlier edits. Newer changes are still unsaved.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
+      "Newer concurrent draft",
+    );
+    await expect(page.getByText("Unsaved changes", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Save project", exact: true }),
+    ).toBeEnabled();
+    expect(
+      JSON.parse(
+        await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
+      ).clips[0].content.text,
+    ).toBe("Human edited caption");
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
     const saved = JSON.parse(await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"));
     expect(saved.clips).toHaveLength(1);
-    expect(saved.clips[0].content.text).toBe("Human edited caption");
+    expect(saved.clips[0].content.text).toBe("Newer concurrent draft");
     expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual(["Visuals", "Captions"]);
     renderedStill = await renderProject(root, id, true);
     expect((await stat(renderedStill)).size).toBeGreaterThan(1024);

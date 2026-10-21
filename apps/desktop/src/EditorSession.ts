@@ -232,23 +232,33 @@ export function useEditorSession({
   );
 
   const save = useCallback(async () => {
-    const current = documentRef.current;
-    if (!current) return;
+    const savedDocument = documentRef.current;
+    if (!savedDocument) return;
+    const savedRevision = revisionRef.current;
     setSaving(true);
     try {
       const response = await fetch(`/api/edit/${manifest.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          timeline: current,
-          revision: revisionRef.current,
+          timeline: savedDocument,
+          revision: savedRevision,
         }),
       });
       if (!response.ok) throw new Error(await response.text());
       const disk: Disk = await response.json();
       if (!mounted.current) return;
-      setClean(disk);
-      setNotice("Saved to the project. Renders use these edits.");
+      if (documentRef.current === savedDocument) {
+        setClean(disk);
+        setNotice("Saved to the project. Renders use these edits.");
+      } else {
+        revisionRef.current = disk.revision;
+        setRevision(disk.revision);
+        dirtyRef.current = true;
+        setDirty(true);
+        setConflict(false);
+        setNotice("Saved earlier edits. Newer changes are still unsaved.");
+      }
     } catch (saveError) {
       if (mounted.current) setError(String(saveError));
     } finally {
