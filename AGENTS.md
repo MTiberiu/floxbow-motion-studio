@@ -1,35 +1,23 @@
-# AI Motion Studio: agent contract
+# FloxBow coding-agent guide
 
-This workspace gives AI agents a reusable motion toolkit. Videos belong entirely in `projects/<id>/`; the app discovers them automatically.
+This repository contains a reusable motion toolkit. User videos belong in `projects/<id>/`; examples under `examples/` are technical demonstrations, not user projects. Start with [the module index](docs/MODULES.md), then read only the guide selected for the task. Follow [the AI workflow](docs/AI_WORKFLOW.md) for creative-task routing and human review.
 
-## Allowed work
+## Safety and compatibility rules
 
-For a video task, create or edit that video's README, project.json, composition, scenes, local assets, script/storyboard and timing data. Read shared packages and documentation. Use `improvements/experiments/<id>/` for isolated investigations and `improvements/proposals/` for meaningful proposals.
+- For a video task, create or edit only that video's README, manifest, composition, scenes, local assets, script/storyboard and timing data. Do not modify another video.
+- Do not modify `apps/`, `packages/`, shared dependencies, scripts, SDK contracts or other shared application code without explicit user authorization. A request to create a video does not authorize infrastructure changes.
+- Do not install or execute unreviewed third-party project code. Remove private data from reports and examples.
+- Keep compositions deterministic functions of frame and props: no `Date.now`, unseeded randomness, network fetches or time-based animation loops. Use `Scene` for relative frame positions.
+- Never invent trustworthy lyric timing. Keep unmatched word boundaries `null` with confidence zero; label synthetic example timing and never present it as aligned evidence.
+- Before changing the shell, timeline, player, renderer, project loader, SDK, lyrics synchronization, audio or reusable animation packages, read [the module integration blueprint](docs/MODULE_INTEGRATION_BLUEPRINT.md), [the architecture overview](docs/ARCHITECTURE.md), and the relevant guide from the [module index](docs/MODULES.md). Follow documented exports and versioned contracts. Update relevant documentation and contract tests when a public connection changes. Do not create empty API or extension documents or add a plugin framework without a concrete integration need.
+- Never hide failed checks. Report the project ID, command, exact error, reproduction and expected behavior; state what was actually tested.
 
-Do not modify `apps/`, `packages/`, shared dependencies, scripts, SDK contracts, or another video without explicit user authorization. Do not install or execute unreviewed third-party project code. The initial foundation task authorizes infrastructure implementation and its validation; this restriction governs subsequent video-generation tasks.
+## Route the task
 
-## Build a video
+- **Create a video:** read [Create a video](docs/CREATE_VIDEO.md), then open only the relevant module guide and the [capability registry](packages/animation-library/registry.json). Use registered components before writing project-specific motion. Project IDs use lowercase letters, numbers and hyphens; the manifest SDK version is `0.1.0`.
+- **Change shared application behavior:** identify the subsystem in [the module index](docs/MODULES.md), read its guide and integration contracts, and confirm the user authorized shared-code scope. For an engineering investigation, use `improvements/experiments/<id>/`; for a meaningful proposal, copy `improvements/proposals/TEMPLATE.md` and document evidence, performance, compatibility and licensing. Core integration requires an explicit decision.
+- **Use or extend a capability:** examples are under `examples/capabilities/`; reusable implementations are described by their module guide and, for animation components, the registry. Do not create a user project just to demonstrate a capability. Import only browser-safe package exports in compositions.
 
-1. Read `docs/CREATE_VIDEO.md`, `docs/MOTION_SDK.md`, `docs/STYLE_CATALOG.md` and `packages/animation-library/registry.json`.
-2. Create a project in the editor or run `npm run create:project -- unique-id`. IDs use lowercase letters, numbers and hyphens.
-3. Write a script and storyboard with explicit frame ranges. Use the registered components before adding project-specific motion.
-4. Edit the project's default-exported React component. Keep assets in the same project and import local asset URLs. Manifest SDK version is exactly `0.1.0`.
-5. Run `npm run validate`, `npm run typecheck`, and `npm test`. Run `npm run dev`; select the new project and inspect multiple points in playback. Edits reload the frame automatically.
-6. When requested, run `npm run render -- <id>`. Output is `out/<id>.mp4`. Use `--still` for a proof frame.
-7. Update the project README with scenes, assets, attribution, timing source and dependencies. Report what was actually tested.
+For video tasks, run `npm run validate`, `npm run typecheck` and `npm test`; run `npm run dev` and inspect multiple playback points. Render with `npm run render -- <id>` only when requested. Output goes to `out/<id>.mp4`; use `--still` for a proof frame. Follow any narrower task-specific verification instructions and report the actual results.
 
-Components must be deterministic functions of frame and props: no Date.now, unseeded randomness, network fetches or time-based animation loops. Use `Scene` for relative frame positions. Do not invent trustworthy lyric timing: retain nulls and confidence zero for unmatched words; synthetic example timings must be labeled and never presented as aligned evidence.
-
-## Work on architecture or shared modules
-
-Before changing the editor shell, timeline, player, renderer, project loader, SDK, lyrics synchronization, audio, or reusable animation packages, read [the module integration blueprint](docs/MODULE_INTEGRATION_BLUEPRINT.md) and [the architecture overview](docs/ARCHITECTURE.md). Also read the relevant subsystem guide, such as [the timeline contract](docs/TIMELINE_EDITOR.md), [lyrics synchronization](docs/LYRICS_SYNC.md), or [the SDK guide](docs/MOTION_SDK.md). Follow their documented package exports and versioned contracts; update the relevant documentation and contract tests when a public connection changes. Do not create empty API/extension documents or add a plugin framework without a concrete integration need.
-
-## Discover and reuse
-
-Capabilities are reusable implementations; examples are small technical demonstrations under `examples/`; projects under `projects/` are user videos. The registry contains stable IDs, APIs, parameters, integration notes, docs and example paths. Never create a user project just to demonstrate a capability. Stable imports include `@motion/sdk`, `@motion/animations`, `@motion/audio`, `@motion/lyrics-sync`, `@motion/player`, `@motion/renderer` and `@motion/project-loader`. Import only browser-safe package exports in compositions.
-
-## Issues and improvements
-
-Report project ID, command, exact error, reproduction and expected behavior; remove private data. Never hide failed checks. Review potential reusable components after a video, but do not move them into stable packages automatically. Copy `improvements/proposals/TEMPLATE.md` for meaningful findings; record performance, compatibility, license and evidence. Acceptance requires an explicit decision before core integration.
-
-The runtime iframe is a stability boundary and browser capability restriction. It is not permission to execute hostile code in the build/render tools. Repository agent permissions are separate from Electron runtime settings.
+The runtime iframe is a stability boundary and browser capability restriction. It does not authorize running hostile code in build or render tools. Repository-agent permissions are separate from Electron runtime settings.
