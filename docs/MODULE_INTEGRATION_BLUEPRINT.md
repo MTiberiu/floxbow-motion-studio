@@ -36,7 +36,7 @@ The desktop shell statically registers the existing Editor, Media, Lyrics Sync a
 
 Opened panels stay mounted when another view is selected or when they are hidden, so in-memory editor drafts, clip selection, playhead and lyric workbench edits survive navigation. The Editor remains one composite panel because `TimelineEditor` currently owns the preview, timeline, inspector and their shared state. It pauses preview playback and stops its revision poll while hidden. When reopened, its single preview iframe reloads the authoritative timeline and saved frame through the existing validated bridge, then resumes playback if it was playing. Media Registry polling likewise runs only while Media is active. Existing project formats and persistence routes are unchanged.
 
-This foundation supports one active workspace view with hide/reopen behavior. Drag & Dock, split resizing, native windows, layout persistence and separate Canvas/Timeline/Inspector panels remain future work; the latter requires a shared editor-session owner before those views can be mounted independently.
+This foundation supports one active workspace view with hide/reopen behavior. Electron now has a static, secure native-window route for Timeline, but it renders only an inert placeholder and does not detach the editor view. Drag & Dock, split resizing, layout persistence and actual Canvas/Timeline/Inspector separation across windows remain future work. A detached editor view must continue to use the authoritative EditorSession rather than opening another save owner.
 
 ## Coupling and limits found
 

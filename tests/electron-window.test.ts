@@ -1,0 +1,375 @@
+import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import test from "node:test";
+import { createWindowHost } from "../apps/desktop/electron/window-host.cjs";
+import {
+  CHANNELS,
+  MAX_IPC_MESSAGE_BYTES,
+  PANEL_REGISTRY,
+  isOpenPanelResult,
+  isPanelClosedEvent,
+  isPanelOpenRequest,
+  isWindowContext,
+  isWithinMessageLimit,
+} from "../apps/desktop/electron/window-contract.cjs";
+
+const shellUrl = "http://127.0.0.1:5173/";
+const request = {
+  panelId: "timeline",
+  projectId: "demo-project",
+  sessionId: "3e0f6340-1e31-4d8a-a220-a0475d3cfb68",
+};
+
+class FakeWebContents extends EventEmitter {
+  id: number;
+  mainFrame: { url: string };
+  destroyed = false;
+  openHandler?: () => { action: string };
+  sent: Array<{ channel: string; payload: unknown }> = [];
+
+  constructor(id: number, url: string) {
+    super();
+    this.id = id;
+    this.mainFrame = { url };
+  }
+
+  setWindowOpenHandler(handler: () => { action: string }) {
+    this.openHandler = handler;
+  }
+
+  isDestroyed() {
+    return this.destroyed;
+  }
+
+  send(channel: string, payload: unknown) {
+    this.sent.push({ channel, payload });
+  }
+}
+
+class FakeWindow extends EventEmitter {
+  static nextId = 1;
+  static instances: FakeWindow[] = [];
+  options: Record<string, any>;
+  webContents: FakeWebContents;
+  destroyed = false;
+  shown = false;
+  focused = false;
+  loadedUrl = "";
+
+  constructor(options: Record<string, any>) {
+    super();
+    this.options = options;
+    this.webContents = new FakeWebContents(FakeWindow.nextId++, "about:blank");
+    FakeWindow.instances.push(this);
+  }
+
+  loadURL(url: string) {
+    this.loadedUrl = url;
+    this.webContents.mainFrame.url = url;
+    queueMicrotask(() => this.emit("ready-to-show"));
+  }
+
+  show() {
+    this.shown = true;
+  }
+
+  focus() {
+    this.focused = true;
+  }
+
+  isDestroyed() {
+    return this.destroyed;
+  }
+
+  destroy() {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.webContents.destroyed = true;
+    this.emit("closed");
+  }
+}
+
+function createHarness() {
+  FakeWindow.nextId = 1;
+  FakeWindow.instances = [];
+  const app = new EventEmitter();
+  const handlers = new Map<string, (event: any, ...args: any[]) => unknown>();
+  const ipcMain = {
+    handle(channel: string, handler: (event: any, ...args: any[]) => unknown) {
+      handlers.set(channel, handler);
+    },
+  };
+  const host = createWindowHost({
+    app,
+    BrowserWindow: FakeWindow,
+    ipcMain,
+    shellUrl,
+    preloadPath: "C:/app/preload.cjs",
+  });
+  const primary = host.createPrimaryWindow() as FakeWindow;
+  const invokeEvent = (channel: string, event: any, ...args: unknown[]) => {
+    const handler = handlers.get(channel);
+    assert.ok(handler, `missing handler for ${channel}`);
+    return handler(event, ...args);
+  };
+  const invoke = (channel: string, window: FakeWindow, ...args: unknown[]) =>
+    invokeEvent(
+      channel,
+      { sender: window.webContents, senderFrame: window.webContents.mainFrame },
+      ...args,
+    );
+  return {
+    app,
+    handlers,
+    host,
+    invoke,
+    invokeEvent,
+    primary,
+    windows: FakeWindow.instances,
+  };
+}
+
+test("panel open contract is strict, bounded and rejects malformed identifiers", () => {
+  assert.deepEqual(Object.keys(PANEL_REGISTRY), ["timeline"]);
+  assert.equal(PANEL_REGISTRY.timeline.route, "#studio-panel=timeline");
+  assert.equal(isPanelOpenRequest(request), true);
+  assert.equal(isPanelOpenRequest({ ...request, extra: true }), false);
+  assert.equal(
+    isPanelOpenRequest({ ...request, panelId: "../timeline" }),
+    false,
+  );
+  assert.equal(
+    isPanelOpenRequest({ ...request, projectId: "Upper Case" }),
+    false,
+  );
+  assert.equal(
+    isPanelOpenRequest({ ...request, sessionId: "old-session" }),
+    false,
+  );
+  assert.equal(
+    isWithinMessageLimit("x".repeat(MAX_IPC_MESSAGE_BYTES - 2)),
+    true,
+  );
+  assert.equal(
+    isWithinMessageLimit("x".repeat(MAX_IPC_MESSAGE_BYTES + 1)),
+    false,
+  );
+  assert.equal(
+    isPanelOpenRequest({
+      ...request,
+      projectId: "x".repeat(MAX_IPC_MESSAGE_BYTES),
+    }),
+    false,
+  );
+  assert.equal(isWindowContext({ role: "primary", panelId: null }), true);
+  assert.equal(
+    isWindowContext({ role: "primary", panelId: null, projectId: "extra" }),
+    false,
+  );
+  assert.equal(
+    isOpenPanelResult({
+      panelId: "timeline",
+      instanceId: request.sessionId,
+      status: "opened",
+    }),
+    true,
+  );
+  assert.equal(
+    isPanelClosedEvent({
+      panelId: "timeline",
+      projectId: request.projectId,
+      sessionId: request.sessionId,
+      instanceId: request.sessionId,
+    }),
+    true,
+  );
+  assert.equal(
+    isPanelClosedEvent({
+      panelId: "timeline",
+      projectId: request.projectId,
+      sessionId: request.sessionId,
+      instanceId: request.sessionId,
+      path: "C:/private",
+    }),
+    false,
+  );
+});
+
+test("only the primary opens the one fixed, sandboxed Timeline route", () => {
+  const { invoke, primary, windows } = createHarness();
+  const result = invoke(CHANNELS.openPanel, primary, request) as {
+    status: string;
+    instanceId: string;
+  };
+  assert.equal(result.status, "opened");
+  assert.equal(windows.length, 2);
+  const child = windows[1];
+  assert.equal(child.loadedUrl, `${shellUrl}#studio-panel=timeline`);
+  assert.deepEqual(child.options.webPreferences, {
+    preload: "C:/app/preload.cjs",
+    nodeIntegration: false,
+    contextIsolation: true,
+    sandbox: true,
+    webSecurity: true,
+    webviewTag: false,
+  });
+  assert.equal(child.options.parent, primary);
+  assert.equal(child.webContents.openHandler?.().action, "deny");
+  const context = invoke(CHANNELS.getContext, child);
+  assert.deepEqual(context, {
+    role: "panel",
+    panelId: "timeline",
+    projectId: request.projectId,
+    sessionId: request.sessionId,
+    instanceId: result.instanceId,
+  });
+
+  const again = invoke(CHANNELS.openPanel, primary, request) as typeof result;
+  assert.equal(again.status, "focused");
+  assert.equal(again.instanceId, result.instanceId);
+  assert.equal(windows.length, 2);
+  assert.equal(child.focused, true);
+  assert.throws(
+    () => invoke(CHANNELS.openPanel, child, request),
+    /window role/,
+  );
+  assert.throws(
+    () =>
+      invoke(CHANNELS.openPanel, primary, {
+        ...request,
+        route: "file:///secret",
+      }),
+    /Invalid panel open request/,
+  );
+});
+
+test("stale sessions are replaced and old window messages are rejected", () => {
+  const { invoke, primary, windows } = createHarness();
+  const opened = invoke(CHANNELS.openPanel, primary, request) as {
+    status: string;
+    instanceId: string;
+  };
+  assert.equal(opened.status, "opened");
+  const oldChild = windows[1];
+  const nextRequest = {
+    ...request,
+    projectId: "next-project",
+    sessionId: "b7e53745-4f09-42b8-b49b-cd9c30be5a6e",
+  };
+  const replaced = invoke(
+    CHANNELS.openPanel,
+    primary,
+    nextRequest,
+  ) as typeof opened;
+  assert.equal(replaced.status, "opened");
+  assert.notEqual(replaced.instanceId, opened.instanceId);
+  assert.equal(oldChild.isDestroyed(), true);
+  assert.throws(
+    () => invoke(CHANNELS.getContext, oldChild),
+    /Unregistered Electron window/,
+  );
+  assert.equal(windows.length, 3);
+  assert.deepEqual(invoke(CHANNELS.getContext, windows[2]), {
+    role: "panel",
+    panelId: "timeline",
+    projectId: nextRequest.projectId,
+    sessionId: nextRequest.sessionId,
+    instanceId: replaced.instanceId,
+  });
+});
+
+test("main-frame route validation and native window guards reject navigation, popups and webviews", () => {
+  const { invoke, invokeEvent, primary, windows } = createHarness();
+  invoke(CHANNELS.openPanel, primary, request);
+  const child = windows[1];
+
+  let navigationPrevented = false;
+  child.webContents.emit(
+    "will-navigate",
+    {
+      preventDefault() {
+        navigationPrevented = true;
+      },
+    },
+    "https://example.com/",
+  );
+  assert.equal(navigationPrevented, true);
+
+  let redirectPrevented = false;
+  child.webContents.emit(
+    "will-redirect",
+    {
+      preventDefault() {
+        redirectPrevented = true;
+      },
+    },
+    "file:///secret",
+  );
+  assert.equal(redirectPrevented, true);
+
+  let webviewPrevented = false;
+  child.webContents.emit("will-attach-webview", {
+    preventDefault() {
+      webviewPrevented = true;
+    },
+  });
+  assert.equal(webviewPrevented, true);
+
+  const subframe = { url: child.loadedUrl };
+  assert.throws(
+    () =>
+      invokeEvent(CHANNELS.getContext, {
+        sender: child.webContents,
+        senderFrame: subframe,
+      }),
+    /main frame/,
+  );
+  const spoofedEvent = {
+    sender: new FakeWebContents(child.webContents.id, child.loadedUrl),
+    senderFrame: child.webContents.mainFrame,
+  };
+  assert.throws(
+    () => invokeEvent(CHANNELS.getContext, spoofedEvent),
+    /sender identity mismatch/,
+  );
+});
+
+test("closing a child notifies the primary once and primary shutdown closes children silently", () => {
+  const { app, invoke, primary, windows } = createHarness();
+  const opened = invoke(CHANNELS.openPanel, primary, request) as {
+    instanceId: string;
+  };
+  const child = windows[1];
+  child.destroy();
+  assert.deepEqual(primary.webContents.sent, [
+    {
+      channel: CHANNELS.panelClosed,
+      payload: {
+        panelId: "timeline",
+        projectId: request.projectId,
+        sessionId: request.sessionId,
+        instanceId: opened.instanceId,
+      },
+    },
+  ]);
+
+  invoke(CHANNELS.openPanel, primary, request);
+  const reopenedChild = windows[2];
+  primary.destroy();
+  assert.equal(reopenedChild.isDestroyed(), true);
+  assert.equal(primary.webContents.sent.length, 1);
+
+  app.emit("before-quit");
+  assert.equal(reopenedChild.isDestroyed(), true);
+
+  const quitting = createHarness();
+  quitting.invoke(CHANNELS.openPanel, quitting.primary, request);
+  const quittingChild = quitting.windows[1];
+  quitting.app.emit("before-quit");
+  assert.equal(quittingChild.isDestroyed(), true);
+  assert.deepEqual(quitting.primary.webContents.sent, []);
+  assert.throws(
+    () => quitting.invoke(CHANNELS.openPanel, quitting.primary, request),
+    /shutting down/,
+  );
+});
