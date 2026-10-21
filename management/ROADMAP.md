@@ -19,14 +19,14 @@ Planning snapshot: 2026-10-21. Milestone status must be verified against the lat
 | Stage | Status | Target / acceptance |
 | --- | --- | --- |
 | M0 — Stable Golden Starter and project isolation | Implemented | Empty launch, independent projects, safe disk persistence, tests, documented capabilities. |
-| M1 — Subtitle module integration (TASK 005) | Next / verify task progress | One canonical editable subtitle timeline; inspect, edit, move, resize, save, reload, preview, and render. Reuse existing APIs; test boundaries. |
+| M1 — Subtitle module integration (TASK 005) | PR #6 open; pending review | One canonical editable subtitle timeline; inspect, edit, move, resize, save, reload, preview, and render. Reuse existing APIs; test boundaries. |
 | M2 — Media reference contract | Next, needs design review | Import local media as **links by default** rather than copying; stable asset IDs, validation, missing-media reporting and relink. File access depends on runtime and agent permissions. |
-| M3 — Audio + Whisper + Lyrics vertical slice | Next, after M1/M2 | Select linked song, provide correct lyrics, run local audio analysis, preserve raw transcript and estimated timings, reconcile to lyric lines, save editable subtitle clips. |
+| M2b — Project module activation & editor slots design | Concept, evaluate before M3 implementation | Define which modules are trusted/available, how project settings enable their editor tools, and which UI slots accept contributions. Validate schema, defaults, missing module behavior, and agent-editable JSON; do not require a dynamic plugin loader. |\n| M3 — Audio + Whisper + Lyrics vertical slice | Next, after M1/M2 | Select linked song, provide correct lyrics, run local audio analysis, preserve raw transcript and estimated timings, reconcile to lyric lines, save editable subtitle clips. |
 | M4 — Human + external AI end-to-end validation | Next, after M3 | Copy an AI task with real project paths; new agent adjusts approximate subtitle text/segments from transcript and original lyrics; editor reloads; human fine-tunes timing on black background with white text. |
 | M5 — Generalized visual feedback | Concept | Select a clip/frame and capture a structured edit request; copy a context-aware AI task. |
 | M6 — Larger workspace/plugin integration | Concept | Configurable project-specific tools/panels, scalable asset browsers, other creative domains; develop only as demonstrated requirements arise. |
 
-Do not start M3 before validating how local media references are resolved by preview, render and the Whisper worker.
+Do not start M3 before validating how local media references are resolved by preview, render and the Whisper worker. Before adding Lyrics-specific UI controls, decide whether a minimal editor integration slot/configuration contract is needed; use that real requirement to validate the design, not a speculative general plugin system.\n\nPR #6 ([subtitle integration](https://github.com/MTiberiu/floxbow-motion-studio/pull/6)) is open at the time of this note and must not be treated as merged.
 
 ## Definition of success for the first real test
 
