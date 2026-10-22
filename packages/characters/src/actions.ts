@@ -3,6 +3,7 @@ import {parseEditTimeline,type EditTimeline,type TimelineClip} from '@motion/sdk
 
 export const mascotPropsSchema=z.object({
   motion:z.enum(['idle','walk','jump','dance','spin','wave']).default('idle'),
+  facing:z.enum(['front','back','left','right']).default('front'),
   color:z.string().regex(/^#[0-9a-f]{6}$/i).default('#76d4ec'),
   accent:z.string().regex(/^#[0-9a-f]{6}$/i).default('#f8c86d'),
   x:z.number().min(-40).max(140).default(50),
@@ -61,6 +62,7 @@ export const choreographyStepSchema=z.object({
   endX:z.number().min(-40).max(140).optional(),
   endY:z.number().min(-40).max(140).optional(),
   speed:z.number().min(0.25).max(4).optional(),
+  facing:z.enum(['front','back','left','right']).optional(),
   label:z.string().min(1).max(100).optional(),
 });
 export type ChoreographyStep=z.input<typeof choreographyStepSchema>;
@@ -76,13 +78,15 @@ export function composeMascotDance(timeline:EditTimeline,input:{
   const base=mascotPropsSchema.parse(input.props??{});
   let currentX=base.endX??base.startX??base.x;
   let currentY=base.endY??base.startY??base.y;
+  let facing=base.facing;
   input.steps.forEach((raw,index)=>{
     const step=choreographyStepSchema.parse(raw);
     const startX=step.x??currentX;
     const startY=step.y??currentY;
     const endX=step.endX??startX;
     const endY=step.endY??startY;
-    const props={...base,motion:step.motion,x:startX,y:startY,startX,endX,startY,endY,speed:step.speed??base.speed};
+    facing=step.facing??(step.motion==='walk'&&endX!==startX?(endX>startX?'right':'left'):facing);
+    const props={...base,motion:step.motion,facing,x:startX,y:startY,startX,endX,startY,endY,speed:step.speed??base.speed};
     currentX=endX;
     currentY=endY;
     result=addMascot(result,{
