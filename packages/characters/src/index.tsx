@@ -1,8 +1,9 @@
-import {createContext,useContext,type ReactNode} from 'react';
+import {createContext,useContext} from 'react';
 import {AbsoluteFill,useCurrentFrame,useVideoConfig} from 'remotion';
 import {TimelineComposition,type EditableComponent} from '@motion/sdk/editor';
 import {type EditTimeline,type EditableField,type TimelineClip} from '@motion/sdk/timeline';
 import {mascotPropsSchema,speechAtFrame} from './actions';
+import {sampleMascotPose} from './motion';
 import {getSubtitleCues,selectSubtitleCues} from '@motion/lyrics-sync/subtitles';
 export {addMascot,removeMascot,composeMascotDance,choreographyStepSchema,mascotPropsSchema,speechAtFrame} from './actions';
 export type {MascotProps,MascotMotion,ChoreographyStep} from './actions';
@@ -39,23 +40,12 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const activeCue=consumerCues.find(c=>c.presentation!=='hidden'&&(c.presentation==='bubble'||c.presentation==='both')&&absoluteFrame/timeline!.fps>=c.start&&absoluteFrame/timeline!.fps<c.end);
   const activeWord=activeCue?.wordTimingStatus==='matches-text'?activeCue.words?.find(w=>absoluteFrame/timeline!.fps>=w.start&&absoluteFrame/timeline!.fps<w.end):undefined;
   const speech=activeCue?{speaking:true,text:activeCue.text,word:activeWord?.text??'',wordTimed:!!activeWord}:timeline&&props.speechClipId&&!props.consumerId?speechAtFrame(timeline,props.speechClipId,absoluteFrame):{speaking:false,text:'',word:'',wordTimed:false};
-  const t=localFrame/fps*props.speed;
   const progress=Math.max(0,Math.min(1,localFrame/Math.max(1,clip.durationInFrames-1)));
   const eased=props.easing==='ease-in-out'?progress*progress*(3-2*progress):progress;
   const positionX=(props.startX??props.x)+((props.endX??props.x)-(props.startX??props.x))*eased;
   const positionY=(props.startY??props.y)+((props.endY??props.y)-(props.startY??props.y))*eased;
-  const phase=t*Math.PI*2;
-  const step=Math.sin(phase*2);
-  const dance=props.motion==='dance';
-  const spin=props.motion==='spin';
-  const wave=props.motion==='wave';
-  const jump=props.motion==='jump';
-  const walk=props.motion==='walk';
-  const bounce=jump?Math.abs(Math.sin(phase*0.7))*105:dance?Math.abs(Math.sin(phase))*30:walk?Math.abs(step)*10:Math.sin(phase*0.35)*6;
-  const tilt=dance?Math.sin(phase)*13:walk?Math.sin(phase)*5:Math.sin(phase*0.35)*2;
-  const spinDegrees=spin?t*360:0;
-  const leftArm=dance?-36+Math.sin(phase)*42:walk?Math.sin(phase)*26:jump?-42:0;
-  const rightArm=wave?-110+Math.sin(phase*2)*22:dance?36+Math.sin(phase+Math.PI)*42:walk?-Math.sin(phase)*26:jump?42:0;
+  const pose=sampleMascotPose({motion:props.motion,localFrame,durationInFrames:clip.durationInFrames,fps,speed:props.speed,travelX:(props.endX??props.x)-(props.startX??props.x),travelY:(props.endY??props.y)-(props.startY??props.y)});
+  const {bounce,tilt,leftArm,rightArm,spinDegrees,leftLeg,rightLeg}=pose;
   const mouthOpen=speech.speaking&&(speech.wordTimed||(!speech.word&&Math.sin(localFrame*1.3)>-0.18));
   const shadowScale=1-Math.min(bounce/200,0.38);
   return <AbsoluteFill style={{pointerEvents:'none'}}>
@@ -66,8 +56,8 @@ export function Mascot({clip}:{clip:TimelineClip}) {
         <g transform={`translate(0 ${-bounce}) rotate(${tilt} 160 210)`}>
           <g transform={`rotate(${leftArm} 95 214)`}><path d="M101 215 Q57 221 47 274" fill="none" stroke={props.color} strokeWidth="25" strokeLinecap="round"/><circle cx="46" cy="274" r="16" fill={props.accent}/></g>
           <g transform={`rotate(${rightArm} 225 214)`}><path d="M220 215 Q265 221 272 274" fill="none" stroke={props.color} strokeWidth="25" strokeLinecap="round"/><circle cx="273" cy="274" r="16" fill={props.accent}/></g>
-          <g transform={`rotate(${walk?step*15:dance?step*23:0} 134 300)`}><path d="M137 298 L128 339" stroke={props.color} strokeWidth="27" strokeLinecap="round"/><ellipse cx="121" cy="340" rx="28" ry="13" fill={props.accent}/></g>
-          <g transform={`rotate(${walk?-step*15:dance?-step*23:0} 187 300)`}><path d="M184 298 L195 339" stroke={props.color} strokeWidth="27" strokeLinecap="round"/><ellipse cx="202" cy="340" rx="28" ry="13" fill={props.accent}/></g>
+          <g transform={`rotate(${leftLeg} 134 300)`}><path d="M137 298 L128 339" stroke={props.color} strokeWidth="27" strokeLinecap="round"/><ellipse cx="121" cy="340" rx="28" ry="13" fill={props.accent}/></g>
+          <g transform={`rotate(${rightLeg} 187 300)`}><path d="M184 298 L195 339" stroke={props.color} strokeWidth="27" strokeLinecap="round"/><ellipse cx="202" cy="340" rx="28" ry="13" fill={props.accent}/></g>
           <defs><linearGradient id={'mascot-shine-'+clip.id} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fff" stopOpacity=".42"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient></defs>
           <rect x="79" y="70" width="162" height="238" rx="78" fill={props.color} stroke="#183653" strokeWidth="5"/>
           <rect x="87" y="77" width="142" height="207" rx="69" fill={`url(#mascot-shine-${clip.id})`}/>
