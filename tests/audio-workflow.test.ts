@@ -9,7 +9,11 @@ import { probeAudioDuration } from "../scripts/audio-probe";
 import { readMediaRegistry, registerAudioAsset } from "../scripts/media-store";
 import { createSubtitleClip } from "@motion/lyrics-sync/subtitles";
 import { parseEditTimeline } from "@motion/sdk/timeline";
-import { soundtrackTimingUnchanged } from "../apps/desktop/src/timeline-track-utils";
+import {
+  changeClipRangeWithDurationExtension,
+  MAX_TIMELINE_DURATION_FRAMES,
+  soundtrackTimingUnchanged,
+} from "../apps/desktop/src/timeline-track-utils";
 
 function sineWaveWav(seconds: number) {
   const rate = 8_000;
@@ -144,7 +148,7 @@ test("audio duration probing reports malformed or undecodable sources clearly", 
   }
 });
 
-test("soundtrack timing is immutable through generic Timeline edits", () => {
+test("soundtrack timing, selected source, track and full duration stay fixed", () => {
   const soundtrack = {
     id: "soundtrack-fixed",
     trackId: "audio",
@@ -169,7 +173,8 @@ test("soundtrack timing is immutable through generic Timeline edits", () => {
   assert.equal(
     soundtrackTimingUnchanged(current, {
       ...current,
-      clips: [{ ...soundtrack, from: 1, durationInFrames: 239 }],
+      durationInFrames: 241,
+      clips: [{ ...soundtrack, from: 1 }],
     }),
     false,
   );
@@ -187,4 +192,127 @@ test("soundtrack timing is immutable through generic Timeline edits", () => {
     }),
     false,
   );
+  assert.equal(
+    soundtrackTimingUnchanged(current, {
+      ...current,
+      clips: [{ ...soundtrack, content: { assetId: "another-audio" } }],
+    }),
+    false,
+  );
+});
+
+test("moving a clip extends the saved Timeline duration and never shortens it", () => {
+  const current = parseEditTimeline({
+    version: 1,
+    fps: 30,
+    durationInFrames: 360,
+    tracks: [{ id: "captions", name: "Captions" }],
+    clips: [
+      {
+        id: "lyric-1",
+        trackId: "captions",
+        componentId: "subtitles",
+        label: "Caption",
+        from: 0,
+        durationInFrames: 180,
+        content: { text: "Caption" },
+        props: {},
+      },
+    ],
+  });
+  const moved = changeClipRangeWithDurationExtension(
+    current,
+    "lyric-1",
+    420,
+    600,
+  );
+  assert.equal(moved.durationInFrames, 600);
+  assert.equal(moved.clips[0].from, 420);
+  assert.equal(moved.clips[0].durationInFrames, 180);
+
+  const movedToZero = changeClipRangeWithDurationExtension(
+    moved,
+    "lyric-1",
+    -20,
+    160,
+  );
+  assert.equal(movedToZero.durationInFrames, 600);
+  assert.equal(movedToZero.clips[0].from, 0);
+
+  assert.throws(
+    () =>
+      changeClipRangeWithDurationExtension(
+        moved,
+        "lyric-1",
+        MAX_TIMELINE_DURATION_FRAMES - 100,
+        MAX_TIMELINE_DURATION_FRAMES + 80,
+      ),
+    /maximum project duration/i,
+  );
+});
+
+test("extended clip saves and reloads with matching project and Timeline durations", async () => {
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const directory = await mkdtemp(path.join(tempRoot, "motion-extended-edit-"));
+  try {
+    const manifest = manifestSchema.parse({
+      id: "extended-fixture",
+      name: "Extended Fixture",
+      type: "explainer",
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      durationInFrames: 360,
+      entry: "Composition.tsx",
+      editTimeline: "edit.json",
+      sdkVersion: "0.1.0",
+    });
+    const timeline = parseEditTimeline({
+      version: 1,
+      fps: 30,
+      durationInFrames: 360,
+      tracks: [{ id: "captions", name: "Captions" }],
+      clips: [
+        {
+          id: "caption-1",
+          trackId: "captions",
+          componentId: "subtitles",
+          label: "Caption",
+          from: 0,
+          durationInFrames: 60,
+          content: { text: "Preserve me" },
+          props: {},
+        },
+      ],
+    });
+    await writeFile(
+      path.join(directory, "edit.json"),
+      JSON.stringify(timeline),
+    );
+    await writeFile(
+      path.join(directory, "project.json"),
+      JSON.stringify(manifest),
+    );
+    const disk = await readEditor(directory, manifest);
+    const moved = changeClipRangeWithDurationExtension(
+      disk.timeline,
+      "caption-1",
+      540,
+      600,
+    );
+    await saveEditor(directory, manifest, moved, disk.revision);
+    const savedManifest = manifestSchema.parse(
+      JSON.parse(await readFile(path.join(directory, "project.json"), "utf8")),
+    );
+    const reloaded = await readEditor(directory, savedManifest);
+    assert.equal(savedManifest.durationInFrames, 600);
+    assert.equal(reloaded.timeline.durationInFrames, 600);
+    assert.deepEqual(reloaded.timeline.clips[0], {
+      ...timeline.clips[0],
+      from: 540,
+    });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
