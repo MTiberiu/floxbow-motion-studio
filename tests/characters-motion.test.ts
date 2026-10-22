@@ -1,6 +1,6 @@
 import {strict as assert} from 'node:assert';
 import {test} from 'node:test';
-import {sampleMascotPose} from '@motion/characters/src/motion';
+import {sampleMascotPose} from '../packages/characters/src/motion';
 
 test('clip-edge pose is neutral for walking, jumping, waving and dance',()=>{
  for(const motion of ['walk','jump','dance','wave'] as const){
