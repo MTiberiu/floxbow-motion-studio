@@ -96,9 +96,21 @@ export const subtitleFields: EditableField[] = [
   },
 ];
 export function Subtitles({ clip }: { clip: TimelineClip }) {
+  const content = subtitleContentSchema.parse(clip.content);
+  const presentation = content.presentation ?? "caption";
+  if (presentation === "bubble" || presentation === "hidden") return null;
+  return <SubtitleText clip={clip} content={content} />;
+}
+
+function SubtitleText({
+  clip,
+  content,
+}: {
+  clip: TimelineClip;
+  content: ReturnType<typeof subtitleContentSchema.parse>;
+}) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const content = subtitleContentSchema.parse(clip.content);
   const p = Object.fromEntries(
     subtitleFields.map((f) => [f.key, fieldValue(clip, f)]),
   );

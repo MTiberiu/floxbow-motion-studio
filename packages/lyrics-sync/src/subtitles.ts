@@ -2,8 +2,109 @@ import {z} from 'zod';
 import {clipSchema,type TimelineClip,type EditTimeline,type TimelineBehavior} from '@motion/sdk/timeline';
 import {parseTimeline} from './index';
 const word=z.object({id:z.string(),text:z.string(),start:z.number().finite(),end:z.number().finite()}).refine(w=>w.end>w.start,'Word end must follow start');
-export const subtitleContentSchema=z.object({text:z.string().max(20000),section:z.string().optional(),repeatOf:z.string().optional(),status:z.enum(['demo','unverified','reviewed']).default('unverified'),words:z.array(word).optional()});
-export type SubtitleContent=z.infer<typeof subtitleContentSchema>;
+const consumerIdSchema = z.string().regex(/^[A-Za-z0-9_-]+$/).max(100);
+const subtitlePresentationSchema = z.enum([
+  "caption",
+  "bubble",
+  "both",
+  "hidden",
+]);
+const subtitleConsumerIdsSchema = z
+  .array(consumerIdSchema)
+  .max(32)
+  .superRefine((ids, ctx) => {
+    if (new Set(ids).size !== ids.length)
+      ctx.addIssue({ code: "custom", message: "Duplicate subtitle consumer IDs" });
+  });
+export const subtitleContentSchema = z.object({
+  text: z.string().max(20000),
+  section: z.string().optional(),
+  repeatOf: z.string().optional(),
+  status: z.enum(["demo", "unverified", "reviewed"]).default("unverified"),
+  words: z.array(word).optional(),
+  speakerId: consumerIdSchema.optional(),
+  presentation: subtitlePresentationSchema.optional(),
+  consumerIds: subtitleConsumerIdsSchema.optional(),
+});
+export type SubtitleContent = z.infer<typeof subtitleContentSchema>;
+export type SubtitlePresentation = z.infer<typeof subtitlePresentationSchema>;
+export type SubtitleConsumerId = z.infer<typeof consumerIdSchema>;
+export type SubtitleCueWord = Readonly<{
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+}>;
+export type SubtitleCue = Readonly<{
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+  status: SubtitleContent["status"];
+  speakerId?: SubtitleConsumerId;
+  presentation: SubtitlePresentation;
+  consumerIds?: readonly SubtitleConsumerId[];
+  words?: readonly SubtitleCueWord[];
+  wordTimingStatus: "absent" | "matches-text" | "text-mismatch";
+}>;
+export type SubtitleCueSelection =
+  | { kind: "caption" }
+  | { kind: "consumer"; consumerId: SubtitleConsumerId };
+/** Derive chronological cue data from the authoritative frame timeline. */
+export function getSubtitleCues(timeline: EditTimeline): SubtitleCue[] {
+  return timeline.clips
+    .filter((clip) => clip.componentId === "subtitles")
+    .map((clip) => {
+      const content = subtitleContentSchema.parse(clip.content);
+      const start = clip.from / timeline.fps;
+      const words = content.words?.map((w) => ({
+        ...w,
+        start: start + w.start,
+        end: start + w.end,
+      }));
+      const wordTimingStatus: SubtitleCue["wordTimingStatus"] =
+        !content.words?.length
+          ? "absent"
+          : subtitleWordTimingMatchesText(content)
+            ? "matches-text"
+            : "text-mismatch";
+      return {
+        id: clip.id,
+        text: content.text,
+        start,
+        end: (clip.from + clip.durationInFrames) / timeline.fps,
+        status: content.status,
+        ...(content.speakerId === undefined
+          ? {}
+          : { speakerId: content.speakerId }),
+        presentation: content.presentation ?? "caption",
+        ...(content.consumerIds === undefined
+          ? {}
+          : { consumerIds: [...content.consumerIds] }),
+        ...(words === undefined ? {} : { words }),
+        wordTimingStatus,
+      };
+    })
+    .sort((a, b) => a.start - b.start);
+}
+/** Select captions by visual permission or supplemental cues by stable instance ID. */
+export function selectSubtitleCues(
+  cues: readonly SubtitleCue[],
+  selection: SubtitleCueSelection,
+): SubtitleCue[] {
+  if (selection.kind === "caption")
+    return cues.filter(
+      (cue) => cue.presentation === "caption" || cue.presentation === "both",
+    );
+  if (selection.kind !== "consumer")
+    throw new Error("Unknown subtitle cue selection");
+  consumerIdSchema.parse(selection.consumerId);
+  return cues.filter(
+    (cue) =>
+      cue.consumerIds === undefined ||
+      cue.consumerIds.includes(selection.consumerId),
+  );
+}
 /** Correct visible words without changing segment boundaries or word timing. */
 export function correctSubtitleText(
   content: SubtitleContent,
