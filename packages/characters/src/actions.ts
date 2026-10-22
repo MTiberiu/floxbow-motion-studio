@@ -14,6 +14,7 @@ export const mascotPropsSchema=z.object({
   easing:z.enum(['linear','ease-in-out']).default('linear'),
   scale:z.number().min(0.4).max(2).default(1),
   speed:z.number().min(0.25).max(4).default(1),
+  consumerId:z.union([z.literal(''),z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)]).default(''),
   speechClipId:z.union([z.literal(''),z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100)]).default(''),
   bubble:z.boolean().default(true),
 });
