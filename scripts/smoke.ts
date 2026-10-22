@@ -1097,12 +1097,13 @@ try {
       "Timeline playhead frame",
       { exact: true },
     );
-    for (const frame of [121, 37, 83])
+    for (const frame of [121, 37, 83]) {
       await detachedPlayhead.fill(String(frame));
-    await expect(detachedPlayhead).toHaveValue("83");
-    await expect(
-      page.getByLabel("Playhead frame", { exact: true }),
-    ).toHaveValue("83");
+      await expect(detachedPlayhead).toHaveValue(String(frame));
+      await expect(
+        page.getByLabel("Playhead frame", { exact: true }),
+      ).toHaveValue(String(frame));
+    }
 
     const originalRange = await detachedClip.locator("small").innerText();
     await detachedClip.focus();
