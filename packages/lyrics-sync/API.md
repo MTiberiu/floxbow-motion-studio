@@ -50,6 +50,7 @@ import {
 - `subtitleContentSchema` and `subtitleTimingSchema` validate the persisted subtitle payloads.
 - `subtitleClips(data, timeline, trackId, props?)` converts seconds-based timing JSON into frame clips, rejecting out-of-project ranges.
 - `exportSubtitles(timeline)` exports subtitle semantics and timing without visual props.
+- `whisperResultToSubtitleTiming(result, durationSeconds)` converts the existing Whisper response's `segments` into `SubtitleTiming`. It returns `{ timing, skippedSegments, outOfRangeSegments, unusableWordTimings }`. Segment text and valid absolute segment boundaries are retained as received; valid Whisper word boundaries are converted to clip-relative seconds. Generated content is always `unverified`. This pure function does not run Whisper, reconcile lyrics, repair timestamps, or verify recognition.
 
 ## Reusable subtitle cues
 
@@ -97,10 +98,16 @@ JSON timing import/export preserves speaker, presentation and routing fields. SR
 
 Repeated choruses are separate segments with their own IDs and times. `content.repeatOf` points to the earlier segment; it is descriptive metadata and does not link or synchronize the clips.
 
+### Direct Whisper import
+
+`whisperResultToSubtitleTiming` accepts the raw object returned by the existing OpenAI Whisper adapter. A segment is skipped if it has no usable text and finite `start`/`end` values, if `end <= start`, or if it extends beyond the supplied project duration. Overlong results above 3,000 segments fail instead of being truncated. No replacement timing is inferred. If a segment's word list contains invalid or out-of-segment intervals, its segment caption is kept and that segment's word timings are omitted; the returned count makes this visible. If Whisper supplies no words, the word-timing issue count stays zero. The caller can pass the returned `timing` to `subtitleClips` and must surface the counts to the user.
+
+The editor's **Generate Subtitles** action selects only the asset ID from the existing soundtrack clip. The host resolves that ID through the Media Registry and runs Python/Whisper; local paths never enter the renderer. The response is bounded and validated before use. The editor converts it to frame clips and applies one EditorSession edit, so Undo and the existing save path remain authoritative. Existing subtitle clips require confirmation before replacement; other tracks and clips are preserved. Whisper output is a draft, including on successful transcription. Music recognition accuracy is not verified by this API.
+
 ## Rendering and dependencies
 
 `Subtitles` renders in Remotion's frame context; `subtitleModule.component` is registered by the project composition and is shared by preview and renderer. It draws text for `caption` and `both`, and returns no text for `bubble` or `hidden`. Runtime dependencies are React, Remotion, `@motion/sdk/timeline`, and the lyric timing package. Subtitle text is white by default with a subtle shadow; the component stays transparent so it can overlay video. A containing composition can use a black background for the simple white-on-black starter appearance.
 
-There is no transcription or forced alignment here. A word-count-changing text correction retains old timing as evidence and pauses karaoke highlighting until matching intervals are supplied. SRT/LRC cannot carry all JSON metadata. Import and export are explicit editor actions.
+There is no forced alignment or AI lyric correction here. A word-count-changing text correction retains old timing as evidence and pauses karaoke highlighting until matching intervals are supplied. SRT/LRC cannot carry all JSON metadata. Transcription runs only when the user starts it in the live development editor and uses the locally installed Whisper model; it does not download a model.
 
 The cue API does not provide a consumer registry, assignment UI, speaker directory, speech-bubble renderer, character animation, lip-sync, confidence scoring, or synchronization verification. Projects or AI agents can author `speakerId` and `consumerIds` in subtitle semantic content; an editor assignment menu is future work.

@@ -17,6 +17,8 @@ import { createProject } from "./project-scaffold";
 import { streamRegisteredAudio } from "./media-stream";
 import { probeAudioDuration } from "./audio-probe";
 import { resolveMedia } from "@motion/project-loader/media";
+import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
+import { transcribeAudioWithWhisper } from "./whisper-service";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
 const mime: Record<string, string> = {
@@ -37,6 +39,8 @@ const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 export type ServerOptions = {
   audioFilePicker?: () => Promise<string | undefined>;
+  /** Test seam for deterministic local-worker responses; production uses the existing Python adapter. */
+  transcribeAudio?: (audioPath: string) => Promise<unknown>;
 };
 export async function startServers(
   built = false,
@@ -219,11 +223,23 @@ export async function startServers(
             route.length === 4 &&
             route[1] === "assets" &&
             route[3] === "soundtrack";
+          const transcription =
+            route.length === 4 &&
+            route[1] === "assets" &&
+            route[3] === "transcription";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
             : "";
-          if (route.length !== 1 && !removingAsset && !soundtrackProbe) {
+          const transcriptionAssetId = transcription
+            ? decodeURIComponent(route[2])
+            : "";
+          if (
+            route.length !== 1 &&
+            !removingAsset &&
+            !soundtrackProbe &&
+            !transcription
+          ) {
             res.writeHead(404).end("Unknown media operation");
             return;
           }
@@ -233,6 +249,106 @@ export async function startServers(
           );
           if (!project?.manifest) {
             res.writeHead(404).end("Unknown project");
+            return;
+          }
+          if (transcription) {
+            if (req.method !== "POST") {
+              res.writeHead(405).end();
+              return;
+            }
+            if (
+              req.headers.origin !== shellOrigin ||
+              !req.headers["content-type"]?.startsWith("application/json")
+            ) {
+              res.writeHead(403, { "Content-Type": "application/json" }).end(
+                JSON.stringify({
+                  message: "Only the studio shell can request transcription.",
+                }),
+              );
+              return;
+            }
+            if (built) {
+              res.writeHead(409, { "Content-Type": "application/json" }).end(
+                JSON.stringify({
+                  message:
+                    "Local transcription is available in the live development workspace.",
+                }),
+              );
+              return;
+            }
+            let body = "";
+            for await (const chunk of req) {
+              body += chunk.toString();
+              if (Buffer.byteLength(body) > 2048)
+                throw new Error("Transcription request too large");
+            }
+            const input = JSON.parse(body) as {
+              fps?: unknown;
+              durationInFrames?: unknown;
+            };
+            if (
+              !input ||
+              Object.keys(input).some(
+                (key) => key !== "fps" && key !== "durationInFrames",
+              ) ||
+              typeof input.fps !== "number" ||
+              !Number.isInteger(input.fps) ||
+              input.fps < 1 ||
+              input.fps > 240 ||
+              typeof input.durationInFrames !== "number" ||
+              !Number.isInteger(input.durationInFrames) ||
+              input.durationInFrames < 1 ||
+              input.durationInFrames > input.fps * 60 * 60 * 24
+            )
+              throw new Error("The editable project duration is invalid.");
+            const projectRoot = path.join(projectsDir, id);
+            const registry = await readMediaRegistry(projectRoot);
+            const resolved = await resolveMedia(
+              projectRoot,
+              registry.registry,
+              transcriptionAssetId,
+            );
+            if (resolved.status !== "ready") {
+              res
+                .writeHead(resolved.status === "missing" ? 404 : 422, {
+                  "Content-Type": "application/json",
+                })
+                .end(
+                  JSON.stringify({
+                    message:
+                      resolved.status === "missing"
+                        ? "The selected audio file is missing."
+                        : resolved.message,
+                  }),
+                );
+              return;
+            }
+            try {
+              const raw = await (
+                options.transcribeAudio ?? transcribeAudioWithWhisper
+              )(resolved.path);
+              const result = whisperResultToSubtitleTiming(
+                raw,
+                input.durationInFrames / input.fps,
+              );
+              const response = JSON.stringify(result);
+              if (Buffer.byteLength(response) > 1_000_000)
+                throw new Error(
+                  "The Whisper result is too large to transfer safely. Try a shorter audio file.",
+                );
+              res.setHeader("Content-Type", "application/json");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(response);
+            } catch (error) {
+              res.writeHead(422, { "Content-Type": "application/json" }).end(
+                JSON.stringify({
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "Local Whisper transcription failed.",
+                }),
+              );
+            }
             return;
           }
           if (built) {

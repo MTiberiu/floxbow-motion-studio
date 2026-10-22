@@ -34,6 +34,7 @@ import {
   createSubtitleClip,
   importSubtitles,
   subtitleClips,
+  subtitleTimingSchema,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
@@ -98,6 +99,7 @@ export function TimelineEditor({
   const workspace = useWorkspaceManager();
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
+  const [transcribing, setTranscribing] = useState(false);
   const { snapshot, commands } = session;
   const {
     document: doc,
@@ -654,6 +656,186 @@ export function TimelineEditor({
       setError(String(e));
     }
   }
+  async function generateSubtitles() {
+    const initial = sessionRef.current.snapshot;
+    const current = sessionRef.current.commands.getCurrentDocument();
+    const soundtrack = current?.clips.find(
+      (item) => item.componentId === "soundtrack",
+    );
+    const assetId = soundtrack?.content.assetId;
+    if (!current || typeof assetId !== "string") {
+      setError(
+        "Select an MP3/WAV and choose Use as soundtrack before generating subtitles.",
+      );
+      return;
+    }
+    if (!initial.components.some((component) => component.id === "subtitles")) {
+      setError(
+        "This project does not register the editable Subtitles component.",
+      );
+      return;
+    }
+
+    setTranscribing(true);
+    setError("");
+    setNotice("Running the local Whisper model on the selected soundtrack…");
+    try {
+      const response = await fetch(
+        `/api/media/${encodeURIComponent(initial.projectId)}/assets/${encodeURIComponent(assetId)}/transcription`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fps: current.fps,
+            durationInFrames: current.durationInFrames,
+          }),
+        },
+      );
+      const result = await response.json().catch(() => undefined);
+      if (!response.ok)
+        throw new Error(
+          typeof result?.message === "string"
+            ? result.message
+            : "Local Whisper transcription failed.",
+        );
+      const validatedTiming = subtitleTimingSchema.parse(result?.timing);
+      const counts = [
+        result?.skippedSegments,
+        result?.outOfRangeSegments,
+        result?.unusableWordTimings,
+      ];
+      if (counts.some((value) => !Number.isInteger(value) || value < 0))
+        throw new Error("The transcription response did not pass validation.");
+
+      const live = sessionRef.current;
+      const liveSnapshot = live.snapshot;
+      const liveDocument = live.commands.getCurrentDocument();
+      if (
+        liveSnapshot.projectId !== initial.projectId ||
+        liveSnapshot.sessionId !== initial.sessionId ||
+        !liveDocument
+      )
+        throw new Error(
+          "The project changed while Whisper was working. Run transcription again.",
+        );
+      const liveSoundtrack = liveDocument.clips.find(
+        (item) => item.componentId === "soundtrack",
+      );
+      if (liveSoundtrack?.content.assetId !== assetId)
+        throw new Error(
+          "The selected soundtrack changed while Whisper was working. Run transcription again.",
+        );
+      if (
+        !liveSnapshot.components.some(
+          (component) => component.id === "subtitles",
+        )
+      )
+        throw new Error(
+          "This project does not register the editable Subtitles component.",
+        );
+
+      const existing = liveDocument.clips.filter(
+        (item) => item.componentId === "subtitles",
+      );
+      const template =
+        existing.find((item) => item.id === liveSnapshot.selectedClipId) ??
+        existing[0];
+      const trackId = subtitleTrackId(liveDocument, template?.trackId);
+      const timing = importSubtitles(
+        JSON.stringify(validatedTiming),
+        "json",
+        liveDocument.durationInFrames / liveDocument.fps,
+      );
+      const imported = [];
+      let frameSkipped = 0;
+      for (const segment of timing.segments) {
+        try {
+          const converted = subtitleClips(
+            { version: 1, units: "seconds", segments: [segment] },
+            liveDocument,
+            trackId,
+            template?.props ?? {},
+          );
+          imported.push(
+            ...converted.map((clip) => ({
+              ...clip,
+              id: `subtitle-whisper-${crypto.randomUUID()}`,
+            })),
+          );
+        } catch {
+          frameSkipped++;
+        }
+      }
+      if (imported.length === 0) {
+        const invalidTimingSkipped =
+          result.skippedSegments - result.outOfRangeSegments + frameSkipped;
+        live.commands.setError(
+          `Whisper produced no usable subtitle clips. ${invalidTimingSkipped} segment${invalidTimingSkipped === 1 ? " was" : "s were"} skipped for missing or invalid timing; ${result.outOfRangeSegments} extended beyond the project duration and were not truncated.`,
+        );
+        live.commands.setNotice("");
+        return;
+      }
+      if (
+        existing.length > 0 &&
+        !window.confirm(
+          `Replace ${existing.length} existing subtitle clip${existing.length === 1 ? "" : "s"} with the unverified Whisper draft? You can undo this as one edit.`,
+        )
+      ) {
+        live.commands.setNotice(
+          "Subtitle generation was canceled; existing clips were kept.",
+        );
+        return;
+      }
+      const next = parseEditTimeline({
+        ...liveDocument,
+        clips: [
+          ...liveDocument.clips.filter(
+            (item) =>
+              item.componentId !== "subtitles" &&
+              item.componentId !== "soundtrack",
+          ),
+          ...imported,
+          ...liveDocument.clips.filter(
+            (item) => item.componentId === "soundtrack",
+          ),
+        ],
+      });
+      if (!soundtrackTimingUnchanged(liveDocument, next))
+        throw new Error(
+          "The soundtrack changed during subtitle generation. Run it again.",
+        );
+      sourceCommandId.current = null;
+      live.commands.edit(next);
+      live.commands.selectClip(imported[0].id);
+      live.commands.setError("");
+      const invalidTimingSkipped =
+        result.skippedSegments - result.outOfRangeSegments + frameSkipped;
+      const notes = [
+        `${imported.length} unverified subtitle${imported.length === 1 ? "" : "s"} added to the Timeline.`,
+        invalidTimingSkipped > 0
+          ? `${invalidTimingSkipped} segment${invalidTimingSkipped === 1 ? " was" : "s were"} skipped because timing was invalid, missing, or shorter than one frame.`
+          : "",
+        result.outOfRangeSegments > 0
+          ? `${result.outOfRangeSegments} segment${result.outOfRangeSegments === 1 ? " extends" : "s extend"} beyond the project duration and ${result.outOfRangeSegments === 1 ? "was" : "were"} not truncated.`
+          : "",
+        result.unusableWordTimings > 0
+          ? `Word timing was unusable in ${result.unusableWordTimings} segment${result.unusableWordTimings === 1 ? "" : "s"}; those captions were kept without karaoke timing.`
+          : "",
+        "Review Whisper's recognition before treating the text as correct.",
+      ].filter(Boolean);
+      live.commands.setNotice(notes.join(" "));
+    } catch (error) {
+      const live = sessionRef.current;
+      live.commands.setNotice("");
+      live.commands.setError(
+        error instanceof Error
+          ? error.message
+          : "Local Whisper transcription failed.",
+      );
+    } finally {
+      setTranscribing(false);
+    }
+  }
   const clip = doc?.clips.find((c) => c.id === selected);
   const definition = components.find((c) => c.id === clip?.componentId);
   function changeRange(start: number, end: number) {
@@ -861,6 +1043,18 @@ export function TimelineEditor({
       <div className="editor-toolbar">
         <button disabled={!dirty || saving || conflict} onClick={save}>
           Save project
+        </button>
+        <button
+          type="button"
+          onClick={() => void generateSubtitles()}
+          disabled={!doc || transcribing || built}
+          title={
+            built
+              ? "Local Whisper transcription is available in the live development workspace."
+              : undefined
+          }
+        >
+          {transcribing ? "Generating subtitles…" : "Generate Subtitles"}
         </button>
         <button onClick={reloadDisk} disabled={!doc}>
           Reload from disk

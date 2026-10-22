@@ -178,6 +178,122 @@ export function createSubtitleClip(input: {
 const segment=z.object({id:z.string().min(1),start:z.number().finite().nonnegative(),end:z.number().finite().positive(),content:subtitleContentSchema}).refine(s=>s.end>s.start,'Segment end must follow start');
 export const subtitleTimingSchema=z.object({version:z.literal(1),units:z.literal('seconds'),segments:z.array(segment).max(3000)}).superRefine((t,ctx)=>{if(new Set(t.segments.map(s=>s.id)).size!==t.segments.length)ctx.addIssue({code:'custom',message:'Duplicate segment IDs'});});
 export type SubtitleTiming=z.infer<typeof subtitleTimingSchema>;
+export type WhisperTranscriptionImport = Readonly<{
+  timing: SubtitleTiming;
+  skippedSegments: number;
+  outOfRangeSegments: number;
+  unusableWordTimings: number;
+}>;
+/** Convert genuine Whisper observations into seconds-based subtitle data without inventing timing. */
+export function whisperResultToSubtitleTiming(
+  input: unknown,
+  durationSeconds: number,
+): WhisperTranscriptionImport {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0)
+    throw new Error(
+      "The project has no usable duration for subtitle transcription.",
+    );
+  if (!input || typeof input !== "object" || Array.isArray(input))
+    throw new Error("Whisper returned an invalid transcription result.");
+  const rawSegments = (input as { segments?: unknown }).segments;
+  if (!Array.isArray(rawSegments) || rawSegments.length === 0)
+    throw new Error("Whisper returned no transcription segments.");
+  if (rawSegments.length > 3000)
+    throw new Error(
+      "Whisper returned more than 3,000 segments; use a shorter audio file.",
+    );
+
+  let skippedSegments = 0;
+  let outOfRangeSegments = 0;
+  let unusableWordTimings = 0;
+  const segments: SubtitleTiming["segments"] = [];
+  rawSegments.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      skippedSegments++;
+      return;
+    }
+    const value = raw as {
+      start?: unknown;
+      end?: unknown;
+      text?: unknown;
+      words?: unknown;
+    };
+    const start = value.start;
+    const end = value.end;
+    if (
+      typeof start !== "number" ||
+      !Number.isFinite(start) ||
+      start < 0 ||
+      typeof end !== "number" ||
+      !Number.isFinite(end) ||
+      end <= start ||
+      typeof value.text !== "string" ||
+      !value.text.trim()
+    ) {
+      skippedSegments++;
+      return;
+    }
+    if (end > durationSeconds) {
+      skippedSegments++;
+      outOfRangeSegments++;
+      return;
+    }
+
+    let words: SubtitleContent["words"];
+    if (Array.isArray(value.words) && value.words.length > 0) {
+      const parsedWords = value.words.map((rawWord, wordIndex) => {
+        if (!rawWord || typeof rawWord !== "object" || Array.isArray(rawWord))
+          return undefined;
+        const word = rawWord as {
+          start?: unknown;
+          end?: unknown;
+          word?: unknown;
+          text?: unknown;
+        };
+        const wordStart = word.start;
+        const wordEnd = word.end;
+        const text = typeof word.word === "string" ? word.word : word.text;
+        if (
+          typeof wordStart !== "number" ||
+          !Number.isFinite(wordStart) ||
+          typeof wordEnd !== "number" ||
+          !Number.isFinite(wordEnd) ||
+          wordStart < start ||
+          wordEnd <= wordStart ||
+          wordEnd > end ||
+          typeof text !== "string" ||
+          !text.trim()
+        )
+          return undefined;
+        return {
+          id: `whisper-${index + 1}-word-${wordIndex + 1}`,
+          text,
+          start: wordStart - start,
+          end: wordEnd - start,
+        };
+      });
+      if (parsedWords.every((word) => word !== undefined))
+        words = parsedWords as NonNullable<SubtitleContent["words"]>;
+      else unusableWordTimings++;
+    }
+    segments.push({
+      id: `whisper-segment-${index + 1}`,
+      start,
+      end,
+      content: {
+        text: value.text,
+        status: "unverified",
+        ...(words ? { words } : {}),
+      },
+    });
+  });
+  return {
+    timing: subtitleTimingSchema.parse({ version: 1, units: "seconds", segments }),
+    skippedSegments,
+    outOfRangeSegments,
+    unusableWordTimings,
+  };
+}
 /** Export only semantic content and timing, never appearance or component controls. Words are segment-relative seconds. */
 export function exportSubtitles(t:EditTimeline):SubtitleTiming{return subtitleTimingSchema.parse({version:1,units:'seconds',segments:t.clips.filter(c=>c.componentId==='subtitles').map(c=>({id:c.id,start:c.from/t.fps,end:(c.from+c.durationInFrames)/t.fps,content:subtitleContentSchema.parse(c.content)})).sort((a,b)=>a.start-b.start)});}
 export function subtitleClips(data:unknown,t:EditTimeline,trackId:string,props:TimelineClip['props']={}):TimelineClip[]{
