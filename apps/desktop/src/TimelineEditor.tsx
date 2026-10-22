@@ -714,7 +714,14 @@ export function TimelineEditor({
         components={components}
         selectedClipId={selected}
         frame={frame}
-        onEdit={edit}
+        onEdit={(next, createCheckpoint = true) => {
+          const current = commands.getCurrentDocument();
+          if (!current) return;
+          edit(
+            typeof next === "function" ? next(current) : next,
+            createCheckpoint,
+          );
+        }}
         onSelectClip={setSelected}
         onSeek={seek}
         onPause={pause}

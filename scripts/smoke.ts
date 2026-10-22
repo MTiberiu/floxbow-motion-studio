@@ -457,17 +457,23 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
     await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).fill("90");
     await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
-    await detachedPage!.getByRole("button", { name: "Add subtitle", exact: true }).click();
-    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(2);
+    await detachedPage!.getByRole("button", { name: "Add track", exact: true }).evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText("4 tracks");
+    await detachedPage!.getByRole("button", { name: "Add subtitle", exact: true }).evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(3);
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("New subtitle");
     await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(1);
-    await detachedPage!.getByRole("button", { name: "Redo", exact: true }).click();
     await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(2);
-    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(1);
-    await detachedClip.click();
-    await expect(detachedClip).toHaveClass(/is-selected/);
+    await detachedPage!.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(3);
+    const selectedBeforeAttach = await detachedPage!.locator(".timeline-clip.is-selected").getAttribute("data-clip-id");
+    expect(selectedBeforeAttach).toBeTruthy();
     const staleResult = await detachedPage!.evaluate(async () => {
       const api = window.floxBowWindows!;
       const context = await api.getContext();
@@ -499,8 +505,11 @@ try {
     await detachedPage!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(1);
     await expect(page.locator(".timeline-dock")).toHaveCount(1);
-    await expect(page.locator(".timeline-clip.is-selected")).toHaveAttribute("data-clip-id", detachedClipId!);
+    await expect(page.locator(".timeline-clip.is-selected")).toHaveAttribute("data-clip-id", selectedBeforeAttach!);
     await expect(page.getByLabel("Playhead frame", { exact: true })).toHaveValue("90");
+    const originalPrimaryClip = page.locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`);
+    await originalPrimaryClip.focus();
+    await page.keyboard.press("Enter");
 
     let markSaveStarted!: () => void;
     let markResponseFulfilled!: () => void;
@@ -558,9 +567,10 @@ try {
     await page.getByRole("button", { name: "Save project", exact: true }).click();
     await expect(page.getByText("Saved to the project. Renders use these edits.")).toBeVisible();
     const saved = JSON.parse(await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"));
-    expect(saved.clips).toHaveLength(1);
+    expect(saved.clips).toHaveLength(3);
     expect(saved.clips[0].content.text).toBe("Newer concurrent draft");
-    expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual(["Visuals", "Captions"]);
+    expect(saved.clips.filter((clip: { componentId: string }) => clip.componentId === "subtitles")).toHaveLength(3);
+    expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual(["Visuals", "Captions", "Track 3", "Track 4"]);
     renderedStill = await renderProject(root, id, true);
     expect((await stat(renderedStill)).size).toBeGreaterThan(1024);
 

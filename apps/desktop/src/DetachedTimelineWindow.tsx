@@ -23,6 +23,17 @@ import {
 import { TimelineView } from "./TimelineView";
 import "./timeline.css";
 
+type TimelineCommandIntent =
+  | TimelineCommand
+  | ((snapshot: TimelineSnapshot) => TimelineCommand | null);
+
+type SnapshotWaiter = {
+  baseStateVersion: number;
+  acknowledgedStateVersion: number;
+  resolve: (confirmed: boolean) => void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
   const anchor = document.createElement("a");
@@ -47,6 +58,7 @@ export function DetachedTimelineWindow({
   const pending = useRef(
     new Map<string, (result: TimelineCommandResult) => void>(),
   );
+  const snapshotWaiters = useRef(new Map<string, SnapshotWaiter>());
   const sequence = useRef(context.commandSequence);
   const generation = useRef(0);
   const activeGestures = useRef(new Set<string>());
@@ -93,6 +105,16 @@ export function DetachedTimelineWindow({
       }
       latest.current = received;
       setSnapshot(received);
+      for (const [commandId, waiter] of snapshotWaiters.current) {
+        const confirmsCommand =
+          received.stateVersion >= waiter.acknowledgedStateVersion &&
+          (received.sourceCommandId === commandId ||
+            received.stateVersion > waiter.baseStateVersion);
+        if (!confirmsCommand) continue;
+        clearTimeout(waiter.timeout);
+        snapshotWaiters.current.delete(commandId);
+        waiter.resolve(true);
+      }
       if (received.stateVersion >= (previous?.stateVersion ?? 0)) setError("");
     });
     const unsubscribeResult = bridge.onTimelineCommandResult((result) => {
@@ -142,10 +164,42 @@ export function DetachedTimelineWindow({
           message: "Timeline window closed before the command completed.",
         });
       pending.current.clear();
+      for (const waiter of snapshotWaiters.current.values()) {
+        clearTimeout(waiter.timeout);
+        waiter.resolve(false);
+      }
+      snapshotWaiters.current.clear();
     };
   }, [bridge, context.instanceId, context.projectId, context.sessionId]);
 
-  function dispatch(command: TimelineCommand) {
+  function waitForAuthoritativeSnapshot(
+    commandId: string,
+    baseStateVersion: number,
+    acknowledgedStateVersion: number,
+  ) {
+    const confirmsCommand = (current: TimelineSnapshot | null) =>
+      Boolean(
+        current &&
+          current.stateVersion >= acknowledgedStateVersion &&
+          (current.sourceCommandId === commandId ||
+            current.stateVersion > baseStateVersion),
+      );
+    if (confirmsCommand(latest.current)) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const timeout = setTimeout(() => {
+        snapshotWaiters.current.delete(commandId);
+        resolve(false);
+      }, 10000);
+      snapshotWaiters.current.set(commandId, {
+        baseStateVersion,
+        acknowledgedStateVersion,
+        resolve,
+        timeout,
+      });
+    });
+  }
+
+  function dispatch(intent: TimelineCommandIntent) {
     const requestedGeneration = generation.current;
     const operation = commandQueue.current.then(async () => {
       if (requestedGeneration !== generation.current) return;
@@ -156,6 +210,9 @@ export function DetachedTimelineWindow({
         );
         return;
       }
+      const command =
+        typeof intent === "function" ? intent(current) : intent;
+      if (!command) return;
       sequence.current += 1;
       const commandId = `${context.instanceId}:${sequence.current}`;
       const envelope: TimelineCommandEnvelope = {
@@ -195,10 +252,20 @@ export function DetachedTimelineWindow({
           void bridge.requestTimelineSnapshot();
           return;
         }
-        latest.current = latest.current
-          ? { ...latest.current, stateVersion: result.stateVersion }
-          : latest.current;
-        if (latest.current) setSnapshot(latest.current);
+        // An ACK confirms the command, not the child’s document snapshot.
+        const confirmed =
+          command.type === "endClipGesture" &&
+          result.stateVersion === current.stateVersion
+            ? true
+            : await waitForAuthoritativeSnapshot(
+                commandId,
+                current.stateVersion,
+                result.stateVersion,
+              );
+        if (!confirmed)
+          throw new Error(
+            "The editor accepted the command but its authoritative Timeline snapshot did not arrive.",
+          );
         if (command.type === "beginClipGesture")
           activeGestures.current.add(command.gestureId);
         if (command.type === "endClipGesture")
@@ -246,25 +313,41 @@ export function DetachedTimelineWindow({
 
   function addSubtitle() {
     if (!document || !snapshot) return;
-    const selected = document.clips.find(
-      (clip) => clip.id === snapshot.selectedClipId,
-    );
-    const clip = createSubtitleClip({
-      id: `subtitle-${crypto.randomUUID()}`,
-      trackId: selected?.trackId ?? document.tracks.at(-1)!.id,
-      from: snapshot.frame,
-      durationInFrames: Math.max(
-        1,
-        Math.min(document.fps * 2, document.durationInFrames - snapshot.frame),
-      ),
-      content: { text: "New subtitle", status: "unverified" },
+    const clipId = `subtitle-${crypto.randomUUID()}`;
+    dispatch((currentSnapshot) => {
+      const currentDocument = currentSnapshot.document
+        ? parseEditTimeline(currentSnapshot.document, {
+            fps: currentSnapshot.fps,
+            durationInFrames: currentSnapshot.durationInFrames,
+          })
+        : null;
+      if (!currentDocument) return null;
+      const selected = currentDocument.clips.find(
+        (clip) => clip.id === currentSnapshot.selectedClipId,
+      );
+      const clip = createSubtitleClip({
+        id: clipId,
+        trackId: selected?.trackId ?? currentDocument.tracks.at(-1)!.id,
+        from: currentSnapshot.frame,
+        durationInFrames: Math.max(
+          1,
+          Math.min(
+            currentDocument.fps * 2,
+            currentDocument.durationInFrames - currentSnapshot.frame,
+          ),
+        ),
+        content: { text: "New subtitle", status: "unverified" },
+      });
+      return {
+        type: "editTimeline",
+        document: {
+          ...currentDocument,
+          clips: [...currentDocument.clips, clip],
+        },
+        checkpoint: true,
+      };
     });
-    dispatch({
-      type: "editTimeline",
-      document: { ...document, clips: [...document.clips, clip] },
-      checkpoint: true,
-    });
-    dispatch({ type: "selectClip", clipId: clip.id });
+    dispatch({ type: "selectClip", clipId });
   }
 
   async function importFile(file: File | undefined) {
@@ -292,33 +375,43 @@ export function DetachedTimelineWindow({
         format,
         document.durationInFrames / document.fps,
       );
-      const existing = document.clips.find(
-        (clip) => clip.componentId === "subtitles",
-      );
-      const generated = subtitleClips(
-        timing,
-        document,
-        existing?.trackId ?? document.tracks.at(-1)!.id,
-        existing?.props ?? {},
-      );
       if (!components.some((component) => component.id === "subtitles"))
         throw new Error(
           "This project must register subtitleModule before importing subtitles.",
         );
-      const next: EditTimeline = {
-        ...document,
-        clips: [
-          ...document.clips.filter((clip) => clip.componentId !== "subtitles"),
-          ...generated,
-        ],
-      };
-      dispatch({
-        type: "editTimeline",
-        document: parseEditTimeline(next),
-        checkpoint: true,
+      dispatch((currentSnapshot) => {
+        const currentDocument = currentSnapshot.document
+          ? parseEditTimeline(currentSnapshot.document, {
+              fps: currentSnapshot.fps,
+              durationInFrames: currentSnapshot.durationInFrames,
+            })
+          : null;
+        if (!currentDocument) return null;
+        const existing = currentDocument.clips.find(
+          (clip) => clip.componentId === "subtitles",
+        );
+        const generated = subtitleClips(
+          timing,
+          currentDocument,
+          existing?.trackId ?? currentDocument.tracks.at(-1)!.id,
+          existing?.props ?? {},
+        );
+        return {
+          type: "editTimeline",
+          document: parseEditTimeline({
+            ...currentDocument,
+            clips: [
+              ...currentDocument.clips.filter(
+                (clip) => clip.componentId !== "subtitles",
+              ),
+              ...generated,
+            ],
+          }),
+          checkpoint: true,
+        };
       });
-      if (generated[0])
-        dispatch({ type: "selectClip", clipId: generated[0].id });
+      if (timing.segments[0])
+        dispatch({ type: "selectClip", clipId: timing.segments[0].id });
     } catch (importError) {
       setError(`Subtitle import failed: ${String(importError)}`);
     }
@@ -421,7 +514,21 @@ export function DetachedTimelineWindow({
         selectedClipId={snapshot.selectedClipId}
         frame={snapshot.frame}
         onEdit={(next, checkpoint = true) =>
-          dispatch({ type: "editTimeline", document: next, checkpoint })
+          dispatch((currentSnapshot) => {
+            const currentDocument = currentSnapshot.document
+              ? parseEditTimeline(currentSnapshot.document, {
+                  fps: currentSnapshot.fps,
+                  durationInFrames: currentSnapshot.durationInFrames,
+                })
+              : null;
+            if (!currentDocument) return null;
+            return {
+              type: "editTimeline",
+              document:
+                typeof next === "function" ? next(currentDocument) : next,
+              checkpoint,
+            };
+          })
         }
         onSelectClip={(clipId) => dispatch({ type: "selectClip", clipId })}
         onSeek={(frame) => dispatch({ type: "seek", frame: Math.round(frame) })}

@@ -25,7 +25,10 @@ export type TimelineViewProps = {
   components: readonly ComponentInfo[];
   selectedClipId: string;
   frame: number;
-  onEdit: (next: EditTimeline, checkpoint?: boolean) => void;
+  onEdit: (
+    next: EditTimeline | ((current: EditTimeline) => EditTimeline),
+    checkpoint?: boolean,
+  ) => void;
   onSelectClip: (clipId: string) => void;
   onSeek: (frame: number) => void;
   onPause: () => void;
@@ -180,16 +183,16 @@ export function TimelineView({
         </button>
         <button
           onClick={() =>
-            onEdit({
-              ...document,
+            onEdit((current) => ({
+              ...current,
               tracks: [
-                ...document.tracks,
+                ...current.tracks,
                 {
                   id: `track-${crypto.randomUUID()}`,
-                  name: `Track ${document.tracks.length + 1}`,
+                  name: `Track ${current.tracks.length + 1}`,
                 },
               ],
-            })
+            }))
           }
         >
           Add track
@@ -317,20 +320,28 @@ export function TimelineView({
                           event.key === "ArrowRight"
                         ) {
                           event.preventDefault();
-                          const start = Math.max(
-                            0,
-                            Math.min(
-                              document.durationInFrames - clip.durationInFrames,
-                              clip.from + (event.key === "ArrowRight" ? 1 : -1),
-                            ),
-                          );
                           onEdit(
-                            changeClipRange(
-                              document,
-                              clip.id,
-                              start,
-                              start + clip.durationInFrames,
-                            ),
+                            (current) => {
+                              const latest = current.clips.find(
+                                (candidate) => candidate.id === clip.id,
+                              );
+                              if (!latest) return current;
+                              const start = Math.max(
+                                0,
+                                Math.min(
+                                  current.durationInFrames -
+                                    latest.durationInFrames,
+                                  latest.from +
+                                    (event.key === "ArrowRight" ? 1 : -1),
+                                ),
+                              );
+                              return changeClipRange(
+                                current,
+                                latest.id,
+                                start,
+                                start + latest.durationInFrames,
+                              );
+                            },
                           );
                         }
                       }}
