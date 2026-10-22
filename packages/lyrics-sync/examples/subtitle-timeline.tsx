@@ -2,6 +2,7 @@ import { AbsoluteFill } from "remotion";
 import {
   TimelineComposition,
   type EditableComponent,
+  type EditableVideoProps,
 } from "@motion/sdk/editor";
 import { parseEditTimeline } from "@motion/sdk/timeline";
 import { subtitleModule } from "@motion/lyrics-sync/component";
@@ -18,7 +19,7 @@ const consumerInstanceIds: SubtitleConsumerId[] = [
   "character-02",
 ];
 
-const timeline = parseEditTimeline({
+const exampleTimeline = parseEditTimeline({
   version: 1,
   fps: 30,
   durationInFrames: 180,
@@ -41,7 +42,6 @@ const timeline = parseEditTimeline({
 });
 
 const editorComponents: EditableComponent[] = [subtitleModule];
-const sharedCues = getSubtitleCues(timeline);
 
 function ConsumerReadout({
   consumerId,
@@ -57,10 +57,18 @@ function ConsumerReadout({
   );
 }
 
-export default function SubtitleTimelineExample() {
+export default function SubtitleTimelineExample({
+  timeline: liveTimeline,
+}: EditableVideoProps) {
+  const effectiveTimeline = liveTimeline ?? exampleTimeline;
+  const sharedCues = getSubtitleCues(effectiveTimeline);
+
   return (
     <AbsoluteFill>
-      <TimelineComposition timeline={timeline} components={editorComponents} />
+      <TimelineComposition
+        timeline={effectiveTimeline}
+        components={editorComponents}
+      />
       <div style={{ position: "absolute", top: 8, left: 8, color: "white" }}>
         {consumerInstanceIds.map((consumerId) => (
           <ConsumerReadout
