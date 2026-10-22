@@ -9,7 +9,7 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 | Project loader and project scaffolding                      | Implemented; single project directory, validated manifest and composition.                                                                                                                                                              |
 | Timeline / SDK / editable components                        | Implemented core frame-based timeline and clip editing; not a universal plugin host.                                                                                                                                                    |
 | Remotion player and renderer                                | Implemented, with separate preview and CLI render boundaries.                                                                                                                                                                           |
-| Lyrics sync and Whisper adapter                             | Partial tools exist; no complete in-editor song-import-to-timeline workflow.                                                                                                                                                            |
+| Lyrics sync and Whisper adapter                             | Live development editor supports registered soundtrack, shared preview/MP4 audio and direct local Whisper-to-Timeline draft clips through PR #25/#26; external agent comparison and scoped regeneration remain incomplete.                                                                                                                                                            |
 | Subtitle editor integration contract                        | Implemented in TASK 005 / PR #6: editable subtitle timeline clips, stable segment timing and IDs, text correction, preview/reload behavior, and documented APIs. This does not provide the complete song-import/transcription workflow. |
 | Animation library (text, chat, pop, counter, karaoke, fade) | Reusable code examples; many are composition-level, not individually editable timeline clips.                                                                                                                                           |
 | Capabilities Explorer                                       | Implemented creator and developer/AI views; continue improving accuracy as modules mature.                                                                                                                                              |
@@ -49,3 +49,28 @@ This is a **product idea inventory**, not a promise or authorization to implemen
 ## Triage rule
 
 Promote an idea to a scoped task only when a concrete user scenario and acceptance test exist. Preserve the distinction between **implemented**, **planned**, and **conceptual**.
+
+
+## Committed follow-up requirements — 2026-10-23
+
+These are **agreed product outcomes**, not shipped features. Implementation needs separate technical audit, approvals and regression tests; sequencing lives in [ROADMAP.md](ROADMAP.md), rationale in [DECISIONS.md](DECISIONS.md).
+
+| Requirement | Status | Concrete acceptance scenario |
+| --- | --- | --- |
+| Timeline expansion, movement and multi-selection | PR #28 zoom implemented; remaining work committed | Drag clips beyond current content with automatic duration growth/scroll; select many clips and move them together, maintain offsets and Undo; validate audio seek/export if audio becomes movable. |
+| Module-owned Timeline layers | Committed, needs contract audit | Two module instances coexist with owned children; edits scoped to one group cannot overwrite unrelated clips. |
+| Safe Whisper transcription sets | Committed, not implemented | Generate a source-linked Whisper original; adding/replacing only a selected transcription set preserves manual captions and other drafts. |
+| Codex revised subtitle layer | Committed, not implemented | External Codex reads validated project JSON/API and creates a separate revision; original stays intact, editor reloads safely. |
+| Layer appearance and visibility | Committed, not implemented | Apply position/color globally to Whisper layer, optionally override an individual caption, show/hide independently in preview/MP4 and avoid unwanted overlap. |
+| Shared Text capability | Committed, needs design | Subtitles and Kinetics/scene consume typography fields and style presets without duplicating editors; each keeps ownership. |
+| Multi-view Timeline grouping/filtering | Committed, not implemented | With ~100 layers, choose Group by Module/Type and Show Only Audio; cross-module audio clips become adjacent **visually** while timing/data/render remain unchanged. |
+| Editable image layers/media | Committed, needs design | Registered image references can be identified and changed via supported scene/Inspector workflow; imports alone are not claimed editable. |
+| Stable releases + contribution path | Committed future policy; not configured | Immutable version tags, optional maintained older release line, compatibility/migration docs, protected stable/development branches and contributor PR rules. |
+
+### Deferred enhancements
+
+Audio waveforms and multiple-track mixing, saved custom Timeline views/pinned rows, broader video/image registry support, automatic external-AI orchestration, generic extension-slot registries, and release automation are future design/implementation options, **not** available behavior.
+
+### Status correction
+
+Earlier tables above capture historical planning and may label Media Registry/Whisper as conceptual or partial. For the live implementation, use [ROADMAP.md](ROADMAP.md), [Project Media](../docs/PROJECT_MEDIA.md) and [Lyrics Sync](../docs/LYRICS_SYNC.md). Do not assume the new committed layer/revision or release features already exist.
