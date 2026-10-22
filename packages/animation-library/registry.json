@@ -7,303 +7,1011 @@
       "name": "Composition canvas",
       "category": "Composition",
       "purpose": "Provides a full-frame surface with project-wide background, color and spacing defaults.",
-      "creatorActions": ["Set a scene background", "Place and style content within a video frame"],
-      "suggestedPrompts": ["Create a clean title card using Canvas with a dark blue background."],
-      "api": { "importPath": "@motion/sdk", "symbol": "Canvas" },
-      "parameters": [
-        { "name": "children", "type": "ReactNode", "required": true, "description": "The composition content." },
-        { "name": "background", "type": "CSS color", "default": "#101725", "description": "Full-frame background color." },
-        { "name": "style", "type": "CSSProperties", "description": "Optional frame-level style overrides." }
+      "creatorActions": [
+        "Set a scene background",
+        "Place and style content within a video frame"
       ],
-      "integration": { "timeline": "Composition-level; it is not an editable timeline clip.", "editor": "Rendered by a project composition using the Remotion player." },
-      "dependencies": ["React", "Remotion"],
-      "limitations": ["Canvas applies 80px default padding; provide a style override for edge-to-edge layouts."],
+      "suggestedPrompts": [
+        "Create a clean title card using Canvas with a dark blue background."
+      ],
+      "api": {
+        "importPath": "@motion/sdk",
+        "symbol": "Canvas"
+      },
+      "parameters": [
+        {
+          "name": "children",
+          "type": "ReactNode",
+          "required": true,
+          "description": "The composition content."
+        },
+        {
+          "name": "background",
+          "type": "CSS color",
+          "default": "#101725",
+          "description": "Full-frame background color."
+        },
+        {
+          "name": "style",
+          "type": "CSSProperties",
+          "description": "Optional frame-level style overrides."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level; it is not an editable timeline clip.",
+        "editor": "Rendered by a project composition using the Remotion player."
+      },
+      "dependencies": [
+        "React",
+        "Remotion"
+      ],
+      "limitations": [
+        "Canvas applies 80px default padding; provide a style override for edge-to-edge layouts."
+      ],
       "documentation": "docs/MOTION_SDK.md",
-      "exampleIds": ["canvas-background"]
+      "exampleIds": [
+        "canvas-background"
+      ]
     },
     {
       "id": "scene-sequence",
       "name": "Frame-based scene sequence",
       "category": "Composition",
       "purpose": "Places content over an explicit frame range and gives it a local frame clock.",
-      "creatorActions": ["Arrange a video from timed scenes", "Animate content relative to a scene start"],
-      "suggestedPrompts": ["Split the composition into three scenes with explicit frame ranges and use Scene for each one."],
-      "api": { "importPath": "@motion/sdk", "symbol": "Scene" },
-      "parameters": [
-        { "name": "from", "type": "number (frames)", "required": true, "description": "Start frame in the parent composition." },
-        { "name": "duration", "type": "number (frames)", "required": true, "description": "Positive scene duration." },
-        { "name": "children", "type": "ReactNode", "required": true, "description": "Scene content." }
+      "creatorActions": [
+        "Arrange a video from timed scenes",
+        "Animate content relative to a scene start"
       ],
-      "integration": { "timeline": "Composition-level sequence; not a project editTimeline clip.", "editor": "Seek and frame state follow the Remotion composition." },
-      "dependencies": ["React", "Remotion"],
-      "limitations": ["Scene ranges are authored in composition code."],
+      "suggestedPrompts": [
+        "Split the composition into three scenes with explicit frame ranges and use Scene for each one."
+      ],
+      "api": {
+        "importPath": "@motion/sdk",
+        "symbol": "Scene"
+      },
+      "parameters": [
+        {
+          "name": "from",
+          "type": "number (frames)",
+          "required": true,
+          "description": "Start frame in the parent composition."
+        },
+        {
+          "name": "duration",
+          "type": "number (frames)",
+          "required": true,
+          "description": "Positive scene duration."
+        },
+        {
+          "name": "children",
+          "type": "ReactNode",
+          "required": true,
+          "description": "Scene content."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level sequence; not a project editTimeline clip.",
+        "editor": "Seek and frame state follow the Remotion composition."
+      },
+      "dependencies": [
+        "React",
+        "Remotion"
+      ],
+      "limitations": [
+        "Scene ranges are authored in composition code."
+      ],
       "documentation": "docs/MOTION_SDK.md",
-      "exampleIds": ["canvas-background"]
+      "exampleIds": [
+        "canvas-background"
+      ]
     },
     {
       "id": "fade",
       "name": "Frame-based fade",
       "category": "Motion",
       "purpose": "Fades children in and out using the active Remotion frame and sequence duration.",
-      "creatorActions": ["Add deterministic entrance and exit fades", "Combine a fade with any React composition content"],
-      "suggestedPrompts": ["Fade this title in and out over 12 frames without using CSS clocks."],
-      "api": { "importPath": "@motion/sdk", "symbol": "Fade" },
-      "parameters": [
-        { "name": "children", "type": "ReactNode", "required": true, "description": "Content to fade." },
-        { "name": "frames", "type": "number (frames)", "default": "15", "description": "Entrance and exit length." }
+      "creatorActions": [
+        "Add deterministic entrance and exit fades",
+        "Combine a fade with any React composition content"
       ],
-      "integration": { "timeline": "Composition-level; not independently editable on the timeline.", "editor": "Controlled by code within the containing composition." },
-      "dependencies": ["React", "Remotion", "@motion/sdk"],
-      "limitations": ["Keep the containing sequence longer than twice the fade duration."],
+      "suggestedPrompts": [
+        "Fade this title in and out over 12 frames without using CSS clocks."
+      ],
+      "api": {
+        "importPath": "@motion/sdk",
+        "symbol": "Fade"
+      },
+      "parameters": [
+        {
+          "name": "children",
+          "type": "ReactNode",
+          "required": true,
+          "description": "Content to fade."
+        },
+        {
+          "name": "frames",
+          "type": "number (frames)",
+          "default": "15",
+          "description": "Entrance and exit length."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level; not independently editable on the timeline.",
+        "editor": "Controlled by code within the containing composition."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "Keep the containing sequence longer than twice the fade duration."
+      ],
       "documentation": "docs/MOTION_SDK.md",
-      "exampleIds": ["fade-title"]
+      "exampleIds": [
+        "fade-title"
+      ]
     },
     {
       "id": "kinetic-text",
       "name": "Kinetic text",
       "category": "Typography",
       "purpose": "Reveals words with frame-driven staggered opacity and vertical motion.",
-      "creatorActions": ["Animate headlines", "Control stagger timing, scale and color"],
-      "suggestedPrompts": ["Use KineticText for a two-line headline with a 4-frame word stagger."],
-      "api": { "importPath": "@motion/animations", "symbol": "KineticText" },
-      "parameters": [
-        { "name": "text", "type": "string", "required": true, "description": "Words to reveal." },
-        { "name": "delay", "type": "number (frames)", "default": "0", "description": "First word start frame." },
-        { "name": "size", "type": "number (pixels)", "default": "82", "description": "Text size." },
-        { "name": "color", "type": "CSS color", "default": "inherit", "description": "Text color." }
+      "creatorActions": [
+        "Animate headlines",
+        "Control stagger timing, scale and color"
       ],
-      "integration": { "timeline": "Composition-level component; no declared editable clip fields.", "editor": "Edit its React props in the owning project composition." },
-      "dependencies": ["React", "Remotion", "@motion/sdk"],
-      "limitations": ["Animation is deterministic from the current frame; it does not inspect or edit project timeline data."],
+      "suggestedPrompts": [
+        "Use KineticText for a two-line headline with a 4-frame word stagger."
+      ],
+      "api": {
+        "importPath": "@motion/animations",
+        "symbol": "KineticText"
+      },
+      "parameters": [
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "description": "Words to reveal."
+        },
+        {
+          "name": "delay",
+          "type": "number (frames)",
+          "default": "0",
+          "description": "First word start frame."
+        },
+        {
+          "name": "size",
+          "type": "number (pixels)",
+          "default": "82",
+          "description": "Text size."
+        },
+        {
+          "name": "color",
+          "type": "CSS color",
+          "default": "inherit",
+          "description": "Text color."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level component; no declared editable clip fields.",
+        "editor": "Edit its React props in the owning project composition."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "Animation is deterministic from the current frame; it does not inspect or edit project timeline data."
+      ],
       "documentation": "docs/CREATE_ANIMATION.md",
-      "exampleIds": ["kinetic-text"]
+      "exampleIds": [
+        "kinetic-text"
+      ]
     },
     {
       "id": "chat-bubble",
       "name": "Animated chat bubble",
       "category": "Typography",
       "purpose": "Shows a message bubble with a spring entrance and left or right alignment.",
-      "creatorActions": ["Build message exchanges", "Choose alignment and entrance timing"],
-      "suggestedPrompts": ["Create two ChatBubble messages on opposite sides, with the second delayed by 20 frames."],
-      "api": { "importPath": "@motion/animations", "symbol": "ChatBubble" },
-      "parameters": [
-        { "name": "text", "type": "string", "required": true, "description": "Message content." },
-        { "name": "side", "type": "left | right", "default": "left", "description": "Bubble alignment." },
-        { "name": "delay", "type": "number (frames)", "default": "0", "description": "Spring start frame." }
+      "creatorActions": [
+        "Build message exchanges",
+        "Choose alignment and entrance timing"
       ],
-      "integration": { "timeline": "Composition-level component; no declared editable clip fields.", "editor": "Edit its React props in the owning project composition." },
-      "dependencies": ["React", "Remotion", "@motion/sdk"],
-      "limitations": ["Requires a Remotion composition frame context."],
+      "suggestedPrompts": [
+        "Create two ChatBubble messages on opposite sides, with the second delayed by 20 frames."
+      ],
+      "api": {
+        "importPath": "@motion/animations",
+        "symbol": "ChatBubble"
+      },
+      "parameters": [
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "description": "Message content."
+        },
+        {
+          "name": "side",
+          "type": "left | right",
+          "default": "left",
+          "description": "Bubble alignment."
+        },
+        {
+          "name": "delay",
+          "type": "number (frames)",
+          "default": "0",
+          "description": "Spring start frame."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level component; no declared editable clip fields.",
+        "editor": "Edit its React props in the owning project composition."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "Requires a Remotion composition frame context."
+      ],
       "documentation": "docs/CREATE_ANIMATION.md",
-      "exampleIds": ["chat-bubble"]
+      "exampleIds": [
+        "chat-bubble"
+      ]
     },
     {
       "id": "comic-pop",
       "name": "Comic pop",
       "category": "Typography",
       "purpose": "Scales and rotates a short text treatment with a spring and offset shadow.",
-      "creatorActions": ["Emphasize a short word or label", "Set the accent color"],
-      "suggestedPrompts": ["Use ComicPop for one short emphasis word in the title scene."],
-      "api": { "importPath": "@motion/animations", "symbol": "ComicPop" },
-      "parameters": [
-        { "name": "text", "type": "string", "required": true, "description": "Short text to emphasize." },
-        { "name": "color", "type": "CSS color", "default": "#c5f18a", "description": "Text accent color." }
+      "creatorActions": [
+        "Emphasize a short word or label",
+        "Set the accent color"
       ],
-      "integration": { "timeline": "Composition-level component; no declared editable clip fields.", "editor": "Edit its React props in the owning project composition." },
-      "dependencies": ["React", "Remotion", "@motion/sdk"],
-      "limitations": ["The component uses a large fixed text size; scale it through a containing layout if needed."],
+      "suggestedPrompts": [
+        "Use ComicPop for one short emphasis word in the title scene."
+      ],
+      "api": {
+        "importPath": "@motion/animations",
+        "symbol": "ComicPop"
+      },
+      "parameters": [
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "description": "Short text to emphasize."
+        },
+        {
+          "name": "color",
+          "type": "CSS color",
+          "default": "#c5f18a",
+          "description": "Text accent color."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level component; no declared editable clip fields.",
+        "editor": "Edit its React props in the owning project composition."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "The component uses a large fixed text size; scale it through a containing layout if needed."
+      ],
       "documentation": "docs/CREATE_ANIMATION.md",
-      "exampleIds": ["comic-pop"]
+      "exampleIds": [
+        "comic-pop"
+      ]
     },
     {
       "id": "counter",
       "name": "Animated number counter",
       "category": "Data display",
       "purpose": "Interpolates a numeric value over a fixed frame interval.",
-      "creatorActions": ["Animate counts and metrics", "Choose start, end, duration and suffix"],
-      "suggestedPrompts": ["Animate a count from 0 to 100 over 90 frames and append a percent sign."],
-      "api": { "importPath": "@motion/animations", "symbol": "Counter" },
-      "parameters": [
-        { "name": "to", "type": "number", "required": true, "description": "Final integer value." },
-        { "name": "from", "type": "number", "default": "0", "description": "Initial value." },
-        { "name": "frames", "type": "number (frames)", "default": "60", "description": "Interpolation duration." },
-        { "name": "suffix", "type": "string", "default": "empty", "description": "Optional text after the value." }
+      "creatorActions": [
+        "Animate counts and metrics",
+        "Choose start, end, duration and suffix"
       ],
-      "integration": { "timeline": "Composition-level component; no declared editable clip fields.", "editor": "Edit its React props in the owning project composition." },
-      "dependencies": ["React", "Remotion", "@motion/sdk"],
-      "limitations": ["Displays rounded integer values."],
+      "suggestedPrompts": [
+        "Animate a count from 0 to 100 over 90 frames and append a percent sign."
+      ],
+      "api": {
+        "importPath": "@motion/animations",
+        "symbol": "Counter"
+      },
+      "parameters": [
+        {
+          "name": "to",
+          "type": "number",
+          "required": true,
+          "description": "Final integer value."
+        },
+        {
+          "name": "from",
+          "type": "number",
+          "default": "0",
+          "description": "Initial value."
+        },
+        {
+          "name": "frames",
+          "type": "number (frames)",
+          "default": "60",
+          "description": "Interpolation duration."
+        },
+        {
+          "name": "suffix",
+          "type": "string",
+          "default": "empty",
+          "description": "Optional text after the value."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level component; no declared editable clip fields.",
+        "editor": "Edit its React props in the owning project composition."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "Displays rounded integer values."
+      ],
       "documentation": "docs/CREATE_ANIMATION.md",
-      "exampleIds": ["counter"]
+      "exampleIds": [
+        "counter"
+      ]
     },
     {
       "id": "karaoke-words",
       "name": "Timed word highlighting",
       "category": "Typography",
       "purpose": "Highlights supplied word intervals against the current composition time.",
-      "creatorActions": ["Build karaoke text from word timings", "Choose highlight color and optional time source"],
-      "suggestedPrompts": ["Render these verified word timings with KaraokeWords; keep unknown timestamps untimed."],
-      "api": { "importPath": "@motion/animations", "symbol": "KaraokeWords" },
-      "parameters": [
-        { "name": "words", "type": "TimedWord[]", "required": true, "description": "Text and second-based start/end boundaries." },
-        { "name": "time", "type": "number (seconds)", "description": "Optional explicit time; defaults to frame / fps." },
-        { "name": "color", "type": "CSS color", "default": "#c5f18a", "description": "Active word color." }
+      "creatorActions": [
+        "Build karaoke text from word timings",
+        "Choose highlight color and optional time source"
       ],
-      "integration": { "timeline": "Composition-level renderer. The separate subtitle module offers editable timeline clips.", "editor": "Timing data is supplied by the project; this component does not estimate it." },
-      "dependencies": ["React", "Remotion", "@motion/sdk", "@motion/lyrics-sync"],
-      "limitations": ["The component highlights supplied timings only and never aligns audio automatically."],
+      "suggestedPrompts": [
+        "Render these verified word timings with KaraokeWords; keep unknown timestamps untimed."
+      ],
+      "api": {
+        "importPath": "@motion/animations",
+        "symbol": "KaraokeWords"
+      },
+      "parameters": [
+        {
+          "name": "words",
+          "type": "TimedWord[]",
+          "required": true,
+          "description": "Text and second-based start/end boundaries."
+        },
+        {
+          "name": "time",
+          "type": "number (seconds)",
+          "description": "Optional explicit time; defaults to frame / fps."
+        },
+        {
+          "name": "color",
+          "type": "CSS color",
+          "default": "#c5f18a",
+          "description": "Active word color."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level renderer. The separate subtitle module offers editable timeline clips.",
+        "editor": "Timing data is supplied by the project; this component does not estimate it."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk",
+        "@motion/lyrics-sync"
+      ],
+      "limitations": [
+        "The component highlights supplied timings only and never aligns audio automatically."
+      ],
       "documentation": "docs/LYRICS_SYNC.md",
-      "exampleIds": ["karaoke-words"]
+      "exampleIds": [
+        "karaoke-words"
+      ]
     },
     {
       "id": "subtitle-clips",
       "name": "Subtitles and lyrics clips",
       "category": "Text and timing",
       "purpose": "Renders independent timed text segments with optional word-level karaoke highlighting.",
-      "creatorActions": ["Add subtitle clips", "Reuse timing with another visual style", "Import and export segment timing"],
-      "suggestedPrompts": ["Use subtitleModule for editable lyric clips and keep words in segment-relative seconds."],
-      "api": { "importPath": "@motion/lyrics-sync/component", "symbol": "subtitleModule" },
-      "parameters": [
-        { "name": "text", "type": "string", "required": true, "description": "Semantic segment text." },
-        { "name": "words", "type": "TimedWord[]", "description": "Optional word intervals in seconds relative to the clip." },
-        { "name": "fontSize", "type": "number", "default": "68", "description": "Rendered font size in pixels." },
-        { "name": "color", "type": "CSS color", "default": "#ffffff", "description": "Base text color." },
-        { "name": "highlightColor", "type": "CSS color", "default": "#c5f18a", "description": "Active word color." },
-        { "name": "x / y", "type": "number (%)", "default": "50 / 82", "description": "Text center within the frame." },
-        { "name": "animation", "type": "none | fade | rise", "default": "none", "description": "Basic entrance and exit motion." }
+      "creatorActions": [
+        "Add subtitle clips",
+        "Reuse timing with another visual style",
+        "Import and export segment timing"
       ],
-      "integration": { "timeline": "Editable clip component with schema-declared inspector fields, segment timing and optional word timing.", "editor": "Registered by the project; generic field UI and subtitle-specific import/export are available in the current desktop editor." },
-      "dependencies": ["React", "Remotion", "@motion/sdk/editor", "@motion/sdk/timeline"],
-      "limitations": ["Text corrections preserve segment timing and word intervals. If the word labels no longer match their intervals, karaoke highlighting pauses until matching intervals are supplied; automatic alignment is not launched from the editor."],
+      "suggestedPrompts": [
+        "Use subtitleModule for editable lyric clips and keep words in segment-relative seconds."
+      ],
+      "api": {
+        "importPath": "@motion/lyrics-sync/component",
+        "symbol": "subtitleModule"
+      },
+      "parameters": [
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "description": "Semantic segment text."
+        },
+        {
+          "name": "words",
+          "type": "TimedWord[]",
+          "description": "Optional word intervals in seconds relative to the clip."
+        },
+        {
+          "name": "fontSize",
+          "type": "number",
+          "default": "68",
+          "description": "Rendered font size in pixels."
+        },
+        {
+          "name": "color",
+          "type": "CSS color",
+          "default": "#ffffff",
+          "description": "Base text color."
+        },
+        {
+          "name": "highlightColor",
+          "type": "CSS color",
+          "default": "#c5f18a",
+          "description": "Active word color."
+        },
+        {
+          "name": "x / y",
+          "type": "number (%)",
+          "default": "50 / 82",
+          "description": "Text center within the frame."
+        },
+        {
+          "name": "animation",
+          "type": "none | fade | rise",
+          "default": "none",
+          "description": "Basic entrance and exit motion."
+        }
+      ],
+      "integration": {
+        "timeline": "Editable clip component with schema-declared inspector fields, segment timing and optional word timing.",
+        "editor": "Registered by the project; generic field UI and subtitle-specific import/export are available in the current desktop editor."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk/editor",
+        "@motion/sdk/timeline"
+      ],
+      "limitations": [
+        "Text corrections preserve segment timing and word intervals. If the word labels no longer match their intervals, karaoke highlighting pauses until matching intervals are supplied; automatic alignment is not launched from the editor."
+      ],
       "documentation": "packages/lyrics-sync/README.md",
-      "exampleIds": ["subtitle-clip"]
+      "exampleIds": [
+        "subtitle-clip"
+      ]
     },
     {
       "id": "lyric-timing",
       "name": "Lyric timing and reconciliation",
       "category": "Text and timing",
       "purpose": "Validates word timings, reconciles transcript words with original lyrics and converts common subtitle formats.",
-      "creatorActions": ["Import timed words", "Preserve repeated chorus occurrences", "Review and export timing"],
-      "suggestedPrompts": ["Reconcile this transcript with the supplied lyrics, preserve unmatched words as unknown, and export canonical JSON."],
-      "api": { "importPath": "@motion/lyrics-sync", "symbol": "reconcile, parseTimeline, toJSON, toSRT, toLRC" },
-      "parameters": [
-        { "name": "original", "type": "string", "required": true, "description": "Correct text to align against transcript words." },
-        { "name": "transcript", "type": "word segments", "required": true, "description": "Word text and optional second-based start/end values." }
+      "creatorActions": [
+        "Import timed words",
+        "Preserve repeated chorus occurrences",
+        "Review and export timing"
       ],
-      "integration": { "timeline": "Pure timing data can be converted to subtitle clips with @motion/lyrics-sync/subtitles.", "editor": "The Lyrics Sync workbench edits seconds-based boundaries and exports; it is not a live alignment service." },
-      "dependencies": ["Zod", "Optional local Python Whisper worker for transcription estimates"],
-      "limitations": ["Reconciliation is lexical and order-preserving, not semantic forced alignment. Song accuracy is unverified."],
+      "suggestedPrompts": [
+        "Reconcile this transcript with the supplied lyrics, preserve unmatched words as unknown, and export canonical JSON."
+      ],
+      "api": {
+        "importPath": "@motion/lyrics-sync",
+        "symbol": "reconcile, parseTimeline, toJSON, toSRT, toLRC"
+      },
+      "parameters": [
+        {
+          "name": "original",
+          "type": "string",
+          "required": true,
+          "description": "Correct text to align against transcript words."
+        },
+        {
+          "name": "transcript",
+          "type": "word segments",
+          "required": true,
+          "description": "Word text and optional second-based start/end values."
+        }
+      ],
+      "integration": {
+        "timeline": "Pure timing data can be converted to subtitle clips with @motion/lyrics-sync/subtitles.",
+        "editor": "The Lyrics Sync workbench edits seconds-based boundaries and exports; it is not a live alignment service."
+      },
+      "dependencies": [
+        "Zod",
+        "Optional local Python Whisper worker for transcription estimates"
+      ],
+      "limitations": [
+        "Reconciliation is lexical and order-preserving, not semantic forced alignment. Song accuracy is unverified."
+      ],
       "documentation": "docs/LYRICS_SYNC.md",
-      "exampleIds": ["lyric-timing"]
+      "exampleIds": [
+        "lyric-timing"
+      ]
     },
     {
       "id": "timeline-contract",
       "name": "Editable timeline data",
       "category": "Editing",
       "purpose": "Validates frame-based tracks and clips and provides reusable range and field operations.",
-      "creatorActions": ["Define multiple tracks", "Place and trim clips", "Declare serializable inspector fields"],
-      "suggestedPrompts": ["Create a version-1 edit timeline with explicit integer frame ranges and validate it with parseEditTimeline."],
-      "api": { "importPath": "@motion/sdk/timeline", "symbol": "parseEditTimeline, changeClipRange, EditableField" },
-      "parameters": [
-        { "name": "version", "type": "1", "required": true, "description": "Current edit-timeline format version." },
-        { "name": "fps / durationInFrames", "type": "integer", "required": true, "description": "Must match the project manifest." },
-        { "name": "tracks / clips", "type": "arrays", "required": true, "description": "Clips use track IDs and integer frame ranges." }
+      "creatorActions": [
+        "Define multiple tracks",
+        "Place and trim clips",
+        "Declare serializable inspector fields"
       ],
-      "integration": { "timeline": "This is the editor's reusable data contract; helpers are independent of the timeline DOM.", "editor": "TimelineEditor currently provides the desktop UI for selection, movement, trimming and declared field editing." },
-      "dependencies": ["Zod"],
-      "limitations": ["No keyframes, ripple editing, multi-select, snapping or time stretching."],
+      "suggestedPrompts": [
+        "Create a version-1 edit timeline with explicit integer frame ranges and validate it with parseEditTimeline."
+      ],
+      "api": {
+        "importPath": "@motion/sdk/timeline",
+        "symbol": "parseEditTimeline, changeClipRange, EditableField"
+      },
+      "parameters": [
+        {
+          "name": "version",
+          "type": "1",
+          "required": true,
+          "description": "Current edit-timeline format version."
+        },
+        {
+          "name": "fps / durationInFrames",
+          "type": "integer",
+          "required": true,
+          "description": "Must match the project manifest."
+        },
+        {
+          "name": "tracks / clips",
+          "type": "arrays",
+          "required": true,
+          "description": "Clips use track IDs and integer frame ranges."
+        }
+      ],
+      "integration": {
+        "timeline": "This is the editor's reusable data contract; helpers are independent of the timeline DOM.",
+        "editor": "TimelineEditor currently provides the desktop UI for selection, movement, trimming and declared field editing."
+      },
+      "dependencies": [
+        "Zod"
+      ],
+      "limitations": [
+        "No keyframes, ripple editing, multi-select, snapping or time stretching."
+      ],
       "documentation": "docs/TIMELINE_EDITOR.md",
-      "exampleIds": ["timeline-data"]
+      "exampleIds": [
+        "timeline-data"
+      ]
     },
     {
       "id": "preview-player",
       "name": "Remotion preview player",
       "category": "Playback",
       "purpose": "Plays and seeks a React composition using manifest dimensions, FPS and duration.",
-      "creatorActions": ["Preview a project", "Synchronize frame-based interactions", "Embed playback in another shell"],
-      "suggestedPrompts": ["Mount StudioPlayer with this composition and project manifest, and keep the composition's input props explicit."],
-      "api": { "importPath": "@motion/player", "symbol": "StudioPlayer" },
-      "parameters": [
-        { "name": "composition", "type": "React component", "required": true, "description": "A Remotion composition component." },
-        { "name": "manifest", "type": "ProjectManifest", "required": true, "description": "Project dimensions, FPS and duration." },
-        { "name": "inputProps", "type": "object", "description": "Optional props passed to the composition." }
+      "creatorActions": [
+        "Preview a project",
+        "Synchronize frame-based interactions",
+        "Embed playback in another shell"
       ],
-      "integration": { "timeline": "Accepts compositions that consume the editable timeline prop.", "editor": "The desktop shell controls playback through @motion/player/host and a local message contract." },
-      "dependencies": ["React", "@remotion/player", "Remotion", "@motion/sdk/editor"],
-      "limitations": ["Preview playback is separate from the Node rendering pipeline; frame reload resets playback."],
+      "suggestedPrompts": [
+        "Mount StudioPlayer with this composition and project manifest, and keep the composition's input props explicit."
+      ],
+      "api": {
+        "importPath": "@motion/player",
+        "symbol": "StudioPlayer"
+      },
+      "parameters": [
+        {
+          "name": "composition",
+          "type": "React component",
+          "required": true,
+          "description": "A Remotion composition component."
+        },
+        {
+          "name": "manifest",
+          "type": "ProjectManifest",
+          "required": true,
+          "description": "Project dimensions, FPS and duration."
+        },
+        {
+          "name": "inputProps",
+          "type": "object",
+          "description": "Optional props passed to the composition."
+        }
+      ],
+      "integration": {
+        "timeline": "Accepts compositions that consume the editable timeline prop.",
+        "editor": "The desktop shell controls playback through @motion/player/host and a local message contract."
+      },
+      "dependencies": [
+        "React",
+        "@remotion/player",
+        "Remotion",
+        "@motion/sdk/editor"
+      ],
+      "limitations": [
+        "Preview playback is separate from the Node rendering pipeline; frame reload resets playback."
+      ],
       "documentation": "docs/ARCHITECTURE.md",
-      "exampleIds": ["player-composition"]
+      "exampleIds": [
+        "player-composition"
+      ]
     },
     {
       "id": "video-rendering",
       "name": "Video and still rendering",
       "category": "Rendering",
       "purpose": "Bundles one project composition and renders an MP4 or still image with Remotion.",
-      "creatorActions": ["Render a saved project", "Produce a still for visual review"],
-      "suggestedPrompts": ["Render the saved project as an MP4 and verify the output dimensions and frame rate."],
-      "api": { "importPath": "@motion/renderer", "symbol": "renderProject(root, id, still?)" },
-      "parameters": [
-        { "name": "root", "type": "string (path)", "required": true, "description": "Workspace root containing projects/." },
-        { "name": "id", "type": "project ID", "required": true, "description": "Project folder and manifest ID." },
-        { "name": "still", "type": "boolean", "default": "false", "description": "Render a PNG still instead of an MP4." }
+      "creatorActions": [
+        "Render a saved project",
+        "Produce a still for visual review"
       ],
-      "integration": { "timeline": "Rendering reads the saved project composition and its timeline data.", "editor": "Invoked by CLI; no render job panel exists in the editor yet." },
-      "dependencies": ["Node.js", "Remotion bundler and renderer", "Headless Chrome runtime"],
-      "limitations": ["Rendering is a CLI operation and may need the managed Chrome runtime."],
+      "suggestedPrompts": [
+        "Render the saved project as an MP4 and verify the output dimensions and frame rate."
+      ],
+      "api": {
+        "importPath": "@motion/renderer",
+        "symbol": "renderProject(root, id, still?)"
+      },
+      "parameters": [
+        {
+          "name": "root",
+          "type": "string (path)",
+          "required": true,
+          "description": "Workspace root containing projects/."
+        },
+        {
+          "name": "id",
+          "type": "project ID",
+          "required": true,
+          "description": "Project folder and manifest ID."
+        },
+        {
+          "name": "still",
+          "type": "boolean",
+          "default": "false",
+          "description": "Render a PNG still instead of an MP4."
+        }
+      ],
+      "integration": {
+        "timeline": "Rendering reads the saved project composition and its timeline data.",
+        "editor": "Invoked by CLI; no render job panel exists in the editor yet."
+      },
+      "dependencies": [
+        "Node.js",
+        "Remotion bundler and renderer",
+        "Headless Chrome runtime"
+      ],
+      "limitations": [
+        "Rendering is a CLI operation and may need the managed Chrome runtime."
+      ],
       "documentation": "docs/ARCHITECTURE.md",
-      "exampleIds": ["render-project"]
+      "exampleIds": [
+        "render-project"
+      ]
     },
     {
       "id": "project-discovery",
       "name": "Project discovery and validation",
       "category": "Projects",
       "purpose": "Discovers project folders and validates manifests and contained file paths.",
-      "creatorActions": ["Create projects in the workspace", "Validate manifests before preview or render"],
-      "suggestedPrompts": ["Use discover to list valid project manifests and report per-project errors without stopping discovery."],
-      "api": { "importPath": "@motion/project-loader", "symbol": "discover, safeFile, manifestSchema" },
-      "parameters": [
-        { "name": "root", "type": "string (path)", "required": true, "description": "Projects directory to inspect." },
-        { "name": "relative", "type": "safe project path", "required": true, "description": "Path validated within one project folder." }
+      "creatorActions": [
+        "Create projects in the workspace",
+        "Validate manifests before preview or render"
       ],
-      "integration": { "timeline": "Loads the manifest and optional timeline file references.", "editor": "Used by the shell, development server and renderer." },
-      "dependencies": ["Node.js", "Zod"],
-      "limitations": ["Path validation is not an operating-system sandbox for project code."],
+      "suggestedPrompts": [
+        "Use discover to list valid project manifests and report per-project errors without stopping discovery."
+      ],
+      "api": {
+        "importPath": "@motion/project-loader",
+        "symbol": "discover, safeFile, manifestSchema"
+      },
+      "parameters": [
+        {
+          "name": "root",
+          "type": "string (path)",
+          "required": true,
+          "description": "Projects directory to inspect."
+        },
+        {
+          "name": "relative",
+          "type": "safe project path",
+          "required": true,
+          "description": "Path validated within one project folder."
+        }
+      ],
+      "integration": {
+        "timeline": "Loads the manifest and optional timeline file references.",
+        "editor": "Used by the shell, development server and renderer."
+      },
+      "dependencies": [
+        "Node.js",
+        "Zod"
+      ],
+      "limitations": [
+        "Path validation is not an operating-system sandbox for project code."
+      ],
       "documentation": "docs/ARCHITECTURE.md",
-      "exampleIds": ["discover-projects"]
+      "exampleIds": [
+        "discover-projects"
+      ]
     },
     {
       "id": "narration-audio",
       "name": "Narration audio component",
       "category": "Audio",
       "purpose": "Renders a local audio source inside a Remotion composition with source offset and volume controls.",
-      "creatorActions": ["Add narration or music from project-local media", "Set source offset and volume"],
-      "suggestedPrompts": ["Import a licensed local audio file and use Narration with an explicit volume; keep the asset inside the project."],
-      "api": { "importPath": "@motion/audio", "symbol": "Narration, AudioReference" },
-      "parameters": [
-        { "name": "src", "type": "local media URL", "required": true, "description": "Imported audio asset URL." },
-        { "name": "startFrom", "type": "number (source frames)", "default": "0", "description": "Source audio offset." },
-        { "name": "volume", "type": "number", "default": "1", "description": "Playback volume." }
+      "creatorActions": [
+        "Add narration or music from project-local media",
+        "Set source offset and volume"
       ],
-      "integration": { "timeline": "Composition-level audio; no audio track editing or waveform UI exists.", "editor": "Imported by project code and rendered by Remotion." },
-      "dependencies": ["React", "Remotion", "@motion/sdk"],
-      "limitations": ["No bundled audio, waveform display, beat detection, or audio trimming UI."],
+      "suggestedPrompts": [
+        "Import a licensed local audio file and use Narration with an explicit volume; keep the asset inside the project."
+      ],
+      "api": {
+        "importPath": "@motion/audio",
+        "symbol": "Narration, AudioReference"
+      },
+      "parameters": [
+        {
+          "name": "src",
+          "type": "local media URL",
+          "required": true,
+          "description": "Imported audio asset URL."
+        },
+        {
+          "name": "startFrom",
+          "type": "number (source frames)",
+          "default": "0",
+          "description": "Source audio offset."
+        },
+        {
+          "name": "volume",
+          "type": "number",
+          "default": "1",
+          "description": "Playback volume."
+        }
+      ],
+      "integration": {
+        "timeline": "Composition-level audio; no audio track editing or waveform UI exists.",
+        "editor": "Imported by project code and rendered by Remotion."
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "No bundled audio, waveform display, beat detection, or audio trimming UI."
+      ],
       "documentation": "docs/MOTION_SDK.md",
-      "exampleIds": ["narration-audio"]
+      "exampleIds": [
+        "narration-audio"
+      ]
+    },
+    {
+      "id": "mascot-2p5d",
+      "name": "Mascot 2.5D",
+      "category": "Characters",
+      "purpose": "Animated procedural SVG mascot with subtitle-linked comic mouth and bubble",
+      "creatorActions": [
+        "Make a mascot dance, walk, jump, spin, wave or idle",
+        "Change color, position and speed",
+        "Link comic speech to a subtitle clip ID"
+      ],
+      "suggestedPrompts": [
+        "Add mascotModule to the timeline, make it dance and link speechClipId to an existing subtitle clip; do not invent audio timings.",
+        "Use composeMascotDance to create six sequential editable clips: walk, jump, spin, dance, wave, dance."
+      ],
+      "api": {
+        "importPath": "@motion/characters",
+        "symbol": "mascotModule, MascotTimelineComposition"
+      },
+      "parameters": [
+        {
+          "name": "motion",
+          "type": "idle | walk | jump | dance | spin | wave",
+          "default": "idle",
+          "description": "Select the deterministic motion preset."
+        },
+        {
+          "name": "speechClipId",
+          "type": "existing subtitle clip ID",
+          "description": "Use a real subtitles clip as speaking-time authority"
+        },
+        {
+          "name": "color",
+          "type": "hex color",
+          "default": "#76d4ec",
+          "description": "Fill color of the SVG mascot body."
+        },
+        {
+          "name": "speed",
+          "type": "number",
+          "default": "1",
+          "description": "Speed multiplier for procedural motion."
+        }
+      ],
+      "integration": {
+        "timeline": "Editable mascot-2p5d clip using timeline v1",
+        "editor": "Generic inspector fields, existing save and undo/redo"
+      },
+      "dependencies": [
+        "React",
+        "Remotion",
+        "@motion/sdk"
+      ],
+      "limitations": [
+        "No audio sync or phoneme alignment",
+        "No motion paths or WebGL"
+      ],
+      "documentation": "packages/characters/README.md",
+      "exampleIds": [
+        "mascot-2p5d"
+      ]
     }
   ],
   "examples": [
-    { "id": "canvas-background", "title": "Canvas and scene timing", "summary": "A neutral grid/title composition using Canvas, Scene and Fade.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["canvas", "scene-sequence"], "preview": "canvas" },
-    { "id": "fade-title", "title": "Frame-driven fade", "summary": "A title enters and exits through the real SDK Fade component.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["fade"], "preview": "fade" },
-    { "id": "kinetic-text", "title": "Staggered text", "summary": "A short neutral phrase rendered by KineticText.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["kinetic-text"], "preview": "kinetic-text" },
-    { "id": "chat-bubble", "title": "Spring message", "summary": "A single sample message rendered by ChatBubble.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["chat-bubble"], "preview": "chat-bubble" },
-    { "id": "comic-pop", "title": "Spring text pop", "summary": "A neutral label rendered by ComicPop.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["comic-pop"], "preview": "comic-pop" },
-    { "id": "counter", "title": "Numeric interpolation", "summary": "A percentage is animated by Counter.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["counter"], "preview": "counter" },
-    { "id": "karaoke-words", "title": "Timed word highlight", "summary": "Synthetic sample word intervals drive the actual KaraokeWords component.", "path": "examples/capabilities/visual.tsx", "capabilityIds": ["karaoke-words"], "preview": "karaoke-words" },
-    { "id": "subtitle-clip", "title": "Editable subtitle clip", "summary": "A neutral editable timeline clip rendered by subtitleModule.", "path": "examples/capabilities/subtitle.tsx", "capabilityIds": ["subtitle-clips"], "preview": "subtitle-clip" },
-    { "id": "lyric-timing", "title": "Timing data transformation", "summary": "Pure timing validation, transcript reconciliation and format conversion.", "path": "examples/capabilities/lyrics.ts", "capabilityIds": ["lyric-timing"] },
-    { "id": "timeline-data", "title": "Editable timeline data", "summary": "Build and validate a small version-1 timeline without rendering UI.", "path": "examples/capabilities/timeline.ts", "capabilityIds": ["timeline-contract"] },
-    { "id": "player-composition", "title": "Player integration", "summary": "Mount a composition with a manifest and optional timeline props.", "path": "examples/capabilities/player.tsx", "capabilityIds": ["preview-player"] },
-    { "id": "render-project", "title": "Render a saved project", "summary": "Call the existing rendering API for a project ID.", "path": "examples/capabilities/renderer.ts", "capabilityIds": ["video-rendering"] },
-    { "id": "discover-projects", "title": "Discover projects", "summary": "Use the project loader and retain per-project validation results.", "path": "examples/capabilities/projects.ts", "capabilityIds": ["project-discovery"] },
-    { "id": "narration-audio", "title": "Add local narration", "summary": "A reusable composition fragment accepts a local imported audio URL.", "path": "examples/capabilities/audio.tsx", "capabilityIds": ["narration-audio"] }
+    {
+      "id": "canvas-background",
+      "title": "Canvas and scene timing",
+      "summary": "A neutral grid/title composition using Canvas, Scene and Fade.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "canvas",
+        "scene-sequence"
+      ],
+      "preview": "canvas"
+    },
+    {
+      "id": "fade-title",
+      "title": "Frame-driven fade",
+      "summary": "A title enters and exits through the real SDK Fade component.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "fade"
+      ],
+      "preview": "fade"
+    },
+    {
+      "id": "kinetic-text",
+      "title": "Staggered text",
+      "summary": "A short neutral phrase rendered by KineticText.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "kinetic-text"
+      ],
+      "preview": "kinetic-text"
+    },
+    {
+      "id": "chat-bubble",
+      "title": "Spring message",
+      "summary": "A single sample message rendered by ChatBubble.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "chat-bubble"
+      ],
+      "preview": "chat-bubble"
+    },
+    {
+      "id": "comic-pop",
+      "title": "Spring text pop",
+      "summary": "A neutral label rendered by ComicPop.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "comic-pop"
+      ],
+      "preview": "comic-pop"
+    },
+    {
+      "id": "counter",
+      "title": "Numeric interpolation",
+      "summary": "A percentage is animated by Counter.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "counter"
+      ],
+      "preview": "counter"
+    },
+    {
+      "id": "karaoke-words",
+      "title": "Timed word highlight",
+      "summary": "Synthetic sample word intervals drive the actual KaraokeWords component.",
+      "path": "examples/capabilities/visual.tsx",
+      "capabilityIds": [
+        "karaoke-words"
+      ],
+      "preview": "karaoke-words"
+    },
+    {
+      "id": "subtitle-clip",
+      "title": "Editable subtitle clip",
+      "summary": "A neutral editable timeline clip rendered by subtitleModule.",
+      "path": "examples/capabilities/subtitle.tsx",
+      "capabilityIds": [
+        "subtitle-clips"
+      ],
+      "preview": "subtitle-clip"
+    },
+    {
+      "id": "lyric-timing",
+      "title": "Timing data transformation",
+      "summary": "Pure timing validation, transcript reconciliation and format conversion.",
+      "path": "examples/capabilities/lyrics.ts",
+      "capabilityIds": [
+        "lyric-timing"
+      ]
+    },
+    {
+      "id": "timeline-data",
+      "title": "Editable timeline data",
+      "summary": "Build and validate a small version-1 timeline without rendering UI.",
+      "path": "examples/capabilities/timeline.ts",
+      "capabilityIds": [
+        "timeline-contract"
+      ]
+    },
+    {
+      "id": "player-composition",
+      "title": "Player integration",
+      "summary": "Mount a composition with a manifest and optional timeline props.",
+      "path": "examples/capabilities/player.tsx",
+      "capabilityIds": [
+        "preview-player"
+      ]
+    },
+    {
+      "id": "render-project",
+      "title": "Render a saved project",
+      "summary": "Call the existing rendering API for a project ID.",
+      "path": "examples/capabilities/renderer.ts",
+      "capabilityIds": [
+        "video-rendering"
+      ]
+    },
+    {
+      "id": "discover-projects",
+      "title": "Discover projects",
+      "summary": "Use the project loader and retain per-project validation results.",
+      "path": "examples/capabilities/projects.ts",
+      "capabilityIds": [
+        "project-discovery"
+      ]
+    },
+    {
+      "id": "narration-audio",
+      "title": "Add local narration",
+      "summary": "A reusable composition fragment accepts a local imported audio URL.",
+      "path": "examples/capabilities/audio.tsx",
+      "capabilityIds": [
+        "narration-audio"
+      ]
+    },
+    {
+      "id": "mascot-2p5d",
+      "title": "Editable mascot dance",
+      "summary": "Demonstrates the SVG mascot module with frame-driven dance and optional subtitle reference.",
+      "path": "examples/capabilities/mascot.tsx",
+      "capabilityIds": [
+        "mascot-2p5d"
+      ]
+    }
   ]
 }

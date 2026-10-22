@@ -1,0 +1,10 @@
+# Character animation module
+
+See [@motion/characters](../packages/characters/README.md) for the implemented public API and [Mascot Dance Playground](../projects/mascot-dance/README.md) for the end-to-end sample. Characters are a family of reusable visual capabilities, not a second timeline or a general plugin runtime. The first module is a lightweight 2.5D procedural mascot. AI authors validated `mascot-2p5d` clips; the existing editor owns timeline transport, persistence, undo/redo and property changes. The subtitle clip is the sole speaking-time authority; linked audio is not required for this demonstration.
+
+Future work: multi-clip dialogue mapping, transitions/motion paths, track-aware character continuity, audio playback and provider-aligned lip sync. Neither an autonomous AI director nor audio-driven speech is implemented here.
+
+Motion Composer (experimental): `composeMascotDance` is a pure AI-facing API for generating sequential editable timeline clips. Motion presets currently include `idle`, `walk`, `jump`, `dance`, `spin`, `wave`. No new editor controls or timeline format are introduced. The sequence is assembled by an external coding agent using module documentation; it is not automatically inferred from a natural-language prompt inside FloxBow.
+
+## Position paths (experimental)
+A mascot clip optionally declares `startX`, `endX`, `startY`, `endY` (percent of scene; -40 to 140 allows entry/exit outside the frame) and `easing: 'linear' | 'ease-in-out'`. When absent, legacy `x/y` remain static. Motion is interpolated deterministically over frames 0..duration-1, while the motion preset animates the limbs. `composeMascotDance` accepts a step `endX/endY` and carries its final destination forward to the next step; optional step `x/y` deliberately overrides the inherited start. To make a scene: walk from x=-20 to 40; jump in place; walk to 65; dance; walk to 130. All data lives in the *project's JSON*, not in shared module code. The demo project intentionally remains a single dancing clip so an external AI agent can build the story. No physics/path curves or automatic seamless blending of limbs are claimed.
