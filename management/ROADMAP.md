@@ -1,6 +1,6 @@
 # Roadmap
 
-Planning snapshot: 2026-10-22. Milestone status must be verified against the latest `dev` and open PRs before changing.
+Planning snapshot: 2026-10-23. Milestone status must be verified against the latest `dev` and open PRs before changing.
 
 ## Current baseline — Golden Starter
 
@@ -40,3 +40,22 @@ Given a local song and correctly formatted lyric lines, a user can run the exist
 ## Work deliberately excluded until demonstrated
 
 No autonomous agent backend, required cloud service, magical perfect audio alignment, premature general-purpose plugin loader, compulsory media copying, 3D/mascot system, or full video-editor feature parity.
+
+
+## Next committed product outcomes (2026-10-23)
+
+These requirements are agreed **product targets**, not implemented features or permission to modify code. Each delivery is a scoped, reviewed PR from `dev`; preserve project compatibility and test in the actual Electron editor.
+
+| Priority | Outcome | Acceptance / boundary |
+| --- | --- | --- |
+| P0 — Timeline usability | PR #28 delivered incremental zoom and Ctrl+wheel. Next: extend workspace and duration safely, edge auto-scroll, ordinary clip movement, validated soundtrack movement without trimming, marquee/modifier selection, then multi-clip movement preserving offsets. | Docked/detached views, Undo/Redo, save/reload, audio preview and MP4 stay consistent; no time before frame 0. Existing duration cap remains unless explicitly revised. |
+| P1 — Canonical module-owned layers | Audited contract for multiple module instances, owned groups/layers and child elements on the existing Timeline; separate logical ownership from alternate display views. | A module operation never destroys another module's items. Compatible with existing clips, contracts and projects; architecture designed from real Subtitles use case. |
+| P2 — First complete proof: Subtitles + Whisper + external Codex | Keep an identifiable Whisper-original transcript tied to soundtrack and a separate Codex-revised layer; manual captions untouched; layer hide/show and common layer-wide typography/position. | User can compare both in Canvas and Timeline, adjust appearance, save/reload and render; regenerate only a chosen transcript set; Codex edits through documented JSON/API, no in-editor AI assistant. |
+| P3 — Shared Text foundation | Common typography fields/styles (H1/Body/Caption), per-layer defaults and per-clip overrides, reusable controls; consuming modules own their content. | Subtitles and at least one Kinetics/scene example reuse the same contract with correct Inspector, preview, render and project round-trip. |
+| P4 — Extend remaining modules and image workflow | Incrementally adapt Kinetics, visual scenes and other modules; distinguish importing/registering image assets from placing/replacing visual image layers. | Existing projects continue to load; users can locate and edit promised text/images individually, with unsupported UI abilities disclosed. |
+| P1 cross-cutting — Find relevant layers | Group Timeline by module or type, filter e.g. Show Only Audio, keep shared ruler and cross-module editing. | Two audio elements from different modules can be shown together amid ~100 layers; filtering affects only Timeline presentation, never playback/render. |
+| Release readiness | Immutable tagged stable releases, optional older release maintenance lines, compatible API/JSON changes, migration and contributor guidance. | A user can pin a release, understand supported update paths, and retain user projects; no release or branching reorganization before separate approval. |
+
+**Near-term focus:** deliver a working end-to-end human + external Codex subtitle correction/comparison experience, not abstract infrastructure with no user-facing proof. Technical design and PR sequencing require separate audit/approval. PR #29 and subsequent Timeline tasks remain separately scoped.
+
+**Existing baseline:** PR #25 implemented soundtrack preview/export; PR #26 implemented direct local Whisper-to-Timeline transcription; PR #27 updated creator instructions; PR #28 added Timeline zoom. Whisper music accuracy and end-to-end external-agent correction are **not** yet validated.
