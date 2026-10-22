@@ -14,6 +14,7 @@ export function MascotTimelineComposition({timeline,components}:{timeline:EditTi
 }
 export const mascotFields:EditableField[]=[
   {key:'motion',label:'Movement',target:'props',type:'select',default:'idle',options:['idle','walk','jump','dance','spin','wave']},
+  {key:'facing',label:'Facing',target:'props',type:'select',default:'front',options:['front','back','left','right']},
   {key:'color',label:'Body',target:'props',type:'color',default:'#76d4ec'},
   {key:'accent',label:'Accent',target:'props',type:'color',default:'#f8c86d'},
   {key:'startX',label:'Start X (%)',target:'props',type:'number',default:50,min:-40,max:140,step:1},
@@ -48,9 +49,11 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const {bounce,tilt,leftArm,rightArm,spinDegrees,leftLeg,rightLeg}=pose;
   const mouthOpen=speech.speaking&&(speech.wordTimed||(!speech.word&&Math.sin(localFrame*1.3)>-0.18));
   const shadowScale=1-Math.min(bounce/200,0.38);
+  const side=props.facing==='left'||props.facing==='right';
+  const back=props.facing==='back';
   return <AbsoluteFill style={{pointerEvents:'none'}}>
-    <div data-mascot-id={clip.id} data-motion={props.motion} data-speaking={!!speech.speaking}
-      style={{position:'absolute',left:positionX+'%',top:positionY+'%',width:320,height:390,transform:'translate(-50%,-50%) scale('+props.scale+') rotateY('+spinDegrees+'deg)'}}>
+    <div data-mascot-id={clip.id} data-motion={props.motion} data-facing={props.facing} data-speaking={!!speech.speaking}
+      style={{position:'absolute',left:positionX+'%',top:positionY+'%',width:320,height:390,transform:'translate(-50%,-50%) scale('+props.scale+') rotateY('+(spinDegrees+(side?(props.facing==='left'? -65:65):back?180:0))+'deg)'}}>
       <svg viewBox="0 0 320 390" width="320" height="390" aria-label="Animated cartoon mascot" role="img">
         <ellipse cx="160" cy="352" rx={76*shadowScale} ry={15*shadowScale} fill="#091a33" opacity=".22"/>
         <g transform={`translate(0 ${-bounce}) rotate(${tilt} 160 210)`}>
@@ -61,12 +64,12 @@ export function Mascot({clip}:{clip:TimelineClip}) {
           <defs><linearGradient id={'mascot-shine-'+clip.id} x1="0" y1="0" x2="1" y2="1"><stop stopColor="#fff" stopOpacity=".42"/><stop offset="1" stopColor="#fff" stopOpacity="0"/></linearGradient></defs>
           <rect x="79" y="70" width="162" height="238" rx="78" fill={props.color} stroke="#183653" strokeWidth="5"/>
           <rect x="87" y="77" width="142" height="207" rx="69" fill={`url(#mascot-shine-${clip.id})`}/>
-          <ellipse cx="128" cy="163" rx="12" ry="18" fill="#19334e"/>
+          {!back&&<><ellipse cx="128" cy="163" rx="12" ry="18" fill="#19334e"/>
           <ellipse cx="193" cy="163" rx="12" ry="18" fill="#19334e"/>
           <circle cx="132" cy="157" r="4" fill="white"/><circle cx="197" cy="157" r="4" fill="white"/>
           {mouthOpen?<><ellipse cx="160" cy="215" rx="19" ry={speech.wordTimed?21:13} fill="#19334e"/><ellipse cx="160" cy="228" rx="10" ry="5" fill="#f18ca7"/></>:<path d="M144 211 Q160 226 178 211" fill="none" stroke="#19334e" strokeWidth="6" strokeLinecap="round"/>}
           <ellipse cx="111" cy="205" rx="12" ry="6" fill="#fb98ae" opacity=".65"/>
-          <ellipse cx="209" cy="205" rx="12" ry="6" fill="#fb98ae" opacity=".65"/>
+          <ellipse cx="209" cy="205" rx="12" ry="6" fill="#fb98ae" opacity=".65"/></>}
         </g>
       </svg>
       {props.bubble&&speech.speaking&&speech.text&&<div style={{position:'absolute',left:230,top:-12,minWidth:190,maxWidth:390,padding:'17px 22px',background:'white',border:'4px solid #19334e',borderRadius:23,color:'#19334e',fontFamily:'Arial,sans-serif',fontSize:24,fontWeight:800,boxShadow:'6px 7px 0 #19334e33',overflowWrap:'break-word'}}>
