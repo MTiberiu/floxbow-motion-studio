@@ -285,7 +285,7 @@ export function DetachedTimelineWindow({
         }
         // An ACK confirms the command, not the child’s document snapshot.
         const confirmed =
-          command.type === "endClipGesture" &&
+          (command.type === "copy" || command.type === "endClipGesture") &&
           result.stateVersion === current.stateVersion
             ? true
             : await waitForAuthoritativeSnapshot(
@@ -560,9 +560,19 @@ export function DetachedTimelineWindow({
         onSeek={(frame) => dispatch({ type: "seek", frame: Math.round(frame) })}
         onPause={() => dispatch({ type: "pause" })}
         onPlay={() => dispatch({ type: "play" })}
-        onBeginClipGesture={(gestureId, clipId) => {
+        onBeginClipGesture={(gestureId, clipId, duplicateId) => {
           activeGestures.current.add(gestureId);
-          dispatch({ type: "beginClipGesture", gestureId, clipId });
+          dispatch({
+            type: "beginClipGesture",
+            gestureId,
+            clipId,
+            ...(duplicateId ? { duplicateId } : {}),
+          });
+        }}
+        onTimelineOperation={(operation) => {
+          if (operation === "playPause")
+            dispatch({ type: snapshot.playing ? "pause" : "play" });
+          else dispatch({ type: operation });
         }}
         onUpdateClipGesture={(
           gestureId,

@@ -18,6 +18,7 @@ import type {
 
 type Drag = {
   clip: TimelineClip;
+  sourceClipId: string;
   mode: "move" | "left" | "right";
   x: number;
   pixels: number;
@@ -25,6 +26,8 @@ type Drag = {
   displayDurationInFrames: number;
   lastX: number;
   gestureId: string;
+  active: boolean;
+  duplicateId?: string;
 };
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
@@ -47,7 +50,23 @@ export type TimelineViewProps = {
   onSeek: (frame: number) => void;
   onPause: () => void;
   onPlay?: () => void;
-  onBeginClipGesture: (gestureId: string, clipId: string) => void;
+  onBeginClipGesture: (
+    gestureId: string,
+    clipId: string,
+    duplicateId?: string,
+  ) => void;
+  onTimelineOperation?: (
+    operation:
+      | "copy"
+      | "cut"
+      | "paste"
+      | "duplicate"
+      | "delete"
+      | "undo"
+      | "redo"
+      | "playPause",
+  ) => void;
+  keyboardShortcutsEnabled?: boolean;
   onUpdateClipGesture: (
     gestureId: string,
     clipId: string,
@@ -78,6 +97,8 @@ export function TimelineView({
   onPause,
   onPlay,
   onBeginClipGesture,
+  onTimelineOperation,
+  keyboardShortcutsEnabled = true,
   onUpdateClipGesture,
   onEndClipGesture,
   onResizeStart,
@@ -99,6 +120,50 @@ export function TimelineView({
   const [zoom, setZoom] = useState(1);
   const [viewportWidth, setViewportWidth] = useState(900);
   const [dragging, setDragging] = useState(false);
+  const operationRef = useRef(onTimelineOperation);
+  operationRef.current = onTimelineOperation;
+
+  useEffect(() => {
+    if (!keyboardShortcutsEnabled || !onTimelineOperation) return;
+    const isTextEntry = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      Boolean(
+        target.closest(
+          "input, textarea, select, [contenteditable='true'], [role='textbox']",
+        ),
+      );
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isTextEntry(event.target)) return;
+      const modifier = event.ctrlKey || event.metaKey;
+      let operation: Parameters<typeof onTimelineOperation>[0] | undefined;
+      if (modifier && event.key.toLowerCase() === "c") operation = "copy";
+      else if (modifier && event.key.toLowerCase() === "x") operation = "cut";
+      else if (modifier && event.key.toLowerCase() === "v") operation = "paste";
+      else if (modifier && event.key.toLowerCase() === "d")
+        operation = "duplicate";
+      else if (modifier && event.key.toLowerCase() === "z")
+        operation = event.shiftKey ? "redo" : "undo";
+      else if (modifier && event.key.toLowerCase() === "y") operation = "redo";
+      else if (
+        !modifier &&
+        (event.key === "Delete" || event.key === "Backspace")
+      )
+        operation = "delete";
+      else if (
+        !modifier &&
+        event.code === "Space" &&
+        event.target instanceof HTMLElement &&
+        event.target.closest(".timeline-dock") &&
+        !event.target.closest("button, input, select")
+      )
+        operation = "playPause";
+      if (!operation) return;
+      event.preventDefault();
+      operationRef.current?.(operation);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [keyboardShortcutsEnabled, Boolean(onTimelineOperation)]);
   const displayDurationInFrames = Math.min(
     MAX_TIMELINE_DURATION_FRAMES,
     Math.max(
@@ -206,11 +271,10 @@ export function TimelineView({
     if (!document || !ruler.current) return;
     event.stopPropagation();
     onSelectClip(clip.id);
-    onPause();
     const gestureId = crypto.randomUUID();
-    onBeginClipGesture(gestureId, clip.id);
     drag.current = {
       clip: structuredClone(clip),
+      sourceClipId: clip.id,
       mode,
       x: event.clientX,
       lastX: event.clientX,
@@ -218,6 +282,11 @@ export function TimelineView({
       scrollLeft: scroll.current?.scrollLeft ?? 0,
       displayDurationInFrames,
       gestureId,
+      active: false,
+      duplicateId:
+        mode === "move" && (event.ctrlKey || event.metaKey)
+          ? `clip-${crypto.randomUUID()}`
+          : undefined,
     };
     setDragging(true);
   }
@@ -226,6 +295,29 @@ export function TimelineView({
     const current = drag.current;
     if (!current) return;
     current.lastX = clientX;
+    const deltaX =
+      clientX -
+      current.x +
+      ((scroll.current?.scrollLeft ?? current.scrollLeft) - current.scrollLeft);
+    if (!current.active && Math.abs(deltaX) < 4) return;
+    if (!current.active) {
+      current.active = true;
+      onPause();
+      if (current.duplicateId) {
+        const source = current.clip;
+        current.clip = {
+          ...source,
+          id: current.duplicateId,
+          label: `${source.label} (copy)`,
+        };
+      }
+      onBeginClipGesture(
+        current.gestureId,
+        current.sourceClipId,
+        current.duplicateId,
+      );
+      setDragging(true);
+    }
     const scrollDelta =
       (scroll.current?.scrollLeft ?? current.scrollLeft) - current.scrollLeft;
     const delta = Math.round(
@@ -284,7 +376,7 @@ export function TimelineView({
     let frameId = 0;
     const handleMouseMove = (event: MouseEvent) => {
       if (!drag.current) return;
-      scrollTowardPointer(event.clientX);
+      if (drag.current.active) scrollTowardPointer(event.clientX);
       updateDrag(event.clientX);
     };
     const handleMouseUp = () => finish();
@@ -292,7 +384,7 @@ export function TimelineView({
     window.addEventListener("mouseup", handleMouseUp, true);
     const tick = () => {
       const current = drag.current;
-      if (current && scrollTowardPointer(current.lastX))
+      if (current?.active && scrollTowardPointer(current.lastX))
         updateDrag(current.lastX);
       frameId = requestAnimationFrame(tick);
     };
@@ -305,7 +397,7 @@ export function TimelineView({
   }, [dragging]);
 
   function finish() {
-    if (drag.current) onEndClipGesture(drag.current.gestureId);
+    if (drag.current?.active) onEndClipGesture(drag.current.gestureId);
     drag.current = undefined;
     setDragging(false);
   }

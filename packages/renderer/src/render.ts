@@ -15,6 +15,10 @@ import { readMediaRegistry } from "../../../scripts/media-store";
 import { streamRegisteredAudio } from "../../../scripts/media-stream";
 import { resolveMedia } from "@motion/project-loader/media";
 import { probeAudioDuration } from "../../../scripts/audio-probe";
+import {
+  findLargeTimelineGaps,
+  lastTimelineClipEnd,
+} from "@motion/sdk/timeline-analysis";
 
 async function startRenderAudioServer(projectRoot: string, assetIds: string[]) {
   if (!assetIds.length)
@@ -130,6 +134,26 @@ export async function renderProject(root: string, id: string, still = false) {
       ) {
         throw new Error(
           "The soundtrack Timeline clip is shorter than its audio. Reselect the soundtrack before rendering.",
+        );
+      }
+    }
+  }
+  if (timeline) {
+    const contentEnd = lastTimelineClipEnd(timeline);
+    if (contentEnd < timeline.durationInFrames)
+      console.warn(
+        `Timeline clip ranges end at ${(contentEnd / timeline.fps).toFixed(2)}s; the saved project and MP4 boundary remains ${(timeline.durationInFrames / timeline.fps).toFixed(2)}s. Trailing time is preserved.`,
+      );
+    const gaps = findLargeTimelineGaps(timeline);
+    if (gaps.length) {
+      console.warn(
+        `Timeline export warning: ${gaps.length} empty interval${gaps.length === 1 ? "" : "s"} of at least 5 seconds. Project duration and export are unchanged.`,
+      );
+      for (const gap of gaps) {
+        const start = (gap.from / timeline.fps).toFixed(2);
+        const end = (gap.end / timeline.fps).toFixed(2);
+        console.warn(
+          `  Track ${gap.trackId}: ${start}s–${end}s; between ${gap.previousClipId ?? "project start"} and ${gap.nextClipId ?? "project end"}`,
         );
       }
     }

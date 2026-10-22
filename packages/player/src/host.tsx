@@ -112,8 +112,6 @@ function PreviewHost({
           }
           case "seek":
             if (Number.isInteger(e.data.frame)) {
-              clearPlaybackCheck();
-              player.current?.pause();
               player.current?.seekTo(
                 Math.max(
                   0,

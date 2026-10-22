@@ -560,6 +560,14 @@ try {
       )
       .toBe(true);
     await audioTimelineWindow!
+      .getByLabel("Timeline playhead frame", { exact: true })
+      .fill("90");
+    await expect
+      .poll(() =>
+        audioElement.evaluate((element: HTMLAudioElement) => !element.paused),
+      )
+      .toBe(true);
+    await audioTimelineWindow!
       .getByRole("button", { name: "Pause Timeline playback", exact: true })
       .click();
     await expect
@@ -980,6 +988,39 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Human edited caption",
     );
+
+    await originalClip.focus();
+    await page.keyboard.press("Control+c");
+    await page.keyboard.press("Control+v");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(1);
+    await page.keyboard.press("Control+y");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+
+    const dragSource = page.locator(".timeline-clip:not(.audio-clip)").first();
+    const dragSourceId = await dragSource.getAttribute("data-clip-id");
+    const dragBox = await dragSource.boundingBox();
+    expect(dragBox).toBeTruthy();
+    await page.keyboard.down("Control");
+    await page.mouse.move(dragBox!.x + dragBox!.width / 2, dragBox!.y + dragBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(dragBox!.x + dragBox!.width / 2 + 80, dragBox!.y + dragBox!.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(3);
+    const dragCopyId = await page.locator(".timeline-clip.is-selected").getAttribute("data-clip-id");
+    expect(dragCopyId).toBeTruthy();
+    expect(dragCopyId).not.toBe(dragSourceId);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await page.keyboard.press("Control+y");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(3);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(1);
+    await originalClip.click();
 
     const detachedClipId = await page
       .locator(".timeline-clip.is-selected")
