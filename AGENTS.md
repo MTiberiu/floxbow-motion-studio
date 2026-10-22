@@ -1,11 +1,11 @@
-# FloxBow coding-agent guide
+# FloxBow agent guide
 
-This repository contains a reusable motion toolkit. User videos belong in `projects/<id>/`; examples under `examples/` are technical demonstrations, not user projects. Start with [the module index](docs/MODULES.md), then read only the guide selected for the task. Follow [the AI workflow](docs/AI_WORKFLOW.md) for creative-task routing and human review.
+This repository supports two distinct tasks: creating a user's video in `projects/<id>/` and developing the FloxBow application. Examples under `examples/` are technical demonstrations, not user projects. Start with [the module index](docs/MODULES.md), then read only the guide selected for the task. Follow [the AI workflow](docs/AI_WORKFLOW.md) for creator-task routing and human review.
 
 ## Safety and compatibility rules
 
-- For a video task, create or edit only that video's README, manifest, composition, scenes, local assets, script/storyboard and timing data. Do not modify another video.
-- Do not modify `apps/`, `packages/`, shared dependencies, scripts, SDK contracts or other shared application code without explicit user authorization. A request to create a video does not authorize infrastructure changes.
+- For an ordinary video task, create or edit only that video's README, manifest, composition, scenes, local assets, script/storyboard and timing data. Do not modify another video.
+- Creating a video does not authorize changing `apps/`, `packages/`, shared dependencies, scripts, SDK contracts or other shared application code. Shared application development requires separate explicit user authorization.
 - Do not install or execute unreviewed third-party project code. Remove private data from reports and examples.
 - Keep compositions deterministic functions of frame and props: no `Date.now`, unseeded randomness, network fetches or time-based animation loops. Use `Scene` for relative frame positions.
 - Never invent trustworthy lyric timing. Keep unmatched word boundaries `null` with confidence zero; label synthetic example timing and never present it as aligned evidence.
@@ -14,7 +14,7 @@ This repository contains a reusable motion toolkit. User videos belong in `proje
 
 ## Route the task
 
-- **Create a video:** read [Create a video](docs/CREATE_VIDEO.md), then open only the relevant module guide and the [capability registry](packages/animation-library/registry.json). Use registered components before writing project-specific motion. Project IDs use lowercase letters, numbers and hyphens; the manifest SDK version is `0.1.0`.
+- **Create a video or animation:** read [Create a video](docs/CREATE_VIDEO.md) and [the creator workflow](docs/AI_WORKFLOW.md). Default to the official Timeline-editable scaffold. Before implementation, inspect the relevant module guides, actual package exports, declared editable fields and [capability registry](packages/animation-library/registry.json); do not infer Inspector controls from renderable component props. Project IDs use lowercase letters, numbers and hyphens; the manifest SDK version is `0.1.0`.
 - **Change shared application behavior:** identify the subsystem in [the module index](docs/MODULES.md), read its guide and integration contracts, and confirm the user authorized shared-code scope. For an engineering investigation, use `improvements/experiments/<id>/`; for a meaningful proposal, copy `improvements/proposals/TEMPLATE.md` and document evidence, performance, compatibility and licensing. Core integration requires an explicit decision.
 - **Use or extend a capability:** examples are under `examples/capabilities/`; reusable implementations are described by their module guide and, for animation components, the registry. Do not create a user project just to demonstrate a capability. Import only browser-safe package exports in compositions.
 

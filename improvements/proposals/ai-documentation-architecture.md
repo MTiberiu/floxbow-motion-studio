@@ -4,6 +4,8 @@
 
 **Audited against:** `dev` commit `127418d762668b6f00ada602c22bfd36b520e45e` on 2026-10-21.
 
+> **Historical audit notice:** Statements below about Media Registry audio not reaching preview, rendering, Timeline clips or Whisper, and about requiring supplied lyrics before transcription, describe the audited 2026-10-21 state. PR #25 and PR #26 later implemented the live-development soundtrack and direct Whisper-to-Timeline workflows. For current behavior, follow [Create a video](../../docs/CREATE_VIDEO.md), [Project Media](../../docs/PROJECT_MEDIA.md), [Lyrics Sync](../../docs/LYRICS_SYNC.md), [Timeline Editor](../../docs/TIMELINE_EDITOR.md), and the [module index](../../docs/MODULES.md). This proposal is preserved as an engineering record; its original audit and example are not current operating instructions.
+
 ## Purpose and boundaries
 
 FloxBow documentation should let a person or coding agent start with a small map, find the one subsystem relevant to a task, and then use that subsystem's real public contract. The repository should distinguish reusable implementations, technical examples, user video projects, experiments, and proposals. Documentation must describe the implementation that exists at the reviewed commit; a design proposal or backlog row is not an available feature.
@@ -131,7 +133,9 @@ Use current tooling first: `npm test` validates registry schemas and referenced 
 
 To limit context and stale links, use one-way navigation: README/AGENTS → central map → selected module guide → source/example only when needed. Module guides may link upward to the map and sideways to shared contracts; the central map must not reproduce module internals. Prefer stable relative paths over branch-specific URLs, and validate links when moving docs. Mark snapshots with a date/commit instead of calling old results current.
 
-## End-to-end discovery example
+## Historical end-to-end discovery example (2026-10-21 audit)
+
+The example below records the workflow assumptions at the time of the original audit. Use the current creator and implementation guides linked in the historical audit notice above for present-day tasks.
 
 Request: **“Create a vertical cartoon video with a speaking character, synchronized audio, animated subtitles and comic dialogue bubbles.”**
 
