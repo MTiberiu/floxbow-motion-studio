@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useWorkspaceManager } from "./WorkspaceManager";
 
 type MediaAssetView = {
   id: string;
@@ -18,6 +19,7 @@ export function MediaPanel({
   built: boolean;
   active?: boolean;
 }) {
+  const workspace = useWorkspaceManager();
   const [snapshot, setSnapshot] = useState<MediaSnapshot>();
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -32,7 +34,9 @@ export function MediaPanel({
       return;
     }
     try {
-      const response = await fetch(`/api/media/${encodeURIComponent(projectId)}`);
+      const response = await fetch(
+        `/api/media/${encodeURIComponent(projectId)}`,
+      );
       if (!response.ok) throw new Error(await response.text());
       const data: MediaSnapshot = await response.json();
       setSnapshot(data);
@@ -59,15 +63,20 @@ export function MediaPanel({
     setNotice("");
     setError("");
     try {
-      const response = await fetch(`/api/media/${encodeURIComponent(projectId)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ revision: snapshot.revision }),
-      });
+      const response = await fetch(
+        `/api/media/${encodeURIComponent(projectId)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ revision: snapshot.revision }),
+        },
+      );
       if (response.status === 204) return;
       if (!response.ok) throw new Error(await response.text());
       await refresh();
-      setNotice("Audio linked to this project. The original file stays in place.");
+      setNotice(
+        "Audio linked to this project. The original file stays in place.",
+      );
     } catch (cause) {
       await refresh();
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -97,12 +106,53 @@ export function MediaPanel({
       );
       if (!response.ok) throw new Error(await response.text());
       await refresh();
-      setNotice(`${asset.displayName} was removed from this project. The original audio file was not deleted.`);
+      setNotice(
+        `${asset.displayName} was removed from this project. The original audio file was not deleted.`,
+      );
     } catch (cause) {
       await refresh();
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setRemoving(undefined);
+    }
+  }
+
+  async function useAsSoundtrack(asset: MediaAssetView) {
+    setNotice("");
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(asset.id)}/soundtrack`,
+      );
+      const raw = await response.text();
+      let data: {
+        message?: string;
+        durationInSeconds?: number;
+        displayName?: string;
+      };
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(raw || "The audio file could not be read.");
+      }
+      if (!response.ok)
+        throw new Error(data.message ?? "The audio file could not be read.");
+      window.dispatchEvent(
+        new CustomEvent("motion-use-soundtrack", {
+          detail: {
+            projectId,
+            assetId: asset.id,
+            durationInSeconds: data.durationInSeconds,
+            displayName: data.displayName,
+          },
+        }),
+      );
+      workspace.activatePanel("editor");
+      setNotice(
+        `${data.displayName} selected as the project soundtrack. Save the project to keep it.`,
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     }
   }
 
@@ -113,23 +163,47 @@ export function MediaPanel({
           <span className="eyebrow">PROJECT MEDIA</span>
           <h2>Linked audio</h2>
           <p className="muted">
-            Audio files are referenced in this project. FloxBow does not copy or move them.
+            Audio files are referenced in this project. FloxBow does not copy or
+            move them.
           </p>
         </div>
         <button
           type="button"
-          disabled={!projectId || built || loading || adding || Boolean(removing) || !snapshot}
+          disabled={
+            !projectId ||
+            built ||
+            loading ||
+            adding ||
+            Boolean(removing) ||
+            !snapshot
+          }
           onClick={addAudio}
         >
           {adding ? "Choosing file…" : "Add Audio"}
         </button>
       </header>
 
-      {built && <p className="media-notice">Media registration is available in the live development workspace.</p>}
-      {!projectId && !built && <p className="media-notice">Select or create a project to register audio.</p>}
+      {built && (
+        <p className="media-notice">
+          Media registration is available in the live development workspace.
+        </p>
+      )}
+      {!projectId && !built && (
+        <p className="media-notice">
+          Select or create a project to register audio.
+        </p>
+      )}
       {loading && <p className="muted">Loading project media…</p>}
-      {error && <p className="media-error" role="alert">{error}</p>}
-      {notice && <p className="media-notice" role="status">{notice}</p>}
+      {error && (
+        <p className="media-error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="media-notice" role="status">
+          {notice}
+        </p>
+      )}
 
       {!loading && snapshot && snapshot.assets.length === 0 && (
         <div className="media-empty">
@@ -142,17 +216,27 @@ export function MediaPanel({
         <ul className="media-assets">
           {snapshot.assets.map((asset) => (
             <li className={`media-asset media-${asset.status}`} key={asset.id}>
-              <span className="media-asset-icon" aria-hidden="true">♫</span>
+              <span className="media-asset-icon" aria-hidden="true">
+                ♫
+              </span>
               <span className="media-asset-name">
                 <strong>{asset.displayName}</strong>
-                <small>{asset.type.toUpperCase()} · {asset.id}</small>
+                <small>
+                  {asset.type.toUpperCase()} · {asset.id}
+                </small>
               </span>
               <span className={`media-asset-status ${asset.status}`}>
-                {asset.status === "ready" ? "Available" : asset.status === "missing" ? "Missing file" : "Invalid source"}
+                {asset.status === "ready"
+                  ? "Available"
+                  : asset.status === "missing"
+                    ? "Missing file"
+                    : "Invalid source"}
               </span>
               {asset.status !== "ready" && (
                 <span className="media-asset-warning" role="alert">
-                  {asset.status === "missing" ? "The original file cannot be found. The registry entry is preserved." : asset.message}
+                  {asset.status === "missing"
+                    ? "The original file cannot be found. The registry entry is preserved."
+                    : asset.message}
                 </span>
               )}
               <button
@@ -162,6 +246,13 @@ export function MediaPanel({
                 onClick={() => void removeAsset(asset)}
               >
                 {removing === asset.id ? "Removing…" : "Remove from Project"}
+              </button>
+              <button
+                type="button"
+                disabled={asset.status !== "ready" || built}
+                onClick={() => void useAsSoundtrack(asset)}
+              >
+                Use as soundtrack
               </button>
             </li>
           ))}

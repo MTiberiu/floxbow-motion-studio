@@ -4,7 +4,7 @@ import http from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
-import {readEditor,saveEditor} from './editor-store';
+import { readEditor, saveEditor } from "./editor-store";
 import {
   publicMediaAvailability,
   readMediaRegistry,
@@ -14,6 +14,9 @@ import {
 } from "./media-store";
 import { pickAudioFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
+import { streamRegisteredAudio } from "./media-stream";
+import { probeAudioDuration } from "./audio-probe";
+import { resolveMedia } from "@motion/project-loader/media";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
 const mime: Record<string, string> = {
@@ -35,7 +38,11 @@ const previewCsp =
 export type ServerOptions = {
   audioFilePicker?: () => Promise<string | undefined>;
 };
-export async function startServers(built = false, portOffset = 0, options: ServerOptions = {}) {
+export async function startServers(
+  built = false,
+  portOffset = 0,
+  options: ServerOptions = {},
+) {
   let previewOrigin = "";
   let shellOrigin = "";
   const servers: http.Server[] = [];
@@ -61,7 +68,7 @@ export async function startServers(built = false, portOffset = 0, options: Serve
           plugins: [react()],
           server: {
             middlewareMode: true,
-            watch:{ignored:['**/.studio/**','**/out/**','**/dist/**']},
+            watch: { ignored: ["**/.studio/**", "**/out/**", "**/dist/**"] },
             hmr: {
               port: (isShell ? 24680 : 24681) + portOffset,
               host: "127.0.0.1",
@@ -85,7 +92,10 @@ export async function startServers(built = false, portOffset = 0, options: Serve
         vite.watcher.add(projectsDir);
         let timer: ReturnType<typeof setTimeout>;
         vite.watcher.on("all", (_event, file) => {
-          if (file.replaceAll("\\", "/").includes("/projects/") && !file.endsWith('.tmp')) {
+          if (
+            file.replaceAll("\\", "/").includes("/projects/") &&
+            !file.endsWith(".tmp")
+          ) {
             clearTimeout(timer);
             timer = setTimeout(
               () =>
@@ -109,52 +119,203 @@ export async function startServers(built = false, portOffset = 0, options: Serve
           isShell ? shellCsp(previewOrigin) : previewCsp,
         );
         res.setHeader("Cache-Control", "no-store");
-        if(isShell&&pathname.startsWith('/api/edit/')){
-          const id=pathname.slice('/api/edit/'.length);const p=(await getProjects()).find((p:{id:string})=>p.id===id);
-          if(!p?.manifest)throw new Error('Unknown project');
+        if (isShell && pathname.startsWith("/api/edit/")) {
+          const id = pathname.slice("/api/edit/".length);
+          const p = (await getProjects()).find(
+            (p: { id: string }) => p.id === id,
+          );
+          if (!p?.manifest) throw new Error("Unknown project");
           let result;
-          if(req.method==='PUT'){
-            if(req.headers.origin!==shellOrigin||!req.headers['content-type']?.startsWith('application/json')){res.writeHead(403).end('Only the studio shell can save a timeline');return;}
-            let body='';for await(const chunk of req){body+=chunk.toString();if(Buffer.byteLength(body)>2_000_000)throw new Error('Timeline too large');}
-            const data=JSON.parse(body);result=await saveEditor(path.join(projectsDir,id),p.manifest,data.timeline,data.revision);
-          }else if(req.method==='GET')result=await readEditor(path.join(projectsDir,id),p.manifest);
-          else {res.writeHead(405).end();return;}
-          res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
+          if (req.method === "PUT") {
+            if (
+              req.headers.origin !== shellOrigin ||
+              !req.headers["content-type"]?.startsWith("application/json")
+            ) {
+              res
+                .writeHead(403)
+                .end("Only the studio shell can save a timeline");
+              return;
+            }
+            let body = "";
+            for await (const chunk of req) {
+              body += chunk.toString();
+              if (Buffer.byteLength(body) > 2_000_000)
+                throw new Error("Timeline too large");
+            }
+            const data = JSON.parse(body);
+            result = await saveEditor(
+              path.join(projectsDir, id),
+              p.manifest,
+              data.timeline,
+              data.revision,
+            );
+          } else if (req.method === "GET")
+            result = await readEditor(path.join(projectsDir, id), p.manifest);
+          else {
+            res.writeHead(405).end();
+            return;
+          }
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(result));
+          return;
+        }
+        const mediaStream =
+          /^\/api\/media\/([a-z0-9-]+)\/assets\/([a-z0-9-]+)\/stream$/.exec(
+            pathname,
+          );
+        if (
+          !isShell &&
+          mediaStream &&
+          (req.method === "GET" || req.method === "HEAD")
+        ) {
+          const [, id, assetId] = mediaStream;
+          const project = (await getProjects()).find(
+            (candidate: { id: string }) => candidate.id === id,
+          );
+          if (!project?.manifest) {
+            res.writeHead(404).end("Unknown project");
+            return;
+          }
+          if (req.method === "HEAD") {
+            const registry = await readMediaRegistry(
+              path.join(projectsDir, id),
+            );
+            const resolved = await resolveMedia(
+              path.join(projectsDir, id),
+              registry.registry,
+              assetId,
+            );
+            if (resolved.status !== "ready") {
+              res.writeHead(404).end("The selected audio file is unavailable.");
+              return;
+            }
+            const info = await stat(resolved.path);
+            res
+              .writeHead(200, {
+                "Content-Type":
+                  path.extname(resolved.path).toLowerCase() === ".mp3"
+                    ? "audio/mpeg"
+                    : "audio/wav",
+                "Content-Length": info.size,
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "no-store",
+              })
+              .end();
+          } else {
+            await streamRegisteredAudio(
+              path.join(projectsDir, id),
+              assetId,
+              req.headers.range,
+              res,
+            );
+          }
+          return;
         }
         if (isShell && pathname.startsWith("/api/media/")) {
           const route = pathname.slice("/api/media/".length).split("/");
           const id = decodeURIComponent(route[0] ?? "");
           const removingAsset = route.length === 3 && route[1] === "assets";
+          const soundtrackProbe =
+            route.length === 4 &&
+            route[1] === "assets" &&
+            route[3] === "soundtrack";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
-          if (route.length !== 1 && !removingAsset) {
+          const probedAssetId = soundtrackProbe
+            ? decodeURIComponent(route[2])
+            : "";
+          if (route.length !== 1 && !removingAsset && !soundtrackProbe) {
             res.writeHead(404).end("Unknown media operation");
             return;
           }
           const project = (await getProjects()).find(
-            (candidate: { id: string; manifest?: unknown }) => candidate.id === id,
+            (candidate: { id: string; manifest?: unknown }) =>
+              candidate.id === id,
           );
           if (!project?.manifest) {
             res.writeHead(404).end("Unknown project");
             return;
           }
           if (built) {
-            res.writeHead(409).end("Media registration is available in the live development workspace.");
+            res
+              .writeHead(409)
+              .end(
+                "Media registration is available in the live development workspace.",
+              );
             return;
           }
           const projectRoot = path.join(projectsDir, id);
+          if (soundtrackProbe) {
+            if (req.method !== "GET") {
+              res.writeHead(405).end();
+              return;
+            }
+            const registry = await readMediaRegistry(projectRoot);
+            const resolved = await resolveMedia(
+              projectRoot,
+              registry.registry,
+              probedAssetId,
+            );
+            if (resolved.status !== "ready") {
+              res.writeHead(resolved.status === "missing" ? 404 : 422, {
+                "Content-Type": "application/json",
+              });
+              res.end(
+                JSON.stringify({
+                  message:
+                    resolved.status === "missing"
+                      ? "The selected audio file is missing."
+                      : resolved.message,
+                }),
+              );
+              return;
+            }
+            let durationInSeconds: number;
+            try {
+              durationInSeconds = await probeAudioDuration(resolved.path);
+            } catch (error) {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "The selected audio could not be decoded.",
+                }),
+              );
+              return;
+            }
+            const asset = registry.registry.assets.find(
+              (item) => item.id === probedAssetId,
+            )!;
+            res.setHeader("Content-Type", "application/json");
+            res.end(
+              JSON.stringify({
+                assetId: probedAssetId,
+                displayName: asset.displayName,
+                durationInSeconds,
+              }),
+            );
+            return;
+          }
           if (removingAsset) {
             if (req.method !== "DELETE") {
               res.writeHead(405).end();
               return;
             }
-            if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) {
-              res.writeHead(403).end("Only the studio shell can remove media assets");
+            if (
+              req.headers.origin !== shellOrigin ||
+              !req.headers["content-type"]?.startsWith("application/json")
+            ) {
+              res
+                .writeHead(403)
+                .end("Only the studio shell can remove media assets");
               return;
             }
             let body = "";
             for await (const chunk of req) {
               body += chunk.toString();
-              if (Buffer.byteLength(body) > 2_048) throw new Error("Media request too large");
+              if (Buffer.byteLength(body) > 2_048)
+                throw new Error("Media request too large");
             }
             const input = JSON.parse(body);
             if (
@@ -164,14 +325,23 @@ export async function startServers(built = false, portOffset = 0, options: Serve
               Object.keys(input).length !== 1 ||
               typeof input.revision !== "string"
             )
-              throw new Error("A media registry revision is required; arbitrary file data is not accepted");
+              throw new Error(
+                "A media registry revision is required; arbitrary file data is not accepted",
+              );
 
             try {
-              const saved = await removeMediaAsset(projectRoot, assetId, input.revision);
+              const saved = await removeMediaAsset(
+                projectRoot,
+                assetId,
+                input.revision,
+              );
               res.setHeader("Content-Type", "application/json");
               res.end(JSON.stringify({ revision: saved.revision }));
             } catch (error) {
-              if (error instanceof Error && error.message.startsWith("The media asset is not registered:")) {
+              if (
+                error instanceof Error &&
+                error.message.startsWith("The media asset is not registered:")
+              ) {
                 res.writeHead(404).end(error.message);
                 return;
               }
@@ -182,33 +352,42 @@ export async function startServers(built = false, portOffset = 0, options: Serve
           if (req.method === "GET") {
             const snapshot = await readMediaWithAvailability(projectRoot);
             const availability = new Map(
-              snapshot.availability.map((entry) => [entry.assetId, publicMediaAvailability(entry)]),
+              snapshot.availability.map((entry) => [
+                entry.assetId,
+                publicMediaAvailability(entry),
+              ]),
             );
             res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({
-              revision: snapshot.revision,
-              assets: snapshot.registry.assets.map((asset) => ({
-                id: asset.id,
-                type: asset.type,
-                displayName: asset.displayName,
-                status: availability.get(asset.id)?.status ?? "invalid",
-                message: availability.get(asset.id)?.message,
-              })),
-            }));
+            res.end(
+              JSON.stringify({
+                revision: snapshot.revision,
+                assets: snapshot.registry.assets.map((asset) => ({
+                  id: asset.id,
+                  type: asset.type,
+                  displayName: asset.displayName,
+                  status: availability.get(asset.id)?.status ?? "invalid",
+                  message: availability.get(asset.id)?.message,
+                })),
+              }),
+            );
             return;
           }
           if (req.method !== "POST") {
             res.writeHead(405).end();
             return;
           }
-          if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) {
+          if (
+            req.headers.origin !== shellOrigin ||
+            !req.headers["content-type"]?.startsWith("application/json")
+          ) {
             res.writeHead(403).end("Only the studio shell can register audio");
             return;
           }
           let body = "";
           for await (const chunk of req) {
             body += chunk.toString();
-            if (Buffer.byteLength(body) > 2_048) throw new Error("Media request too large");
+            if (Buffer.byteLength(body) > 2_048)
+              throw new Error("Media request too large");
           }
           const input = JSON.parse(body);
           if (
@@ -218,42 +397,67 @@ export async function startServers(built = false, portOffset = 0, options: Serve
             Object.keys(input).length !== 1 ||
             typeof input.revision !== "string"
           )
-            throw new Error("A media registry revision is required; file paths are not accepted");
+            throw new Error(
+              "A media registry revision is required; file paths are not accepted",
+            );
 
           const current = await readMediaRegistry(projectRoot);
           if (current.revision !== input.revision) {
-            res.writeHead(409).end("CONFLICT: The media registry changed. Reload it before adding audio.");
+            res
+              .writeHead(409)
+              .end(
+                "CONFLICT: The media registry changed. Reload it before adding audio.",
+              );
             return;
           }
-          const selectedPath = await (options.audioFilePicker ?? pickAudioFile)();
+          const selectedPath = await (
+            options.audioFilePicker ?? pickAudioFile
+          )();
           if (!selectedPath) {
             res.writeHead(204).end();
             return;
           }
-          const saved = await registerAudioAsset(projectRoot, selectedPath, input.revision);
+          const saved = await registerAudioAsset(
+            projectRoot,
+            selectedPath,
+            input.revision,
+          );
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify({ revision: saved.revision }));
           return;
         }
         if (isShell && pathname === "/api/projects" && req.method === "POST") {
           if (built) {
-            res.writeHead(409).end("Project creation is available in the live development workspace. Restart with npm run dev to edit source projects.");
+            res
+              .writeHead(409)
+              .end(
+                "Project creation is available in the live development workspace. Restart with npm run dev to edit source projects.",
+              );
             return;
           }
-          if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) {
-            res.writeHead(403).end("Only the studio shell can create a project");
+          if (
+            req.headers.origin !== shellOrigin ||
+            !req.headers["content-type"]?.startsWith("application/json")
+          ) {
+            res
+              .writeHead(403)
+              .end("Only the studio shell can create a project");
             return;
           }
           let body = "";
           for await (const chunk of req) {
             body += chunk.toString();
-            if (Buffer.byteLength(body) > 2048) throw new Error("Project request too large");
+            if (Buffer.byteLength(body) > 2048)
+              throw new Error("Project request too large");
           }
           const input = JSON.parse(body);
-          if (typeof input.id !== "string") throw new Error("Project ID is required");
+          if (typeof input.id !== "string")
+            throw new Error("Project ID is required");
           const project = await createProject(projectsDir, input.id);
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ project: { id: project.id, manifest: project } }));
+          res.end(
+            JSON.stringify({ project: { id: project.id, manifest: project } }),
+          );
           return;
         }
         if (req.method !== "GET" && req.method !== "HEAD") {
@@ -266,13 +470,20 @@ export async function startServers(built = false, portOffset = 0, options: Serve
           return;
         }
         if (isShell && pathname === "/api/capability-resource") {
-          const relative = new URL(req.url ?? "/", "http://localhost").searchParams.get("path") ?? "";
-          if (!(relative.startsWith("docs/") || relative.startsWith("examples/")))
+          const relative =
+            new URL(req.url ?? "/", "http://localhost").searchParams.get(
+              "path",
+            ) ?? "";
+          if (!(
+            relative.startsWith("docs/") || relative.startsWith("examples/")
+          ))
             throw new Error("Only public docs and examples can be opened here");
-          if (!/\.(md|tsx|ts)$/.test(relative)) throw new Error("Unsupported capability resource type");
+          if (!/\.(md|tsx|ts)$/.test(relative))
+            throw new Error("Unsupported capability resource type");
           const file = await safeFile(root, relative);
           const info = await stat(file);
-          if (info.size > 500_000) throw new Error("Capability resource is too large");
+          if (info.size > 500_000)
+            throw new Error("Capability resource is too large");
           res.setHeader("Content-Type", "text/plain; charset=utf-8");
           res.end(await readFile(file, "utf8"));
           return;
@@ -335,7 +546,10 @@ export async function startServers(built = false, portOffset = 0, options: Serve
         res.end(await readFile(file));
       } catch (e) {
         res
-          .writeHead(e instanceof Error&&e.message.startsWith('CONFLICT:')?409:400, { "Content-Type": "text/plain" })
+          .writeHead(
+            e instanceof Error && e.message.startsWith("CONFLICT:") ? 409 : 400,
+            { "Content-Type": "text/plain" },
+          )
           .end(e instanceof Error ? e.message : String(e));
       }
     });

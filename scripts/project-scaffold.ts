@@ -9,7 +9,10 @@ export async function createProject(projectsDirectory: string, rawId: string) {
   await mkdir(target);
   const manifest = {
     id,
-    name: id.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join(" "),
+    name: id
+      .split("-")
+      .map((part) => part[0].toUpperCase() + part.slice(1))
+      .join(" "),
     type: "explainer",
     width: 1920,
     height: 1080,
@@ -34,9 +37,9 @@ import savedTimeline from "./edit-timeline.json";
 
 export const editorComponents = [subtitleModule];
 
-export default function Video({ timeline }: EditableVideoProps) {
+export default function Video({ timeline, audioSources }: EditableVideoProps) {
   return (
-    <Canvas background="#101725" style={{ padding: 0 }}>
+    <Canvas background="#000000" style={{ padding: 0 }}>
       <TimelineComposition
         timeline={timeline ?? parseEditTimeline(savedTimeline)}
         components={editorComponents}
@@ -65,9 +68,16 @@ export default function Video({ timeline }: EditableVideoProps) {
     );
     await writeFile(
       path.join(target, "timing", "lyrics.json"),
-      JSON.stringify({ version: 1, units: "seconds", status: "unverified", lines: [] }, null, 2),
+      JSON.stringify(
+        { version: 1, units: "seconds", status: "unverified", lines: [] },
+        null,
+        2,
+      ),
     );
-    await writeFile(path.join(target, "project.json"), JSON.stringify(manifest, null, 2));
+    await writeFile(
+      path.join(target, "project.json"),
+      JSON.stringify(manifest, null, 2),
+    );
     await writeFile(
       path.join(target, "README.md"),
       `# ${manifest.name}\n\nA new, empty six-second motion project. The composition registers the reusable subtitle clip module and includes Visuals and Captions tracks. Add content from the editor or write project-owned React scenes.\n\nRead [Create a video](../../docs/CREATE_VIDEO.md), [the SDK guide](../../docs/MOTION_SDK.md), and [the editable timeline contract](../../docs/TIMELINE_EDITOR.md). Project-local media belongs in assets/.\n`,

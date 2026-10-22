@@ -19,6 +19,7 @@ import { resolveTimelineBehavior } from "./timeline-behaviors";
 import { CanvasView } from "./CanvasView";
 import { TimelineView } from "./TimelineView";
 import { InspectorView } from "./InspectorView";
+import { subtitleTrackId } from "./timeline-track-utils";
 import { useWorkspaceManager } from "./WorkspaceManager";
 import type {
   TimelineCommandEnvelope,
@@ -82,12 +83,15 @@ export function TimelineEditor({
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const sourceCommandId = useRef<string | null>(null);
-  const clipGesture = useRef<{
-    gestureId: string;
-    clipId: string;
-    baseline: EditTimeline;
-    expectedVersion: number;
-  } | undefined>(undefined);
+  const clipGesture = useRef<
+    | {
+        gestureId: string;
+        clipId: string;
+        baseline: EditTimeline;
+        expectedVersion: number;
+      }
+    | undefined
+  >(undefined);
   const workspace = useWorkspaceManager();
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
@@ -122,6 +126,9 @@ export function TimelineEditor({
     setError,
     setNotice,
   } = commands;
+  const editorManifest = doc
+    ? { ...manifest, durationInFrames: doc.durationInFrames }
+    : manifest;
   const edit = (next: EditTimeline, createCheckpoint = true) => {
     sourceCommandId.current = null;
     sessionEdit(next, createCheckpoint);
@@ -158,7 +165,9 @@ export function TimelineEditor({
     return () => window.removeEventListener("message", receive);
   }, [receivePreviewMessage]);
 
-  const timelineSnapshot = (identity: NonNullable<typeof detachedTimeline>): TimelineSnapshot => ({
+  const timelineSnapshot = (
+    identity: NonNullable<typeof detachedTimeline>,
+  ): TimelineSnapshot => ({
     panelId: "timeline",
     projectId: snapshot.projectId,
     sessionId: snapshot.sessionId,
@@ -166,7 +175,8 @@ export function TimelineEditor({
     stateVersion: snapshot.stateVersion,
     sourceCommandId: sourceCommandId.current,
     fps: manifest.fps,
-    durationInFrames: manifest.durationInFrames,
+    durationInFrames:
+      snapshot.document?.durationInFrames ?? manifest.durationInFrames,
     hasEditableTimeline: Boolean(manifest.editTimeline),
     document: snapshot.document ?? null,
     components,
@@ -179,10 +189,14 @@ export function TimelineEditor({
     redoCount: snapshot.redoCount,
   });
 
-  async function publishTimelineSnapshot(identity: NonNullable<typeof detachedTimeline>) {
+  async function publishTimelineSnapshot(
+    identity: NonNullable<typeof detachedTimeline>,
+  ) {
     const bridge = window.floxBowWindows;
     if (!bridge) throw new Error("Native Timeline transport is unavailable.");
-    const result = await bridge.publishTimelineSnapshot(timelineSnapshot(identity));
+    const result = await bridge.publishTimelineSnapshot(
+      timelineSnapshot(identity),
+    );
     if (result.status !== "sent")
       throw new Error("Timeline window is unavailable. Attach it and retry.");
   }
@@ -194,8 +208,13 @@ export function TimelineEditor({
       detachedTimeline.sessionId !== snapshot.sessionId
     ) {
       void window.floxBowWindows
-        ?.closePanel({ panelId: "timeline", instanceId: detachedTimeline.instanceId })
-        .catch(() => workspace.clearDetachedTimeline(detachedTimeline.instanceId));
+        ?.closePanel({
+          panelId: "timeline",
+          instanceId: detachedTimeline.instanceId,
+        })
+        .catch(() =>
+          workspace.clearDetachedTimeline(detachedTimeline.instanceId),
+        );
       return;
     }
     let mounted = true;
@@ -220,17 +239,106 @@ export function TimelineEditor({
   ]);
 
   useEffect(() => {
+    const selectSoundtrack = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          projectId?: unknown;
+          assetId?: unknown;
+          durationInSeconds?: unknown;
+          displayName?: unknown;
+        }>
+      ).detail;
+      if (detail?.projectId !== manifest.id) return;
+      if (
+        typeof detail.assetId !== "string" ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(detail.assetId)
+      ) {
+        setError("The selected audio reference is invalid.");
+        return;
+      }
+      if (
+        typeof detail.durationInSeconds !== "number" ||
+        !Number.isFinite(detail.durationInSeconds) ||
+        detail.durationInSeconds <= 0
+      ) {
+        setError(
+          "The selected audio has no usable duration or could not be decoded.",
+        );
+        return;
+      }
+      const current = commands.getCurrentDocument();
+      if (!current) {
+        setError("This project has no editable Timeline.");
+        return;
+      }
+      const audioFrames = Math.max(
+        1,
+        Math.ceil(detail.durationInSeconds * current.fps),
+      );
+      const durationInFrames = Math.max(current.durationInFrames, audioFrames);
+      const tracks = [...current.tracks];
+      let track = tracks.find((item) => item.id === "audio");
+      if (!track) {
+        if (tracks.length >= 32) {
+          setError(
+            "The Timeline has reached its track limit; remove a track before adding audio.",
+          );
+          return;
+        }
+        track = { id: "audio", name: "Audio" };
+        tracks.push(track);
+      }
+      const soundtrack = {
+        id: `soundtrack-${crypto.randomUUID()}`,
+        trackId: track.id,
+        componentId: "soundtrack",
+        label: `Soundtrack · ${typeof detail.displayName === "string" ? detail.displayName.slice(0, 160) : "Audio"}`,
+        from: 0,
+        durationInFrames: audioFrames,
+        content: { assetId: detail.assetId },
+        props: {},
+      };
+      const next = parseEditTimeline({
+        ...current,
+        durationInFrames,
+        tracks,
+        clips: [
+          ...current.clips.filter((clip) => clip.componentId !== "soundtrack"),
+          soundtrack,
+        ],
+      });
+      edit(next);
+      setSelected(soundtrack.id);
+      setNotice(
+        `Soundtrack added to the Audio track for ${(audioFrames / current.fps).toFixed(2)} seconds. Save the project to keep it.`,
+      );
+    };
+    window.addEventListener("motion-use-soundtrack", selectSoundtrack);
+    return () =>
+      window.removeEventListener("motion-use-soundtrack", selectSoundtrack);
+  }, [manifest.id, commands, edit]);
+
+  useEffect(() => {
     if (!detachedTimeline || !window.floxBowWindows) return;
-    void window.floxBowWindows.publishTimelineFrame({
-      panelId: "timeline",
-      projectId: snapshot.projectId,
-      sessionId: snapshot.sessionId,
-      instanceId: detachedTimeline.instanceId,
-      stateVersion: snapshot.stateVersion,
-      frame,
-      playing,
-    }).catch((error: unknown) => setTimelineTransportError(String(error)));
-  }, [detachedTimeline?.instanceId, snapshot.projectId, snapshot.sessionId, snapshot.stateVersion, frame, playing]);
+    void window.floxBowWindows
+      .publishTimelineFrame({
+        panelId: "timeline",
+        projectId: snapshot.projectId,
+        sessionId: snapshot.sessionId,
+        instanceId: detachedTimeline.instanceId,
+        stateVersion: snapshot.stateVersion,
+        frame,
+        playing,
+      })
+      .catch((error: unknown) => setTimelineTransportError(String(error)));
+  }, [
+    detachedTimeline?.instanceId,
+    snapshot.projectId,
+    snapshot.sessionId,
+    snapshot.stateVersion,
+    frame,
+    playing,
+  ]);
 
   useEffect(() => {
     const bridge = window.floxBowWindows;
@@ -240,7 +348,8 @@ export function TimelineEditor({
         detachedTimeline?.instanceId !== request.instanceId ||
         snapshot.projectId !== request.projectId ||
         snapshot.sessionId !== request.sessionId
-      ) return;
+      )
+        return;
       void publishTimelineSnapshot(detachedTimeline).catch((error: unknown) =>
         setTimelineTransportError(String(error)),
       );
@@ -260,29 +369,55 @@ export function TimelineEditor({
             envelope.projectId !== snapshot.projectId ||
             envelope.sessionId !== snapshot.sessionId ||
             envelope.instanceId !== detachedTimeline.instanceId
-          ) throw new Error("This Timeline command belongs to an old project session.");
+          )
+            throw new Error(
+              "This Timeline command belongs to an old project session.",
+            );
           if (envelope.stateVersion !== commands.getStateVersion())
-            throw new Error("Timeline changed elsewhere. The view was refreshed.");
+            throw new Error(
+              "Timeline changed elsewhere. The view was refreshed.",
+            );
           const current = commands.getCurrentDocument();
           const command = envelope.command;
-          if (clipGesture.current && !["updateClipGesture", "endClipGesture"].includes(command.type))
-            throw new Error("Finish the active clip drag before sending another edit.");
+          if (
+            clipGesture.current &&
+            !["updateClipGesture", "endClipGesture"].includes(command.type)
+          )
+            throw new Error(
+              "Finish the active clip drag before sending another edit.",
+            );
           if (command.type === "selectClip") {
-            if (command.clipId && !current?.clips.some((clip) => clip.id === command.clipId))
+            if (
+              command.clipId &&
+              !current?.clips.some((clip) => clip.id === command.clipId)
+            )
               throw new Error("The selected clip no longer exists.");
             sourceCommandId.current = envelope.commandId;
             sessionSelectClip(command.clipId);
           } else if (command.type === "seek") {
             if (!current || command.frame >= current.durationInFrames)
-              throw new Error("The requested playhead frame is outside this project.");
+              throw new Error(
+                "The requested playhead frame is outside this project.",
+              );
             sourceCommandId.current = envelope.commandId;
             sessionSeek(command.frame);
           } else if (command.type === "pause") {
             sourceCommandId.current = envelope.commandId;
             sessionPause();
+          } else if (command.type === "play") {
+            sourceCommandId.current = envelope.commandId;
+            play();
           } else if (command.type === "editTimeline") {
-            if (clipGesture.current) throw new Error("A clip drag is still active.");
-            const validated = parseEditTimeline(command.document, manifest);
+            if (clipGesture.current)
+              throw new Error("A clip drag is still active.");
+            const validated = parseEditTimeline(command.document);
+            if (
+              validated.fps !== manifest.fps ||
+              validated.durationInFrames < manifest.durationInFrames
+            )
+              throw new Error(
+                "Timeline duration cannot be shorter than the saved project duration.",
+              );
             sourceCommandId.current = envelope.commandId;
             sessionEdit(validated, command.checkpoint);
           } else if (command.type === "beginClipGesture") {
@@ -298,14 +433,28 @@ export function TimelineEditor({
             };
           } else if (command.type === "updateClipGesture") {
             const gesture = clipGesture.current;
-            if (!gesture || gesture.gestureId !== command.gestureId || gesture.clipId !== command.clipId)
-              throw new Error("The clip drag is no longer active. The Timeline was refreshed.");
+            if (
+              !gesture ||
+              gesture.gestureId !== command.gestureId ||
+              gesture.clipId !== command.clipId
+            )
+              throw new Error(
+                "The clip drag is no longer active. The Timeline was refreshed.",
+              );
             if (gesture.expectedVersion !== commands.getStateVersion()) {
               clipGesture.current = undefined;
-              throw new Error("The clip changed during the drag. The drag was canceled safely.");
+              throw new Error(
+                "The clip changed during the drag. The drag was canceled safely.",
+              );
             }
-            const clip = gesture.baseline.clips.find((item) => item.id === command.clipId);
-            if (!clip || command.from + command.durationInFrames > gesture.baseline.durationInFrames)
+            const clip = gesture.baseline.clips.find(
+              (item) => item.id === command.clipId,
+            );
+            if (
+              !clip ||
+              command.from + command.durationInFrames >
+                gesture.baseline.durationInFrames
+            )
               throw new Error("The clip range is outside the project.");
             const next = changeClipRange(
               gesture.baseline,
@@ -324,11 +473,13 @@ export function TimelineEditor({
             clipGesture.current = undefined;
             sourceCommandId.current = envelope.commandId;
           } else if (command.type === "undo") {
-            if (!snapshot.undoCount) throw new Error("There is no edit to undo.");
+            if (!snapshot.undoCount)
+              throw new Error("There is no edit to undo.");
             sourceCommandId.current = envelope.commandId;
             undo();
           } else if (command.type === "redo") {
-            if (!snapshot.redoCount) throw new Error("There is no edit to redo.");
+            if (!snapshot.redoCount)
+              throw new Error("There is no edit to redo.");
             sourceCommandId.current = envelope.commandId;
             redo();
           }
@@ -337,7 +488,10 @@ export function TimelineEditor({
           resultVersion = commands.getStateVersion();
         } catch (error) {
           resultMessage = String(error).slice(0, 300);
-          if (resultMessage.includes("refreshed") || resultMessage.includes("changed"))
+          if (
+            resultMessage.includes("refreshed") ||
+            resultMessage.includes("changed")
+          )
             sourceCommandId.current = null;
         }
         const result: TimelineCommandResult = {
@@ -352,13 +506,23 @@ export function TimelineEditor({
         };
         try {
           await bridge.sendTimelineCommandResult(result);
-          if (resultStatus === "rejected") await publishTimelineSnapshot(detachedTimeline);
+          if (resultStatus === "rejected")
+            await publishTimelineSnapshot(detachedTimeline);
         } catch (error) {
-          setTimelineTransportError(`Timeline command response failed: ${String(error)}`);
+          setTimelineTransportError(
+            `Timeline command response failed: ${String(error)}`,
+          );
         }
       })();
     });
-  }, [detachedTimeline?.instanceId, snapshot.projectId, snapshot.sessionId, snapshot.undoCount, snapshot.redoCount, manifest]);
+  }, [
+    detachedTimeline?.instanceId,
+    snapshot.projectId,
+    snapshot.sessionId,
+    snapshot.undoCount,
+    snapshot.redoCount,
+    manifest,
+  ]);
   function property(field: EditableField, value: unknown) {
     if (!doc) return;
     try {
@@ -406,7 +570,14 @@ export function TimelineEditor({
     try {
       const text = await file.text();
       if (file.name.endsWith(".timeline.json")) {
-        const next = parseEditTimeline(JSON.parse(text), manifest);
+        const next = parseEditTimeline(JSON.parse(text));
+        if (
+          next.fps !== manifest.fps ||
+          next.durationInFrames < manifest.durationInFrames
+        )
+          throw new Error(
+            "Imported timeline FPS or duration does not match this project.",
+          );
         edit(next);
         setNotice(
           "Imported editable timeline. Save to apply it to the project.",
@@ -424,7 +595,7 @@ export function TimelineEditor({
         doc.durationInFrames / doc.fps,
       );
       const existing = doc.clips.find((c) => c.componentId === "subtitles");
-      const trackId = existing?.trackId ?? doc.tracks.at(-1)!.id;
+      const trackId = subtitleTrackId(doc, existing?.trackId);
       const imported = subtitleClips(data, doc, trackId, existing?.props ?? {});
       if (!components.some((c) => c.id === "subtitles"))
         throw new Error(
@@ -433,8 +604,12 @@ export function TimelineEditor({
       const next = {
         ...doc,
         clips: [
-          ...doc.clips.filter((c) => c.componentId !== "subtitles"),
+          ...doc.clips.filter(
+            (c) =>
+              c.componentId !== "subtitles" && c.componentId !== "soundtrack",
+          ),
           ...imported,
+          ...doc.clips.filter((c) => c.componentId === "soundtrack"),
         ],
       };
       edit(parseEditTimeline(next));
@@ -470,7 +645,7 @@ export function TimelineEditor({
   }
   function addSubtitle() {
     if (!doc) return;
-    const trackId = clip?.trackId ?? doc.tracks.at(-1)!.id;
+    const trackId = subtitleTrackId(doc, clip?.trackId);
     const c = createSubtitleClip({
       id: `subtitle-${crypto.randomUUID()}`,
       trackId,
@@ -478,7 +653,14 @@ export function TimelineEditor({
       durationInFrames: Math.min(doc.fps * 2, doc.durationInFrames - frame),
       content: { text: "New subtitle", status: "unverified" },
     });
-    edit({ ...doc, clips: [...doc.clips, c] });
+    edit({
+      ...doc,
+      clips: [
+        ...doc.clips.filter((item) => item.componentId !== "soundtrack"),
+        c,
+        ...doc.clips.filter((item) => item.componentId === "soundtrack"),
+      ],
+    });
     setSelected(c.id);
   }
   function duplicate() {
@@ -496,7 +678,14 @@ export function TimelineEditor({
     ).duplicateContent;
     if (duplicateContent)
       copy.content = duplicateContent(clip.content, clip.id);
-    edit({ ...doc, clips: [...doc.clips, copy] });
+    edit({
+      ...doc,
+      clips: [
+        ...doc.clips.filter((item) => item.componentId !== "soundtrack"),
+        copy,
+        ...doc.clips.filter((item) => item.componentId === "soundtrack"),
+      ],
+    });
     setSelected(copy.id);
   }
   function exportTiming(format: "json" | "srt" | "lrc") {
@@ -539,14 +728,22 @@ export function TimelineEditor({
     trim: boolean,
   ) {
     const gesture = clipGesture.current;
-    if (!gesture || gesture.gestureId !== gestureId || gesture.clipId !== clipId)
+    if (
+      !gesture ||
+      gesture.gestureId !== gestureId ||
+      gesture.clipId !== clipId
+    )
       return;
     if (gesture.expectedVersion !== commands.getStateVersion()) {
       clipGesture.current = undefined;
-      setNotice("The clip changed during the drag. The drag was canceled safely.");
+      setNotice(
+        "The clip changed during the drag. The drag was canceled safely.",
+      );
       return;
     }
-    const clipToChange = gesture.baseline.clips.find((item) => item.id === clipId);
+    const clipToChange = gesture.baseline.clips.find(
+      (item) => item.id === clipId,
+    );
     if (!clipToChange) return;
     try {
       edit(
@@ -573,7 +770,9 @@ export function TimelineEditor({
   async function detachTimeline() {
     const bridge = window.floxBowWindows;
     if (!bridge) {
-      setTimelineTransportError("Timeline detachment is available in the Electron app.");
+      setTimelineTransportError(
+        "Timeline detachment is available in the Electron app.",
+      );
       return;
     }
     try {
@@ -649,10 +848,12 @@ export function TimelineEditor({
       )}
       <div
         className="editor-columns"
-        style={{ "--inspector-width": `${inspectorWidth}px` } as React.CSSProperties}
+        style={
+          { "--inspector-width": `${inspectorWidth}px` } as React.CSSProperties
+        }
       >
         <CanvasView
-          manifest={manifest}
+          manifest={editorManifest}
           previewOrigin={previewOrigin}
           built={built}
           reload={reload}
@@ -680,7 +881,7 @@ export function TimelineEditor({
           onPointerUp={endPanelResize}
         />
         <InspectorView
-          manifest={manifest}
+          manifest={editorManifest}
           document={doc}
           clip={clip}
           definition={definition}
@@ -691,64 +892,94 @@ export function TimelineEditor({
           onDelete={deleteClip}
         />
       </div>
-      <div className="timeline-location" data-timeline-detached={Boolean(detachedTimeline)}>
+      <div
+        className="timeline-location"
+        data-timeline-detached={Boolean(detachedTimeline)}
+      >
         {detachedTimeline ? (
           <div className="timeline-detached-placeholder" role="status">
             <strong>Timeline is open in its own window.</strong>
-            <span>Canvas and Inspector remain connected to the same editing session.</span>
-            {timelineTransportError && <span className="error" role="alert">{timelineTransportError}</span>}
+            <span>
+              Canvas and Inspector remain connected to the same editing session.
+            </span>
+            {timelineTransportError && (
+              <span className="error" role="alert">
+                {timelineTransportError}
+              </span>
+            )}
             <div>
-              <button type="button" onClick={attachTimeline}>Attach Timeline</button>
-              <button type="button" onClick={() => void publishTimelineSnapshot(detachedTimeline).then(() => setTimelineTransportError("")).catch((error: unknown) => setTimelineTransportError(String(error)))}>Retry sync</button>
+              <button type="button" onClick={attachTimeline}>
+                Attach Timeline
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void publishTimelineSnapshot(detachedTimeline)
+                    .then(() => setTimelineTransportError(""))
+                    .catch((error: unknown) =>
+                      setTimelineTransportError(String(error)),
+                    )
+                }
+              >
+                Retry sync
+              </button>
             </div>
           </div>
         ) : (
           <>
             <div className="timeline-window-actions">
-              <button type="button" onClick={() => void detachTimeline()}>Detach Timeline</button>
-              {timelineTransportError && <span className="error" role="alert">{timelineTransportError}</span>}
+              <button type="button" onClick={() => void detachTimeline()}>
+                Detach Timeline
+              </button>
+              {timelineTransportError && (
+                <span className="error" role="alert">
+                  {timelineTransportError}
+                </span>
+              )}
             </div>
             <TimelineView
-        manifest={manifest}
-        document={doc}
-        components={components}
-        selectedClipId={selected}
-        frame={frame}
-        onEdit={(next, createCheckpoint = true) => {
-          const current = commands.getCurrentDocument();
-          if (!current) return;
-          edit(
-            typeof next === "function" ? next(current) : next,
-            createCheckpoint,
-          );
-        }}
-        onSelectClip={setSelected}
-        onSeek={seek}
-        onPause={pause}
-        onBeginClipGesture={beginClipGesture}
-        onUpdateClipGesture={updateClipGesture}
-        onEndClipGesture={endClipGesture}
-        onResizeStart={(event) => {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          panelResize.current = {
-            kind: "timeline",
-            start: event.clientY,
-            size: timelineHeight,
-          };
-        }}
-        onResizeMove={resizePanel}
-        onResizeEnd={endPanelResize}
-        onAddSubtitle={addSubtitle}
-        onImportFile={importFile}
-        onExportTiming={exportTiming}
-        onExportDocument={() =>
-          doc &&
-          download(
-            `${manifest.id}.timeline.json`,
-            JSON.stringify(doc, null, 2),
-          )
-        }
-      />
+              manifest={editorManifest}
+              document={doc}
+              components={components}
+              selectedClipId={selected}
+              frame={frame}
+              playing={playing}
+              onEdit={(next, createCheckpoint = true) => {
+                const current = commands.getCurrentDocument();
+                if (!current) return;
+                edit(
+                  typeof next === "function" ? next(current) : next,
+                  createCheckpoint,
+                );
+              }}
+              onSelectClip={setSelected}
+              onSeek={seek}
+              onPause={pause}
+              onPlay={play}
+              onBeginClipGesture={beginClipGesture}
+              onUpdateClipGesture={updateClipGesture}
+              onEndClipGesture={endClipGesture}
+              onResizeStart={(event) => {
+                event.currentTarget.setPointerCapture(event.pointerId);
+                panelResize.current = {
+                  kind: "timeline",
+                  start: event.clientY,
+                  size: timelineHeight,
+                };
+              }}
+              onResizeMove={resizePanel}
+              onResizeEnd={endPanelResize}
+              onAddSubtitle={addSubtitle}
+              onImportFile={importFile}
+              onExportTiming={exportTiming}
+              onExportDocument={() =>
+                doc &&
+                download(
+                  `${manifest.id}.timeline.json`,
+                  JSON.stringify(doc, null, 2),
+                )
+              }
+            />
           </>
         )}
       </div>

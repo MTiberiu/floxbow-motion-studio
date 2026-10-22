@@ -25,6 +25,7 @@ export type TimelineViewProps = {
   components: readonly ComponentInfo[];
   selectedClipId: string;
   frame: number;
+  playing?: boolean;
   onEdit: (
     next: EditTimeline | ((current: EditTimeline) => EditTimeline),
     checkpoint?: boolean,
@@ -32,6 +33,7 @@ export type TimelineViewProps = {
   onSelectClip: (clipId: string) => void;
   onSeek: (frame: number) => void;
   onPause: () => void;
+  onPlay?: () => void;
   onBeginClipGesture: (gestureId: string, clipId: string) => void;
   onUpdateClipGesture: (
     gestureId: string,
@@ -56,10 +58,12 @@ export function TimelineView({
   components,
   selectedClipId,
   frame,
+  playing = false,
   onEdit,
   onSelectClip,
   onSeek,
   onPause,
+  onPlay,
   onBeginClipGesture,
   onUpdateClipGesture,
   onEndClipGesture,
@@ -182,6 +186,16 @@ export function TimelineView({
           Add subtitle
         </button>
         <button
+          type="button"
+          aria-label={
+            playing ? "Pause Timeline playback" : "Play Timeline playback"
+          }
+          onClick={playing ? onPause : onPlay}
+          disabled={!onPlay && !playing}
+        >
+          {playing ? "Pause" : "Play"}
+        </button>
+        <button
           onClick={() =>
             onEdit((current) => ({
               ...current,
@@ -301,7 +315,7 @@ export function TimelineView({
                       aria-label={`Clip ${clip.id}`}
                       aria-pressed={selectedClipId === clip.id}
                       data-clip-id={clip.id}
-                      className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
+                      className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${clip.componentId === "soundtrack" ? "audio-clip" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
                       style={{
                         left: `${(clip.from / document.durationInFrames) * 100}%`,
                         width: `${(clip.durationInFrames / document.durationInFrames) * 100}%`,
@@ -320,29 +334,27 @@ export function TimelineView({
                           event.key === "ArrowRight"
                         ) {
                           event.preventDefault();
-                          onEdit(
-                            (current) => {
-                              const latest = current.clips.find(
-                                (candidate) => candidate.id === clip.id,
-                              );
-                              if (!latest) return current;
-                              const start = Math.max(
-                                0,
-                                Math.min(
-                                  current.durationInFrames -
-                                    latest.durationInFrames,
-                                  latest.from +
-                                    (event.key === "ArrowRight" ? 1 : -1),
-                                ),
-                              );
-                              return changeClipRange(
-                                current,
-                                latest.id,
-                                start,
-                                start + latest.durationInFrames,
-                              );
-                            },
-                          );
+                          onEdit((current) => {
+                            const latest = current.clips.find(
+                              (candidate) => candidate.id === clip.id,
+                            );
+                            if (!latest) return current;
+                            const start = Math.max(
+                              0,
+                              Math.min(
+                                current.durationInFrames -
+                                  latest.durationInFrames,
+                                latest.from +
+                                  (event.key === "ArrowRight" ? 1 : -1),
+                              ),
+                            );
+                            return changeClipRange(
+                              current,
+                              latest.id,
+                              start,
+                              start + latest.durationInFrames,
+                            );
+                          });
                         }
                       }}
                     >

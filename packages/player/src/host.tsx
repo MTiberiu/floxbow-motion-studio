@@ -1,26 +1,206 @@
-import {useEffect,useRef,useState,type ComponentType} from 'react';
-import {createRoot} from 'react-dom/client';
-import type {PlayerRef,CallbackListener} from '@remotion/player';
-import type {ProjectManifest} from '@motion/project-loader/schema';
-import {serializableComponentInfo,type EditableVideoProps,type EditableComponent} from '@motion/sdk/editor';
-import {componentInfosSchema,parseEditTimeline,type EditTimeline} from '@motion/sdk/timeline';
-import {StudioPlayer} from './index';
-type VideoModule={default:ComponentType<EditableVideoProps>;editorComponents?:EditableComponent[]};
-function PreviewHost({module,manifest}:{module:VideoModule;manifest:ProjectManifest}){
- const player=useRef<PlayerRef>(null);const [timeline,setTimeline]=useState<EditTimeline>();const [error,setError]=useState('');
- const parentOrigin=document.referrer?new URL(document.referrer).origin:'';
- useEffect(()=>{
- if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(parentOrigin))return;
- const send=(type:string,extra:Record<string,unknown>={})=>parent.postMessage({channel:'motion-editor-v1',projectId:manifest.id,type,...extra},parentOrigin);
- const ready=()=>{const components=componentInfosSchema.parse((module.editorComponents??[]).map(serializableComponentInfo));send('ready',{components});};
- const report=()=>send('frame',{frame:player.current?.getCurrentFrame()??0,playing:player.current?.isPlaying()??false});
- const onFrame:CallbackListener<'frameupdate'>=()=>report();
- const receive=(e:MessageEvent)=>{if(e.source!==parent||e.origin!==parentOrigin||e.data?.channel!=='motion-editor-v1'||e.data.projectId!==manifest.id)return;
- try{switch(e.data.type){case 'hello':ready();report();break;case 'document':setTimeline(parseEditTimeline(e.data.timeline,manifest));setError('');break;case 'seek':if(Number.isInteger(e.data.frame)){player.current?.pause();player.current?.seekTo(Math.max(0,Math.min(manifest.durationInFrames-1,e.data.frame)));report();}break;case 'play':player.current?.play();break;case 'pause':player.current?.pause();report();break;}}
- catch(e){setError(String(e));send('error',{message:String(e)});}};
- const refreshMetadata=()=>ready();window.addEventListener('message',receive);window.addEventListener('project-module-updated',refreshMetadata);const p=player.current;p?.addEventListener('frameupdate',onFrame);p?.addEventListener('play',report);p?.addEventListener('pause',report);p?.addEventListener('seeked',report);ready();report();
- return()=>{window.removeEventListener('message',receive);window.removeEventListener('project-module-updated',refreshMetadata);p?.removeEventListener('frameupdate',onFrame);p?.removeEventListener('play',report);p?.removeEventListener('pause',report);p?.removeEventListener('seeked',report);};
- },[parentOrigin,module,manifest]);
- return <>{error&&<pre role="alert">{error}</pre>}<StudioPlayer composition={module.default} manifest={manifest} playerRef={player} inputProps={{timeline}}/></>;
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import { createRoot } from "react-dom/client";
+import type { PlayerRef, CallbackListener } from "@remotion/player";
+import type { ProjectManifest } from "@motion/project-loader/schema";
+import {
+  serializableComponentInfo,
+  type EditableVideoProps,
+  type EditableComponent,
+} from "@motion/sdk/editor";
+import {
+  componentInfosSchema,
+  parseEditTimeline,
+  type EditTimeline,
+} from "@motion/sdk/timeline";
+import { StudioPlayer } from "./index";
+type VideoModule = {
+  default: ComponentType<EditableVideoProps>;
+  editorComponents?: EditableComponent[];
+};
+function PreviewHost({
+  module,
+  manifest,
+}: {
+  module: VideoModule;
+  manifest: ProjectManifest;
+}) {
+  const player = useRef<PlayerRef>(null);
+  const [timeline, setTimeline] = useState<EditTimeline>();
+  const timelineRef = useRef(timeline);
+  timelineRef.current = timeline;
+  const [error, setError] = useState("");
+  const playbackCheck = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sourcesFor = (document: EditTimeline) =>
+    Object.fromEntries(
+      document.clips
+        .filter(
+          (c) =>
+            c.componentId === "soundtrack" &&
+            typeof c.content.assetId === "string" &&
+            /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(c.content.assetId),
+        )
+        .map((c) => [
+          String(c.content.assetId),
+          `${location.origin}/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(String(c.content.assetId))}/stream`,
+        ]),
+    );
+  const audioSources = timeline ? sourcesFor(timeline) : {};
+  const requestedParentOrigin =
+    new URLSearchParams(location.search).get("hostOrigin") ?? "";
+  const previewPort = Number(location.port);
+  const expectedParentOrigin =
+    Number.isInteger(previewPort) && previewPort > 1
+      ? `http://127.0.0.1:${previewPort - 1}`
+      : "";
+  const parentOrigin =
+    requestedParentOrigin === expectedParentOrigin ? requestedParentOrigin : "";
+  useEffect(() => {
+    if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(parentOrigin)) return;
+    const send = (type: string, extra: Record<string, unknown> = {}) =>
+      parent.postMessage(
+        { channel: "motion-editor-v1", projectId: manifest.id, type, ...extra },
+        parentOrigin,
+      );
+    const mediaError = (event: Event) => {
+      if (event.target instanceof HTMLAudioElement) {
+        const message =
+          "The selected audio could not be decoded or played. Check that the MP3/WAV is available and supported.";
+        setError(message);
+        send("error", { message });
+      }
+    };
+    const ready = () => {
+      const components = componentInfosSchema.parse(
+        (module.editorComponents ?? []).map(serializableComponentInfo),
+      );
+      send("ready", { components });
+    };
+    const report = () =>
+      send("frame", {
+        frame: player.current?.getCurrentFrame() ?? 0,
+        playing: player.current?.isPlaying() ?? false,
+      });
+    const onFrame: CallbackListener<"frameupdate"> = () => report();
+    const clearPlaybackCheck = () => {
+      if (playbackCheck.current) {
+        clearTimeout(playbackCheck.current);
+        playbackCheck.current = null;
+      }
+    };
+    const receive = (e: MessageEvent) => {
+      if (
+        e.source !== parent ||
+        e.origin !== parentOrigin ||
+        e.data?.channel !== "motion-editor-v1" ||
+        e.data.projectId !== manifest.id
+      )
+        return;
+      try {
+        switch (e.data.type) {
+          case "hello":
+            ready();
+            report();
+            break;
+          case "document": {
+            const next = parseEditTimeline(e.data.timeline);
+            if (next.fps !== manifest.fps)
+              throw new Error("Timeline FPS does not match project.json");
+            timelineRef.current = next;
+            setTimeline(next);
+            setError("");
+            break;
+          }
+          case "seek":
+            if (Number.isInteger(e.data.frame)) {
+              clearPlaybackCheck();
+              player.current?.pause();
+              player.current?.seekTo(
+                Math.max(
+                  0,
+                  Math.min(
+                    (timelineRef.current?.durationInFrames ??
+                      manifest.durationInFrames) - 1,
+                    e.data.frame,
+                  ),
+                ),
+              );
+              report();
+            }
+            break;
+          case "play":
+            clearPlaybackCheck();
+            player.current?.play();
+            if (
+              timelineRef.current?.clips.some(
+                (clip) => clip.componentId === "soundtrack",
+              )
+            )
+              playbackCheck.current = setTimeout(() => {
+                playbackCheck.current = null;
+                const audio = document.querySelector<HTMLAudioElement>(
+                  'audio[src*="/api/media/"]',
+                );
+                if (audio?.paused && player.current?.isPlaying()) {
+                  const message =
+                    "Audio playback is blocked by browser settings. Allow sound for FloxBow, then press Play again.";
+                  player.current.pause();
+                  setError(message);
+                  send("error", { message });
+                  report();
+                }
+              }, 2000);
+            break;
+          case "pause":
+            clearPlaybackCheck();
+            player.current?.pause();
+            report();
+            break;
+        }
+      } catch (e) {
+        setError(String(e));
+        send("error", { message: String(e) });
+      }
+    };
+    const refreshMetadata = () => ready();
+    window.addEventListener("message", receive);
+    window.addEventListener("project-module-updated", refreshMetadata);
+    document.addEventListener("error", mediaError, true);
+    const p = player.current;
+    p?.addEventListener("frameupdate", onFrame);
+    p?.addEventListener("play", report);
+    p?.addEventListener("pause", report);
+    p?.addEventListener("seeked", report);
+    ready();
+    report();
+    return () => {
+      clearPlaybackCheck();
+      window.removeEventListener("message", receive);
+      window.removeEventListener("project-module-updated", refreshMetadata);
+      document.removeEventListener("error", mediaError, true);
+      p?.removeEventListener("frameupdate", onFrame);
+      p?.removeEventListener("play", report);
+      p?.removeEventListener("pause", report);
+      p?.removeEventListener("seeked", report);
+    };
+  }, [parentOrigin, module, manifest]);
+  return (
+    <>
+      {error && <pre role="alert">{error}</pre>}
+      <StudioPlayer
+        composition={module.default}
+        manifest={{
+          ...manifest,
+          durationInFrames:
+            timeline?.durationInFrames ?? manifest.durationInFrames,
+        }}
+        playerRef={player}
+        inputProps={{ timeline, audioSources }}
+      />
+    </>
+  );
 }
-export function mountPreview(module:VideoModule,manifest:ProjectManifest){createRoot(document.getElementById('root')!).render(<PreviewHost module={module} manifest={manifest}/>);}
+export function mountPreview(module: VideoModule, manifest: ProjectManifest) {
+  createRoot(document.getElementById("root")!).render(
+    <PreviewHost module={module} manifest={manifest} />,
+  );
+}

@@ -17,7 +17,7 @@ const registry: MediaRegistry = mediaRegistrySchema.parse(JSON.parse(text));
 const result = await resolveMedia(projectRoot, registry, "song-main");
 ```
 
-The resolver returns `ready` with a host-only path, `missing` when a registered file no longer exists, or `invalid` when its entry, path, file type, extension, or basic audio header is unsuitable. It only resolves IDs present in a valid registry. Keep the `ready.path` in a Node host process; do not send it to the browser preview. This first slice does not provide preview, render, playback, waveform, or transcription adapters.
+The resolver returns `ready` with a host-only path, `missing` when a registered file no longer exists, or `invalid` when its entry, path, file type, extension, or basic audio header is unsuitable. It only resolves IDs present in a valid registry. Keep the `ready.path` in a Node host process; do not send it to the browser preview. In the live editor, the user can choose **Use as soundtrack** for a ready asset. The host resolves and duration-probes the asset, while the preview receives only a stable asset ID and a same-origin streaming URL. Rendering resolves the same ID in Node and streams it to Remotion from a short-lived loopback endpoint.
 
 ## Project file format
 
@@ -69,10 +69,22 @@ The automated smoke test exercises the same file contract using a test process; 
 
 Direct file edits do not share the editor process's in-memory write lock or revision token. The UI detects edits made before its final revision check and refuses stale writes, but there is no cross-process lock that can eliminate the narrow race between an external agent's last hash check and rename. For this first slice, do not edit the registry from the UI and an agent at the same time. If either writer observes a changed hash/revision, stop, reread, and reconcile before retrying.
 
+## Soundtrack workflow
+
+1. Create or select a project and open **Media**.
+2. Choose **Add Audio**, select an MP3 or WAV in the native file picker, then choose **Use as soundtrack** for that asset.
+3. FloxBow adds a visible clip to the **Audio** track at frame zero. It extends the editable Timeline and project duration when the audio is longer, without shortening other clips. Selecting another soundtrack replaces the existing soundtrack clip; this is not a mixing workflow.
+4. Save the project. The preview uses the existing Remotion Player transport for sound, Canvas and playhead; the detached Timeline controls that same transport. The project can keep its saved subtitle clips in the **Captions** track, and the starter composition renders a black frame behind white captions.
+5. Run `npm run render -- <project-id>` to write `out/<project-id>.mp4`. The renderer checks the referenced asset and its duration before rendering. If an asset is missing or invalid, relink it in Project Media before preview or render.
+
+Audio is linked, not copied. The local path stays in `media.json` and trusted host code. The preview stream route accepts a registered asset ID; it does not accept a renderer-supplied path. The render adapter similarly resolves IDs on the Node side. Removing a registry entry does not delete the source file or a soundtrack clip; the resulting unresolved clip produces a clear playback/render error until the media is relinked or the clip is removed.
+
+The built-in player does not yet transcribe a song, reconcile lyrics, create subtitle timing, provide waveform editing, mix multiple tracks, apply audio effects, or package linked media. Supply or import subtitle timing separately; Whisper-based lyric timing is a later workflow. FFmpeg and `ffprobe` must be available to the host for audio duration checks. Electron enables the trusted preview's playback initiated through the editor transport; in a browser with stricter autoplay policy, FloxBow reports that sound must be allowed before playback can start.
+
 ## Future timeline safety
 
-Audio assets are not currently connected to timeline clips. When that integration is added, removing a media registry entry must never silently delete clips or corrupt the edit document. The editor will need an explicit policy for references to missing or removed media before timeline operations are implemented.
+The Timeline currently has one soundtrack clip on an Audio track and subtitle clips on the Captions track. Multiple simultaneous audio clips, soundtrack trimming/fades, relinking moved files, and packaging are not implemented. Removing media leaves the soundtrack clip in place and reports the unresolved reference; it never silently deletes timeline data.
 
 ## Current limitations
 
-The registry is an initial linked-audio slice, not a general media manager. It does not copy/collect files, relink moved sources, play audio, attach audio to timeline clips, or integrate with Remotion rendering or Whisper. The development shell provides native registration and project-entry removal; the built snapshot currently reports that registry editing is unavailable. Those integrations require a documented adapter contract and separate verification before use.
+The registry is an initial linked-audio slice, not a general media manager. It does not copy/collect files or relink moved sources. Soundtrack selection and preview/render playback are available in the live editor; the built snapshot currently reports that registry editing is unavailable. Automatic transcription, audio mixing/effects, waveform editing, and media collection are future work.

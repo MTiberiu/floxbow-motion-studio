@@ -21,11 +21,11 @@ import {
   subtitlesToSRT,
 } from "@motion/lyrics-sync/subtitles";
 import { TimelineView } from "./TimelineView";
+import { subtitleTrackId } from "./timeline-track-utils";
 import "./timeline.css";
 
 type TimelineCommandIntent =
-  | TimelineCommand
-  | ((snapshot: TimelineSnapshot) => TimelineCommand | null);
+  TimelineCommand | ((snapshot: TimelineSnapshot) => TimelineCommand | null);
 
 type SnapshotWaiter = {
   baseStateVersion: number;
@@ -83,7 +83,9 @@ export function DetachedTimelineWindow({
         clearTimeout(snapshotRequestTimeout.current);
       snapshotRequestTimeout.current = null;
       if (active.current)
-        setError(`Could not request the editor snapshot: ${String(requestError)}`);
+        setError(
+          `Could not request the editor snapshot: ${String(requestError)}`,
+        );
     });
   }
 
@@ -210,9 +212,9 @@ export function DetachedTimelineWindow({
     const confirmsCommand = (current: TimelineSnapshot | null) =>
       Boolean(
         current &&
-          current.stateVersion >= acknowledgedStateVersion &&
-          (current.sourceCommandId === commandId ||
-            current.stateVersion > baseStateVersion),
+        current.stateVersion >= acknowledgedStateVersion &&
+        (current.sourceCommandId === commandId ||
+          current.stateVersion > baseStateVersion),
       );
     if (confirmsCommand(latest.current)) return Promise.resolve(true);
     return new Promise<boolean>((resolve) => {
@@ -240,8 +242,7 @@ export function DetachedTimelineWindow({
         );
         return;
       }
-      const command =
-        typeof intent === "function" ? intent(current) : intent;
+      const command = typeof intent === "function" ? intent(current) : intent;
       if (!command) return;
       sequence.current += 1;
       const commandId = `${context.instanceId}:${sequence.current}`;
@@ -357,7 +358,7 @@ export function DetachedTimelineWindow({
       );
       const clip = createSubtitleClip({
         id: clipId,
-        trackId: selected?.trackId ?? currentDocument.tracks.at(-1)!.id,
+        trackId: subtitleTrackId(currentDocument, selected?.trackId),
         from: currentSnapshot.frame,
         durationInFrames: Math.max(
           1,
@@ -423,7 +424,7 @@ export function DetachedTimelineWindow({
         const generated = subtitleClips(
           timing,
           currentDocument,
-          existing?.trackId ?? currentDocument.tracks.at(-1)!.id,
+          subtitleTrackId(currentDocument, existing?.trackId),
           existing?.props ?? {},
         );
         return {
@@ -474,10 +475,7 @@ export function DetachedTimelineWindow({
         <h1>Connecting Timeline…</h1>
         <p>{error || "Requesting the current editor snapshot."}</p>
         <div className="detached-timeline-actions">
-          <button
-            type="button"
-            onClick={requestSnapshot}
-          >
+          <button type="button" onClick={requestSnapshot}>
             Retry sync
           </button>
           <button type="button" onClick={() => void bridge.closePanel()}>
@@ -529,10 +527,7 @@ export function DetachedTimelineWindow({
       {error && (
         <p className="error detached-timeline-error" role="alert">
           {error}{" "}
-          <button
-            type="button"
-            onClick={requestSnapshot}
-          >
+          <button type="button" onClick={requestSnapshot}>
             Retry sync
           </button>
         </p>
@@ -543,6 +538,7 @@ export function DetachedTimelineWindow({
         components={components}
         selectedClipId={snapshot.selectedClipId}
         frame={snapshot.frame}
+        playing={snapshot.playing}
         onEdit={(next, checkpoint = true) =>
           dispatch((currentSnapshot) => {
             const currentDocument = currentSnapshot.document
@@ -563,6 +559,7 @@ export function DetachedTimelineWindow({
         onSelectClip={(clipId) => dispatch({ type: "selectClip", clipId })}
         onSeek={(frame) => dispatch({ type: "seek", frame: Math.round(frame) })}
         onPause={() => dispatch({ type: "pause" })}
+        onPlay={() => dispatch({ type: "play" })}
         onBeginClipGesture={(gestureId, clipId) => {
           activeGestures.current.add(gestureId);
           dispatch({ type: "beginClipGesture", gestureId, clipId });

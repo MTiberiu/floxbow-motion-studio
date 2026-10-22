@@ -43,7 +43,7 @@ export type ClosePanelRequest = Readonly<{
 export type TimelineCommand =
   | Readonly<{ type: "selectClip"; clipId: string }>
   | Readonly<{ type: "seek"; frame: number }>
-  | Readonly<{ type: "pause" | "undo" | "redo" }>
+  | Readonly<{ type: "play" | "pause" | "undo" | "redo" }>
   | Readonly<{ type: "editTimeline"; document: unknown; checkpoint: boolean }>
   | Readonly<{ type: "beginClipGesture"; gestureId: string; clipId: string }>
   | Readonly<{
