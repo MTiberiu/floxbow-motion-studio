@@ -10,6 +10,7 @@ import {
 export type EditorSessionSnapshot = Readonly<{
   projectId: string;
   sessionId: string;
+  stateVersion: number;
   document?: EditTimeline;
   revision: string;
   dirty: boolean;
@@ -44,6 +45,8 @@ export type EditorSessionCommands = Readonly<{
   ) => void;
   setError: (message: string) => void;
   setNotice: (message: string) => void;
+  getCurrentDocument: () => EditTimeline | undefined;
+  getStateVersion: () => number;
 }>;
 
 export type EditorSession = Readonly<{
@@ -67,6 +70,12 @@ export function useEditorSession({
   sendPreview: (type: string, payload?: Record<string, unknown>) => void;
 }): EditorSession {
   const sessionId = useRef(crypto.randomUUID()).current;
+  const stateVersionRef = useRef(0);
+  const [stateVersion, setStateVersion] = useState(0);
+  const advanceStateVersion = useCallback(() => {
+    stateVersionRef.current += 1;
+    setStateVersion(stateVersionRef.current);
+  }, []);
   const [document, setDocument] = useState<EditTimeline>();
   const documentRef = useRef(document);
   documentRef.current = document;
@@ -102,6 +111,7 @@ export function useEditorSession({
   }, []);
 
   const setClean = (disk: Disk, refreshPreview = false) => {
+    advanceStateVersion();
     documentRef.current = disk.timeline;
     setDocument(disk.timeline);
     sendPreview("document", { timeline: disk.timeline });
@@ -211,11 +221,12 @@ export function useEditorSession({
         dirtyRef.current = true;
         setDirty(true);
         setError("");
+        advanceStateVersion();
       } catch (editError) {
         setError(String(editError));
       }
     },
-    [manifest, sendPreview],
+    [advanceStateVersion, manifest, sendPreview],
   );
 
   const seek = useCallback(
@@ -227,8 +238,9 @@ export function useEditorSession({
       setFrame(value);
       frameRef.current = value;
       sendPreview("seek", { frame: value });
+      advanceStateVersion();
     },
-    [manifest.durationInFrames, sendPreview],
+    [advanceStateVersion, manifest.durationInFrames, sendPreview],
   );
 
   const save = useCallback(async () => {
@@ -347,6 +359,7 @@ export function useEditorSession({
   const state: EditorSessionSnapshot = {
     projectId: manifest.id,
     sessionId,
+    stateVersion,
     document,
     revision,
     dirty,
@@ -364,22 +377,34 @@ export function useEditorSession({
   };
   const commands: EditorSessionCommands = {
     edit,
-    selectClip: setSelectedClipId,
+    selectClip: (clipId) => {
+      setSelectedClipId(clipId);
+      advanceStateVersion();
+    },
     seek,
-    play: () => sendPreview("play"),
+    play: () => {
+      sendPreview("play");
+      advanceStateVersion();
+    },
     pause: () => {
       resumePlaybackAfterHide.current = false;
       sendPreview("pause");
+      advanceStateVersion();
     },
     undo,
     redo,
-    checkpoint,
+    checkpoint: () => {
+      checkpoint();
+      advanceStateVersion();
+    },
     save,
     reloadFromDisk,
     sendPreview,
     receivePreviewMessage,
     setError,
     setNotice,
+    getCurrentDocument: () => documentRef.current,
+    getStateVersion: () => stateVersionRef.current,
   };
   return { snapshot: state, commands };
 }

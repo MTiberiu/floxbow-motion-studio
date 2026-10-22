@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ProjectRecord } from "@motion/project-loader/schema";
-import type { WindowContext } from "../electron/window-contract.cjs";
+import type {
+  PanelWindowContext,
+  WindowContext,
+} from "../electron/window-contract.cjs";
 import {
   parseTimeline,
   toJSON,
@@ -17,6 +20,7 @@ import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
 import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
 import { MediaPanel } from "./MediaPanel";
+import { DetachedTimelineWindow } from "./DetachedTimelineWindow";
 import {
   WorkspaceManager,
   WorkspaceNavigation,
@@ -489,21 +493,6 @@ function App() {
   );
 }
 
-function PanelWindowPlaceholder({ context }: { context: WindowContext }) {
-  if (context.role !== "panel") return null;
-  const title = context.panelId === "timeline" ? "Timeline" : "Panel";
-  return (
-    <main className="panel-window-placeholder" data-panel-window={context.panelId}>
-      <span className="eyebrow">FLOXBOW PANEL WINDOW</span>
-      <h1>{title}</h1>
-      <p>This panel window is ready for the shared editor view.</p>
-      <small>
-        Project {context.projectId} · Session {context.sessionId}
-      </small>
-    </main>
-  );
-}
-
 function WindowBootstrap() {
   const api = window.floxBowWindows;
   const [context, setContext] = useState<WindowContext>();
@@ -527,7 +516,7 @@ function WindowBootstrap() {
   }, []);
 
   if (!api || context?.role === "primary") return <App />;
-  if (context?.role === "panel") return <PanelWindowPlaceholder context={context} />;
+  if (context?.role === "panel") return <DetachedTimelineWindow context={context as PanelWindowContext} />;
   if (error)
     return (
       <main className="panel-window-placeholder" role="alert">

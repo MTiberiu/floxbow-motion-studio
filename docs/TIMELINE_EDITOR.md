@@ -11,26 +11,49 @@ The two original demos now declare project-owned clips. No new animation framewo
   "version": 1,
   "fps": 30,
   "durationInFrames": 180,
-  "tracks": [{"id":"visuals","name":"Visuals"},{"id":"captions","name":"Subtitles"}],
-  "clips": [{
-    "id":"line-1","trackId":"captions","componentId":"subtitles","label":"Opening",
-    "from":0,"durationInFrames":180,
-    "content":{"text":"An idea in motion.","status":"unverified"},
-    "props":{"fontSize":68,"color":"#ffffff","x":50,"y":82,"animation":"fade"}
-  }]
+  "tracks": [
+    { "id": "visuals", "name": "Visuals" },
+    { "id": "captions", "name": "Subtitles" }
+  ],
+  "clips": [
+    {
+      "id": "line-1",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Opening",
+      "from": 0,
+      "durationInFrames": 180,
+      "content": { "text": "An idea in motion.", "status": "unverified" },
+      "props": {
+        "fontSize": 68,
+        "color": "#ffffff",
+        "x": 50,
+        "y": 82,
+        "animation": "fade"
+      }
+    }
+  ]
 }
 ```
 
 Clip start is `from`; exclusive end is `from + durationInFrames`. All timeline boundaries are integer frames. Lower tracks in the editor render on top of earlier tracks. Within a track, later entries render on top. Overlap is allowed, not automatically rippled or collision-resolved.
 
 ```tsx
-import {TimelineComposition, type EditableVideoProps} from '@motion/sdk/editor';
-import {parseEditTimeline} from '@motion/sdk/timeline';
-import {subtitleModule} from '@motion/lyrics-sync/component';
-import data from './edit-timeline.json';
+import {
+  TimelineComposition,
+  type EditableVideoProps,
+} from "@motion/sdk/editor";
+import { parseEditTimeline } from "@motion/sdk/timeline";
+import { subtitleModule } from "@motion/lyrics-sync/component";
+import data from "./edit-timeline.json";
 export const editorComponents = [subtitleModule];
-export default function Video({timeline}: EditableVideoProps) {
-  return <TimelineComposition timeline={timeline ?? parseEditTimeline(data)} components={editorComponents}/>;
+export default function Video({ timeline }: EditableVideoProps) {
+  return (
+    <TimelineComposition
+      timeline={timeline ?? parseEditTimeline(data)}
+      components={editorComponents}
+    />
+  );
 }
 ```
 
@@ -46,9 +69,18 @@ For example, a project-owned component can declare:
 
 ```tsx
 const title = {
-  id: 'my-title', name: 'Project title', component: MyTitle,
-  fields: [{key:'headline', label:'Headline', target:'content' as const,
-    type:'text' as const, default:'Hello'}]
+  id: "my-title",
+  name: "Project title",
+  component: MyTitle,
+  fields: [
+    {
+      key: "headline",
+      label: "Headline",
+      target: "content" as const,
+      type: "text" as const,
+      default: "Hello",
+    },
+  ],
 };
 // MyTitle reads clip.content.headline; export it in editorComponents.
 ```
@@ -77,6 +109,8 @@ Save project writes to the project JSON. Unsaved drafts survive switching/reload
 The Electron shell uses a fixed-height editor workspace: project browser at left, composition canvas and Inspector in the center/right, and a docked multitrack timeline at the bottom. The document does not scroll; the project browser, Inspector and timeline scroll within their own panels. Drag the panel dividers to resize the project browser, Inspector or timeline; widths and timeline height are remembered locally.
 
 Canvas Fit scales the composition to the available preview area. Zoom in/out and Ctrl+mouse-wheel change only the editor view; 100% uses composition pixel dimensions. Space+drag pans the canvas, Reset view restores Fit and Escape exits the fullscreen canvas. These controls do not alter composition props, timeline timing or render resolution. Timeline zoom has its own Fit/2×/4× control and clip dragging/trimming uses the visible scrolled time region to convert pointer motion to frames.
+
+In the Electron app, **Detach Timeline** opens the controlled Timeline in a resizable native window. The primary editor replaces its interactive timeline with an Attach placeholder and retains the Canvas/Preview, Inspector and single EditorSession. The detached view sends selection, seek, clip, subtitle and undo/redo commands to that owner; it never saves a project itself. Snapshots and full-timeline edit commands are validated and capped at 1 MiB, while window-control messages keep their 4 KiB cap. Stale commands are acknowledged as rejected and refresh from the current session. Closing or attaching the child restores the Timeline in its original bottom area. Browser mode does not provide native detachment.
 
 ## Import/export
 
