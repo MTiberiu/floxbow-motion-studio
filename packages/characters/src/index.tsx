@@ -3,6 +3,7 @@ import {AbsoluteFill,useCurrentFrame,useVideoConfig} from 'remotion';
 import {TimelineComposition,type EditableComponent} from '@motion/sdk/editor';
 import {type EditTimeline,type EditableField,type TimelineClip} from '@motion/sdk/timeline';
 import {mascotPropsSchema,speechAtFrame} from './actions';
+import {getSubtitleCues,selectSubtitleCues} from '@motion/lyrics-sync/subtitles';
 export {addMascot,removeMascot,composeMascotDance,choreographyStepSchema,mascotPropsSchema,speechAtFrame} from './actions';
 export type {MascotProps,MascotMotion,ChoreographyStep} from './actions';
 
@@ -23,6 +24,7 @@ export const mascotFields:EditableField[]=[
   {key:'y',label:'Y (%)',target:'props',type:'number',default:58,min:10,max:90,step:1},
   {key:'scale',label:'Size',target:'props',type:'number',default:1,min:0.4,max:2,step:0.05},
   {key:'speed',label:'Movement speed',target:'props',type:'number',default:1,min:0.25,max:4,step:0.25},
+  {key:'consumerId',label:'Subtitle consumer ID',target:'props',type:'text',default:''},
   {key:'speechClipId',label:'Linked subtitle clip ID',target:'props',type:'text',default:''},
   {key:'bubble',label:'Speech bubble',target:'props',type:'boolean',default:true},
 ];
@@ -33,7 +35,10 @@ export function Mascot({clip}:{clip:TimelineClip}) {
   const timeline=useContext(TimelineContext);
   const props=mascotPropsSchema.parse(clip.props);
   const absoluteFrame=clip.from+localFrame;
-  const speech=timeline&&props.speechClipId?speechAtFrame(timeline,props.speechClipId,absoluteFrame):{speaking:false,text:'',word:'',wordTimed:false};
+  const consumerCues=timeline&&props.consumerId?selectSubtitleCues(getSubtitleCues(timeline),{kind:'consumer',consumerId:props.consumerId}):[];
+  const activeCue=consumerCues.find(c=>c.presentation!=='hidden'&&(c.presentation==='bubble'||c.presentation==='both')&&absoluteFrame/timeline!.fps>=c.start&&absoluteFrame/timeline!.fps<c.end);
+  const activeWord=activeCue?.wordTimingStatus==='matches-text'?activeCue.words?.find(w=>absoluteFrame/timeline!.fps>=w.start&&absoluteFrame/timeline!.fps<w.end):undefined;
+  const speech=activeCue?{speaking:true,text:activeCue.text,word:activeWord?.text??'',wordTimed:!!activeWord}:timeline&&props.speechClipId&&!props.consumerId?speechAtFrame(timeline,props.speechClipId,absoluteFrame):{speaking:false,text:'',word:'',wordTimed:false};
   const t=localFrame/fps*props.speed;
   const progress=Math.max(0,Math.min(1,localFrame/Math.max(1,clip.durationInFrames-1)));
   const eased=props.easing==='ease-in-out'?progress*progress*(3-2*progress):progress;
