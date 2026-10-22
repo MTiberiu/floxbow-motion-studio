@@ -112,6 +112,8 @@ Canvas Fit scales the composition to the available preview area. Zoom in/out and
 
 In the Electron app, **Detach Timeline** opens the controlled Timeline in a resizable native window. The primary editor replaces its interactive timeline with an Attach placeholder and retains the Canvas/Preview, Inspector and single EditorSession. The detached view sends selection, seek, clip, subtitle and undo/redo commands to that owner; it never saves a project itself. Snapshots and full-timeline edit commands are validated and capped at 1 MiB, while window-control messages keep their 4 KiB cap. Stale commands are acknowledged as rejected and refresh from the current session. Closing or attaching the child restores the Timeline in its original bottom area. Browser mode does not provide native detachment.
 
+For physical two-display validation, follow the [multi-monitor acceptance checklist](TIMELINE_MULTI_MONITOR_CHECKLIST.md). Automated checks do not verify operating-system display movement, fullscreen behavior on hardware, or recovery after unplugging a monitor.
+
 ## Import/export
 
 - Timing JSON: `{version:1,units:"seconds",segments:[{id,start,end,content}]}`. Segment times are absolute seconds; word times are segment-relative. Appearance is excluded. Apply another style to the same data without alignment again.

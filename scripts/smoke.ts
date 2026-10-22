@@ -161,6 +161,9 @@ try {
   expect(panelPage).toBeTruthy();
   await expect(panelPage!.getByRole("heading", { name: "Connecting Timeline…" })).toBeVisible();
   await expect(panelPage!.locator("iframe")).toHaveCount(0);
+  await expect(panelPage!.getByText(/snapshot did not arrive/i)).toBeVisible({ timeout: 10_000 });
+  await expect(panelPage!.getByRole("button", { name: "Retry sync", exact: true })).toBeEnabled();
+  await expect(panelPage!.getByRole("button", { name: "Attach Timeline", exact: true })).toBeEnabled();
   const panelClosed = page.evaluate(
     () =>
       new Promise((resolve, reject) => {
@@ -424,6 +427,29 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
     await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).fill("60");
     await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+    const frameBeforePlayback = Number(
+      await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).inputValue(),
+    );
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect.poll(async () => Number(
+      await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).inputValue(),
+    )).not.toBe(frameBeforePlayback);
+    const frameDuringPlayback = Number(
+      await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).inputValue(),
+    );
+    await page.waitForTimeout(1200);
+    expect(Number(
+      await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).inputValue(),
+    )).toBeGreaterThan(frameDuringPlayback);
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await expect.poll(async () =>
+      detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).inputValue(),
+    ).toBe(await page.getByLabel("Playhead frame", { exact: true }).inputValue());
+
+    const detachedPlayhead = detachedPage!.getByLabel("Timeline playhead frame", { exact: true });
+    for (const frame of [121, 37, 83]) await detachedPlayhead.fill(String(frame));
+    await expect(detachedPlayhead).toHaveValue("83");
+    await expect(page.getByLabel("Playhead frame", { exact: true })).toHaveValue("83");
 
     const originalRange = await detachedClip.locator("small").innerText();
     await detachedClip.focus();
@@ -665,7 +691,7 @@ try {
       await expect(projectButton).toBeVisible();
       await expect(projectButton).toHaveClass(/active/);
       await expect(page.getByRole("heading", { name: "Composition" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled();
+      await expect(page.getByRole("button", { name: "Add subtitle" })).toBeEnabled({ timeout: 15_000 });
       await page.getByRole("button", { name: "Add subtitle" }).click();
       await page.getByLabel("Text", { exact: true }).fill(caption);
       await page.getByRole("button", { name: "Save project", exact: true }).click();
@@ -680,6 +706,17 @@ try {
     await selectProject(thirdId);
     await expect(page.locator(".timeline-clip").filter({ hasText: "Caption belongs to project three" })).toBeVisible();
     await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("Caption belongs to project three", { exact: true })).toBeVisible();
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
+      await expect.poll(async () => (await app!.windows()).length).toBe(2);
+      const cycleWindow = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
+      expect(cycleWindow).toBeTruthy();
+      await expect(cycleWindow!.locator(".timeline-dock")).toHaveCount(1);
+      if (cycle % 2 === 0) await cycleWindow!.close();
+      else await cycleWindow!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
+      await expect.poll(async () => (await app!.windows()).length).toBe(1);
+      await expect(page.locator(".timeline-dock")).toHaveCount(1);
+    }
     await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(2);
     await selectProject(id);

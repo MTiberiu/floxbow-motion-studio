@@ -59,11 +59,36 @@ export function DetachedTimelineWindow({
     new Map<string, (result: TimelineCommandResult) => void>(),
   );
   const snapshotWaiters = useRef(new Map<string, SnapshotWaiter>());
+  const snapshotRequestTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const sequence = useRef(context.commandSequence);
   const generation = useRef(0);
   const activeGestures = useRef(new Set<string>());
+  const active = useRef(true);
+
+  function requestSnapshot() {
+    if (snapshotRequestTimeout.current)
+      clearTimeout(snapshotRequestTimeout.current);
+    setError("Waiting for the current editor snapshot…");
+    snapshotRequestTimeout.current = setTimeout(() => {
+      snapshotRequestTimeout.current = null;
+      if (active.current)
+        setError(
+          "The editor snapshot did not arrive. Retry synchronization or attach Timeline.",
+        );
+    }, 3000);
+    void bridge.requestTimelineSnapshot().catch((requestError: unknown) => {
+      if (snapshotRequestTimeout.current)
+        clearTimeout(snapshotRequestTimeout.current);
+      snapshotRequestTimeout.current = null;
+      if (active.current)
+        setError(`Could not request the editor snapshot: ${String(requestError)}`);
+    });
+  }
 
   useEffect(() => {
+    active.current = true;
     const unsubscribeSnapshot = bridge.onTimelineSnapshot((received) => {
       if (
         !isSnapshotValue(received) ||
@@ -105,6 +130,10 @@ export function DetachedTimelineWindow({
       }
       latest.current = received;
       setSnapshot(received);
+      if (snapshotRequestTimeout.current) {
+        clearTimeout(snapshotRequestTimeout.current);
+        snapshotRequestTimeout.current = null;
+      }
       for (const [commandId, waiter] of snapshotWaiters.current) {
         const confirmsCommand =
           received.stateVersion >= waiter.acknowledgedStateVersion &&
@@ -143,15 +172,16 @@ export function DetachedTimelineWindow({
       latest.current = updated;
       setSnapshot(updated);
     });
-    void bridge
-      .requestTimelineSnapshot()
-      .catch((requestError: unknown) =>
-        setError(`Could not connect to the editor: ${String(requestError)}`),
-      );
+    requestSnapshot();
     return () => {
+      active.current = false;
       unsubscribeSnapshot();
       unsubscribeResult();
       unsubscribeFrame();
+      if (snapshotRequestTimeout.current) {
+        clearTimeout(snapshotRequestTimeout.current);
+        snapshotRequestTimeout.current = null;
+      }
       for (const resolve of pending.current.values())
         resolve({
           panelId: "timeline",
@@ -446,7 +476,7 @@ export function DetachedTimelineWindow({
         <div className="detached-timeline-actions">
           <button
             type="button"
-            onClick={() => void bridge.requestTimelineSnapshot()}
+            onClick={requestSnapshot}
           >
             Retry sync
           </button>
@@ -501,7 +531,7 @@ export function DetachedTimelineWindow({
           {error}{" "}
           <button
             type="button"
-            onClick={() => void bridge.requestTimelineSnapshot()}
+            onClick={requestSnapshot}
           >
             Retry sync
           </button>
