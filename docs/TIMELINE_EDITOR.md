@@ -126,7 +126,7 @@ For physical two-display validation, follow the [multi-monitor acceptance checkl
 - LRC: starts and text survive, including multiple timestamps for repeated lines. Since LRC has no ends, import derives ends from the next line and the last from project duration, labels the result unverified and displays a notice. Review those ends.
 - `*.timeline.json`: complete editable project data including tracks/appearance. Import requires matching manifest FPS/duration.
 
-Subtitle import replaces subtitle clips while preserving scene clips and using the existing subtitle appearance as a default. A timing import outside project duration is rejected. Use the old Lyrics sync tab to inspect/reconcile raw source timing, then export JSON and import it into the editable timeline. That source inspector does not directly modify the saved editable project.
+Subtitle import replaces subtitle clips while preserving scene clips and using the existing subtitle appearance as a default. A timing import outside project duration is rejected. In the live development editor, **Generate Subtitles** sends the selected Media Registry soundtrack to the existing local Whisper worker and imports valid recognized segments directly as unverified subtitle clips; a lyrics file is not required. Missing or out-of-range segment times are reported rather than invented or truncated. For a separate correction workflow using authoritative lyrics or another timing source, use the Lyrics Sync workbench to inspect/reconcile evidence, then export JSON and import it into the editable Timeline. The workbench does not itself write the editor's saved Timeline. Local transcription is unavailable in the built snapshot.
 
 ## Deliberate limits
 
