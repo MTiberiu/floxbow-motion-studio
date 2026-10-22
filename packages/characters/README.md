@@ -24,3 +24,6 @@ A mascot clip optionally declares `startX`, `endX`, `startY`, `endY` (percent of
 
 ## Shared subtitle API consumer
 When `consumerId` is provided, the mascot selects cues through `getSubtitleCues(timeline)` and `selectSubtitleCues(cues,{kind:'consumer',consumerId})` from `@motion/lyrics-sync/subtitles`. Its bubble draws only `presentation: 'bubble'|'both'` cues; `hidden` cues may be selected but are not displayed. It respects word timing only when `wordTimingStatus` is `matches-text`. When no `consumerId` is provided, the older `speechClipId` link remains a compatibility fallback. The project must provide the same live timeline to the composition. The generic editor does not yet offer consumer assignment via right-click.
+
+## Clip transition experiment
+`sampleMascotPose` (internal) now applies an eight-frame-or-shorter easing envelope to procedural arm, leg, head tilt and vertical jump/bounce motion at both ends of a clip. This allows adjacent walk/jump/dance/wave clips to meet with a neutral pose while X/Y endpoints stay continuous via the existing path properties. This is not full skeletal crossfading; spinning orientation and overall rhythm are still experimental. The sample demo's JSON animation remains unchanged.
