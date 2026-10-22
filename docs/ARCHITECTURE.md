@@ -10,7 +10,7 @@ Build uses a generated entry per project under `.studio/build/`, followed by ind
 
 The Remotion renderer CLI creates a temporary registerRoot entry, bundles only one project with Remotion's supported bundler, selects its composition and renders H.264 in headless Chrome. Rendering is never performed in the Electron renderer. The optional Python Whisper process similarly runs outside the UI. FFmpeg used by Remotion is managed by Remotion; the local Python worker needs FFmpeg on PATH.
 
-Projects may also contain an optional `media.json` linked-media registry. Its public schema and Node resolver are exported from `@motion/project-loader/media`; the development shell mediates MP3/WAV selection through a native picker and returns only asset names and availability to the UI. The resolver's local file path must remain in a Node host process. This initial registry does not connect audio to preview, rendering, timeline clips, or Whisper. See [Project Media Registry](PROJECT_MEDIA.md).
+Projects may also contain an optional `media.json` linked-media registry. Its public schema and Node resolver are exported from `@motion/project-loader/media`; the development shell mediates MP3/WAV selection through a native picker and returns only asset names and availability to the UI. The resolver's local file path must remain in a Node host process. A selected soundtrack is represented as a Timeline v1 Audio-track clip and is streamed into the Remotion preview and MP4 renderer by stable media ID. Whisper integration, media collection and multiple-track mixing are not implemented. See [Project Media Registry](PROJECT_MEDIA.md).
 
 ## Security model
 

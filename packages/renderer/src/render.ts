@@ -6,7 +6,60 @@ import {
 } from "@remotion/renderer";
 import { mkdir, writeFile, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
+import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { discover, projectId } from "@motion/project-loader";
+import { safeFile } from "@motion/project-loader";
+import { editTimelineSchema } from "@motion/sdk/timeline";
+import { readMediaRegistry } from "../../../scripts/media-store";
+import { streamRegisteredAudio } from "../../../scripts/media-stream";
+import { resolveMedia } from "@motion/project-loader/media";
+import { probeAudioDuration } from "../../../scripts/audio-probe";
+
+async function startRenderAudioServer(projectRoot: string, assetIds: string[]) {
+  if (!assetIds.length)
+    return { sources: {} as Record<string, string>, close: async () => {} };
+  const allowed = new Set(assetIds);
+  const token = randomUUID();
+  const server = createServer((request, response) => {
+    const match = new URL(
+      request.url ?? "/",
+      "http://127.0.0.1",
+    ).pathname.match(/^\/([a-f0-9-]+)\/([a-z0-9-]+)$/);
+    if (!match || match[1] !== token || !allowed.has(match[2])) {
+      response.writeHead(404).end();
+      return;
+    }
+    void streamRegisteredAudio(
+      projectRoot,
+      match[2],
+      request.headers.range,
+      response,
+    ).catch((error) => {
+      if (!response.headersSent) response.writeHead(500);
+      response.end(
+        error instanceof Error ? error.message : "Audio source failed.",
+      );
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string")
+    throw new Error("Could not start the local render audio source.");
+  const sources = Object.fromEntries(
+    assetIds.map((assetId) => [
+      assetId,
+      "http://127.0.0.1:" + address.port + "/" + token + "/" + assetId,
+    ]),
+  );
+  return {
+    sources,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
 export async function renderProject(root: string, id: string, still = false) {
   projectId.parse(id);
   const p = (await discover(path.join(root, "projects"))).find(
@@ -14,15 +67,95 @@ export async function renderProject(root: string, id: string, still = false) {
   );
   if (!p?.manifest) throw new Error(p?.error ?? "Unknown project");
   const m = p.manifest;
+  let timeline: ReturnType<typeof editTimelineSchema.parse> | undefined;
+  if (m.editTimeline) {
+    const timelineFile = await safeFile(
+      path.join(root, "projects", id),
+      m.editTimeline,
+    );
+    const { readFile } = await import("node:fs/promises");
+    timeline = editTimelineSchema.parse(
+      JSON.parse(await readFile(timelineFile, "utf8")),
+    );
+    if (
+      timeline.fps !== m.fps ||
+      timeline.durationInFrames !== m.durationInFrames
+    )
+      throw new Error(
+        "The saved editable Timeline duration does not match project.json. Save the project in FloxBow before rendering.",
+      );
+  }
+  const soundtrackIds = [
+    ...new Set(
+      (timeline?.clips ?? [])
+        .filter((clip) => clip.componentId === "soundtrack")
+        .map((clip) => {
+          const assetId = clip.content.assetId;
+          if (
+            typeof assetId !== "string" ||
+            !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(assetId)
+          )
+            throw new Error(
+              "The soundtrack Timeline clip has an invalid media ID.",
+            );
+          return assetId;
+        }),
+    ),
+  ];
+  if (soundtrackIds.length) {
+    const registry = await readMediaRegistry(path.join(root, "projects", id));
+    for (const assetId of soundtrackIds) {
+      const media = await resolveMedia(
+        path.join(root, "projects", id),
+        registry.registry,
+        assetId,
+      );
+      if (media.status !== "ready") {
+        throw new Error(
+          media.status === "missing"
+            ? "The soundtrack audio file is missing. Relink it in Project Media before rendering."
+            : media.message,
+        );
+      }
+      const durationInSeconds = await probeAudioDuration(media.path);
+      const clips = timeline!.clips.filter(
+        (clip) =>
+          clip.componentId === "soundtrack" && clip.content.assetId === assetId,
+      );
+      if (
+        clips.some(
+          (clip) =>
+            clip.durationInFrames + 1 < durationInSeconds * timeline!.fps,
+        )
+      ) {
+        throw new Error(
+          "The soundtrack Timeline clip is shorter than its audio. Reselect the soundtrack before rendering.",
+        );
+      }
+    }
+  }
   await mkdir(path.join(root, ".studio"), { recursive: true });
   const job = await mkdtemp(path.join(root, ".studio/render-"));
-  await mkdir(path.join(root, "out"), { recursive: true });
+  let audioServer:
+    Awaited<ReturnType<typeof startRenderAudioServer>> | undefined;
   try {
-    const entry = path.join(job, "entry.tsx");
-    await writeFile(
-      entry,
-      `import React from 'react';import {registerRoot,Composition} from 'remotion';import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};registerRoot(()=> <Composition id="Video" component={Video} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
+    await mkdir(path.join(root, "out"), { recursive: true });
+    audioServer = await startRenderAudioServer(
+      path.join(root, "projects", id),
+      soundtrackIds,
     );
+    const entry = path.join(job, "entry.tsx");
+    const entrySource = [
+      "import React from 'react';",
+      "import {registerRoot,Composition} from 'remotion';",
+      "import {TimelineSoundtrackAudio} from '@motion/sdk/editor';",
+      `import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};`,
+      `const audioSources=${JSON.stringify(audioServer.sources)};`,
+      `const timeline=${JSON.stringify(timeline)};`,
+      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
+      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
+    ].join("\n");
+    await writeFile(entry, entrySource);
     const serveUrl = await bundle({
       entryPoint: entry,
       rootDir: root,
@@ -50,6 +183,7 @@ export async function renderProject(root: string, id: string, still = false) {
       });
     return output;
   } finally {
+    await audioServer?.close();
     await rm(job, { recursive: true, force: true });
   }
 }

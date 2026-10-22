@@ -57,7 +57,11 @@ export default function Video({ timeline }: EditableVideoProps) {
 }
 ```
 
-The optional `timeline` prop carries live editor state. The imported JSON is the saved default used by standalone preview and rendering. **Do not ignore this prop or maintain a second hard-coded timeline.** Saving writes only the manifest's project JSON file. Render after saving to use those edits. Existing code-only projects still play but do not acquire editable elements automatically.
+The optional `timeline` prop carries live editor state. The imported JSON is the saved default used by standalone preview and rendering. **Do not ignore this prop or maintain a second hard-coded timeline.** Saving writes the editable timeline and, when its duration grows, updates `project.json` in the same save operation. Render after saving to use those edits. Existing code-only projects still play but do not acquire editable elements automatically.
+
+## Soundtrack clips
+
+The linked-audio workflow adds an app-owned clip with `componentId: "soundtrack"`, `content.assetId` set to a stable ID from `media.json`, `from: 0`, and a duration that covers the selected file. It is visible on a separate Audio track and uses the same frame ruler and playhead as captions. The live editor and MP4 renderer resolve and play the clip through the Remotion transport; the clip contains no host filesystem path. `TimelineComposition` skips soundtrack clips when drawing visual elements; the player and renderer add `TimelineSoundtrackAudio` around the same composition. Projects keep using Timeline v1 and do not need a new audio document. The current workflow supports one soundtrack clip at frame zero, without mixing or audio effects. See [Project Media Registry](PROJECT_MEDIA.md).
 
 ## Declared properties, not editor-specific controls
 

@@ -146,7 +146,14 @@ export function useEditorSession({
         const response = await fetch(`/api/edit/${manifest.id}`);
         if (!response.ok) throw new Error(await response.text());
         const disk: Disk = await response.json();
-        disk.timeline = parseEditTimeline(disk.timeline, manifest);
+        disk.timeline = parseEditTimeline(disk.timeline);
+        if (
+          disk.timeline.fps !== manifest.fps ||
+          disk.timeline.durationInFrames < manifest.durationInFrames
+        )
+          throw new Error(
+            "Timeline FPS or duration does not match project.json.",
+          );
         if (!alive) return;
         if (initial) {
           loadedTimeline.current = true;
@@ -154,7 +161,14 @@ export function useEditorSession({
           if (raw) {
             try {
               const draft = JSON.parse(raw);
-              const restored = parseEditTimeline(draft.timeline, manifest);
+              const restored = parseEditTimeline(draft.timeline);
+              if (
+                restored.fps !== manifest.fps ||
+                restored.durationInFrames < manifest.durationInFrames
+              )
+                throw new Error(
+                  "Draft timeline no longer matches project settings.",
+                );
               documentRef.current = restored;
               setDocument(restored);
               revisionRef.current = draft.revision;
@@ -187,7 +201,7 @@ export function useEditorSession({
       alive = false;
       clearInterval(timer);
     };
-  }, [active, manifest.id, manifest.editTimeline]);
+  }, [active, manifest.id, manifest.editTimeline, manifest.durationInFrames]);
 
   useEffect(() => {
     if (!document || !dirty) return;
@@ -206,7 +220,14 @@ export function useEditorSession({
   const edit = useCallback(
     (next: EditTimeline, checkpoint = true) => {
       try {
-        parseEditTimeline(next, manifest);
+        const parsed = parseEditTimeline(next);
+        if (
+          parsed.fps !== manifest.fps ||
+          parsed.durationInFrames < manifest.durationInFrames
+        )
+          throw new Error(
+            "Timeline FPS or duration does not match project.json.",
+          );
         if (checkpoint && documentRef.current) {
           const previousDocument = documentRef.current;
           setUndoStack((history) => [
@@ -231,9 +252,11 @@ export function useEditorSession({
 
   const seek = useCallback(
     (requestedFrame: number) => {
+      const duration =
+        documentRef.current?.durationInFrames ?? manifest.durationInFrames;
       const value = Math.max(
         0,
-        Math.min(manifest.durationInFrames - 1, Math.round(requestedFrame)),
+        Math.min(duration - 1, Math.round(requestedFrame)),
       );
       setFrame(value);
       frameRef.current = value;
@@ -343,7 +366,8 @@ export function useEditorSession({
         event.data.type === "frame" &&
         Number.isInteger(event.data.frame) &&
         event.data.frame >= 0 &&
-        event.data.frame < manifest.durationInFrames
+        event.data.frame <
+          (documentRef.current?.durationInFrames ?? manifest.durationInFrames)
       ) {
         setFrame(event.data.frame);
         frameRef.current = event.data.frame;

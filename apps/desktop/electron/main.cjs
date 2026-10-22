@@ -7,6 +7,9 @@ if (!url || !/^http:\/\/127\.0\.0\.1:\d+\/$/.test(url))
   throw new Error("Launch through npm run dev or npm start");
 
 app.commandLine.appendSwitch("site-per-process");
+// Play starts in the trusted shell and reaches the sandboxed preview by IPC;
+// Chromium otherwise treats that cross-origin preview call as autoplay.
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app
   .whenReady()
   .then(() => {

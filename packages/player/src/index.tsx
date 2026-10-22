@@ -1,6 +1,9 @@
 import { Component, type ComponentType, type ReactNode, type Ref } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
-import type {EditableVideoProps} from '@motion/sdk/editor';
+import {
+  TimelineSoundtrackAudio,
+  type EditableVideoProps,
+} from "@motion/sdk/editor";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 class Boundary extends Component<
   { children: ReactNode },
@@ -18,6 +21,40 @@ class Boundary extends Component<
     );
   }
 }
+function AudioAwareComposition({
+  composition,
+  audioSources,
+  timeline,
+  projectId,
+  ...props
+}: EditableVideoProps & {
+  composition: ComponentType<EditableVideoProps>;
+  projectId: string;
+}) {
+  const Video = composition;
+  const sourceMap = Object.fromEntries(
+    (timeline?.clips ?? [])
+      .filter(
+        (clip) =>
+          clip.componentId === "soundtrack" &&
+          typeof clip.content.assetId === "string",
+      )
+      .map((clip) => {
+        const assetId = String(clip.content.assetId);
+        return [
+          assetId,
+          audioSources?.[assetId] ??
+            `${location.origin}/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/stream`,
+        ];
+      }),
+  );
+  return (
+    <>
+      <Video {...props} timeline={timeline} audioSources={sourceMap} />
+      <TimelineSoundtrackAudio timeline={timeline} audioSources={sourceMap} />
+    </>
+  );
+}
 export function StudioPlayer({
   composition,
   manifest,
@@ -26,15 +63,19 @@ export function StudioPlayer({
 }: {
   composition: ComponentType<EditableVideoProps>;
   manifest: ProjectManifest;
-  playerRef?:Ref<PlayerRef>;
-  inputProps?:EditableVideoProps;
+  playerRef?: Ref<PlayerRef>;
+  inputProps?: EditableVideoProps;
 }) {
   return (
     <Boundary>
       <Player
         ref={playerRef}
-        inputProps={inputProps??{}}
-        component={composition}
+        inputProps={{
+          ...(inputProps ?? {}),
+          composition,
+          projectId: manifest.id,
+        }}
+        component={AudioAwareComposition}
         initialFrame={Math.min(manifest.fps * 2, manifest.durationInFrames - 1)}
         durationInFrames={manifest.durationInFrames}
         compositionWidth={manifest.width}

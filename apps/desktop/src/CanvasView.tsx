@@ -221,7 +221,7 @@ export function CanvasView({
             src={
               built
                 ? `${previewOrigin}/${manifest.id}/index.html`
-                : `${previewOrigin}/preview.html?project=${encodeURIComponent(manifest.id)}`
+                : `${previewOrigin}/preview.html?project=${encodeURIComponent(manifest.id)}&hostOrigin=${encodeURIComponent(window.location.origin)}`
             }
           />
           <div

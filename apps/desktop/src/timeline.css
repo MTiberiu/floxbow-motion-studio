@@ -438,6 +438,10 @@
   background: #3b4930;
   border-color: #758e54;
 }
+.timeline-clip.audio-clip {
+  background: #594a82;
+  border-color: #9b83dc;
+}
 .timeline-clip.is-selected {
   outline: 2px solid #d3efa9;
   outline-offset: 0;

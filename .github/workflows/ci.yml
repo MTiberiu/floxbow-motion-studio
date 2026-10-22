@@ -20,8 +20,11 @@ jobs:
         with:
           node-version: 22.16.0
           cache: npm
+      - run: choco install ffmpeg --no-progress --yes
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
       - run: npm run validate
       - run: npm run build
+      - run: npm run test:smoke
+      - run: npm run test:built

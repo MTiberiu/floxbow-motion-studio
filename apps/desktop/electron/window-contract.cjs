@@ -289,7 +289,7 @@ function isTimelineCommand(value) {
       command.frame >= 0 &&
       command.frame <= 216000
     );
-  if (["pause", "undo", "redo"].includes(command.type))
+  if (["play", "pause", "undo", "redo"].includes(command.type))
     return hasExactKeys(command, ["type"]);
   if (command.type === "editTimeline")
     return (
