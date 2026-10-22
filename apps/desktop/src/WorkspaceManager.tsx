@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { DockablePanel } from "./DockablePanel";
 import "./workspace.css";
 
@@ -11,6 +17,11 @@ export type PanelRegistration = {
   preferredSize: PanelSize;
   overflow: "panel-scroll" | "content-managed";
 };
+export type DetachedTimelineIdentity = Readonly<{
+  projectId: string;
+  sessionId: string;
+  instanceId: string;
+}>;
 
 export const PANEL_REGISTRY: readonly PanelRegistration[] = [
   {
@@ -49,6 +60,9 @@ type WorkspaceContextValue = {
   openedPanelIds: ReadonlySet<PanelId>;
   activatePanel: (id: PanelId) => void;
   hidePanel: (id: PanelId) => void;
+  detachedTimeline: DetachedTimelineIdentity | null;
+  setDetachedTimeline: (identity: DetachedTimelineIdentity) => void;
+  clearDetachedTimeline: (instanceId: string) => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -68,6 +82,22 @@ export function WorkspaceManager({ children }: { children: ReactNode }) {
   const [openedPanelIds, setOpenedPanelIds] = useState<ReadonlySet<PanelId>>(
     () => new Set(["editor"]),
   );
+  const [detachedTimeline, setDetachedTimelineState] =
+    useState<DetachedTimelineIdentity | null>(null);
+
+  useEffect(() => {
+    const bridge = window.floxBowWindows;
+    if (!bridge) return;
+    return bridge.onPanelClosed((event) => {
+      setDetachedTimelineState((current) =>
+        current?.instanceId === event.instanceId &&
+        current.projectId === event.projectId &&
+        current.sessionId === event.sessionId
+          ? null
+          : current,
+      );
+    });
+  }, []);
 
   function activatePanel(id: PanelId) {
     setHiddenPanelIds((current) => {
@@ -103,6 +133,12 @@ export function WorkspaceManager({ children }: { children: ReactNode }) {
         openedPanelIds,
         activatePanel,
         hidePanel,
+        detachedTimeline,
+        setDetachedTimeline: setDetachedTimelineState,
+        clearDetachedTimeline: (instanceId) =>
+          setDetachedTimelineState((current) =>
+            current?.instanceId === instanceId ? null : current,
+          ),
       }}
     >
       {children}

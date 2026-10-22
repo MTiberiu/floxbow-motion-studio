@@ -14,12 +14,14 @@ Projects may also contain an optional `media.json` linked-media registry. Its pu
 
 ## Security model
 
-- Electron: sandbox, context isolation and webSecurity enabled; Node disabled; no preload or IPC API. No remote navigation, popups or webviews; permissions denied.
+- Electron: sandbox, context isolation and webSecurity enabled; Node disabled. The small sandboxed preload exposes only typed window lifecycle and Timeline transport methods. Main validates sender window/role, fixed local route, project/session/window IDs, command sequence and exact payload shapes. Control messages remain capped at 4 KiB; validated Timeline snapshots and full-document edit commands have a separate 1 MiB cap. No raw ipcRenderer, filesystem access or generic command API is exposed. No remote navigation, popups or webviews; permissions denied.
 - Project frame: separate origin, `sandbox="allow-scripts allow-same-origin"`, no top navigation, popup or download grants. Same-origin is needed for Vite modules, but the preview has a different port from the shell, so it cannot remove its parent sandbox or read shell state.
 - CSP: only local origin scripts/media, inline styles, local HMR websocket. No external fetch, object embedding or nested frames. No remote fonts.
 - Node: loopback-only HTTP listeners; project paths validated; no generic filesystem or command endpoint. Media registration accepts only a revision from the exact shell origin, gets a source path from a native picker, and returns no path to browser code.
 - Important limits: loopback ports are not authentication. Vite exposes development source inside its allowed workspace. Project imports are not confined to their own folder by an OS policy. Infinite loops, resource exhaustion, browser exploits and malicious build-time imports are outside this boundary. Inspect external code; use a disposable OS account/container for hostile content. Production packaging, per-project worker processes and stronger resource isolation remain future work.
 
 The file-system separation is an agent contract, not an adversarial sandbox. Tests cover ordinary compile/runtime exceptions, not arbitrary denial of service.
+
+Electron allows one native child window for the registered Timeline panel. In desktop mode, Detach Timeline opens the controlled `TimelineView` in that fixed route; the primary editor replaces its Timeline with an Attach placeholder and keeps Canvas/Preview, Inspector, the sole `EditorSession`, and the sole preview iframe. Versioned snapshots flow from the primary renderer to the child; allow-listed, acknowledged commands return to the primary session. The main process validates and relays bounded messages but owns no project document or save path. Attach, native close, project changes, stale-command rejection, and recoverable sync errors return control to the primary editor. The browser-only workspace has no native detachment.
 
 See [Module APIs and Integration Blueprint](MODULE_INTEGRATION_BLUEPRINT.md) for current public entry points, cross-module connection contracts, and the smallest recommended steps toward independently extensible capabilities.

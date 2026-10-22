@@ -51,6 +51,46 @@ import {
 - `subtitleClips(data, timeline, trackId, props?)` converts seconds-based timing JSON into frame clips, rejecting out-of-project ranges.
 - `exportSubtitles(timeline)` exports subtitle semantics and timing without visual props.
 
+## Reusable subtitle cues
+
+The cue API derives read-only data from the project's authoritative `EditTimeline`. It has no React, Electron, EditorSession, persistence, or registry dependency.
+
+```ts
+import {
+  getSubtitleCues,
+  selectSubtitleCues,
+  type SubtitleCue,
+  type SubtitleCueSelection,
+} from "@motion/lyrics-sync/subtitles";
+import type { EditTimeline } from "@motion/sdk/timeline";
+
+const cues = getSubtitleCues(timeline);
+const heroCues = selectSubtitleCues(cues, {
+  kind: "consumer",
+  consumerId: "hero-01",
+});
+```
+
+Public types are `SubtitlePresentation` (`caption | bubble | both | hidden`), `SubtitleConsumerId`, `SubtitleCueWord`, `SubtitleCue`, and `SubtitleCueSelection`. A cue contains the source clip `id`, text, absolute segment `start`/exclusive `end` in seconds, review `status`, optional `speakerId`, resolved `presentation`, optional `consumerIds`, optional absolute word times, and `wordTimingStatus` (`absent | matches-text | text-mismatch`). Cues are returned chronologically; overlaps and repeated segments stay independent.
+
+`getSubtitleCues(timeline: EditTimeline)` includes every subtitle clip, including hidden cues. `selectSubtitleCues(cues, {kind: "caption"})` returns only `caption` and `both` cues. `selectSubtitleCues(cues, {kind: "consumer", consumerId})` applies supplemental routing and returns all presentation modes, including hidden cues for nonvisual animation. Consumer code must honor `presentation` before drawing text.
+
+The routing fields have separate meanings:
+
+| Field | Meaning |
+| --- | --- |
+| `speakerId` | Stable project-local identity of who is speaking; it does not select recipients. |
+| `presentation` | Which visual text modes are permitted. The built-in renderer draws `caption` and `both`; bubble consumers may draw `bubble` and `both`; `hidden` permits no visual text. |
+| `consumerIds` | Supplemental consumer instance allow-list. Omitted means broadcast to any consumer selecting cues; `[]` routes to none; a populated list routes only to matching IDs. |
+
+Explicit `consumerIds` never suppress ordinary caption delivery. Caption selection depends only on `presentation`. For example, `presentation: "both", consumerIds: []` still renders a caption and routes to no supplemental consumers. A `hidden` cue can still be selected by a routed consumer for nonvisual animation, but this API cannot enforce that consumer's rendering behavior.
+
+Consumer IDs are stable, project-local instance IDs, not module type names. Two instances of one module can use IDs such as `hero-01` and `hero-02`. IDs must match `[A-Za-z0-9_-]+`, be at most 100 characters, and be unique within a cue. A cue supports at most 32 consumer IDs. IDs are not checked against a registry; unknown or unavailable IDs are preserved and simply do not match a different consumer's selection. Invalid IDs, duplicate IDs, or excess assignments fail subtitle validation.
+
+For legacy content without `presentation`, cues resolve to `caption`. Missing `consumerIds` resolves to broadcast. Word times are converted from clip-relative offsets to absolute project seconds by adding the clip's absolute start. Trimming may leave a word outside the visible segment range; the API preserves that timing and never clamps or fabricates it. `matches-text` means the stored word labels correspond to visible text, not that synchronization was independently verified. `text-mismatch` preserves the intervals as evidence but tells consumers not to use them for word-synchronized behavior. Malformed word intervals fail schema validation; absent timing is reported as `absent`.
+
+JSON timing import/export preserves speaker, presentation and routing fields. SRT and LRC do not encode these fields and retain their existing metadata-loss limitations. Timeline v1 and project persistence are unchanged.
+
 ## Timing interchange
 
 `SubtitleTiming` has `version: 1`, `units: "seconds"` and ordered `segments`. Segment `start`/`end` are absolute seconds; optional word `start`/`end` values are relative to the segment. Import/export functions are `importSubtitles(text, format, durationSeconds)`, `subtitlesToSRT(data)` and `subtitlesToLRC(data)`. JSON preserves IDs, sections, repeats and word intervals. SRT preserves segment boundaries and text. LRC preserves starts and text; its ends are inferred on import.
@@ -59,6 +99,8 @@ Repeated choruses are separate segments with their own IDs and times. `content.r
 
 ## Rendering and dependencies
 
-`Subtitles` renders in Remotion's frame context; `subtitleModule.component` is registered by the project composition and is shared by preview and renderer. Runtime dependencies are React, Remotion, `@motion/sdk/timeline`, and the lyric timing package. Subtitle text is white by default with a subtle shadow; the component stays transparent so it can overlay video. A containing composition can use a black background for the simple white-on-black starter appearance.
+`Subtitles` renders in Remotion's frame context; `subtitleModule.component` is registered by the project composition and is shared by preview and renderer. It draws text for `caption` and `both`, and returns no text for `bubble` or `hidden`. Runtime dependencies are React, Remotion, `@motion/sdk/timeline`, and the lyric timing package. Subtitle text is white by default with a subtle shadow; the component stays transparent so it can overlay video. A containing composition can use a black background for the simple white-on-black starter appearance.
 
 There is no transcription or forced alignment here. A word-count-changing text correction retains old timing as evidence and pauses karaoke highlighting until matching intervals are supplied. SRT/LRC cannot carry all JSON metadata. Import and export are explicit editor actions.
+
+The cue API does not provide a consumer registry, assignment UI, speaker directory, speech-bubble renderer, character animation, lip-sync, confidence scoring, or synchronization verification. Projects or AI agents can author `speakerId` and `consumerIds` in subtitle semantic content; an editor assignment menu is future work.

@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { ProjectRecord } from "@motion/project-loader/schema";
+import type {
+  PanelWindowContext,
+  WindowContext,
+} from "../electron/window-contract.cjs";
 import {
   parseTimeline,
   toJSON,
@@ -16,6 +20,7 @@ import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
 import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
 import { MediaPanel } from "./MediaPanel";
+import { DetachedTimelineWindow } from "./DetachedTimelineWindow";
 import {
   WorkspaceManager,
   WorkspaceNavigation,
@@ -488,4 +493,38 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+function WindowBootstrap() {
+  const api = window.floxBowWindows;
+  const [context, setContext] = useState<WindowContext>();
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const bridge = window.floxBowWindows;
+    if (!bridge) return;
+    let active = true;
+    bridge
+      .getContext()
+      .then((next) => {
+        if (active) setContext(next);
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(String(reason));
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!api || context?.role === "primary") return <App />;
+  if (context?.role === "panel") return <DetachedTimelineWindow context={context as PanelWindowContext} />;
+  if (error)
+    return (
+      <main className="panel-window-placeholder" role="alert">
+        <h1>Window could not be verified</h1>
+        <p>{error}</p>
+      </main>
+    );
+  return <main className="panel-window-placeholder" aria-busy="true">Starting…</main>;
+}
+
+createRoot(document.getElementById("root")!).render(<WindowBootstrap />);

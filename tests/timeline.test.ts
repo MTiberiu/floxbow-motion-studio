@@ -11,6 +11,7 @@ import {
 import { serializableComponentInfo } from "@motion/sdk/editor";
 import {
   exportSubtitles,
+  getSubtitleCues,
   correctSubtitleText,
   createSubtitleClip,
   importSubtitles,
@@ -18,13 +19,14 @@ import {
   subtitleClips,
   subtitleWordTimingMatchesText,
   subtitleTimelineBehavior,
+  selectSubtitleCues,
   subtitlesToSRT,
   subtitlesToLRC,
 } from "@motion/lyrics-sync/subtitles";
 import { manifestSchema } from "@motion/project-loader/schema";
 import { readEditor, saveEditor } from "../scripts/editor-store";
 import { resolveTimelineBehavior } from "../apps/desktop/src/timeline-behaviors";
-import { subtitleModule } from "@motion/lyrics-sync/component";
+import { subtitleModule, Subtitles } from "@motion/lyrics-sync/component";
 
 function timeline() {
   return parseEditTimeline({
@@ -189,6 +191,150 @@ test("subtitle text corrections preserve stable segment and word timing", () => 
   );
   assert.equal(correctedClip.from, source.from);
   assert.equal(correctedClip.durationInFrames, source.durationInFrames);
+});
+
+test("subtitle cues separate speaker, visual presentation and consumer routing", () => {
+  const t = timeline();
+  t.clips[0].from = 30;
+  t.clips[0].content = {
+    ...t.clips[0].content,
+    speakerId: "speaker-a",
+    presentation: "both",
+    consumerIds: ["character-01", "character-02"],
+  };
+  t.clips[1].content = {
+    ...t.clips[1].content,
+    presentation: "hidden",
+    speakerId: "speaker-b",
+  };
+  t.clips.push(
+    createSubtitleClip({
+      id: "caption-no-consumer",
+      trackId: "captions",
+      from: 300,
+      durationInFrames: 60,
+      content: {
+        text: "Caption only",
+        status: "unverified",
+        presentation: "caption",
+        consumerIds: [],
+      },
+    }),
+  );
+
+  const cues = getSubtitleCues(t);
+  assert.deepEqual(cues.map((cue) => cue.id), [
+    "lyric-1",
+    "lyric-2",
+    "caption-no-consumer",
+  ]);
+  assert.equal(cues[0].start, 1);
+  assert.equal(cues[0].end, 7);
+  assert.equal(cues[0].speakerId, "speaker-a");
+  assert.deepEqual(cues[0].consumerIds, ["character-01", "character-02"]);
+  assert.equal(cues[0].presentation, "both");
+  assert.equal(cues[0].words?.[0].start, 1.5);
+  assert.equal(cues[0].words?.[0].end, 2);
+  assert.equal(cues[0].wordTimingStatus, "matches-text");
+  assert.equal(cues[1].presentation, "hidden");
+  assert.equal(cues[1].consumerIds, undefined);
+  assert.equal(cues[2].wordTimingStatus, "absent");
+
+  assert.deepEqual(
+    selectSubtitleCues(cues, { kind: "caption" }).map((cue) => cue.id),
+    ["lyric-1", "caption-no-consumer"],
+    "caption permission is independent of consumer routing",
+  );
+  for (const consumerId of ["character-01", "character-02"]) {
+    assert.deepEqual(
+      selectSubtitleCues(cues, { kind: "consumer", consumerId }).map(
+        (cue) => cue.id,
+      ),
+      ["lyric-1", "lyric-2"],
+      "omitted routing broadcasts and hidden cues remain available",
+    );
+  }
+  assert.deepEqual(
+    selectSubtitleCues(cues, {
+      kind: "consumer",
+      consumerId: "unavailable-consumer",
+    }).map((cue) => cue.id),
+    ["lyric-2"],
+  );
+  const legacyTimeline = timeline();
+  const legacyCue = getSubtitleCues({
+    ...legacyTimeline,
+    clips: [legacyTimeline.clips[0]],
+  })[0];
+  assert.equal(legacyCue.presentation, "caption");
+  assert.equal(legacyCue.consumerIds, undefined);
+  assert.deepEqual(
+    selectSubtitleCues([legacyCue], {
+      kind: "consumer",
+      consumerId: "new-consumer",
+    }),
+    [legacyCue],
+    "legacy cues keep caption rendering and default consumer broadcast",
+  );
+
+  const mismatch = getSubtitleCues({
+    ...t,
+    clips: [
+      {
+        ...t.clips[0],
+        content: { ...t.clips[0].content, text: "Corrected words" },
+      },
+    ],
+  });
+  assert.equal(mismatch[0].wordTimingStatus, "text-mismatch");
+  assert.equal(mismatch[0].words?.length, 3, "mismatched intervals remain available as evidence");
+});
+
+test("subtitle routing IDs validate and unknown assignments survive JSON interchange", () => {
+  const t = timeline();
+  t.clips[0].content = {
+    ...t.clips[0].content,
+    speakerId: "speaker-a",
+    presentation: "bubble",
+    consumerIds: ["future-character-01", "temporarily-offline-02"],
+  };
+  const imported = importSubtitles(JSON.stringify(exportSubtitles(t)), "json", 12);
+  assert.equal(imported.segments[0].content.speakerId, "speaker-a");
+  assert.equal(imported.segments[0].content.presentation, "bubble");
+  assert.deepEqual(imported.segments[0].content.consumerIds, [
+    "future-character-01",
+    "temporarily-offline-02",
+  ]);
+  assert.throws(() =>
+    subtitleContentSchema.parse({ text: "x", speakerId: "not a stable id" }),
+  );
+  assert.throws(() =>
+    subtitleContentSchema.parse({
+      text: "x",
+      consumerIds: ["same-instance", "same-instance"],
+    }),
+  );
+  assert.throws(() =>
+    subtitleContentSchema.parse({
+      text: "x",
+      consumerIds: Array.from({ length: 33 }, (_, index) => `character-${index}`),
+    }),
+  );
+  assert.throws(() =>
+    selectSubtitleCues([], { kind: "consumer", consumerId: "invalid id" }),
+  );
+});
+
+test("subtitle renderer keeps legacy captions and suppresses bubble or hidden text", () => {
+  const clip = timeline().clips[0];
+  const withPresentation = (presentation: "bubble" | "hidden" | "both") => ({
+    ...clip,
+    content: { ...clip.content, presentation },
+  });
+  assert.notEqual(Subtitles({ clip }), null, "legacy content keeps caption rendering");
+  assert.notEqual(Subtitles({ clip: withPresentation("both") }), null);
+  assert.equal(Subtitles({ clip: withPresentation("bubble") }), null);
+  assert.equal(Subtitles({ clip: withPresentation("hidden") }), null);
 });
 
 test("subtitle constructors and content parsing reject invalid clip data", () => {
