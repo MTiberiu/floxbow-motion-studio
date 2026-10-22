@@ -29,8 +29,9 @@
         "y": 55,
         "scale": 1.2,
         "speed": 1.3,
-        "speechClipId": "hello",
-        "bubble": true
+        "speechClipId": "",
+        "bubble": true,
+        "consumerId": "bloop"
       }
     },
     {
@@ -74,7 +75,12 @@
             "start": 1.9,
             "end": 2.8
           }
-        ]
+        ],
+        "consumerIds": [
+          "bloop"
+        ],
+        "speakerId": "bloop",
+        "presentation": "both"
       },
       "props": {
         "x": 50,
@@ -82,6 +88,27 @@
         "fontSize": 45,
         "color": "#ffffff",
         "karaoke": true
+      }
+    },
+    {
+      "id": "video-intro",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Video-only subtitle",
+      "from": 190,
+      "durationInFrames": 70,
+      "content": {
+        "text": "Meet Bloop, our little dancer!",
+        "status": "demo",
+        "presentation": "caption",
+        "consumerIds": []
+      },
+      "props": {
+        "x": 50,
+        "y": 88,
+        "fontSize": 45,
+        "color": "#ffffff",
+        "karaoke": false
       }
     }
   ]
