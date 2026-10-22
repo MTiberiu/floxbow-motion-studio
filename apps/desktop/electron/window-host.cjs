@@ -171,7 +171,23 @@ function createWindowHost({
     window.webContents.once("render-process-gone", () => {
       if (panelWindows.get(record.panelId) === record) closePanel(record);
     });
-    window.loadURL(expectedRoute(record));
+    window.webContents.on(
+      "did-fail-load",
+      (_event, _errorCode, _description, _validatedUrl, isMainFrame) => {
+        if (isMainFrame && panelWindows.get(record.panelId) === record)
+          closePanel(record);
+      },
+    );
+    window.webContents.once("unresponsive", () => {
+      if (panelWindows.get(record.panelId) === record) closePanel(record);
+    });
+    try {
+      Promise.resolve(window.loadURL(expectedRoute(record))).catch(() => {
+        if (panelWindows.get(record.panelId) === record) closePanel(record);
+      });
+    } catch {
+      if (panelWindows.get(record.panelId) === record) closePanel(record);
+    }
     return record;
   }
 

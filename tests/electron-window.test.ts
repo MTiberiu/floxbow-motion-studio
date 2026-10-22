@@ -86,6 +86,7 @@ class FakeWebContents extends EventEmitter {
 class FakeWindow extends EventEmitter {
   static nextId = 1;
   static instances: FakeWindow[] = [];
+  static failNextLoad = false;
   options: Record<string, any>;
   webContents: FakeWebContents;
   destroyed = false;
@@ -103,7 +104,24 @@ class FakeWindow extends EventEmitter {
   loadURL(url: string) {
     this.loadedUrl = url;
     this.webContents.mainFrame.url = url;
+    if (FakeWindow.failNextLoad) {
+      FakeWindow.failNextLoad = false;
+      queueMicrotask(() =>
+        this.webContents.emit(
+          "did-fail-load",
+          { preventDefault() {} },
+          -105,
+          "ERR_NAME_NOT_RESOLVED",
+          url,
+          true,
+          0,
+          0,
+        ),
+      );
+      return Promise.reject(new Error("Simulated local route load failure"));
+    }
     queueMicrotask(() => this.emit("ready-to-show"));
+    return Promise.resolve();
   }
 
   show() {
@@ -129,6 +147,7 @@ class FakeWindow extends EventEmitter {
 function createHarness() {
   FakeWindow.nextId = 1;
   FakeWindow.instances = [];
+  FakeWindow.failNextLoad = false;
   const app = new EventEmitter();
   const handlers = new Map<string, (event: any, ...args: any[]) => unknown>();
   const ipcMain = {
@@ -313,6 +332,9 @@ test("only the primary opens the one fixed, sandboxed Timeline route", () => {
     webviewTag: false,
   });
   assert.equal(child.options.parent, primary);
+  assert.equal(child.options.resizable, true);
+  assert.equal(child.options.maximizable, true);
+  assert.equal(child.options.fullscreenable, true);
   assert.equal(child.webContents.openHandler?.().action, "deny");
   const context = invoke(CHANNELS.getContext, child);
   assert.deepEqual(context, {
@@ -537,4 +559,82 @@ test("closing a child notifies the primary once and primary shutdown closes chil
     () => quitting.invoke(CHANNELS.openPanel, quitting.primary, request),
     /shutting down/,
   );
+});
+
+test("failed panel loading closes the child and restores the primary Timeline", async () => {
+  const { invoke, primary, windows } = createHarness();
+  FakeWindow.failNextLoad = true;
+  const opened = invoke(CHANNELS.openPanel, primary, request) as {
+    instanceId: string;
+  };
+  const child = windows[1];
+  await new Promise<void>((resolve) => setImmediate(resolve));
+
+  assert.equal(child.isDestroyed(), true);
+  assert.deepEqual(primary.webContents.sent, [
+    {
+      channel: CHANNELS.panelClosed,
+      payload: {
+        panelId: "timeline",
+        projectId: request.projectId,
+        sessionId: request.sessionId,
+        instanceId: opened.instanceId,
+      },
+    },
+  ]);
+  assert.throws(
+    () => invoke(CHANNELS.getContext, child),
+    /Unregistered Electron window/,
+  );
+});
+
+test("child renderer termination and unresponsiveness reattach without duplicate close events", () => {
+  for (const failure of ["render-process-gone", "unresponsive"] as const) {
+    const { invoke, primary, windows } = createHarness();
+    const opened = invoke(CHANNELS.openPanel, primary, request) as {
+      instanceId: string;
+    };
+    const child = windows[1];
+    child.webContents.emit(failure);
+
+    assert.equal(child.isDestroyed(), true);
+    assert.deepEqual(primary.webContents.sent, [
+      {
+        channel: CHANNELS.panelClosed,
+        payload: {
+          panelId: "timeline",
+          projectId: request.projectId,
+          sessionId: request.sessionId,
+          instanceId: opened.instanceId,
+        },
+      },
+    ]);
+  }
+});
+
+test("main-frame route load failure restores Timeline while subframe failure is ignored", () => {
+  const { invoke, primary, windows } = createHarness();
+  invoke(CHANNELS.openPanel, primary, request);
+  const child = windows[1];
+  child.webContents.emit(
+    "did-fail-load",
+    { preventDefault() {} },
+    -105,
+    "ERR_NAME_NOT_RESOLVED",
+    child.loadedUrl,
+    false,
+  );
+  assert.equal(child.isDestroyed(), false);
+  assert.equal(primary.webContents.sent.length, 0);
+
+  child.webContents.emit(
+    "did-fail-load",
+    { preventDefault() {} },
+    -105,
+    "ERR_NAME_NOT_RESOLVED",
+    child.loadedUrl,
+    true,
+  );
+  assert.equal(child.isDestroyed(), true);
+  assert.equal(primary.webContents.sent.at(-1)?.channel, CHANNELS.panelClosed);
 });
