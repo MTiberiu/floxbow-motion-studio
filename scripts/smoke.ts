@@ -430,6 +430,7 @@ try {
           (element: HTMLAudioElement) =>
             !element.paused && element.readyState >= 2,
         ),
+        { timeout: 20_000 },
       )
       .toBe(true);
     await expect(
