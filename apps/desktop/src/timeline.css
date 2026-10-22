@@ -9,6 +9,12 @@
   background: #141a21;
   overflow: hidden;
 }
+.timeline-editor.timeline-detached {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.timeline-editor.timeline-detached .timeline-location {
+  grid-template-rows: auto;
+}
 .editor-toolbar,
 .transport,
 .timeline-actions,
@@ -534,14 +540,14 @@
 .timeline-detached-placeholder {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px;
   min-height: 0;
-  padding: 12px;
+  padding: 3px 8px;
   color: #c2ccda;
   background: #151b22;
-  text-align: center;
+  text-align: left;
 }
 .timeline-detached-placeholder > span {
   color: #91a1b7;
