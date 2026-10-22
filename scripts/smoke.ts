@@ -64,6 +64,7 @@ try {
   });
   const page = await app.firstWindow();
   page.setDefaultTimeout(20_000);
+  page.on("pageerror", (error) => console.error("Electron renderer error:", error));
   await page.evaluate(() => {
     localStorage.removeItem("motion-project");
     for (const key of Object.keys(localStorage))
@@ -98,13 +99,19 @@ try {
     };
   }, firstPanelRequest);
   expect(panelApi.context).toEqual({ role: "primary", panelId: null });
-  expect(panelApi.keys).toEqual(["getContext", "onPanelClosed", "openPanel"]);
+  expect(panelApi.keys).toEqual([
+    "closePanel", "getContext", "onPanelClosed", "onTimelineCommand",
+    "onTimelineCommandResult", "onTimelineFrame", "onTimelineSnapshot",
+    "onTimelineSnapshotRequest", "openPanel", "publishTimelineFrame",
+    "publishTimelineSnapshot", "requestTimelineSnapshot", "sendTimelineCommand",
+    "sendTimelineCommandResult",
+  ]);
   expect(panelApi.result.status).toBe("opened");
   expect(panelApi.nodeDisabled).toBe(true);
   await expect.poll(async () => (await app!.windows()).length).toBe(2);
   let panelPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
   expect(panelPage).toBeTruthy();
-  await expect(panelPage!.getByRole("heading", { name: "Timeline" })).toBeVisible();
+  await expect(panelPage!.getByRole("heading", { name: "Connecting Timeline…" })).toBeVisible();
   await expect(panelPage!.locator("iframe")).toHaveCount(0);
   await expect(panelPage!.locator(".timeline-editor")).toHaveCount(0);
   const panelContext = await panelPage!.evaluate(() => window.floxBowWindows!.getContext());
@@ -152,7 +159,7 @@ try {
   await expect.poll(async () => (await app!.windows()).length).toBe(2);
   panelPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
   expect(panelPage).toBeTruthy();
-  await expect(panelPage!.getByRole("heading", { name: "Timeline" })).toBeVisible();
+  await expect(panelPage!.getByRole("heading", { name: "Connecting Timeline…" })).toBeVisible();
   await expect(panelPage!.locator("iframe")).toHaveCount(0);
   const panelClosed = page.evaluate(
     () =>
@@ -189,15 +196,7 @@ try {
       .locator(".timeline-editor")
       .getAttribute("data-editor-session-id");
     expect(authoritativeSessionId).toBeTruthy();
-    const editorPanelResult = await page.evaluate(
-      (request) => window.floxBowWindows!.openPanel(request),
-      {
-        panelId: "timeline" as const,
-        projectId: id,
-        sessionId: authoritativeSessionId!,
-      },
-    );
-    expect(editorPanelResult.status).toBe("opened");
+    await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(2);
     const editorPanelPage = (await app.windows()).find((candidate) =>
       candidate.url().includes("#studio-panel=timeline"),
@@ -207,11 +206,24 @@ try {
     await expect(page.locator('[data-panel-id="editor"] iframe')).toHaveCount(1);
     await expect(editorPanelPage!.locator(".timeline-editor")).toHaveCount(0);
     await expect(editorPanelPage!.locator("iframe")).toHaveCount(0);
-    await expect(editorPanelPage!.locator("small")).toContainText(
-      `Project ${id} · Session ${authoritativeSessionId}`,
+    await expect(page.locator(".timeline-detached-placeholder")).toBeVisible();
+    await expect(page.locator(".timeline-dock")).toHaveCount(0);
+    await expect(editorPanelPage!.locator(".timeline-dock")).toHaveCount(1);
+    await expect(editorPanelPage!.locator(".detached-timeline-window")).toHaveAttribute(
+      "data-editor-session-id", authoritativeSessionId!,
     );
-    await editorPanelPage!.close();
+    await editorPanelPage!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(1);
+    await expect(page.locator(".timeline-dock")).toHaveCount(1);
+
+    // Native close is another attach path and must restore the main editor view.
+    await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
+    await expect.poll(async () => (await app!.windows()).length).toBe(2);
+    const closePanelPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
+    expect(closePanelPage).toBeTruthy();
+    await closePanelPage!.close();
+    await expect.poll(async () => (await app!.windows()).length).toBe(1);
+    await expect(page.locator(".timeline-dock")).toHaveCount(1);
 
     await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(page.getByRole("region", { name: "Project media" })).toBeVisible();
@@ -396,6 +408,100 @@ try {
     await originalClip.click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
 
+    const detachedClipId = await page.locator(".timeline-clip.is-selected").getAttribute("data-clip-id");
+    expect(detachedClipId).toBeTruthy();
+    await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
+    await expect.poll(async () => (await app!.windows()).length).toBe(2);
+    const detachedPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
+    expect(detachedPage).toBeTruthy();
+    const detachedClip = detachedPage!.locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`);
+    await expect(detachedClip).toBeVisible();
+    await expect(page.locator(".timeline-dock")).toHaveCount(0);
+    await expect(detachedPage!.locator(".timeline-dock")).toHaveCount(1);
+    await expect(page.locator("[data-panel-id='editor'] iframe")).toHaveCount(1);
+    await expect(detachedPage!.locator("iframe")).toHaveCount(0);
+    await detachedClip.click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
+    await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).fill("60");
+    await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+
+    const originalRange = await detachedClip.locator("small").innerText();
+    await detachedClip.focus();
+    await detachedPage!.keyboard.press("ArrowRight");
+    await expect.poll(() => detachedClip.locator("small").innerText()).not.toBe(originalRange);
+    const movedRange = await detachedClip.locator("small").innerText();
+    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(detachedClip.locator("small")).toHaveText(originalRange);
+    await detachedPage!.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(detachedClip.locator("small")).toHaveText(movedRange);
+
+    const beforeTrim = await detachedClip.locator("small").innerText();
+    const resizeHandle = await detachedClip.locator(".resize-handle.right").boundingBox();
+    expect(resizeHandle).toBeTruthy();
+    await detachedPage!.mouse.move(resizeHandle!.x + resizeHandle!.width / 2, resizeHandle!.y + resizeHandle!.height / 2);
+    await detachedPage!.mouse.down();
+    await detachedPage!.mouse.move(resizeHandle!.x + resizeHandle!.width / 2 + 32, resizeHandle!.y + resizeHandle!.height / 2, { steps: 4 });
+    await detachedPage!.mouse.up();
+    await expect.poll(() => detachedClip.locator("small").innerText()).not.toBe(beforeTrim);
+    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(detachedClip.locator("small")).toHaveText(movedRange);
+    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(detachedClip.locator("small")).toHaveText(originalRange);
+
+    await page.getByLabel("Text", { exact: true }).fill("Detached Inspector edit");
+    await expect(detachedClip.locator(".clip-title")).toHaveText("Detached Inspector edit");
+    await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
+    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Detached Inspector edit");
+    await detachedPage!.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("Human edited caption");
+    await detachedPage!.getByLabel("Timeline playhead frame", { exact: true }).fill("90");
+    await expect(preview.getByText("Human edited caption", { exact: true })).toBeVisible();
+    await detachedPage!.getByRole("button", { name: "Add subtitle", exact: true }).click();
+    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(2);
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue("New subtitle");
+    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(1);
+    await detachedPage!.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(2);
+    await detachedPage!.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(detachedPage!.locator(".timeline-clip")).toHaveCount(1);
+    await detachedClip.click();
+    await expect(detachedClip).toHaveClass(/is-selected/);
+    const staleResult = await detachedPage!.evaluate(async () => {
+      const api = window.floxBowWindows!;
+      const context = await api.getContext();
+      if (context.role !== "panel") throw new Error("Expected the registered Timeline window");
+      const stateVersion = Number(document.querySelector(".detached-timeline-window")?.getAttribute("data-state-version"));
+      const commandId = `${context.instanceId}:${context.commandSequence + 1}`;
+      const result = new Promise<{ status: string; message: string }>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error("Stale command was not acknowledged")), 5000);
+        const unsubscribe = api.onTimelineCommandResult((value) => {
+          if (value.commandId !== commandId) return;
+          window.clearTimeout(timeout);
+          unsubscribe();
+          resolve(value);
+        });
+      });
+      await api.sendTimelineCommand({
+        panelId: "timeline",
+        projectId: context.projectId,
+        sessionId: context.sessionId,
+        instanceId: context.instanceId,
+        commandId,
+        stateVersion: stateVersion + 50,
+        command: { type: "seek", frame: 10 },
+      });
+      return result;
+    });
+    expect(staleResult.status).toBe("rejected");
+    expect(staleResult.message).toContain("changed elsewhere");
+    await detachedPage!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
+    await expect.poll(async () => (await app!.windows()).length).toBe(1);
+    await expect(page.locator(".timeline-dock")).toHaveCount(1);
+    await expect(page.locator(".timeline-clip.is-selected")).toHaveAttribute("data-clip-id", detachedClipId!);
+    await expect(page.getByLabel("Playhead frame", { exact: true })).toHaveValue("90");
+
     let markSaveStarted!: () => void;
     let markResponseFulfilled!: () => void;
     let releaseSaveResponse!: () => void;
@@ -476,6 +582,15 @@ try {
     await expect(page.getByRole("button", { name: "Save project", exact: true })).toBeDisabled();
     expect(JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text).toBe("External version to protect");
 
+    await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
+    await expect.poll(async () => (await app!.windows()).length).toBe(2);
+    const conflictTimeline = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
+    expect(conflictTimeline).toBeTruthy();
+    await expect(conflictTimeline!.locator(".detached-timeline-toolbar")).toContainText("Unsaved edits in main editor");
+    await expect(conflictTimeline!.locator(".detached-timeline-toolbar")).toContainText("Revision conflict");
+    await conflictTimeline!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
+    await expect.poll(async () => (await app!.windows()).length).toBe(1);
+
     await page.getByRole("button", { name: "Reload from disk", exact: true }).click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue("External version to protect");
     await expect(preview.getByText("External version to protect", { exact: true })).toBeVisible();
@@ -555,7 +670,13 @@ try {
     await selectProject(thirdId);
     await expect(page.locator(".timeline-clip").filter({ hasText: "Caption belongs to project three" })).toBeVisible();
     await expect(page.frameLocator('[data-panel-id="editor"] iframe').getByText("Caption belongs to project three", { exact: true })).toBeVisible();
-    console.log("PASS development: clean starter, Explorer, three isolated projects, project switching, human save, external reload and conflict protection.");
+    await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
+    await expect.poll(async () => (await app!.windows()).length).toBe(2);
+    await selectProject(id);
+    await expect.poll(async () => (await app!.windows()).length).toBe(1);
+    await expect(page.locator(".timeline-dock")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Detach Timeline", exact: true })).toBeVisible();
+    console.log("PASS development: detached Timeline commands, preview sync, attach/close recovery, single preview, conflict protection and project-session invalidation.");
   }
 } catch (error) {
   if (app) {

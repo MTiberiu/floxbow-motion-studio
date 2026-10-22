@@ -6,7 +6,6 @@ import {
   type EditTimeline,
   type TimelineClip,
 } from "@motion/sdk/timeline";
-import { resolveTimelineBehavior } from "./timeline-behaviors";
 
 type Drag = {
   clip: TimelineClip;
@@ -15,10 +14,13 @@ type Drag = {
   timeline: EditTimeline;
   pixels: number;
   scrollLeft: number;
+  gestureId: string;
 };
 
 export type TimelineViewProps = {
-  manifest: ProjectManifest;
+  manifest: Pick<ProjectManifest, "id" | "fps" | "durationInFrames"> & {
+    editTimeline?: string;
+  };
   document?: EditTimeline;
   components: readonly ComponentInfo[];
   selectedClipId: string;
@@ -27,7 +29,15 @@ export type TimelineViewProps = {
   onSelectClip: (clipId: string) => void;
   onSeek: (frame: number) => void;
   onPause: () => void;
-  onCheckpoint: () => void;
+  onBeginClipGesture: (gestureId: string, clipId: string) => void;
+  onUpdateClipGesture: (
+    gestureId: string,
+    clipId: string,
+    from: number,
+    durationInFrames: number,
+    trim: boolean,
+  ) => void;
+  onEndClipGesture: (gestureId: string) => void;
   onResizeStart: (event: PointerEvent<HTMLButtonElement>) => void;
   onResizeMove: (event: PointerEvent<HTMLButtonElement>) => void;
   onResizeEnd: () => void;
@@ -47,7 +57,9 @@ export function TimelineView({
   onSelectClip,
   onSeek,
   onPause,
-  onCheckpoint,
+  onBeginClipGesture,
+  onUpdateClipGesture,
+  onEndClipGesture,
   onResizeStart,
   onResizeMove,
   onResizeEnd,
@@ -79,7 +91,8 @@ export function TimelineView({
     event.currentTarget.setPointerCapture(event.pointerId);
     onSelectClip(clip.id);
     onPause();
-    onCheckpoint();
+    const gestureId = crypto.randomUUID();
+    onBeginClipGesture(gestureId, clip.id);
     drag.current = {
       clip: structuredClone(clip),
       mode,
@@ -87,6 +100,7 @@ export function TimelineView({
       timeline: structuredClone(document),
       pixels: ruler.current.getBoundingClientRect().width,
       scrollLeft: scroll.current?.scrollLeft ?? 0,
+      gestureId,
     };
   }
 
@@ -118,20 +132,17 @@ export function TimelineView({
         Math.min(manifest.durationInFrames, end + delta),
       );
     }
-    onEdit(
-      changeClipRange(
-        current.timeline,
-        current.clip.id,
-        start,
-        end,
-        current.mode !== "move",
-        resolveTimelineBehavior(current.clip.componentId, components),
-      ),
-      false,
+    onUpdateClipGesture(
+      current.gestureId,
+      current.clip.id,
+      start,
+      end - start,
+      current.mode !== "move",
     );
   }
 
   function finish() {
+    if (drag.current) onEndClipGesture(drag.current.gestureId);
     drag.current = undefined;
   }
 

@@ -5,12 +5,18 @@ import { createWindowHost } from "../apps/desktop/electron/window-host.cjs";
 import {
   CHANNELS,
   MAX_IPC_MESSAGE_BYTES,
+  MAX_TIMELINE_SNAPSHOT_BYTES,
   PANEL_REGISTRY,
   isOpenPanelResult,
   isPanelClosedEvent,
   isPanelOpenRequest,
   isWindowContext,
   isWithinMessageLimit,
+  isTimelineCommand,
+  isTimelineCommandResult,
+  isTimelineFrame,
+  isTimelineSnapshot,
+  isWithinTimelineSnapshotLimit,
 } from "../apps/desktop/electron/window-contract.cjs";
 
 const shellUrl = "http://127.0.0.1:5173/";
@@ -19,6 +25,37 @@ const request = {
   projectId: "demo-project",
   sessionId: "3e0f6340-1e31-4d8a-a220-a0475d3cfb68",
 };
+const testTimeline = {
+  version: 1 as const,
+  fps: 30,
+  durationInFrames: 180,
+  tracks: [{ id: "visuals", name: "Visuals" }],
+  clips: [],
+};
+
+function timelineSnapshot(instanceId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    panelId: "timeline",
+    projectId: request.projectId,
+    sessionId: request.sessionId,
+    instanceId,
+    stateVersion: 0,
+    sourceCommandId: null,
+    fps: 30,
+    durationInFrames: 180,
+    hasEditableTimeline: true,
+    document: testTimeline,
+    components: [],
+    selectedClipId: "",
+    frame: 0,
+    playing: false,
+    dirty: false,
+    conflict: false,
+    undoCount: 0,
+    redoCount: 0,
+    ...overrides,
+  };
+}
 
 class FakeWebContents extends EventEmitter {
   id: number;
@@ -195,6 +232,68 @@ test("panel open contract is strict, bounded and rejects malformed identifiers",
   );
 });
 
+test("Timeline snapshots use a strict 1 MiB schema while control messages remain 4 KiB", () => {
+  const instanceId = request.sessionId;
+  assert.equal(MAX_TIMELINE_SNAPSHOT_BYTES, 1024 * 1024);
+  const valid = timelineSnapshot(instanceId);
+  assert.equal(isTimelineSnapshot(valid), true);
+  assert.equal(isWithinTimelineSnapshotLimit(valid), true);
+  assert.equal(isTimelineSnapshot({ ...valid, extra: true }), false);
+  assert.equal(isTimelineSnapshot({ ...valid, frame: 180 }), false);
+  assert.equal(isTimelineSnapshot({ ...valid, document: { ...testTimeline, clips: [{ ...((testTimeline.clips[0] ?? {}) as object), invalid: true }] } }), false);
+  const oversized = timelineSnapshot(instanceId, {
+    document: {
+      ...testTimeline,
+      clips: [{
+        id: "caption",
+        trackId: "visuals",
+        componentId: "subtitles",
+        label: "Caption",
+        from: 0,
+        durationInFrames: 180,
+        content: { text: "x".repeat(MAX_TIMELINE_SNAPSHOT_BYTES) },
+        props: {},
+      }],
+    },
+  });
+  assert.equal(isWithinTimelineSnapshotLimit(oversized), false);
+  assert.equal(isTimelineSnapshot(oversized), false);
+  assert.equal(isWithinMessageLimit("x".repeat(MAX_IPC_MESSAGE_BYTES + 1)), false);
+});
+
+test("Timeline commands and acknowledgments require a scoped command ID and exact schema", () => {
+  const instanceId = request.sessionId;
+  const command = {
+    panelId: "timeline",
+    projectId: request.projectId,
+    sessionId: request.sessionId,
+    instanceId,
+    commandId: `${instanceId}:1`,
+    stateVersion: 7,
+    command: { type: "seek", frame: 42 },
+  };
+  assert.equal(isTimelineCommand(command), true);
+  assert.equal(isTimelineCommand({ ...command, commandId: `${instanceId}:2`, extra: 1 }), false);
+  assert.equal(isTimelineCommand({ ...command, commandId: `${instanceId}:x` }), false);
+  assert.equal(isTimelineCommand({ ...command, command: { type: "execute", code: "x" } }), false);
+  const result = {
+    panelId: "timeline",
+    projectId: request.projectId,
+    sessionId: request.sessionId,
+    instanceId,
+    commandId: command.commandId,
+    status: "rejected",
+    stateVersion: 7,
+    message: "Stale session.",
+  };
+  assert.equal(isTimelineCommandResult(result), true);
+  assert.equal(isTimelineCommandResult({ ...result, message: "x".repeat(5000) }), false);
+  assert.equal(isTimelineFrame({
+    panelId: "timeline", projectId: request.projectId, sessionId: request.sessionId,
+    instanceId, stateVersion: 7, frame: 42, playing: false,
+  }), true);
+});
+
 test("only the primary opens the one fixed, sandboxed Timeline route", () => {
   const { invoke, primary, windows } = createHarness();
   const result = invoke(CHANNELS.openPanel, primary, request) as {
@@ -222,6 +321,7 @@ test("only the primary opens the one fixed, sandboxed Timeline route", () => {
     projectId: request.projectId,
     sessionId: request.sessionId,
     instanceId: result.instanceId,
+    commandSequence: 0,
   });
 
   const again = invoke(CHANNELS.openPanel, primary, request) as typeof result;
@@ -241,6 +341,70 @@ test("only the primary opens the one fixed, sandboxed Timeline route", () => {
       }),
     /Invalid panel open request/,
   );
+});
+
+test("Timeline snapshots and commands relay only between the primary and the registered child", () => {
+  const { invoke, primary, windows } = createHarness();
+  const opened = invoke(CHANNELS.openPanel, primary, request) as { instanceId: string };
+  const child = windows[1];
+  const snapshot = timelineSnapshot(opened.instanceId);
+  assert.deepEqual(invoke(CHANNELS.timelineSnapshot, primary, snapshot), { status: "sent" });
+  assert.equal(child.webContents.sent.at(-1)?.channel, CHANNELS.timelineSnapshot);
+  assert.throws(
+    () => invoke(CHANNELS.timelineSnapshot, child, snapshot),
+    /window role/,
+  );
+  assert.throws(
+    () => invoke(CHANNELS.timelineSnapshot, primary, timelineSnapshot("b7e53745-4f09-42b8-b49b-cd9c30be5a6e")),
+    /stale window or session/,
+  );
+  const command = {
+    panelId: "timeline",
+    projectId: request.projectId,
+    sessionId: request.sessionId,
+    instanceId: opened.instanceId,
+    commandId: `${opened.instanceId}:1`,
+    stateVersion: 0,
+    command: { type: "seek", frame: 24 },
+  };
+  assert.deepEqual(invoke(CHANNELS.timelineCommand, child, command), { status: "queued" });
+  assert.equal(primary.webContents.sent.at(-1)?.channel, CHANNELS.timelineCommand);
+  assert.deepEqual(invoke(CHANNELS.timelineCommand, child, command), { status: "duplicate" });
+  assert.equal(child.webContents.sent.at(-1)?.channel, CHANNELS.timelineCommandResult);
+  assert.equal((child.webContents.sent.at(-1)?.payload as { status: string }).status, "rejected");
+  const accepted = {
+    panelId: "timeline",
+    projectId: request.projectId,
+    sessionId: request.sessionId,
+    instanceId: opened.instanceId,
+    commandId: command.commandId,
+    status: "accepted",
+    stateVersion: 1,
+    message: "",
+  };
+  assert.deepEqual(invoke(CHANNELS.timelineCommandResult, primary, accepted), { status: "sent" });
+  assert.equal(child.webContents.sent.at(-1)?.payload, accepted);
+  assert.deepEqual(invoke(CHANNELS.timelineFrame, primary, {
+    panelId: "timeline", projectId: request.projectId, sessionId: request.sessionId,
+    instanceId: opened.instanceId, stateVersion: 1, frame: 24, playing: false,
+  }), { status: "sent" });
+  assert.equal(child.webContents.sent.at(-1)?.channel, CHANNELS.timelineFrame);
+});
+
+test("primary or child attach closes only its registered Timeline instance", () => {
+  const primaryRequest = createHarness();
+  const opened = primaryRequest.invoke(CHANNELS.openPanel, primaryRequest.primary, request) as { instanceId: string };
+  const child = primaryRequest.windows[1];
+  assert.equal(primaryRequest.invoke(CHANNELS.closePanel, primaryRequest.primary, {
+    panelId: "timeline", instanceId: opened.instanceId,
+  }), true);
+  assert.equal(child.isDestroyed(), true);
+  assert.equal(primaryRequest.primary.webContents.sent.at(-1)?.channel, CHANNELS.panelClosed);
+
+  const childRequest = createHarness();
+  childRequest.invoke(CHANNELS.openPanel, childRequest.primary, request);
+  assert.equal(childRequest.invoke(CHANNELS.closePanel, childRequest.windows[1]), true);
+  assert.equal(childRequest.windows[1].isDestroyed(), true);
 });
 
 test("stale sessions are replaced and old window messages are rejected", () => {
@@ -275,6 +439,7 @@ test("stale sessions are replaced and old window messages are rejected", () => {
     projectId: nextRequest.projectId,
     sessionId: nextRequest.sessionId,
     instanceId: replaced.instanceId,
+    commandSequence: 0,
   });
 });
 
