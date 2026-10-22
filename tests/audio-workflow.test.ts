@@ -4,7 +4,11 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createProject } from "../scripts/project-scaffold";
 import { manifestSchema } from "@motion/project-loader/schema";
-import { readEditor, saveEditor } from "../scripts/editor-store";
+import {
+  readEditor,
+  renameWithTransientWindowsRetry,
+  saveEditor,
+} from "../scripts/editor-store";
 import { probeAudioDuration } from "../scripts/audio-probe";
 import { readMediaRegistry, registerAudioAsset } from "../scripts/media-store";
 import { createSubtitleClip } from "@motion/lyrics-sync/subtitles";
@@ -315,4 +319,36 @@ test("extended clip saves and reloads with matching project and Timeline duratio
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("editor atomic replacement retries transient Windows locks only", async () => {
+  let attempts = 0;
+  await renameWithTransientWindowsRetry(
+    "timeline.tmp",
+    "timeline.json",
+    async () => {
+      attempts++;
+      if (attempts < 3)
+        throw Object.assign(new Error("temporarily locked"), {
+          code: "EPERM",
+        });
+    },
+    "win32",
+  );
+  assert.equal(attempts, 3);
+
+  let permanentAttempts = 0;
+  await assert.rejects(
+    renameWithTransientWindowsRetry(
+      "timeline.tmp",
+      "timeline.json",
+      async () => {
+        permanentAttempts++;
+        throw Object.assign(new Error("missing source"), { code: "ENOENT" });
+      },
+      "win32",
+    ),
+    /missing source/,
+  );
+  assert.equal(permanentAttempts, 1);
 });

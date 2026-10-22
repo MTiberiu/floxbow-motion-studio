@@ -9,6 +9,28 @@ import {
 import { parseEditTimeline, type EditTimeline } from "@motion/sdk/timeline";
 import { subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+export async function renameWithTransientWindowsRetry(
+  source: string,
+  destination: string,
+  renameFile = rename,
+  platform = process.platform,
+) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await renameFile(source, destination);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (
+        platform !== "win32" ||
+        !["EPERM", "EACCES", "EBUSY"].includes(code ?? "") ||
+        attempt >= 3
+      )
+        throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)));
+    }
+  }
+}
 export async function readEditor(projectRoot: string, m: ProjectManifest) {
   if (!m.editTimeline)
     throw new Error(
@@ -62,7 +84,7 @@ export async function saveEditor(
           await writeFile(temporary, timelineText, { flag: "wx" });
           if ((await readEditor(projectRoot, m)).revision !== revision)
             throw new Error("CONFLICT: The project changed while saving.");
-          await rename(temporary, file);
+          await renameWithTransientWindowsRetry(temporary, file);
         } finally {
           await unlink(temporary).catch(() => {});
         }
@@ -92,9 +114,12 @@ export async function saveEditor(
           (await readFile(manifestFile, "utf8")) !== manifestText
         )
           throw new Error("CONFLICT: The project changed while saving.");
-        await rename(temporary, file);
+        await renameWithTransientWindowsRetry(temporary, file);
         try {
-          await rename(manifestTemporary, manifestFile);
+          await renameWithTransientWindowsRetry(
+            manifestTemporary,
+            manifestFile,
+          );
         } catch (error) {
           const rollback = file + "." + randomUUID() + ".rollback";
           try {
@@ -103,7 +128,7 @@ export async function saveEditor(
               `${JSON.stringify(current.timeline, null, 2)}\n`,
               { flag: "wx" },
             );
-            await rename(rollback, file);
+            await renameWithTransientWindowsRetry(rollback, file);
           } finally {
             await unlink(rollback).catch(() => {});
           }
