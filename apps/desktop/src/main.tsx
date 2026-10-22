@@ -222,20 +222,24 @@ function StudioShell() {
     () => Number(localStorage.getItem("motion-left-width")) || 248,
   );
   const resizing = useRef<{ x: number; width: number } | undefined>(undefined);
+  const stateRequestGeneration = useRef(0);
   useEffect(() => {
     let active = true;
-    const refresh = () =>
-      fetch("/api/state")
+    const refresh = () => {
+      const generation = ++stateRequestGeneration.current;
+      void fetch("/api/state")
         .then((r) => r.json())
         .then((s) => {
-          if (active) {
+          if (active && generation === stateRequestGeneration.current) {
             setState(s);
             setError("");
           }
         })
         .catch((e) => {
-          if (active) setError(String(e));
+          if (active && generation === stateRequestGeneration.current)
+            setError(String(e));
         });
+    };
     refresh();
     const timer = setInterval(refresh, 1800);
     return () => {
@@ -274,6 +278,8 @@ function StudioShell() {
       });
       if (!response.ok) throw new Error(await response.text());
       const data: { project: ProjectRecord } = await response.json();
+      // Ignore any older poll that began before this project was created.
+      stateRequestGeneration.current++;
       setState((current) => current ? { ...current, projects: [...current.projects, data.project] } : current);
       select(id);
       setProjectName("");

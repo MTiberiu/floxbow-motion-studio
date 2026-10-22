@@ -79,7 +79,7 @@ Direct file edits do not share the editor process's in-memory write lock or revi
 
 Audio is linked, not copied. The local path stays in `media.json` and trusted host code. The preview stream route accepts a registered asset ID; it does not accept a renderer-supplied path. The render adapter similarly resolves IDs on the Node side. Removing a registry entry does not delete the source file or a soundtrack clip; the resulting unresolved clip produces a clear playback/render error until the media is relinked or the clip is removed.
 
-The built-in player does not yet transcribe a song, reconcile lyrics, create subtitle timing, provide waveform editing, mix multiple tracks, apply audio effects, or package linked media. Supply or import subtitle timing separately; Whisper-based lyric timing is a later workflow. FFmpeg and `ffprobe` must be available to the host for audio duration checks. Electron enables the trusted preview's playback initiated through the editor transport; in a browser with stricter autoplay policy, FloxBow reports that sound must be allowed before playback can start.
+In the live development editor, **Generate Subtitles** runs the existing local Whisper worker on the selected soundtrack and imports its actual recognized segments as unverified editable subtitle clips. It does not require supplied lyrics, reconcile text, or invent missing timestamps. Segments beyond project duration are reported and skipped without truncation; unusable word timing is reported while segment captions are retained. The built snapshot does not expose local transcription. Waveform editing, mixing multiple tracks, audio effects, and packaging linked media are not implemented. FFmpeg and `ffprobe` must be available to the host for audio duration checks and Whisper decoding. Electron enables the trusted preview's playback initiated through the editor transport; in a browser with stricter autoplay policy, FloxBow reports that sound must be allowed before playback can start.
 
 ## Future timeline safety
 
@@ -87,4 +87,4 @@ The Timeline currently has one soundtrack clip on an Audio track and subtitle cl
 
 ## Current limitations
 
-The registry is an initial linked-audio slice, not a general media manager. It does not copy/collect files or relink moved sources. Soundtrack selection and preview/render playback are available in the live editor; the built snapshot currently reports that registry editing is unavailable. Automatic transcription, audio mixing/effects, waveform editing, and media collection are future work.
+The registry is an initial linked-audio slice, not a general media manager. It does not copy/collect files or relink moved sources. Soundtrack selection, preview/render playback and local Whisper subtitle generation are available in the live editor; the built snapshot currently reports that registry editing and local transcription are unavailable. Audio mixing/effects, waveform editing, and media collection are future work.

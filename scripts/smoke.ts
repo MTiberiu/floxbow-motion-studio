@@ -58,12 +58,23 @@ function sineWaveWav(seconds: number) {
 const audioFixture = sineWaveWav(8);
 await writeFile(audioFixturePath, audioFixture);
 let pickerCalls = 0;
+let whisperHostAudioPath = "";
 let markSecondPickerStarted!: () => void;
 let releaseSecondPicker!: (selectedPath: string | undefined) => void;
 const secondPickerStarted = new Promise<void>((resolve) => {
   markSecondPickerStarted = resolve;
 });
 const servers = await startServers(built, 10, {
+  transcribeAudio: async (audioPath) => {
+    whisperHostAudioPath = audioPath;
+    return {
+      text: "Human edited caption Generated lyric",
+      segments: [
+        { start: 0, end: 5, text: "Human edited caption" },
+        { start: 5, end: 6, text: "Generated lyric" },
+      ],
+    };
+  },
   audioFilePicker: async () => {
     pickerCalls += 1;
     if (pickerCalls === 2) {
@@ -1271,16 +1282,45 @@ try {
     await expect(
       page.getByText("Saved to the project. Renders use these edits."),
     ).toBeVisible();
+    expect(
+      JSON.parse(
+        await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
+      ).clips[0].content.text,
+    ).toBe("Newer concurrent draft");
+    if (!built) {
+      page.once("dialog", (dialog) => dialog.accept());
+      await page
+        .getByRole("button", { name: "Generate Subtitles", exact: true })
+        .click();
+      await expect(
+        page.getByText(/2 unverified subtitles added/),
+      ).toBeVisible();
+      expect(whisperHostAudioPath).toBe(audioFixturePath);
+      await expect(page.locator(".timeline-clip.subtitle-clip")).toHaveCount(2);
+      await expect(
+        page
+          .frameLocator('[data-panel-id="editor"] iframe')
+          .getByText("Human edited caption", { exact: true }),
+      ).toBeVisible();
+      await page
+        .getByRole("button", { name: "Save project", exact: true })
+        .click();
+      await expect(
+        page.getByText("Saved to the project. Renders use these edits."),
+      ).toBeVisible();
+    }
     const saved = JSON.parse(
       await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
     );
-    expect(saved.clips).toHaveLength(4);
-    expect(saved.clips[0].content.text).toBe("Newer concurrent draft");
+    expect(saved.clips).toHaveLength(built ? 4 : 3);
+    expect(saved.clips[0].content.text).toBe(
+      built ? "Newer concurrent draft" : "Human edited caption",
+    );
     expect(
       saved.clips.filter(
         (clip: { componentId: string }) => clip.componentId === "subtitles",
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(built ? 3 : 2);
     expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual([
       "Visuals",
       "Captions",

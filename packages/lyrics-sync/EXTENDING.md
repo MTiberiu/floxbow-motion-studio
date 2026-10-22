@@ -14,6 +14,8 @@ When adding a visual editable field, declare it in `subtitleFields`, validate it
 
 When changing text/timing behavior, keep stable clip and word IDs where possible. Never infer word timestamps from corrected text. If words no longer correspond to text, retain existing timing evidence and do not highlight it as though it matched. Add tests for correction, segment movement/trimming and timing import/export.
 
+For direct Whisper ingestion, call `whisperResultToSubtitleTiming` with raw adapter output and the current project duration, then use `subtitleClips` against the current editable timeline. Keep the returned skip and unusable-word counts visible. Do not run transcription from a project composition or renderer; the host resolves registered media IDs and invokes the local worker. The generated clips are `unverified` and must remain editable through the existing session/save workflow. Do not reconcile against supplied lyrics unless the user separately asks for that correction workflow.
+
 For an additional module, register its own `EditableComponent` in the project composition and use the existing timeline clip and field contracts. Keep module-specific parsing and transforms in the module package. The editor shell currently has dedicated subtitle import/export buttons; do not generalize them into an executable plugin system until another concrete module needs the same integration contract.
 
 Run `npm run typecheck`, `npm test`, `npm run validate`, `npm run build`, `npm run test:smoke`, and `npm run test:editor` for changes that cross the package/editor boundary. The example in [`examples/subtitle-timeline.tsx`](./examples/subtitle-timeline.tsx) is the smallest full composition integration.
