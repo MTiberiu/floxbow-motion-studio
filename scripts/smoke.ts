@@ -1,4 +1,4 @@
-import { _electron as electron, expect } from "@playwright/test";
+import { _electron as electron, expect, type Page } from "@playwright/test";
 import electronPath from "electron";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
@@ -18,6 +18,66 @@ import { startServers, root, projectsDir } from "./server";
 import { renderProject } from "../packages/renderer/src/render";
 import { mediaRegistrySchema } from "@motion/project-loader/media";
 const execFileAsync = promisify(execFile);
+
+async function verifyTimelineZoom(page: Page) {
+  const zoom = page.getByLabel("Timeline zoom", { exact: true });
+  const scroll = page.locator(".timeline-scroll");
+  await zoom.selectOption("1");
+  const buttonAnchorX = await page.locator(".time-ruler").evaluate((ruler) => {
+    const rect = ruler.getBoundingClientRect();
+    const viewport = ruler.closest(".timeline-scroll")!.getBoundingClientRect();
+    return Math.max(
+      Math.max(rect.left, viewport.left),
+      Math.min(
+        Math.min(rect.right, viewport.right),
+        viewport.left + viewport.width / 2,
+      ),
+    );
+  });
+  const frameAtAnchor = (x: number) =>
+    page.locator(".time-ruler").evaluate((ruler, x) => {
+      const rect = ruler.getBoundingClientRect();
+      const duration = Number(ruler.getAttribute("aria-valuemax")) + 1;
+      return ((x - rect.left) / rect.width) * duration;
+    }, x);
+  const beforeButtonZoom = await frameAtAnchor(buttonAnchorX);
+  await page.getByRole("button", { name: "Zoom Timeline in" }).click();
+  await expect(zoom).toHaveValue("1.25");
+  const afterButtonZoom = await frameAtAnchor(buttonAnchorX);
+  expect(
+    Math.abs(afterButtonZoom - beforeButtonZoom),
+    `button zoom anchor ${beforeButtonZoom} -> ${afterButtonZoom}`,
+  ).toBeLessThan(1);
+  await expect
+    .poll(() =>
+      scroll.evaluate((element) => element.scrollWidth > element.clientWidth),
+    )
+    .toBe(true);
+
+  const wheelAnchorX = await page.locator(".time-ruler").evaluate((ruler) => {
+    const rect = ruler.getBoundingClientRect();
+    return rect.left + Math.min(rect.width * 0.68, rect.right - rect.left - 8);
+  });
+  const beforeWheelZoom = await frameAtAnchor(wheelAnchorX);
+  await scroll.evaluate((element, x) => {
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        deltaY: -100,
+        ctrlKey: true,
+        clientX: x,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  }, wheelAnchorX);
+  await expect(zoom).toHaveValue("1.5");
+  const afterWheelZoom = await frameAtAnchor(wheelAnchorX);
+  expect(
+    Math.abs(afterWheelZoom - beforeWheelZoom),
+    `wheel zoom anchor ${beforeWheelZoom} -> ${afterWheelZoom}`,
+  ).toBeLessThan(1);
+  await zoom.selectOption("1");
+}
 
 const built = process.argv.includes("--built");
 const id = `golden-starter-${Date.now()}`;
@@ -844,6 +904,7 @@ try {
     await expect(page.locator('[data-editor-view="canvas"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="timeline"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="inspector"]')).toHaveCount(1);
+    await verifyTimelineZoom(page);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(
       page.getByRole("button", { name: /^Clip subtitle-/ }),
@@ -978,6 +1039,7 @@ try {
     await expect(detachedClip).toBeVisible();
     await expect(page.locator(".timeline-dock")).toHaveCount(0);
     await expect(detachedPage!.locator(".timeline-dock")).toHaveCount(1);
+    await verifyTimelineZoom(detachedPage!);
     await expect(page.locator("[data-panel-id='editor'] iframe")).toHaveCount(
       1,
     );
