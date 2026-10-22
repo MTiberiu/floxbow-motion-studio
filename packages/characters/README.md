@@ -27,3 +27,6 @@ When `consumerId` is provided, the mascot selects cues through `getSubtitleCues(
 
 ## Clip transition experiment
 `sampleMascotPose` (internal) now applies an eight-frame-or-shorter easing envelope to procedural arm, leg, head tilt and vertical jump/bounce motion at both ends of a clip. This allows adjacent walk/jump/dance/wave clips to meet with a neutral pose while X/Y endpoints stay continuous via the existing path properties. This is not full skeletal crossfading; spinning orientation and overall rhythm are still experimental. The sample demo's JSON animation remains unchanged.
+
+## Facing direction experiment
+`facing: 'front' | 'back' | 'left' | 'right'` is separate from `motion` and defaults to `front` for older clips. Side-facing clips use a simplified SVG Y-axis turn; the back view hides facial details. In `composeMascotDance`, horizontal walk steps infer `left` or `right` from the movement endpoints unless `facing` is explicitly set; jump/dance/idle/wave retain the last facing. This is a 2.5D approximation, **not** a rigged four-angle model: back and side limb artwork, turns, and spatial foot planting still need visual refinement. Project animation remains data-only, with no new choreography in the demo.
