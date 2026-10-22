@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
   changeClipRange,
@@ -16,6 +22,9 @@ type Drag = {
   scrollLeft: number;
   gestureId: string;
 };
+
+const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
+type ZoomAnchor = { fraction: number; width: number; scrollLeft: number };
 
 export type TimelineViewProps = {
   manifest: Pick<ProjectManifest, "id" | "fps" | "durationInFrames"> & {
@@ -78,8 +87,16 @@ export function TimelineView({
   const scroll = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | undefined>(undefined);
+  const zoomRef = useRef(1);
+  const zoomAnchor = useRef<ZoomAnchor | undefined>(undefined);
+  const wheelDelta = useRef(0);
   const [zoom, setZoom] = useState(1);
   const [viewportWidth, setViewportWidth] = useState(900);
+  const zoomBaseWidth = Math.max(
+    viewportWidth,
+    scroll.current?.clientWidth ?? 0,
+  );
+  const hasDocument = Boolean(document);
 
   useEffect(() => {
     const element = scroll.current;
@@ -90,7 +107,67 @@ export function TimelineView({
     observer.observe(element);
     setViewportWidth(element.clientWidth);
     return () => observer.disconnect();
-  }, []);
+  }, [hasDocument]);
+
+  function changeZoom(nextZoom: number, clientX?: number) {
+    const currentZoom = zoomRef.current;
+    const nextIndex = ZOOM_STEPS.indexOf(
+      nextZoom as (typeof ZOOM_STEPS)[number],
+    );
+    if (nextIndex < 0 || nextZoom === currentZoom) return;
+    const rulerElement = ruler.current;
+    const scrollElement = scroll.current;
+    if (rulerElement && scrollElement) {
+      const rect = rulerElement.getBoundingClientRect();
+      const viewport = scrollElement.getBoundingClientRect();
+      const requestedX = clientX ?? viewport.left + viewport.width / 2;
+      const anchorX = Math.max(
+        Math.max(rect.left, viewport.left),
+        Math.min(Math.min(rect.right, viewport.right), requestedX),
+      );
+      zoomAnchor.current = {
+        fraction: rect.width ? (anchorX - rect.left) / rect.width : 0,
+        width: rect.width,
+        scrollLeft: scrollElement.scrollLeft,
+      };
+    }
+    zoomRef.current = nextZoom;
+    setZoom(nextZoom);
+  }
+
+  useLayoutEffect(() => {
+    const anchor = zoomAnchor.current;
+    const scrollElement = scroll.current;
+    const rulerElement = ruler.current;
+    if (!anchor || !scrollElement || !rulerElement) return;
+    const width = rulerElement.getBoundingClientRect().width;
+    scrollElement.scrollLeft =
+      anchor.scrollLeft + anchor.fraction * (width - anchor.width);
+    zoomAnchor.current = undefined;
+  }, [zoom, viewportWidth]);
+
+  useEffect(() => {
+    const element = scroll.current;
+    if (!element) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      wheelDelta.current += event.deltaY;
+      if (Math.abs(wheelDelta.current) < 60) return;
+      const direction = wheelDelta.current < 0 ? 1 : -1;
+      wheelDelta.current = 0;
+      const index = ZOOM_STEPS.indexOf(
+        zoomRef.current as (typeof ZOOM_STEPS)[number],
+      );
+      const nextIndex = Math.max(
+        0,
+        Math.min(ZOOM_STEPS.length - 1, index + direction),
+      );
+      changeZoom(ZOOM_STEPS[nextIndex], event.clientX);
+    };
+    element.addEventListener("wheel", handleWheel, { passive: false });
+    return () => element.removeEventListener("wheel", handleWheel);
+  }, [hasDocument]);
 
   function begin(event: PointerEvent, clip: TimelineClip, mode: Drag["mode"]) {
     if (!document || !ruler.current) return;
@@ -212,18 +289,54 @@ export function TimelineView({
         >
           Add track
         </button>
-        <label>
-          Zoom{" "}
+        <div className="timeline-zoom-controls">
+          <span>Zoom</span>
+          <button
+            type="button"
+            aria-label="Zoom Timeline out"
+            disabled={zoom === ZOOM_STEPS[0]}
+            onClick={() =>
+              changeZoom(
+                ZOOM_STEPS[
+                  Math.max(
+                    0,
+                    ZOOM_STEPS.indexOf(zoom as (typeof ZOOM_STEPS)[number]) - 1,
+                  )
+                ],
+              )
+            }
+          >
+            −
+          </button>
           <select
             aria-label="Timeline zoom"
             value={zoom}
-            onChange={(event) => setZoom(+event.target.value)}
+            onChange={(event) => changeZoom(+event.target.value)}
           >
-            <option value={1}>Fit</option>
-            <option value={2}>2×</option>
-            <option value={4}>4×</option>
+            {ZOOM_STEPS.map((step) => (
+              <option key={step} value={step}>
+                {step === 1 ? "Fit" : `${step}×`}
+              </option>
+            ))}
           </select>
-        </label>
+          <button
+            type="button"
+            aria-label="Zoom Timeline in"
+            disabled={zoom === ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+            onClick={() =>
+              changeZoom(
+                ZOOM_STEPS[
+                  Math.min(
+                    ZOOM_STEPS.length - 1,
+                    ZOOM_STEPS.indexOf(zoom as (typeof ZOOM_STEPS)[number]) + 1,
+                  )
+                ],
+              )
+            }
+          >
+            +
+          </button>
+        </div>
         <label>
           View{" "}
           <input
@@ -240,10 +353,7 @@ export function TimelineView({
         <div
           className="timeline-canvas"
           style={{
-            minWidth:
-              zoom === 1
-                ? "100%"
-                : `${Math.max(760, viewportWidth - 120) * zoom + 120}px`,
+            minWidth: zoom === 1 ? "100%" : `${zoomBaseWidth * zoom}px`,
           }}
         >
           <div className="ruler-row">

@@ -332,9 +332,26 @@
   color: #a9b5c4;
   white-space: nowrap;
 }
+.timeline-actions .timeline-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #a9b5c4;
+  font-size: 9px;
+  white-space: nowrap;
+}
 .timeline-actions select {
   width: 65px;
   padding: 4px;
+}
+.timeline-actions .timeline-zoom-controls button {
+  min-width: 22px;
+  padding: 4px 6px;
+  line-height: 1;
+}
+.timeline-actions .timeline-zoom-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 .timeline-actions input {
   width: 58px;
