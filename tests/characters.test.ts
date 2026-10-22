@@ -61,3 +61,16 @@ test('choreography carries destination into next action and allows offscreen ent
  ]);
  assert.deepEqual(steps.map(c=>c.from),[0,60,90,150,180]);
 });
+
+test('facing is independent of motion and follows travel direction',()=>{
+ const t=base();
+ const out=composeMascotDance(t,{idPrefix:'views',trackId:'characters',startFrame:0,props:{x:10,facing:'front'},steps:[
+  {motion:'walk',durationInFrames:40,endX:60},
+  {motion:'jump',durationInFrames:30},
+  {motion:'walk',durationInFrames:40,endX:20},
+  {motion:'wave',durationInFrames:20,facing:'front'},
+  {motion:'walk',durationInFrames:40,endX:60,facing:'back'}
+ ]});
+ assert.deepEqual(out.clips.slice(1).map(c=>c.props.facing),['right','right','left','front','back']);
+ assert.deepEqual(out.clips.slice(1).map(c=>c.props.motion),['walk','jump','walk','wave','walk']);
+});
