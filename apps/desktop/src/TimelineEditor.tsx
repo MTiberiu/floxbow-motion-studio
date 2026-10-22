@@ -607,7 +607,7 @@ export function TimelineEditor({
   }
   return (
     <section
-      className="timeline-editor"
+      className={`timeline-editor${detachedTimeline ? " timeline-detached" : ""}`}
       data-editor-session-id={snapshot.sessionId}
       style={
         { "--timeline-height": `${timelineHeight}px` } as React.CSSProperties

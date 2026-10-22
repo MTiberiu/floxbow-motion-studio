@@ -413,10 +413,48 @@ try {
 
     const detachedClipId = await page.locator(".timeline-clip.is-selected").getAttribute("data-clip-id");
     expect(detachedClipId).toBeTruthy();
+    const attachedLayout = await page.locator(".timeline-editor").evaluate((editor) => {
+      const root = getComputedStyle(editor);
+      return {
+        configuredTimelineHeight: Number.parseFloat(
+          root.getPropertyValue("--timeline-height"),
+        ),
+        timelineHeight: editor
+          .querySelector(".timeline-location")!
+          .getBoundingClientRect().height,
+        canvasHeight: editor
+          .querySelector(".editor-columns")!
+          .getBoundingClientRect().height,
+      };
+    });
+    expect(
+      Math.abs(
+        attachedLayout.timelineHeight - attachedLayout.configuredTimelineHeight,
+      ),
+    ).toBeLessThan(2);
     await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(2);
     const detachedPage = (await app.windows()).find((candidate) => candidate.url().includes("#studio-panel=timeline"));
     expect(detachedPage).toBeTruthy();
+    const detachedLayout = await page
+      .locator(".timeline-editor")
+      .evaluate((editor) => ({
+        detached: editor.classList.contains("timeline-detached"),
+        timelineHeight: editor
+          .querySelector(".timeline-location")!
+          .getBoundingClientRect().height,
+        canvasHeight: editor
+          .querySelector(".editor-columns")!
+          .getBoundingClientRect().height,
+      }));
+    expect(detachedLayout.detached).toBe(true);
+    expect(detachedLayout.timelineHeight).toBeLessThan(80);
+    expect(detachedLayout.canvasHeight).toBeGreaterThan(
+      attachedLayout.canvasHeight + 100,
+    );
+    await expect(
+      page.getByRole("button", { name: "Attach Timeline", exact: true }),
+    ).toBeVisible();
     const detachedClip = detachedPage!.locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`);
     await expect(detachedClip).toBeVisible();
     await expect(page.locator(".timeline-dock")).toHaveCount(0);
@@ -531,6 +569,24 @@ try {
     await detachedPage!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(1);
     await expect(page.locator(".timeline-dock")).toHaveCount(1);
+    const reattachedLayout = await page
+      .locator(".timeline-editor")
+      .evaluate((editor) => ({
+        detached: editor.classList.contains("timeline-detached"),
+        configuredTimelineHeight: Number.parseFloat(
+          getComputedStyle(editor).getPropertyValue("--timeline-height"),
+        ),
+        timelineHeight: editor
+          .querySelector(".timeline-location")!
+          .getBoundingClientRect().height,
+      }));
+    expect(reattachedLayout.detached).toBe(false);
+    expect(reattachedLayout.configuredTimelineHeight).toBe(
+      attachedLayout.configuredTimelineHeight,
+    );
+    expect(
+      Math.abs(reattachedLayout.timelineHeight - attachedLayout.timelineHeight),
+    ).toBeLessThan(2);
     await expect(page.locator(".timeline-clip.is-selected")).toHaveAttribute("data-clip-id", selectedBeforeAttach!);
     await expect(page.getByLabel("Playhead frame", { exact: true })).toHaveValue("90");
     const originalPrimaryClip = page.locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`);
@@ -716,6 +772,23 @@ try {
       else await cycleWindow!.getByRole("button", { name: "Attach Timeline", exact: true }).click();
       await expect.poll(async () => (await app!.windows()).length).toBe(1);
       await expect(page.locator(".timeline-dock")).toHaveCount(1);
+      const recoveredLayout = await page
+        .locator(".timeline-editor")
+        .evaluate((editor) => ({
+          detached: editor.classList.contains("timeline-detached"),
+          timelineHeight: editor
+            .querySelector(".timeline-location")!
+            .getBoundingClientRect().height,
+          configuredTimelineHeight: Number.parseFloat(
+            getComputedStyle(editor).getPropertyValue("--timeline-height"),
+          ),
+        }));
+      expect(recoveredLayout.detached).toBe(false);
+      expect(
+        Math.abs(
+          recoveredLayout.timelineHeight - recoveredLayout.configuredTimelineHeight,
+        ),
+      ).toBeLessThan(2);
     }
     await page.getByRole("button", { name: "Detach Timeline", exact: true }).click();
     await expect.poll(async () => (await app!.windows()).length).toBe(2);
