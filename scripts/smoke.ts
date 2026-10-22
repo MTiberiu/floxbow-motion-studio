@@ -1234,6 +1234,24 @@ try {
         new MouseEvent("mouseup", { buttons: 0, bubbles: true }),
       );
     });
+    const mainStartFrame = page.getByLabel("Clip start frame", {
+      exact: true,
+    });
+    const mainEndFrame = page.getByLabel("Clip end frame", { exact: true });
+    await expect
+      .poll(async () => {
+        const range = await detachedClip.locator("small").innerText();
+        const [start, end] = range.split("–").map(Number);
+        const [authoritativeStart, authoritativeEnd] = await Promise.all([
+          mainStartFrame.inputValue(),
+          mainEndFrame.inputValue(),
+        ]);
+        return (
+          start === Number(authoritativeStart) &&
+          end === Number(authoritativeEnd)
+        );
+      })
+      .toBe(true);
     const rangeAfterEdgeDrag = await detachedClip.locator("small").innerText();
     const durationAfterEdgeDrag =
       Number(
