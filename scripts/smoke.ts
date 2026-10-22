@@ -327,7 +327,35 @@ try {
     await page
       .getByRole("button", { name: "Use as soundtrack", exact: true })
       .click();
-    await expect(page.locator(".timeline-clip.audio-clip")).toBeVisible();
+    const dockedSoundtrack = page.locator(".timeline-clip.audio-clip");
+    await expect(dockedSoundtrack).toBeVisible();
+    await expect(dockedSoundtrack).toHaveAttribute("data-range-locked", "true");
+    await expect(dockedSoundtrack).toHaveAttribute("title", /timing is fixed/);
+    await expect(dockedSoundtrack.locator(".resize-handle")).toHaveCount(0);
+    const dockedAudioRange = await dockedSoundtrack
+      .locator("small")
+      .innerText();
+    await dockedSoundtrack.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(dockedSoundtrack.locator("small")).toHaveText(
+      dockedAudioRange,
+    );
+    const dockedAudioBox = await dockedSoundtrack.boundingBox();
+    expect(dockedAudioBox).toBeTruthy();
+    await page.mouse.move(
+      dockedAudioBox!.x + dockedAudioBox!.width / 2,
+      dockedAudioBox!.y + dockedAudioBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      dockedAudioBox!.x + dockedAudioBox!.width / 2 + 40,
+      dockedAudioBox!.y + dockedAudioBox!.height / 2,
+      { steps: 3 },
+    );
+    await page.mouse.up();
+    await expect(dockedSoundtrack.locator("small")).toHaveText(
+      dockedAudioRange,
+    );
     await expect(
       page.getByText(/Soundtrack added to the Audio track/),
     ).toBeVisible();
@@ -418,6 +446,39 @@ try {
       candidate.url().includes("#studio-panel=timeline"),
     );
     expect(audioTimelineWindow).toBeTruthy();
+    const detachedSoundtrack = audioTimelineWindow!.locator(
+      ".timeline-clip.audio-clip",
+    );
+    await expect(detachedSoundtrack).toBeVisible();
+    await expect(detachedSoundtrack).toHaveAttribute(
+      "data-range-locked",
+      "true",
+    );
+    await expect(detachedSoundtrack.locator(".resize-handle")).toHaveCount(0);
+    const detachedAudioRange = await detachedSoundtrack
+      .locator("small")
+      .innerText();
+    await detachedSoundtrack.focus();
+    await audioTimelineWindow!.keyboard.press("ArrowLeft");
+    await expect(detachedSoundtrack.locator("small")).toHaveText(
+      detachedAudioRange,
+    );
+    const detachedAudioBox = await detachedSoundtrack.boundingBox();
+    expect(detachedAudioBox).toBeTruthy();
+    await audioTimelineWindow!.mouse.move(
+      detachedAudioBox!.x + detachedAudioBox!.width / 2,
+      detachedAudioBox!.y + detachedAudioBox!.height / 2,
+    );
+    await audioTimelineWindow!.mouse.down();
+    await audioTimelineWindow!.mouse.move(
+      detachedAudioBox!.x + detachedAudioBox!.width / 2 - 40,
+      detachedAudioBox!.y + detachedAudioBox!.height / 2,
+      { steps: 3 },
+    );
+    await audioTimelineWindow!.mouse.up();
+    await expect(detachedSoundtrack.locator("small")).toHaveText(
+      detachedAudioRange,
+    );
     await audioTimelineWindow!
       .getByRole("button", { name: "Play Timeline playback", exact: true })
       .click();
@@ -460,6 +521,110 @@ try {
         audioElement.evaluate((element: HTMLAudioElement) => element.paused),
       )
       .toBe(true);
+    const lockedBeginResult = await audioTimelineWindow!.evaluate(
+      async (clipId) => {
+        const api = window.floxBowWindows!;
+        const context = await api.getContext();
+        if (context.role !== "panel")
+          throw new Error("Expected the registered Timeline window");
+        if (!clipId) throw new Error("Expected the soundtrack clip ID");
+        const stateVersion = Number(
+          document
+            .querySelector(".detached-timeline-window")
+            ?.getAttribute("data-state-version"),
+        );
+        const commandId = `${context.instanceId}:${context.commandSequence + 1}`;
+        const result = new Promise<{ status: string; message: string }>(
+          (resolve, reject) => {
+            const timeout = window.setTimeout(
+              () =>
+                reject(
+                  new Error("Locked soundtrack command was not acknowledged"),
+                ),
+              5000,
+            );
+            const unsubscribe = api.onTimelineCommandResult((value) => {
+              if (value.commandId !== commandId) return;
+              window.clearTimeout(timeout);
+              unsubscribe();
+              resolve(value);
+            });
+          },
+        );
+        await api.sendTimelineCommand({
+          panelId: "timeline",
+          projectId: context.projectId,
+          sessionId: context.sessionId,
+          instanceId: context.instanceId,
+          commandId,
+          stateVersion,
+          command: {
+            type: "beginClipGesture",
+            gestureId: crypto.randomUUID(),
+            clipId,
+          },
+        });
+        return result;
+      },
+      await detachedSoundtrack.getAttribute("data-clip-id"),
+    );
+    expect(lockedBeginResult.status).toBe("rejected");
+    expect(lockedBeginResult.message).toContain("cannot be moved or trimmed");
+    const changedAudioTimeline = structuredClone(audioTimeline);
+    const soundtrackForMutation = changedAudioTimeline.clips.find(
+      (clip: { componentId: string }) => clip.componentId === "soundtrack",
+    );
+    soundtrackForMutation.from = 1;
+    soundtrackForMutation.durationInFrames -= 1;
+    const lockedEditResult = await audioTimelineWindow!.evaluate(
+      async (documentToEdit) => {
+        const api = window.floxBowWindows!;
+        const context = await api.getContext();
+        if (context.role !== "panel")
+          throw new Error("Expected the registered Timeline window");
+        const stateVersion = Number(
+          document
+            .querySelector(".detached-timeline-window")
+            ?.getAttribute("data-state-version"),
+        );
+        const commandId = `${context.instanceId}:${context.commandSequence + 1}`;
+        const result = new Promise<{ status: string; message: string }>(
+          (resolve, reject) => {
+            const timeout = window.setTimeout(
+              () =>
+                reject(
+                  new Error("Locked soundtrack edit was not acknowledged"),
+                ),
+              5000,
+            );
+            const unsubscribe = api.onTimelineCommandResult((value) => {
+              if (value.commandId !== commandId) return;
+              window.clearTimeout(timeout);
+              unsubscribe();
+              resolve(value);
+            });
+          },
+        );
+        await api.sendTimelineCommand({
+          panelId: "timeline",
+          projectId: context.projectId,
+          sessionId: context.sessionId,
+          instanceId: context.instanceId,
+          commandId,
+          stateVersion,
+          command: {
+            type: "editTimeline",
+            document: documentToEdit,
+            checkpoint: true,
+          },
+        });
+        return result;
+      },
+      changedAudioTimeline,
+    );
+    expect(lockedEditResult.status).toBe("rejected");
+    expect(lockedEditResult.message).toContain("Soundtrack timing is fixed");
+    await expect(detachedSoundtrack.locator("small")).toHaveText("0–240");
     await audioTimelineWindow!
       .getByRole("button", { name: "Attach Timeline", exact: true })
       .click();

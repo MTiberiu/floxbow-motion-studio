@@ -9,6 +9,7 @@ import { probeAudioDuration } from "../scripts/audio-probe";
 import { readMediaRegistry, registerAudioAsset } from "../scripts/media-store";
 import { createSubtitleClip } from "@motion/lyrics-sync/subtitles";
 import { parseEditTimeline } from "@motion/sdk/timeline";
+import { soundtrackTimingUnchanged } from "../apps/desktop/src/timeline-track-utils";
 
 function sineWaveWav(seconds: number) {
   const rate = 8_000;
@@ -141,4 +142,49 @@ test("audio duration probing reports malformed or undecodable sources clearly", 
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test("soundtrack timing is immutable through generic Timeline edits", () => {
+  const soundtrack = {
+    id: "soundtrack-fixed",
+    trackId: "audio",
+    componentId: "soundtrack",
+    label: "Soundtrack · tone",
+    from: 0,
+    durationInFrames: 240,
+    content: { assetId: "audio-tone" },
+    props: {},
+  };
+  const current = parseEditTimeline({
+    version: 1,
+    fps: 30,
+    durationInFrames: 240,
+    tracks: [{ id: "audio", name: "Audio" }],
+    clips: [soundtrack],
+  });
+  assert.equal(
+    soundtrackTimingUnchanged(current, structuredClone(current)),
+    true,
+  );
+  assert.equal(
+    soundtrackTimingUnchanged(current, {
+      ...current,
+      clips: [{ ...soundtrack, from: 1, durationInFrames: 239 }],
+    }),
+    false,
+  );
+  assert.equal(
+    soundtrackTimingUnchanged(current, {
+      ...current,
+      clips: [{ ...soundtrack, durationInFrames: 239 }],
+    }),
+    false,
+  );
+  assert.equal(
+    soundtrackTimingUnchanged(current, {
+      ...current,
+      clips: [{ ...soundtrack, trackId: "video" }],
+    }),
+    false,
+  );
 });

@@ -95,8 +95,9 @@ export function TimelineView({
   function begin(event: PointerEvent, clip: TimelineClip, mode: Drag["mode"]) {
     if (!document || !ruler.current) return;
     event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
     onSelectClip(clip.id);
+    if (clip.componentId === "soundtrack") return;
+    event.currentTarget.setPointerCapture(event.pointerId);
     onPause();
     const gestureId = crypto.randomUUID();
     onBeginClipGesture(gestureId, clip.id);
@@ -307,75 +308,97 @@ export function TimelineView({
               >
                 {document.clips
                   .filter((clip) => clip.trackId === track.id)
-                  .map((clip) => (
-                    <div
-                      key={clip.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Clip ${clip.id}`}
-                      aria-pressed={selectedClipId === clip.id}
-                      data-clip-id={clip.id}
-                      className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${clip.componentId === "soundtrack" ? "audio-clip" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
-                      style={{
-                        left: `${(clip.from / document.durationInFrames) * 100}%`,
-                        width: `${(clip.durationInFrames / document.durationInFrames) * 100}%`,
-                      }}
-                      onPointerDown={(event) => begin(event, clip, "move")}
-                      onPointerMove={move}
-                      onPointerUp={finish}
-                      onPointerCancel={finish}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          onSelectClip(clip.id);
+                  .map((clip) => {
+                    const fixedSoundtrack = clip.componentId === "soundtrack";
+                    return (
+                      <div
+                        key={clip.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={
+                          fixedSoundtrack
+                            ? `Audio clip ${clip.id}; timing fixed`
+                            : `Clip ${clip.id}`
                         }
-                        if (
-                          event.key === "ArrowLeft" ||
-                          event.key === "ArrowRight"
-                        ) {
-                          event.preventDefault();
-                          onEdit((current) => {
-                            const latest = current.clips.find(
-                              (candidate) => candidate.id === clip.id,
-                            );
-                            if (!latest) return current;
-                            const start = Math.max(
-                              0,
-                              Math.min(
-                                current.durationInFrames -
-                                  latest.durationInFrames,
-                                latest.from +
-                                  (event.key === "ArrowRight" ? 1 : -1),
-                              ),
-                            );
-                            return changeClipRange(
-                              current,
-                              latest.id,
-                              start,
-                              start + latest.durationInFrames,
-                            );
-                          });
+                        aria-pressed={selectedClipId === clip.id}
+                        data-clip-id={clip.id}
+                        data-range-locked={fixedSoundtrack ? "true" : undefined}
+                        title={
+                          fixedSoundtrack
+                            ? "Soundtrack timing is fixed to the selected audio duration."
+                            : undefined
                         }
-                      }}
-                    >
-                      <button
-                        className="resize-handle left"
-                        aria-label={`Resize start ${clip.id}`}
-                        onPointerDown={(event) => begin(event, clip, "left")}
-                      />
-                      <span className="clip-title">
-                        {String(clip.content.text ?? clip.label)}
-                      </span>
-                      <small>
-                        {clip.from}–{clip.from + clip.durationInFrames}
-                      </small>
-                      <button
-                        className="resize-handle right"
-                        aria-label={`Resize end ${clip.id}`}
-                        onPointerDown={(event) => begin(event, clip, "right")}
-                      />
-                    </div>
-                  ))}
+                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${fixedSoundtrack ? "audio-clip range-locked" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
+                        style={{
+                          left: `${(clip.from / document.durationInFrames) * 100}%`,
+                          width: `${(clip.durationInFrames / document.durationInFrames) * 100}%`,
+                        }}
+                        onPointerDown={(event) => begin(event, clip, "move")}
+                        onPointerMove={move}
+                        onPointerUp={finish}
+                        onPointerCancel={finish}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onSelectClip(clip.id);
+                          }
+                          if (
+                            event.key === "ArrowLeft" ||
+                            event.key === "ArrowRight"
+                          ) {
+                            event.preventDefault();
+                            if (fixedSoundtrack) return;
+                            onEdit((current) => {
+                              const latest = current.clips.find(
+                                (candidate) => candidate.id === clip.id,
+                              );
+                              if (!latest) return current;
+                              const start = Math.max(
+                                0,
+                                Math.min(
+                                  current.durationInFrames -
+                                    latest.durationInFrames,
+                                  latest.from +
+                                    (event.key === "ArrowRight" ? 1 : -1),
+                                ),
+                              );
+                              return changeClipRange(
+                                current,
+                                latest.id,
+                                start,
+                                start + latest.durationInFrames,
+                              );
+                            });
+                          }
+                        }}
+                      >
+                        {!fixedSoundtrack && (
+                          <button
+                            className="resize-handle left"
+                            aria-label={`Resize start ${clip.id}`}
+                            onPointerDown={(event) =>
+                              begin(event, clip, "left")
+                            }
+                          />
+                        )}
+                        <span className="clip-title">
+                          {String(clip.content.text ?? clip.label)}
+                        </span>
+                        <small>
+                          {clip.from}–{clip.from + clip.durationInFrames}
+                        </small>
+                        {!fixedSoundtrack && (
+                          <button
+                            className="resize-handle right"
+                            aria-label={`Resize end ${clip.id}`}
+                            onPointerDown={(event) =>
+                              begin(event, clip, "right")
+                            }
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 <div
                   className="playhead-line"
                   style={{

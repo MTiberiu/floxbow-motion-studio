@@ -19,7 +19,10 @@ import { resolveTimelineBehavior } from "./timeline-behaviors";
 import { CanvasView } from "./CanvasView";
 import { TimelineView } from "./TimelineView";
 import { InspectorView } from "./InspectorView";
-import { subtitleTrackId } from "./timeline-track-utils";
+import {
+  soundtrackTimingUnchanged,
+  subtitleTrackId,
+} from "./timeline-track-utils";
 import { useWorkspaceManager } from "./WorkspaceManager";
 import type {
   TimelineCommandEnvelope,
@@ -130,6 +133,13 @@ export function TimelineEditor({
     ? { ...manifest, durationInFrames: doc.durationInFrames }
     : manifest;
   const edit = (next: EditTimeline, createCheckpoint = true) => {
+    const current = commands.getCurrentDocument();
+    if (current && !soundtrackTimingUnchanged(current, next)) {
+      setError(
+        "Soundtrack timing is fixed at frame 0 for the selected audio's full duration. Reselect audio to change it.",
+      );
+      return;
+    }
     sourceCommandId.current = null;
     sessionEdit(next, createCheckpoint);
   };
@@ -307,7 +317,9 @@ export function TimelineEditor({
           soundtrack,
         ],
       });
-      edit(next);
+      // Selecting a soundtrack is the only operation that may replace its fixed clip.
+      sourceCommandId.current = null;
+      sessionEdit(next);
       setSelected(soundtrack.id);
       setNotice(
         `Soundtrack added to the Audio track for ${(audioFrames / current.fps).toFixed(2)} seconds. Save the project to keep it.`,
@@ -411,6 +423,10 @@ export function TimelineEditor({
             if (clipGesture.current)
               throw new Error("A clip drag is still active.");
             const validated = parseEditTimeline(command.document);
+            if (current && !soundtrackTimingUnchanged(current, validated))
+              throw new Error(
+                "Soundtrack timing is fixed at frame 0 for the selected audio's full duration. Reselect audio to change it.",
+              );
             if (
               validated.fps !== manifest.fps ||
               validated.durationInFrames < manifest.durationInFrames
@@ -421,8 +437,17 @@ export function TimelineEditor({
             sourceCommandId.current = envelope.commandId;
             sessionEdit(validated, command.checkpoint);
           } else if (command.type === "beginClipGesture") {
-            if (!current?.clips.some((clip) => clip.id === command.clipId))
+            if (!current)
+              throw new Error("This project has no editable Timeline.");
+            const clip = current.clips.find(
+              (item) => item.id === command.clipId,
+            );
+            if (!clip)
               throw new Error("The clip being dragged no longer exists.");
+            if (clip.componentId === "soundtrack")
+              throw new Error(
+                "Soundtrack clips cannot be moved or trimmed. Reselect audio to change the soundtrack.",
+              );
             sourceCommandId.current = envelope.commandId;
             sessionCheckpoint();
             clipGesture.current = {
@@ -450,6 +475,12 @@ export function TimelineEditor({
             const clip = gesture.baseline.clips.find(
               (item) => item.id === command.clipId,
             );
+            if (clip?.componentId === "soundtrack") {
+              clipGesture.current = undefined;
+              throw new Error(
+                "Soundtrack clips cannot be moved or trimmed. Reselect audio to change the soundtrack.",
+              );
+            }
             if (
               !clip ||
               command.from + command.durationInFrames >
@@ -711,7 +742,15 @@ export function TimelineEditor({
   }
   function beginClipGesture(gestureId: string, clipId: string) {
     const baseline = commands.getCurrentDocument();
-    if (!baseline?.clips.some((item) => item.id === clipId)) return;
+    if (!baseline) return;
+    const clip = baseline.clips.find((item) => item.id === clipId);
+    if (!clip) return;
+    if (clip.componentId === "soundtrack") {
+      setError(
+        "Soundtrack clips cannot be moved or trimmed. Reselect audio to change the soundtrack.",
+      );
+      return;
+    }
     checkpoint();
     clipGesture.current = {
       gestureId,
@@ -745,6 +784,13 @@ export function TimelineEditor({
       (item) => item.id === clipId,
     );
     if (!clipToChange) return;
+    if (clipToChange.componentId === "soundtrack") {
+      clipGesture.current = undefined;
+      setError(
+        "Soundtrack clips cannot be moved or trimmed. Reselect audio to change the soundtrack.",
+      );
+      return;
+    }
     try {
       edit(
         changeClipRange(
