@@ -109,3 +109,13 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 | Long-term releases | Agreed policy, no stable release published | Versioned tag/release, compatibility, migration and contributor guidance before first stable release |
 
 **Note:** Grouping/filtering, multi-selection/group movement, snapping, richer Text fonts/presets, transforms, keyframes/effects, waveform and media relinking remain requirements or planned enhancements, **not** capabilities to claim already implemented. The development goal is an AI-editable conventional Core editor with optional module-owned groups on the same Timeline.
+
+
+## Scene editing and AI timeline operations — planned, not implemented (D-017)
+
+- [ ] Introduce Core scenes with stable IDs, duration/start in frames, and associations to clips/layers on the existing Timeline, compatible with module ownership and save migration.
+- [ ] Clip-only duration edit (default): selected item changes without moving scene boundaries or later scene starts; warn when crossing a boundary or colliding.
+- [ ] Explicit scene ripple duration: scene delta shifts subsequent scenes and associated elements atomically; optional internal ripple shifts clips after a specified anchor while preserving IDs, duration and linked timing semantics.
+- [ ] Explicit handling for boundary-spanning clips, protected/locked tracks, audio sync, cross-scene overlays, negative durations, overlaps and project end; preview scope, safe rollback and Undo/Redo.
+- [ ] Shared validated edit operation contract for external Codex and UI: target ID, mode, delta/new duration, anchor/scope, conflict/revision check, deterministic updated JSON; avoid requiring agents to manually adjust every downstream timestamp.
+- [ ] Acceptance fixture: scene A 10s and B 8s; extending a caption within A leaves B fixed; expanding A by 2s shifts B and specified in-scene downstream elements by exactly 2s; JSON/UI/preview/MP4 agree after external AI edit and subsequent human correction.
