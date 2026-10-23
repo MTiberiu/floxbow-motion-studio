@@ -172,3 +172,11 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Keep canonical saved times as integer frames; implement shared frame↔time formatter/parser based on project FPS, with explicit frame rounding and no drift.
 - [ ] Preserve optional frames/SMPTE-like timecode mode for advanced users, correctly treating non-integer FPS where supported.
 - [ ] Test edit/seek/trim/save/reload at multiple FPS and minute boundaries; ensure AI JSON contracts, preview and MP4 remain unchanged.
+
+
+### Agent handoff and continuity — first-user priority
+
+- [ ] Single concise local agent entrypoint linking role-specific developer / manager / animator starting points, not a new sprawling duplicated documentation set.
+- [ ] Fresh-context agent test: read repo, reconstruct current architecture, management decisions, blockers, PR/CI state and next task from authoritative sources, without asking owner to repeat prior conversation.
+- [ ] Animator handoff: agent can inspect current video project JSON/assets, installed capabilities and render commands and safely continue an existing animation.
+- [ ] Maintain a concise current handoff/next-step note only if source-of-truth precedence and update responsibility are explicit; stale derived status must be checked against Git and project JSON.
