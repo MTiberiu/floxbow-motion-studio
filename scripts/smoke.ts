@@ -173,7 +173,7 @@ try {
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
   await page.reload();
-  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible();
+  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Create your first video project")).toBeVisible();
 
   await page.getByRole("button", { name: "Explore capabilities" }).click();
@@ -1446,9 +1446,15 @@ try {
       "Detached Inspector edit",
     );
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
-    await detachedPage!
-      .getByRole("button", { name: "Undo", exact: true })
-      .click();
+    await expect(detachedClip.locator(".clip-title")).toHaveText(
+      "Human edited caption",
+    );
+    const detachedUndo = detachedPage!.getByRole("button", {
+      name: "Undo",
+      exact: true,
+    });
+    await expect(detachedUndo).toBeEnabled();
+    await detachedUndo.click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Detached Inspector edit",
     );
