@@ -618,10 +618,15 @@ export function TimelineEditor({
     components,
   ]);
   function property(field: EditableField, value: unknown) {
-    if (!doc) return;
+    // Inspector input events can arrive before React commits the previous
+    // property edit. Extend the latest session document so a later field
+    // change cannot restore values captured by this render.
+    const current = commands.getCurrentDocument();
+    if (!current) return;
     try {
-      const next = structuredClone(doc);
-      const c = next.clips.find((c) => c.id === selected)!;
+      const next = structuredClone(current);
+      const c = next.clips.find((c) => c.id === selected);
+      if (!c) return;
       const validated = validateField(field, value);
       const behavior = resolveTimelineBehavior(c.componentId, components);
       const behaviorEdit =
@@ -936,6 +941,37 @@ export function TimelineEditor({
     });
     setSelected(c.id);
   }
+  function addText() {
+    if (!doc) return;
+    const from = Math.min(frame, doc.durationInFrames - 1);
+    const clip = {
+      id: `text-${crypto.randomUUID()}`,
+      trackId:
+        doc.tracks.find((track) => track.id === "visuals")?.id ??
+        doc.tracks[0].id,
+      componentId: "text",
+      label: "Text",
+      from,
+      durationInFrames: Math.min(doc.fps * 3, doc.durationInFrames - from),
+      content: { text: "New text" },
+      props: {
+        x: 50,
+        y: 50,
+        fontSize: 72,
+        color: "#ffffff",
+        alignment: "center",
+      },
+    };
+    edit({
+      ...doc,
+      clips: [
+        ...doc.clips.filter((item) => item.componentId !== "soundtrack"),
+        clip,
+        ...doc.clips.filter((item) => item.componentId === "soundtrack"),
+      ],
+    });
+    setSelected(clip.id);
+  }
   function duplicate() {
     performTimelineOperation("duplicate");
   }
@@ -1194,6 +1230,9 @@ export function TimelineEditor({
       <div className="editor-toolbar">
         <button disabled={!dirty || saving || conflict} onClick={save}>
           Save project
+        </button>
+        <button type="button" disabled={!doc} onClick={addText}>
+          Add Text
         </button>
         <button
           type="button"

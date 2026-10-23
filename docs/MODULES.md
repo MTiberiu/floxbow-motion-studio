@@ -20,6 +20,8 @@ Use this index to choose one guide for the current task. It describes current so
 
 Capability-registry parameters describe component APIs, not necessarily Timeline or Inspector controls. Check each capability's timeline integration and limits, then inspect its actual `EditableComponent.fields` and exports before promising that a value is editable. Composition-level or render-only components and imported images do not become editable clips by being used in a project.
 
+Core **Text** is an implemented editor element available in every editable project without a specialized module. See [its JSON and Inspector contract](STANDALONE_TEXT.md).
+
 ## Examples and proposals
 
 Technical demonstrations live under [`examples/capabilities/`](../examples/README.md); they are not user projects. Existing project examples, if any, are separate from reusable capabilities.

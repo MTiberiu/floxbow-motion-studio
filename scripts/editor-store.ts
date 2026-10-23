@@ -8,6 +8,7 @@ import {
 } from "@motion/project-loader";
 import { parseEditTimeline, type EditTimeline } from "@motion/sdk/timeline";
 import { subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
+import { standaloneTextClipSchema } from "@motion/sdk/editor";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export async function renameWithTransientWindowsRetry(
   source: string,
@@ -38,8 +39,11 @@ export async function readEditor(projectRoot: string, m: ProjectManifest) {
     );
   const file = await safeFile(projectRoot, m.editTimeline);
   const text = await readFile(file, "utf8");
+  const timeline = parseEditTimeline(JSON.parse(text), m);
+  for (const clip of timeline.clips)
+    if (clip.componentId === "text") standaloneTextClipSchema.parse(clip);
   return {
-    timeline: parseEditTimeline(JSON.parse(text), m),
+    timeline,
     revision: hash(text),
   };
 }
@@ -71,6 +75,8 @@ export async function saveEditor(
       for (const c of t.clips)
         if (c.componentId === "subtitles")
           subtitleContentSchema.parse(c.content);
+      for (const c of t.clips)
+        if (c.componentId === "text") standaloneTextClipSchema.parse(c);
       const current = await readEditor(projectRoot, m);
       if (current.revision !== revision)
         throw new Error(

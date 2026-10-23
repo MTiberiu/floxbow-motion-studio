@@ -85,6 +85,7 @@ const createdIds = [id];
 const projectPath = path.join(projectsDir, id);
 let renderedStill: string | undefined;
 let renderedVideo: string | undefined;
+let standaloneTextVideo: string | undefined;
 const audioFixtureDirectory = await mkdtemp(
   path.join(os.tmpdir(), "flox-media-smoke-"),
 );
@@ -1995,6 +1996,195 @@ try {
       );
       expect(savedProject.clips[0].content.text).toBe(caption);
     }
+
+    // A core Text clip round-trips through the same Timeline JSON, Inspector,
+    // live preview and Remotion renderer without a project module registration.
+    const textProjectPath = path.join(projectsDir, thirdId);
+    await page.getByRole("button", { name: "Add Text", exact: true }).click();
+    const textClip = page.locator('.timeline-clip[data-clip-id^="text-"]');
+    await expect(textClip).toBeVisible();
+    const textClipId = await textClip.getAttribute("data-clip-id");
+    expect(textClipId).toBeTruthy();
+    const inspectorText = page.getByLabel("Text", { exact: true });
+    const textPreview = page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator(`[data-standalone-text-id="${textClipId}"]`);
+    await inspectorText.fill("AI editable title");
+    await page.getByLabel("Position X (%)").fill("68");
+    await page.getByLabel("Position Y (%)").fill("24");
+    await page.getByLabel("Font size", { exact: true }).fill("84");
+    await page.getByLabel("Color", { exact: true }).fill("#00ff00");
+    await page.getByLabel("Alignment", { exact: true }).selectOption("right");
+    await expect(textPreview).toHaveText("AI editable title");
+    await expect(textPreview).toHaveCSS("color", "rgb(0, 255, 0)");
+    await expect(textPreview).toHaveCSS("text-align", "right");
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Save project", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    const standaloneTextPath = path.join(
+      textProjectPath,
+      "edit-timeline.json",
+    );
+    const readTextClip = async () => {
+      const document = JSON.parse(await readFile(standaloneTextPath, "utf8"));
+      return {
+        document,
+        clip: document.clips.find(
+          (item: { id: string }) => item.id === textClipId,
+        ),
+      };
+    };
+    let standaloneSaved = await readTextClip();
+    expect(standaloneSaved.document.version).toBe(1);
+    expect(standaloneSaved.clip).toMatchObject({
+      componentId: "text",
+      content: { text: "AI editable title" },
+      props: {
+        x: 68,
+        y: 24,
+        fontSize: 84,
+        color: "#00ff00",
+        alignment: "right",
+      },
+    });
+
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(inspectorText).toHaveValue("AI editable title");
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
+    await expect(page.getByLabel("Position Y (%)")).toHaveValue("24");
+    await expect(page.getByLabel("Font size", { exact: true })).toHaveValue(
+      "84",
+    );
+    await expect(page.getByLabel("Color", { exact: true })).toHaveValue(
+      "#00ff00",
+    );
+    await expect(page.getByLabel("Alignment", { exact: true })).toHaveValue(
+      "right",
+    );
+
+    const writeExternalTextUpdate = async (
+      change: (clip: Record<string, any>) => void,
+    ) => {
+      const { document, clip } = await readTextClip();
+      change(clip);
+      const temporary = `${standaloneTextPath}.agent-${randomUUID()}.tmp`;
+      await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, {
+        flag: "wx",
+      });
+      await rename(temporary, standaloneTextPath);
+    };
+    await writeExternalTextUpdate((clip) => {
+      clip.content.text = "External agent title";
+      clip.props.x = 35;
+      clip.props.y = 30;
+      clip.props.color = "#ff3300";
+      clip.props.alignment = "left";
+    });
+    await expect(inspectorText).toHaveValue("External agent title");
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("35");
+    await expect(textPreview).toHaveText("External agent title");
+    await expect(textPreview).toHaveCSS("color", "rgb(255, 51, 0)");
+
+    await inspectorText.fill("Human unsaved title");
+    await writeExternalTextUpdate((clip) => {
+      clip.content.text = "New external title";
+      clip.props.alignment = "right";
+    });
+    await expect(page.locator(".timeline-editor .error")).toContainText(
+      "project changed on disk while you were editing",
+    );
+    await expect(inspectorText).toHaveValue("Human unsaved title");
+    await expect(
+      page.getByRole("button", { name: "Save project", exact: true }),
+    ).toBeDisabled();
+    standaloneSaved = await readTextClip();
+    expect(standaloneSaved.clip.content.text).toBe("New external title");
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(inspectorText).toHaveValue("New external title");
+    await expect(page.getByLabel("Alignment", { exact: true })).toHaveValue(
+      "right",
+    );
+
+    await inspectorText.fill("Final title from Inspector");
+    await page.getByLabel("Position X (%)").fill("68");
+    await page.getByLabel("Position Y (%)").fill("24");
+    await page.getByLabel("Font size", { exact: true }).fill("84");
+    await page.getByLabel("Color", { exact: true }).fill("#00ff00");
+    await page.getByLabel("Alignment", { exact: true }).selectOption("right");
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
+    await expect(textPreview).toHaveAttribute("style", /left:\s*68%/);
+    await expect(textPreview).toHaveText("Final title from Inspector");
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Save project", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    standaloneSaved = await readTextClip();
+    expect(standaloneSaved.clip).toMatchObject({
+      content: { text: "Final title from Inspector" },
+      props: {
+        x: 68,
+        y: 24,
+        fontSize: 84,
+        color: "#00ff00",
+        alignment: "right",
+      },
+    });
+    standaloneTextVideo = await renderProject(root, thirdId, false);
+    const renderedTextFrame = await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-ss",
+        "3.5",
+        "-i",
+        standaloneTextVideo,
+        "-frames:v",
+        "1",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "pipe:1",
+      ],
+      {
+        windowsHide: true,
+        timeout: 60_000,
+        maxBuffer: 8 * 1024 * 1024,
+        encoding: "buffer",
+      },
+    );
+    const renderedTextPixels = Buffer.from(renderedTextFrame.stdout);
+    let greenTextPixels = 0;
+    for (
+      let index = 0;
+      index + 2 < renderedTextPixels.length;
+      index += 3
+    ) {
+      if (
+        renderedTextPixels[index] < 100 &&
+        renderedTextPixels[index + 1] > 150 &&
+        renderedTextPixels[index + 2] < 100
+      )
+        greenTextPixels += 1;
+    }
+    expect(greenTextPixels).toBeGreaterThan(100);
+
     await selectProject(id);
     await expect(
       page
@@ -2112,6 +2302,8 @@ try {
   await rm(audioFixtureDirectory, { recursive: true, force: true });
   if (renderedStill) await rm(renderedStill, { force: true });
   if (renderedVideo) await rm(renderedVideo, { force: true });
+  if (standaloneTextVideo)
+    await rm(standaloneTextVideo, { force: true });
   if (!built)
     await Promise.all(
       createdIds.map((projectId) =>
