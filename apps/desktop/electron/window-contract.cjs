@@ -291,6 +291,8 @@ function isTimelineCommand(value) {
     );
   if (["play", "pause", "undo", "redo"].includes(command.type))
     return hasExactKeys(command, ["type"]);
+  if (["copy", "cut", "paste", "duplicate", "delete"].includes(command.type))
+    return hasExactKeys(command, ["type"]);
   if (command.type === "editTimeline")
     return (
       hasExactKeys(command, ["type", "document", "checkpoint"]) &&
@@ -299,11 +301,20 @@ function isTimelineCommand(value) {
     );
   if (command.type === "beginClipGesture")
     return (
-      hasExactKeys(command, ["type", "gestureId", "clipId"]) &&
+      (hasExactKeys(command, ["type", "gestureId", "clipId"]) ||
+        hasExactKeys(command, [
+          "type",
+          "gestureId",
+          "clipId",
+          "duplicateId",
+        ])) &&
       typeof command.gestureId === "string" &&
       instanceIdPattern.test(command.gestureId) &&
       typeof command.clipId === "string" &&
-      command.clipId.length <= 100
+      command.clipId.length <= 100 &&
+      (command.duplicateId === undefined ||
+        (typeof command.duplicateId === "string" &&
+          /^[a-zA-Z0-9_-]{1,100}$/.test(command.duplicateId)))
     );
   if (command.type === "updateClipGesture")
     return (

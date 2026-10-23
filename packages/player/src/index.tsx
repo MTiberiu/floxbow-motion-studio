@@ -82,7 +82,7 @@ export function StudioPlayer({
         compositionHeight={manifest.height}
         fps={manifest.fps}
         controls
-        loop
+        loop={false}
         style={{ width: "100%", height: "100%" }}
         errorFallback={({ error }) => (
           <pre role="alert">Composition failed: {error.message}</pre>

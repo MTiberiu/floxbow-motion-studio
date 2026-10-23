@@ -44,8 +44,14 @@ export type TimelineCommand =
   | Readonly<{ type: "selectClip"; clipId: string }>
   | Readonly<{ type: "seek"; frame: number }>
   | Readonly<{ type: "play" | "pause" | "undo" | "redo" }>
+  | Readonly<{ type: "copy" | "cut" | "paste" | "duplicate" | "delete" }>
   | Readonly<{ type: "editTimeline"; document: unknown; checkpoint: boolean }>
-  | Readonly<{ type: "beginClipGesture"; gestureId: string; clipId: string }>
+  | Readonly<{
+      type: "beginClipGesture";
+      gestureId: string;
+      clipId: string;
+      duplicateId?: string;
+    }>
   | Readonly<{
       type: "updateClipGesture";
       gestureId: string;

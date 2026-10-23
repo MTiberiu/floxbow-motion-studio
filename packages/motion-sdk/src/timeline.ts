@@ -17,6 +17,8 @@ export type TimelineRange={from:number;durationInFrames:number};
 /** Trusted editor-side behavior hooks. Only serializable IDs cross the preview bridge. */
 export type TimelineBehavior={
  id:string;
+ /** Shared editor operations a component permits; omitted operations are allowed. */
+ operations?:Partial<Record<'move'|'copy'|'cut'|'paste'|'duplicate'|'delete',boolean>>;
  resizeContent?:(content:TimelineClip['content'],oldRange:TimelineRange,nextRange:TimelineRange,fps:number)=>TimelineClip['content'];
  duplicateContent?:(content:TimelineClip['content'],sourceId:string)=>TimelineClip['content'];
  editContent?:(content:TimelineClip['content'],key:string,value:string|number|boolean)=>{content:TimelineClip['content'];notice?:string}|undefined;

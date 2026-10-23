@@ -167,6 +167,7 @@ try {
   );
   await page.evaluate(() => {
     localStorage.removeItem("motion-project");
+    localStorage.removeItem("motion-preview-playback-end");
     for (const key of Object.keys(localStorage))
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
@@ -560,6 +561,14 @@ try {
       )
       .toBe(true);
     await audioTimelineWindow!
+      .getByLabel("Timeline playhead frame", { exact: true })
+      .fill("90");
+    await expect
+      .poll(() =>
+        audioElement.evaluate((element: HTMLAudioElement) => !element.paused),
+      )
+      .toBe(true);
+    await audioTimelineWindow!
       .getByRole("button", { name: "Pause Timeline playback", exact: true })
       .click();
     await expect
@@ -904,11 +913,53 @@ try {
     await expect(page.locator('[data-editor-view="canvas"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="timeline"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="inspector"]')).toHaveCount(1);
+    await expect(
+      page.getByLabel("Playback ends", { exact: true }),
+    ).toHaveValue("content");
+    await page
+      .getByLabel("Playback ends", { exact: true })
+      .selectOption("project");
+    await expect(
+      page.getByLabel("Playback ends", { exact: true }),
+    ).toHaveValue("project");
+    await page
+      .getByLabel("Playback ends", { exact: true })
+      .selectOption("content");
+    await expect(page.locator(".timeline-review summary")).toBeVisible();
     await verifyTimelineZoom(page);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(
       page.getByRole("button", { name: /^Clip subtitle-/ }),
     ).toBeVisible();
+    const initialClipStart = await page
+      .getByLabel("Clip start frame", { exact: true })
+      .inputValue();
+    const initialClipEnd = await page
+      .getByLabel("Clip end frame", { exact: true })
+      .inputValue();
+    await page.getByLabel("Clip start frame", { exact: true }).fill("0");
+    await page.getByLabel("Clip end frame", { exact: true }).fill("30");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("239");
+    await page.getByRole("button", { name: "Add subtitle" }).click();
+    const review = page.locator(".timeline-review");
+    await expect(review.locator("summary")).toContainText("long gap");
+    await expect(review.getByText(/Long gap on Captions:/)).toBeVisible();
+    await review.getByRole("button", { name: /^Locate / }).last().click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
+      "New subtitle",
+    );
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.locator(".timeline-clip.subtitle-clip")).toHaveCount(1);
+    await page.locator(".timeline-clip.subtitle-clip").first().click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(
+      page.getByLabel("Clip start frame", { exact: true }),
+    ).toHaveValue(initialClipStart);
+    await expect(
+      page.getByLabel("Clip end frame", { exact: true }),
+    ).toHaveValue(initialClipEnd);
+    await page.getByLabel("Playhead frame", { exact: true }).fill("90");
     const soundtrackTrackId = await page
       .locator(".audio-clip")
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
@@ -980,6 +1031,39 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Human edited caption",
     );
+
+    await originalClip.focus();
+    await page.keyboard.press("Control+c");
+    await page.keyboard.press("Control+v");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(1);
+    await page.keyboard.press("Control+y");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+
+    const dragSource = page.locator(".timeline-clip:not(.audio-clip)").first();
+    const dragSourceId = await dragSource.getAttribute("data-clip-id");
+    const dragBox = await dragSource.boundingBox();
+    expect(dragBox).toBeTruthy();
+    await page.keyboard.down("Control");
+    await page.mouse.move(dragBox!.x + dragBox!.width / 2, dragBox!.y + dragBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(dragBox!.x + dragBox!.width / 2 + 80, dragBox!.y + dragBox!.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(3);
+    const dragCopyId = await page.locator(".timeline-clip.is-selected").getAttribute("data-clip-id");
+    expect(dragCopyId).toBeTruthy();
+    expect(dragCopyId).not.toBe(dragSourceId);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await page.keyboard.press("Control+y");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(3);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(1);
+    await originalClip.click();
 
     const detachedClipId = await page
       .locator(".timeline-clip.is-selected")
@@ -1097,12 +1181,13 @@ try {
       "Timeline playhead frame",
       { exact: true },
     );
-    for (const frame of [121, 37, 83])
+    for (const frame of [121, 37, 83]) {
       await detachedPlayhead.fill(String(frame));
-    await expect(detachedPlayhead).toHaveValue("83");
-    await expect(
-      page.getByLabel("Playhead frame", { exact: true }),
-    ).toHaveValue("83");
+      await expect(detachedPlayhead).toHaveValue(String(frame));
+      await expect(
+        page.getByLabel("Playhead frame", { exact: true }),
+      ).toHaveValue(String(frame));
+    }
 
     const originalRange = await detachedClip.locator("small").innerText();
     await detachedClip.focus();
@@ -1130,6 +1215,10 @@ try {
       resizeHandle!.y + resizeHandle!.height / 2,
     );
     await detachedPage!.mouse.down();
+    await expect(detachedPage!.locator(".timeline-dock")).toHaveAttribute(
+      "data-drag-active",
+      "true",
+    );
     await detachedPage!.mouse.move(
       resizeHandle!.x + resizeHandle!.width / 2 + 32,
       resizeHandle!.y + resizeHandle!.height / 2,
@@ -1147,6 +1236,207 @@ try {
       .getByRole("button", { name: "Undo", exact: true })
       .click();
     await expect(detachedClip.locator("small")).toHaveText(originalRange);
+
+    const rangeBeforeEdgeDrag = await detachedClip.locator("small").innerText();
+    const durationBeforeEdgeDrag =
+      Number(
+        await detachedPage!
+          .locator(".time-ruler")
+          .getAttribute("aria-valuemax"),
+      ) + 1;
+    await detachedPage!
+      .getByLabel("Timeline zoom", { exact: true })
+      .selectOption("8");
+    const timelineScroll = detachedPage!.locator(".timeline-scroll");
+    const initialClipLeft = await detachedClip.evaluate(
+      (element) => element.getBoundingClientRect().left,
+    );
+    await timelineScroll.evaluate((element, clipLeft) => {
+      element.scrollLeft = Math.max(0, clipLeft - 200);
+    }, initialClipLeft);
+    const edgeClipBox = await detachedClip.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+    const timelineViewport = await timelineScroll.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+    expect(edgeClipBox).toBeTruthy();
+    expect(timelineViewport).toBeTruthy();
+    await detachedClip.dispatchEvent("pointerdown", {
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+      button: 0,
+      buttons: 1,
+      clientX: edgeClipBox!.x + Math.min(edgeClipBox!.width / 2, 24),
+      clientY: edgeClipBox!.y + edgeClipBox!.height / 2,
+    });
+    await expect(detachedPage!.locator(".timeline-dock")).toHaveAttribute(
+      "data-drag-active",
+      "true",
+    );
+    await detachedPage!.waitForTimeout(100);
+    await detachedPage!.evaluate(() => {
+      const viewport = document.querySelector(".timeline-scroll")!;
+      const rect = viewport.getBoundingClientRect();
+      window.dispatchEvent(
+        new MouseEvent("mousemove", {
+          clientX: rect.right - 4,
+          clientY: rect.top + rect.height / 2,
+          bubbles: true,
+        }),
+      );
+    });
+    await expect
+      .poll(() =>
+        detachedPage!
+          .locator(".timeline-scroll")
+          .evaluate((element) => element.scrollLeft),
+      )
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        const range = await detachedClip.locator("small").innerText();
+        return Number(range.split("–")[0]);
+      })
+      .toBeGreaterThan(0);
+    await detachedPage!.waitForTimeout(6500);
+    await detachedPage!.evaluate(() => {
+      window.dispatchEvent(
+        new MouseEvent("mouseup", { buttons: 0, bubbles: true }),
+      );
+    });
+    const mainStartFrame = page.getByLabel("Clip start frame", {
+      exact: true,
+    });
+    const mainEndFrame = page.getByLabel("Clip end frame", { exact: true });
+    await expect
+      .poll(async () => {
+        const range = await detachedClip.locator("small").innerText();
+        const [start, end] = range.split("–").map(Number);
+        const [authoritativeStart, authoritativeEnd] = await Promise.all([
+          mainStartFrame.inputValue(),
+          mainEndFrame.inputValue(),
+        ]);
+        return (
+          start === Number(authoritativeStart) &&
+          end === Number(authoritativeEnd)
+        );
+      })
+      .toBe(true);
+    const rangeAfterEdgeDrag = await detachedClip.locator("small").innerText();
+    const durationAfterEdgeDrag =
+      Number(
+        await detachedPage!
+          .locator(".time-ruler")
+          .getAttribute("aria-valuemax"),
+      ) + 1;
+    expect(Number(rangeAfterEdgeDrag.split("–")[1])).toBeGreaterThan(
+      durationBeforeEdgeDrag,
+    );
+    expect(durationAfterEdgeDrag).toBeGreaterThan(durationBeforeEdgeDrag);
+    await detachedPage!
+      .getByRole("button", { name: "Undo", exact: true })
+      .click();
+    await expect(detachedClip.locator("small")).toHaveText(
+      rangeBeforeEdgeDrag,
+    );
+    await expect
+      .poll(() =>
+        detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
+      )
+      .toBe(String(durationBeforeEdgeDrag - 1));
+    await detachedPage!
+      .getByRole("button", { name: "Redo", exact: true })
+      .click();
+    await expect(detachedClip.locator("small")).toHaveText(rangeAfterEdgeDrag);
+    await expect
+      .poll(() =>
+        detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
+      )
+      .toBe(String(durationAfterEdgeDrag - 1));
+    await page.getByRole("button", { name: "Delete clip", exact: true }).click();
+    await expect(
+      detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`),
+    ).toHaveCount(0);
+    await expect
+      .poll(() =>
+        detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
+      )
+      .toBe(String(durationAfterEdgeDrag - 1));
+    await page
+      .getByLabel("Playback ends", { exact: true })
+      .selectOption("content");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("0");
+    const canvas = page.locator('[data-editor-view="canvas"]');
+    await canvas.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(
+      canvas.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible({ timeout: 12_000 });
+    const contentEndFrame = Number(
+      (await canvas.getByTestId("frame-readout").innerText()).split("/")[0],
+    );
+    expect(contentEndFrame).toBeLessThan(durationAfterEdgeDrag - 1);
+    await page.getByLabel("Playhead frame", { exact: true }).fill("0");
+    await canvas.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(
+      canvas.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByLabel("Playhead frame", { exact: true })
+      .fill(String(durationAfterEdgeDrag - 10));
+    await expect(
+      canvas.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible({ timeout: 2_000 });
+    const tailSeekFrame = Number(
+      (await canvas.getByTestId("frame-readout").innerText()).split("/")[0],
+    );
+    expect(tailSeekFrame).toBeGreaterThanOrEqual(durationAfterEdgeDrag - 2);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(
+      detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`),
+    ).toHaveCount(1);
+    await detachedPage!
+      .locator(`[data-clip-id="${detachedClipId}"]`)
+      .click();
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    const extendedProject = JSON.parse(
+      await readFile(path.join(projectPath, "project.json"), "utf8"),
+    );
+    const extendedTimeline = JSON.parse(
+      await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
+    );
+    expect(extendedProject.durationInFrames).toBe(durationAfterEdgeDrag);
+    expect(extendedTimeline.durationInFrames).toBe(durationAfterEdgeDrag);
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(detachedClip.locator("small")).toHaveText(rangeAfterEdgeDrag);
+    await expect
+      .poll(() =>
+        detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
+      )
+      .toBe(String(durationAfterEdgeDrag - 1));
 
     await page
       .getByLabel("Text", { exact: true })
@@ -1169,10 +1459,13 @@ try {
     );
     await detachedPage!
       .getByLabel("Timeline playhead frame", { exact: true })
-      .fill("90");
+      .fill(rangeAfterEdgeDrag.split("–")[0]);
     await expect(
       preview.getByText("Human edited caption", { exact: true }),
     ).toBeVisible();
+    await detachedPage!
+      .getByLabel("Timeline playhead frame", { exact: true })
+      .fill("90");
     await detachedPage!
       .getByRole("button", { name: "Add track", exact: true })
       .evaluate((button) => {
@@ -1391,6 +1684,11 @@ try {
       "Track 4",
       "Track 5",
     ]);
+    expect(
+      saved.clips.find(
+        (clip: { componentId: string }) => clip.componentId === "soundtrack",
+      ),
+    ).toMatchObject({ from: 0, durationInFrames: 240 });
     renderedStill = await renderProject(root, id, true);
     expect((await stat(renderedStill)).size).toBeGreaterThan(1024);
     renderedVideo = await renderProject(root, id, false);
@@ -1413,6 +1711,29 @@ try {
         (stream: { codec_type: string }) => stream.codec_type === "audio",
       ),
     ).toBe(true);
+    const duringSoundtrack = await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "info",
+        "-ss",
+        "0.2",
+        "-i",
+        renderedVideo,
+        "-t",
+        "0.5",
+        "-vn",
+        "-af",
+        "volumedetect",
+        "-f",
+        "null",
+        "-",
+      ],
+      { windowsHide: true, timeout: 60_000 },
+    );
+    const meanVolume = (output: string) =>
+      Number(output.match(/mean_volume:\s*(-?[\d.]+) dB/)?.[1] ?? -Infinity);
+    expect(meanVolume(duringSoundtrack.stderr)).toBeGreaterThan(-25);
     const captionFrame = await execFileAsync(
       "ffmpeg",
       [

@@ -7,20 +7,27 @@ import {
 } from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
-  changeClipRange,
-  type ComponentInfo,
-  type EditTimeline,
-  type TimelineClip,
+  changeClipRangeWithDurationExtension,
+  MAX_TIMELINE_DURATION_FRAMES,
+} from "./timeline-track-utils";
+import type {
+  ComponentInfo,
+  EditTimeline,
+  TimelineClip,
 } from "@motion/sdk/timeline";
 
 type Drag = {
   clip: TimelineClip;
+  sourceClipId: string;
   mode: "move" | "left" | "right";
   x: number;
-  timeline: EditTimeline;
   pixels: number;
   scrollLeft: number;
+  displayDurationInFrames: number;
+  lastX: number;
   gestureId: string;
+  active: boolean;
+  duplicateId?: string;
 };
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
@@ -43,7 +50,23 @@ export type TimelineViewProps = {
   onSeek: (frame: number) => void;
   onPause: () => void;
   onPlay?: () => void;
-  onBeginClipGesture: (gestureId: string, clipId: string) => void;
+  onBeginClipGesture: (
+    gestureId: string,
+    clipId: string,
+    duplicateId?: string,
+  ) => void;
+  onTimelineOperation?: (
+    operation:
+      | "copy"
+      | "cut"
+      | "paste"
+      | "duplicate"
+      | "delete"
+      | "undo"
+      | "redo"
+      | "playPause",
+  ) => void;
+  keyboardShortcutsEnabled?: boolean;
   onUpdateClipGesture: (
     gestureId: string,
     clipId: string,
@@ -74,6 +97,8 @@ export function TimelineView({
   onPause,
   onPlay,
   onBeginClipGesture,
+  onTimelineOperation,
+  keyboardShortcutsEnabled = true,
   onUpdateClipGesture,
   onEndClipGesture,
   onResizeStart,
@@ -90,11 +115,84 @@ export function TimelineView({
   const zoomRef = useRef(1);
   const zoomAnchor = useRef<ZoomAnchor | undefined>(undefined);
   const wheelDelta = useRef(0);
+  const onUpdateClipGestureRef = useRef(onUpdateClipGesture);
+  onUpdateClipGestureRef.current = onUpdateClipGesture;
   const [zoom, setZoom] = useState(1);
   const [viewportWidth, setViewportWidth] = useState(900);
+  const [dragging, setDragging] = useState(false);
+  const operationRef = useRef(onTimelineOperation);
+  operationRef.current = onTimelineOperation;
+
+  useEffect(() => {
+    if (!keyboardShortcutsEnabled || !onTimelineOperation) return;
+    const isTextEntry = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      Boolean(
+        target.closest(
+          "input, textarea, select, [contenteditable='true'], [role='textbox']",
+        ),
+      );
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isTextEntry(event.target)) return;
+      const modifier = event.ctrlKey || event.metaKey;
+      let operation: Parameters<typeof onTimelineOperation>[0] | undefined;
+      if (modifier && event.key.toLowerCase() === "c") operation = "copy";
+      else if (modifier && event.key.toLowerCase() === "x") operation = "cut";
+      else if (modifier && event.key.toLowerCase() === "v") operation = "paste";
+      else if (modifier && event.key.toLowerCase() === "d")
+        operation = "duplicate";
+      else if (modifier && event.key.toLowerCase() === "z")
+        operation = event.shiftKey ? "redo" : "undo";
+      else if (modifier && event.key.toLowerCase() === "y") operation = "redo";
+      else if (
+        !modifier &&
+        (event.key === "Delete" || event.key === "Backspace")
+      )
+        operation = "delete";
+      else if (
+        !modifier &&
+        event.code === "Space" &&
+        event.target instanceof HTMLElement &&
+        event.target.closest(".timeline-dock") &&
+        !event.target.closest("button, input, select")
+      )
+        operation = "playPause";
+      if (!operation) return;
+      event.preventDefault();
+      operationRef.current?.(operation);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [keyboardShortcutsEnabled, Boolean(onTimelineOperation)]);
+  const displayDurationInFrames = Math.min(
+    MAX_TIMELINE_DURATION_FRAMES,
+    Math.max(
+      (document?.durationInFrames ?? manifest.durationInFrames) +
+        manifest.fps * 2,
+      Math.ceil(
+        (document?.durationInFrames ?? manifest.durationInFrames) * 1.1,
+      ),
+    ),
+  );
+  const initialScale = useRef({
+    projectId: manifest.id,
+    frames: displayDurationInFrames,
+  });
+  if (initialScale.current.projectId !== manifest.id) {
+    initialScale.current = {
+      projectId: manifest.id,
+      frames: displayDurationInFrames,
+    };
+  }
   const zoomBaseWidth = Math.max(
     viewportWidth,
     scroll.current?.clientWidth ?? 0,
+  );
+  const canvasWidth = Math.max(
+    zoomBaseWidth,
+    120 +
+      (Math.max(0, zoomBaseWidth - 120) * zoom * displayDurationInFrames) /
+        initialScale.current.frames,
   );
   const hasDocument = Boolean(document);
 
@@ -173,30 +271,58 @@ export function TimelineView({
     if (!document || !ruler.current) return;
     event.stopPropagation();
     onSelectClip(clip.id);
-    if (clip.componentId === "soundtrack") return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    onPause();
     const gestureId = crypto.randomUUID();
-    onBeginClipGesture(gestureId, clip.id);
     drag.current = {
       clip: structuredClone(clip),
+      sourceClipId: clip.id,
       mode,
       x: event.clientX,
-      timeline: structuredClone(document),
+      lastX: event.clientX,
       pixels: ruler.current.getBoundingClientRect().width,
       scrollLeft: scroll.current?.scrollLeft ?? 0,
+      displayDurationInFrames,
       gestureId,
+      active: false,
+      duplicateId:
+        mode === "move" && (event.ctrlKey || event.metaKey)
+          ? `clip-${crypto.randomUUID()}`
+          : undefined,
     };
+    setDragging(true);
   }
 
-  function move(event: PointerEvent) {
+  function updateDrag(clientX: number) {
     const current = drag.current;
     if (!current) return;
+    current.lastX = clientX;
+    const deltaX =
+      clientX -
+      current.x +
+      ((scroll.current?.scrollLeft ?? current.scrollLeft) - current.scrollLeft);
+    if (!current.active && Math.abs(deltaX) < 4) return;
+    if (!current.active) {
+      current.active = true;
+      onPause();
+      if (current.duplicateId) {
+        const source = current.clip;
+        current.clip = {
+          ...source,
+          id: current.duplicateId,
+          label: `${source.label} (copy)`,
+        };
+      }
+      onBeginClipGesture(
+        current.gestureId,
+        current.sourceClipId,
+        current.duplicateId,
+      );
+      setDragging(true);
+    }
     const scrollDelta =
       (scroll.current?.scrollLeft ?? current.scrollLeft) - current.scrollLeft;
     const delta = Math.round(
-      ((event.clientX - current.x + scrollDelta) / current.pixels) *
-        manifest.durationInFrames,
+      ((clientX - current.x + scrollDelta) / current.pixels) *
+        current.displayDurationInFrames,
     );
     let start = current.clip.from;
     let end = start + current.clip.durationInFrames;
@@ -204,7 +330,7 @@ export function TimelineView({
       start = Math.max(
         0,
         Math.min(
-          manifest.durationInFrames - current.clip.durationInFrames,
+          MAX_TIMELINE_DURATION_FRAMES - current.clip.durationInFrames,
           start + delta,
         ),
       );
@@ -214,10 +340,10 @@ export function TimelineView({
     } else {
       end = Math.max(
         start + 1,
-        Math.min(manifest.durationInFrames, end + delta),
+        Math.min(MAX_TIMELINE_DURATION_FRAMES, end + delta),
       );
     }
-    onUpdateClipGesture(
+    onUpdateClipGestureRef.current(
       current.gestureId,
       current.clip.id,
       start,
@@ -226,21 +352,70 @@ export function TimelineView({
     );
   }
 
+  function scrollTowardPointer(clientX: number) {
+    const element = scroll.current;
+    if (!element) return false;
+    const rect = element.getBoundingClientRect();
+    const edge = Math.min(48, rect.width / 4);
+    let amount = 0;
+    if (clientX > rect.right - edge)
+      amount = Math.ceil((16 * (clientX - (rect.right - edge))) / edge);
+    else if (clientX < rect.left + edge)
+      amount = -Math.ceil((16 * (rect.left + edge - clientX)) / edge);
+    if (!amount) return false;
+    const before = element.scrollLeft;
+    element.scrollLeft = Math.max(
+      0,
+      Math.min(element.scrollWidth - element.clientWidth, before + amount),
+    );
+    return element.scrollLeft !== before;
+  }
+
+  useEffect(() => {
+    if (!dragging) return;
+    let frameId = 0;
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!drag.current) return;
+      if (drag.current.active) scrollTowardPointer(event.clientX);
+      updateDrag(event.clientX);
+    };
+    const handleMouseUp = () => finish();
+    window.addEventListener("mousemove", handleMouseMove, true);
+    window.addEventListener("mouseup", handleMouseUp, true);
+    const tick = () => {
+      const current = drag.current;
+      if (current?.active && scrollTowardPointer(current.lastX))
+        updateDrag(current.lastX);
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+    return () => {
+      cancelAnimationFrame(frameId);
+      window.removeEventListener("mousemove", handleMouseMove, true);
+      window.removeEventListener("mouseup", handleMouseUp, true);
+    };
+  }, [dragging]);
+
   function finish() {
-    if (drag.current) onEndClipGesture(drag.current.gestureId);
+    if (drag.current?.active) onEndClipGesture(drag.current.gestureId);
     drag.current = undefined;
+    setDragging(false);
   }
 
   function scrub(event: PointerEvent<HTMLDivElement>) {
     if (!ruler.current) return;
     const rect = ruler.current.getBoundingClientRect();
     onSeek(
-      ((event.clientX - rect.left) / rect.width) * manifest.durationInFrames,
+      ((event.clientX - rect.left) / rect.width) * displayDurationInFrames,
     );
   }
 
   return document ? (
-    <div className="timeline-dock" data-editor-view="timeline">
+    <div
+      className="timeline-dock"
+      data-editor-view="timeline"
+      data-drag-active={dragging || undefined}
+    >
       <button
         className="timeline-resize"
         aria-label="Resize timeline height"
@@ -353,7 +528,8 @@ export function TimelineView({
         <div
           className="timeline-canvas"
           style={{
-            minWidth: zoom === 1 ? "100%" : `${zoomBaseWidth * zoom}px`,
+            minWidth: zoomBaseWidth,
+            width: `${canvasWidth}px`,
           }}
         >
           <div className="ruler-row">
@@ -361,6 +537,7 @@ export function TimelineView({
             <div
               className="time-ruler"
               ref={ruler}
+              data-range-frames={displayDurationInFrames}
               role="slider"
               aria-label="Timeline playhead"
               aria-valuemin={0}
@@ -388,7 +565,7 @@ export function TimelineView({
               {Array.from({ length: 11 }, (_, index) => (
                 <span key={index} style={{ left: `${index * 10}%` }}>
                   {(
-                    ((document.durationInFrames / document.fps) * index) /
+                    ((displayDurationInFrames / document.fps) * index) /
                     10
                   ).toFixed(1)}
                   s
@@ -397,13 +574,13 @@ export function TimelineView({
               <div
                 className="playhead-line"
                 style={{
-                  left: `${(frame / document.durationInFrames) * 100}%`,
+                  left: `${(frame / displayDurationInFrames) * 100}%`,
                 }}
               />
               <div
                 className="playhead-cap"
                 style={{
-                  left: `${(frame / document.durationInFrames) * 100}%`,
+                  left: `${(frame / displayDurationInFrames) * 100}%`,
                 }}
               />
             </div>
@@ -419,60 +596,63 @@ export function TimelineView({
                 {document.clips
                   .filter((clip) => clip.trackId === track.id)
                   .map((clip) => {
-                    const fixedSoundtrack = clip.componentId === "soundtrack";
+                    const soundtrackClip = clip.componentId === "soundtrack";
                     return (
                       <div
                         key={clip.id}
                         role="button"
                         tabIndex={0}
                         aria-label={
-                          fixedSoundtrack
-                            ? `Audio clip ${clip.id}; timing fixed`
+                          soundtrackClip
+                            ? `Audio clip ${clip.id}; fixed at frame zero`
                             : `Clip ${clip.id}`
                         }
                         aria-pressed={selectedClipId === clip.id}
                         data-clip-id={clip.id}
-                        data-range-locked={fixedSoundtrack ? "true" : undefined}
+                        data-range-locked={soundtrackClip ? "true" : undefined}
                         title={
-                          fixedSoundtrack
-                            ? "Soundtrack timing is fixed to the selected audio duration."
+                          soundtrackClip
+                            ? "Soundtrack timing is fixed at frame zero; it cannot be moved or trimmed."
                             : undefined
                         }
-                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${fixedSoundtrack ? "audio-clip range-locked" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
+                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${soundtrackClip ? "audio-clip" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
                         style={{
-                          left: `${(clip.from / document.durationInFrames) * 100}%`,
-                          width: `${(clip.durationInFrames / document.durationInFrames) * 100}%`,
+                          left: `${(clip.from / displayDurationInFrames) * 100}%`,
+                          width: `${(clip.durationInFrames / displayDurationInFrames) * 100}%`,
                         }}
-                        onPointerDown={(event) => begin(event, clip, "move")}
-                        onPointerMove={move}
-                        onPointerUp={finish}
-                        onPointerCancel={finish}
+                        onPointerDown={(event) => {
+                          if (!soundtrackClip) begin(event, clip, "move");
+                          else {
+                            event.stopPropagation();
+                            onSelectClip(clip.id);
+                          }
+                        }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             onSelectClip(clip.id);
                           }
                           if (
-                            event.key === "ArrowLeft" ||
-                            event.key === "ArrowRight"
+                            !soundtrackClip &&
+                            (event.key === "ArrowLeft" ||
+                              event.key === "ArrowRight")
                           ) {
                             event.preventDefault();
-                            if (fixedSoundtrack) return;
                             onEdit((current) => {
                               const latest = current.clips.find(
                                 (candidate) => candidate.id === clip.id,
                               );
                               if (!latest) return current;
-                              const start = Math.max(
-                                0,
-                                Math.min(
-                                  current.durationInFrames -
-                                    latest.durationInFrames,
+                              const start = Math.min(
+                                MAX_TIMELINE_DURATION_FRAMES -
+                                  latest.durationInFrames,
+                                Math.max(
+                                  0,
                                   latest.from +
                                     (event.key === "ArrowRight" ? 1 : -1),
                                 ),
                               );
-                              return changeClipRange(
+                              return changeClipRangeWithDurationExtension(
                                 current,
                                 latest.id,
                                 start,
@@ -482,7 +662,7 @@ export function TimelineView({
                           }
                         }}
                       >
-                        {!fixedSoundtrack && (
+                        {!soundtrackClip && (
                           <button
                             className="resize-handle left"
                             aria-label={`Resize start ${clip.id}`}
@@ -497,7 +677,7 @@ export function TimelineView({
                         <small>
                           {clip.from}–{clip.from + clip.durationInFrames}
                         </small>
-                        {!fixedSoundtrack && (
+                        {!soundtrackClip && (
                           <button
                             className="resize-handle right"
                             aria-label={`Resize end ${clip.id}`}
@@ -512,7 +692,7 @@ export function TimelineView({
                 <div
                   className="playhead-line"
                   style={{
-                    left: `${(frame / document.durationInFrames) * 100}%`,
+                    left: `${(frame / displayDurationInFrames) * 100}%`,
                   }}
                 />
               </div>

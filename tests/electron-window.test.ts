@@ -292,6 +292,10 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
     command: { type: "seek", frame: 42 },
   };
   assert.equal(isTimelineCommand(command), true);
+  assert.equal(isTimelineCommand({ ...command, command: { type: "copy" } }), true);
+  assert.equal(isTimelineCommand({ ...command, command: { type: "delete", extra: true } }), false);
+  assert.equal(isTimelineCommand({ ...command, command: { type: "beginClipGesture", gestureId: instanceId, clipId: "caption", duplicateId: "clip-copy" } }), true);
+  assert.equal(isTimelineCommand({ ...command, command: { type: "beginClipGesture", gestureId: instanceId, clipId: "caption", duplicateId: "../bad" } }), false);
   assert.equal(isTimelineCommand({ ...command, commandId: `${instanceId}:2`, extra: 1 }), false);
   assert.equal(isTimelineCommand({ ...command, commandId: `${instanceId}:x` }), false);
   assert.equal(isTimelineCommand({ ...command, command: { type: "execute", code: "x" } }), false);
