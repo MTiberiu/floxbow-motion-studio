@@ -129,3 +129,12 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Once shared Core operations and a real agent workflow are stable, evaluate **MCP as optional thin adapter** over the same API (not the authoritative data store, editing engine or primary documentation).
 - [ ] When an effect is missing, capability discovery should return supported alternatives and a scoped SDK extension path; new module code requires explicit development permissions, validation and trust checks.
 - [ ] Benchmark context/token overhead, integration usability, security boundaries and maintenance before selecting MCP transport. No general autonomous plugin installation in initial Core Editor V1.
+
+
+## Shared spatial Inspector UX — planned (D-019)
+
+- [ ] Shared 2D XY pad/joystick for free-direction positioning, including diagonals, with live preview and exact X/Y entry.
+- [ ] Shared rotary dial/ring for rotation, with drag-to-angle and exact degree entry; define coordinate, anchor and angle conventions.
+- [ ] Direct on-canvas move/rotate affordances where appropriate; snapping, keyboard accessibility and reset.
+- [ ] One drag gesture = one atomic, undoable Core transform operation; conflict-safe JSON persistence and preview/MP4 parity.
+- [ ] Reuse controls for Text/Image/Video and module-owned clips; prototype after first Image round-trip, not in initial import PR.
