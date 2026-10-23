@@ -138,3 +138,11 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Direct on-canvas move/rotate affordances where appropriate; snapping, keyboard accessibility and reset.
 - [ ] One drag gesture = one atomic, undoable Core transform operation; conflict-safe JSON persistence and preview/MP4 parity.
 - [ ] Reuse controls for Text/Image/Video and module-owned clips; prototype after first Image round-trip, not in initial import PR.
+
+
+### Immediate blocker and Image implementation gate (2026-10-23)
+
+- [ ] Investigate reproducible third-project subtitle save mismatch (`New subtitle` saved instead of `Caption belongs to project three`) from PR #33 Electron smoke; fix underlying state/persistence race in focused PR without weakening assertions.
+- [ ] Rebase/refresh PR #33 onto repaired `dev`; require passing CI for its **actual latest HEAD**, not a previously green SHA.
+- [ ] Review proposed **PNG-first Image** slice (audit complete, not yet implemented): host-only image path, stable reused media assetId, independent clip IDs, native file picker, Timeline placement at 6s, Inspector position/scale and duration, external AI JSON round trip, dirty draft protection, MP4 representative-frame check.
+- [ ] At shared Inspector Transform implementation (after first Image JSON/MP4 proof), make XY pad and rotation dial **selection-first quick controls** usable for small/offscreen/overlapped objects; direct Canvas click must not be required; retain numerical precision, Center/Reset and single-step undo.
