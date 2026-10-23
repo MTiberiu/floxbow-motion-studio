@@ -105,3 +105,14 @@ These requirements are agreed **product targets**, not implemented features or p
 After standard clips and project-data round trips are reliable, add first-class scenes on the **same canonical Timeline**, plus explicit clip-only trim and scene-duration ripple operations. A 10-second scene expanded by 2 seconds moves all following scenes by 2 seconds; elements after a user-selected ripple anchor **inside** the scene also shift, while a subtitle extended within the current scene need not move anything else. Provide clear handle/mode UI, overlap/locked/linked-audio policy, scope preview, transaction/Undo, and AI-callable validated edit operations that save deterministic JSON. Do not implement by making Codex rewrite every clip start frame. Do not silently ripple when merely extending an individual subtitle. Scene/group model must coexist with module-owned layers and external JSON change protection.
 
 **Scheduling:** this is a later Core milestone, not part of the first Media Library + Image/Video PR. Confirm product semantics and timing boundaries in a focused design review before coding.
+
+
+## Agent interface decision gates — D-018
+
+**Now / during Core clip work:** retain a single canonical JSON model, validated operations, stable IDs, capability schemas, ownership checks, and explicit revision safety. Design each new Core function so it can later be discovered and invoked without reading internal source.
+
+**After Media Library + first Image round-trip is proven:** review a **small Agent Skill and CLI discovery/validation/editing proof** using the existing Core API. Measure whether Codex can discover supported Text/Image properties, edit a saved project, validate/reload, and avoid consulting the app's React implementation. This is a review gate, not automatic approval to implement a general agent platform.
+
+**After reusable Core operations (including structural scene/ripple operations where available) and a real end-to-end external-agent workflow:** assess whether a **thin MCP adapter** offers practical agent interoperability beyond Skills + CLI. It must delegate to the same Core edit engine, expose only narrowly scoped safe tools/resources, and respect human drafts and permissions. Defer a large MCP server, general autonomous module installation and background agent orchestration.
+
+**Continue immediate feature order:** stabilize and merge PR #33 documentation, then plan the Image/Media Library slice. Agent transport work must not delay the editor's missing fundamentals.
