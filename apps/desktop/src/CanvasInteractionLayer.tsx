@@ -39,7 +39,6 @@ export type CanvasInteractionLayerProps = {
     data: NonNullable<ReturnType<typeof parseMediaAssetDragData>>,
     position: { x: number; y: number },
   ) => void;
-  spaceHeld?: boolean;
 };
 
 const anchorTranslations: Record<string, string> = {
@@ -102,7 +101,6 @@ export function CanvasInteractionLayer({
   onGestureEnd,
   onGestureCancel,
   onDropMedia,
-  spaceHeld = false,
 }: CanvasInteractionLayerProps) {
   const root = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | undefined>(undefined);
@@ -143,7 +141,7 @@ export function CanvasInteractionLayer({
     target?: CanvasVisualElement,
     handle?: Gesture["handle"],
   ) {
-    if (spaceHeld || event.button === 1) return;
+    if (event.button === 1) return;
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
@@ -426,6 +424,7 @@ export function CanvasInteractionLayer({
             tabIndex={0}
             onPointerDown={(event) => start(event, "move", item)}
             onKeyDown={(event) => {
+              if (event.defaultPrevented) return;
               if (event.key !== "Enter" && event.key !== " ") return;
               event.preventDefault();
               const additive = event.shiftKey || event.ctrlKey || event.metaKey;
@@ -483,7 +482,7 @@ export function CanvasInteractionLayer({
               type="button"
               aria-label="Rotate selection"
               className="canvas-transform-handle rotate-handle group-rotate-handle"
-              style={{ left: "50%", top: 0 }}
+              style={{ left: "50%" }}
               onPointerDown={(event) => start(event, "rotate")}
             />
           )}

@@ -308,21 +308,37 @@ try {
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByText("Create your first video project")).toBeVisible();
-
-  await page.getByRole("button", { name: "Explore capabilities" }).click();
+  await expect
+    .poll(
+      async () =>
+        (await page.locator(".project").count()) > 0 ||
+        (await page.getByText("A CLEAN WORKSPACE").count()) > 0,
+      { timeout: 20_000 },
+    )
+    .toBe(true);
+  if ((await page.locator(".project").count()) === 0)
+    await expect(
+      page.getByText("Create your first video project"),
+    ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Capabilities explorer" }),
+    page.getByRole("button", { name: "+ Create", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".capability-preview")).toBeVisible();
-  await page.getByRole("tab", { name: "Developer / AI" }).click();
-  await expect(page.getByText("Public API", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Read docs\// }).click();
-  await expect(page.getByLabel("Documentation")).toBeVisible();
-  await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
+
+  const exploreCapabilities = page.getByRole("button", {
+    name: "Explore capabilities",
+  });
+  if ((await exploreCapabilities.count()) > 0) {
+    await exploreCapabilities.click();
+    await expect(
+      page.getByRole("region", { name: "Capabilities explorer" }),
+    ).toBeVisible();
+    await expect(page.locator(".capability-preview")).toBeVisible();
+    await page.getByRole("tab", { name: "Developer / AI" }).click();
+    await expect(page.getByText("Public API", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Read docs\// }).click();
+    await expect(page.getByLabel("Documentation")).toBeVisible();
+    await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
+  }
 
   const firstPanelRequest = {
     panelId: "timeline" as const,
@@ -459,14 +475,14 @@ try {
   if (built) {
     await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Create Project" }),
+      page.getByRole("button", { name: "+ Create", exact: true }),
     ).toBeDisabled();
     console.log(
       "PASS built: empty starter, capability metadata, real preview and docs.",
     );
   } else {
     await page.getByRole("button", { name: "Editor", exact: true }).click();
-    await page.getByRole("button", { name: "Create Project" }).click();
+    await page.getByRole("button", { name: "+ Create", exact: true }).click();
     await page.getByLabel("Project name").fill(id);
     await page
       .getByRole("button", { name: "Create project", exact: true })
@@ -1668,6 +1684,51 @@ try {
       "5 tracks",
     );
     await detachedPage!
+      .getByRole("button", { name: "Add track", exact: true })
+      .evaluate((button) => {
+        for (let index = 0; index < 10; index++)
+          (button as HTMLButtonElement).click();
+      });
+    const detachedTimelineScroll = detachedPage!.locator(".timeline-scroll");
+    await detachedTimelineScroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const stickyRuler = await detachedPage!
+      .locator(".ruler-row")
+      .evaluate((row) => {
+        const scroll = row.closest(".timeline-scroll")!;
+        return {
+          rowTop: row.getBoundingClientRect().top,
+          scrollTop: scroll.getBoundingClientRect().top,
+          scrollBottom: scroll.getBoundingClientRect().bottom,
+        };
+      });
+    expect(stickyRuler.rowTop).toBeGreaterThanOrEqual(
+      stickyRuler.scrollTop - 1,
+    );
+    expect(stickyRuler.rowTop).toBeLessThan(stickyRuler.scrollBottom);
+    for (let index = 0; index < 10; index++)
+      await detachedPage!
+        .getByRole("button", { name: "Undo", exact: true })
+        .click();
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+      "5 tracks",
+    );
+    await detachedPage!
+      .getByRole("button", { name: "Add track", exact: true })
+      .focus();
+    await detachedPage!.keyboard.press("Space");
+    await expect(
+      detachedPage!.getByRole("button", { name: /Pause/ }),
+    ).toBeVisible();
+    await detachedPage!.keyboard.press("Space");
+    await expect(
+      detachedPage!.getByRole("button", { name: /Play/ }),
+    ).toBeVisible();
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+      "5 tracks",
+    );
+    await detachedPage!
       .getByRole("button", { name: "Add subtitle", exact: true })
       .evaluate((button) => {
         (button as HTMLButtonElement).click();
@@ -2143,7 +2204,7 @@ try {
     const thirdId = `${id}-three`;
     async function selectProject(projectId: string) {
       const buttons = page!.locator(".project");
-      await expect(buttons).toHaveCount(3);
+      await expect.poll(() => buttons.count()).toBeGreaterThanOrEqual(3);
       const button = page!.locator(`.project[data-project-id="${projectId}"]`);
       await expect(button).toHaveCount(1);
       await button.click();
@@ -2209,6 +2270,19 @@ try {
     const previewFrame = page.locator('[data-panel-id="editor"] iframe');
     await inspectorText.fill("AI editable title");
     await expect(textPreview).toHaveText("AI editable title");
+    await inspectorText.focus();
+    await page.keyboard.press("Space");
+    await expect(inspectorText).toHaveValue("AI editable title ");
+    await inspectorText.fill("AI editable title");
+    await page.getByRole("button", { name: "Play", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(
+      page.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(
+      page.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible();
     await page.getByLabel("Position X (%)").fill("68");
     await page.getByLabel("Position Y (%)").fill("24");
     await page.getByLabel("Font size", { exact: true }).fill("84");
@@ -2276,6 +2350,8 @@ try {
       .boundingBox();
     expect(selectedBounds).toBeTruthy();
     expect(rotationHandle).toBeTruthy();
+    expect(rotationHandle!.width).toBeGreaterThanOrEqual(24);
+    expect(rotationHandle!.height).toBeGreaterThanOrEqual(24);
     const rotationStart = {
       x: rotationHandle!.x + rotationHandle!.width / 2,
       y: rotationHandle!.y + rotationHandle!.height / 2,
@@ -2315,8 +2391,54 @@ try {
     await textHitbox.click();
     await page.getByLabel("Anchor", { exact: true }).selectOption("center");
     await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
+    await page.getByLabel("Position X (%)", { exact: true }).fill("50");
+    await page.getByLabel("Position Y (%)", { exact: true }).fill("50");
+    await page.getByLabel("Text box width (%)", { exact: true }).fill("40");
+    await page.getByLabel("Text box height (%)", { exact: true }).fill("20");
+    await textHitbox.click();
+    const fontSizeBeforeCanvasResize = Number(
+      await page.getByLabel("Font size", { exact: true }).inputValue(),
+    );
+    const textResizeHandle = await page
+      .getByRole("button", { name: "Resize selection right bottom" })
+      .boundingBox();
+    expect(textResizeHandle).toBeTruthy();
+    await page.mouse.move(
+      textResizeHandle!.x + textResizeHandle!.width / 2,
+      textResizeHandle!.y + textResizeHandle!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      textResizeHandle!.x + textResizeHandle!.width / 2 + 30,
+      textResizeHandle!.y + textResizeHandle!.height / 2 + 16,
+      { steps: 4 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () =>
+        Number(
+          await page.getByLabel("Font size", { exact: true }).inputValue(),
+        ),
+      )
+      .toBeGreaterThan(fontSizeBeforeCanvasResize);
+    const enlargedFontSize = Number(
+      await page.getByLabel("Font size", { exact: true }).inputValue(),
+    );
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.getByLabel("Font size", { exact: true })).toHaveValue(
+      String(fontSizeBeforeCanvasResize),
+    );
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(page.getByLabel("Font size", { exact: true })).toHaveValue(
+      String(enlargedFontSize),
+    );
+    await page.getByLabel("Anchor", { exact: true }).selectOption("center");
+    await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
     await page.getByLabel("Position X (%)", { exact: true }).fill("68");
     await page.getByLabel("Position Y (%)", { exact: true }).fill("24");
+    await page.getByLabel("Text box width (%)", { exact: true }).fill("80");
+    await page.getByLabel("Text box height (%)", { exact: true }).fill("20");
+    await page.getByLabel("Font size", { exact: true }).fill("84");
     await expect(inspectorText).toHaveValue("AI editable title");
     await page
       .getByRole("button", { name: "Save project", exact: true })

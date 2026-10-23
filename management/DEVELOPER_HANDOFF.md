@@ -16,6 +16,9 @@ Updated: 2026-10-23. This file records verified local progress and the next safe
 - MP4 can now be imported through the trusted native picker, registered with a stable video asset ID, previewed and rendered from the registered media route. Video clips receive independent clip IDs and support Timeline placement, trim, seek, volume, fit, and shared Canvas transforms through canonical Timeline properties. A left trim advances the video source in-point; trims beyond the probed source duration are rejected.
 - The generated project scaffold passes registered video sources to the same `TimelineComposition` used by preview and renderer. The host resolves source paths; renderer-facing data contains project-local asset references and safe media URLs, not host filesystem paths.
 - EditorSession remains the only document and save owner, preview remains in the primary editor, and the shared Canvas contract remains the geometry interface for visual elements. Text Core, Image and Video keep their own content/render behavior while Canvas Core handles declared spatial operations.
+- Canvas handles now keep a usable on-screen hit target at every Canvas zoom level. The rotation handle has a larger visible knob and connector. The Canvas contract supports declared numeric `resizeScaleFields`; standalone Text opts in for proportional font-size scaling, so direct resize updates both rendered glyph size and canonical Inspector/JSON values through the shared Canvas layer. Text also declares preserve-aspect resizing.
+- Space toggles the active EditorSession playback transport throughout the primary editor window and in the detached Timeline. Repeated keydown is ignored; text inputs, selects, textareas and editable text retain normal space typing. Space no longer switches Canvas into pan mode; middle mouse remains available for Canvas panning.
+- The Timeline ruler stays visible while scrolling vertically through many tracks in both docked and detached views.
 - The existing soundtrack path remains one selected, full-duration audio clip fixed at frame zero. Audio placement, trimming, mixing and multiple independent audio clips are not implemented.
 
 ## Compatibility and open limitations
@@ -28,12 +31,12 @@ Updated: 2026-10-23. This file records verified local progress and the next safe
 
 ## Verification for the current local increment
 
-- `npm test`: 79/79 passed.
+- `npm test`: 80/80 passed.
 - `npm run typecheck`, `npm run validate`, and `npm run build`: passed. Build emitted existing dependency annotation and large-chunk warnings.
-- `npm run test:smoke`: passed in development mode, including hide/reopen playback, PNG and MP4 import/placement, video preview transform, source-aware trimming, save/reload and MP4 rendering. The render assertions inspect output pixels. The EditorSession resume flag is consumed by the active preview's ready handshake so late frame messages from the previous iframe cannot cancel it.
+- `npm run test:smoke`: passed in development mode, including Canvas Text resize and Undo/Redo, zoom-independent rotation handle sizing, Space playback from a focused button while preserving spaces typed in Text, vertical ruler stickiness with many detached Timeline tracks, project discovery with an existing user project present, PNG and MP4 import/placement, save/reload and MP4 rendering. Test-created projects and media were cleaned up; the existing `Test` project remained untouched.
 - `npm run test:editor`: passed, including detached Timeline command/preview synchronization, attach/close recovery, single preview, revision conflict and project-session invalidation.
 - `npm run test:built`: passed for the built empty starter, capability metadata, preview and documentation. The full video editing/export scenario was exercised in development mode, not repeated against the built app.
-- `git diff --check` and Prettier on all changed implementation, test, and documentation files passed. Do not treat repository-wide formatting warnings in unrelated baseline files as part of this increment.
+- `npm run validate`, `npm run build`, `git diff --check` and Prettier on all changed implementation, test, and documentation files passed. Build emitted existing dependency annotation and large-chunk warnings. Do not treat repository-wide formatting warnings in unrelated baseline files as part of this increment.
 
 ## Next logical increment
 

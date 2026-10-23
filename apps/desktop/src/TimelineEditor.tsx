@@ -203,26 +203,25 @@ export function TimelineEditor({
     sessionPause();
   };
   useEffect(() => {
-    if (!active) return;
     const togglePlayback = (event: KeyboardEvent) => {
       if (event.code !== "Space" || event.repeat) return;
       const target = event.target;
-      if (!(target instanceof HTMLElement)) return;
       if (
+        target instanceof HTMLElement &&
         target.closest(
-          "input, textarea, select, button, a, [role='button'], [contenteditable='true'], [role='textbox']",
-        ) ||
-        !target.closest(".timeline-editor") ||
-        target.closest(".timeline-dock")
+          "input, textarea, select, [contenteditable='true'], [role='textbox']",
+        )
       )
         return;
+      const live = sessionRef.current;
+      if (!live.snapshot.document) return;
       event.preventDefault();
-      if (playing) pause();
-      else play();
+      if (live.snapshot.playing) live.commands.pause();
+      else live.commands.play();
     };
-    window.addEventListener("keydown", togglePlayback);
-    return () => window.removeEventListener("keydown", togglePlayback);
-  }, [active, playing, pause, play]);
+    window.addEventListener("keydown", togglePlayback, true);
+    return () => window.removeEventListener("keydown", togglePlayback, true);
+  }, []);
   const checkpoint = () => {
     sourceCommandId.current = null;
     sessionCheckpoint();
@@ -1415,7 +1414,7 @@ export function TimelineEditor({
     performTimelineOperation("duplicate");
   }
   function performTimelineOperation(
-    operation: TimelineOperation | "undo" | "redo" | "playPause",
+    operation: TimelineOperation | "undo" | "redo",
   ): string | undefined {
     const liveSnapshot = sessionRef.current.snapshot;
     const liveCommands = sessionRef.current.commands;
@@ -1424,11 +1423,6 @@ export function TimelineEditor({
     const selectedClip = current?.clips.find(
       (item) => item.id === liveSnapshot.selectedClipId,
     );
-    if (operation === "playPause") {
-      if (liveSnapshot.playing) liveCommands.pause();
-      else liveCommands.play();
-      return;
-    }
     if (operation === "undo") {
       if (!liveSnapshot.undoCount) return "There is no edit to undo.";
       liveCommands.undo();

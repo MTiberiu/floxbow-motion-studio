@@ -68,6 +68,26 @@ export function DetachedTimelineWindow({
   const activeGestures = useRef(new Set<string>());
   const active = useRef(true);
 
+  useEffect(() => {
+    const togglePlayback = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat) return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest(
+          "input, textarea, select, [contenteditable='true'], [role='textbox']",
+        )
+      )
+        return;
+      const current = latest.current;
+      if (!current?.document) return;
+      event.preventDefault();
+      dispatch({ type: current.playing ? "pause" : "play" });
+    };
+    window.addEventListener("keydown", togglePlayback, true);
+    return () => window.removeEventListener("keydown", togglePlayback, true);
+  }, []);
+
   function requestSnapshot() {
     if (snapshotRequestTimeout.current)
       clearTimeout(snapshotRequestTimeout.current);
@@ -586,11 +606,7 @@ export function DetachedTimelineWindow({
             ...(duplicateId ? { duplicateId } : {}),
           });
         }}
-        onTimelineOperation={(operation) => {
-          if (operation === "playPause")
-            dispatch({ type: snapshot.playing ? "pause" : "play" });
-          else dispatch({ type: operation });
-        }}
+        onTimelineOperation={(operation) => dispatch({ type: operation })}
         onUpdateClipGesture={(
           gestureId,
           clipId,

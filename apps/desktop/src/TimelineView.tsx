@@ -77,14 +77,7 @@ export type TimelineViewProps = {
   ) => void;
   onTimelineOperation?: (
     operation:
-      | "copy"
-      | "cut"
-      | "paste"
-      | "duplicate"
-      | "delete"
-      | "undo"
-      | "redo"
-      | "playPause",
+      "copy" | "cut" | "paste" | "duplicate" | "delete" | "undo" | "redo",
   ) => void;
   keyboardShortcutsEnabled?: boolean;
   onUpdateClipGesture: (
@@ -176,14 +169,6 @@ export function TimelineView({
         (event.key === "Delete" || event.key === "Backspace")
       )
         operation = "delete";
-      else if (
-        !modifier &&
-        event.code === "Space" &&
-        event.target instanceof HTMLElement &&
-        event.target.closest(".timeline-dock") &&
-        !event.target.closest("button, input, select")
-      )
-        operation = "playPause";
       if (!operation) return;
       event.preventDefault();
       operationRef.current?.(operation);
@@ -768,6 +753,7 @@ export function TimelineView({
                           }
                         }}
                         onKeyDown={(event) => {
+                          if (event.defaultPrevented) return;
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
                             onSelectClip(

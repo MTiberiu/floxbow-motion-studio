@@ -283,6 +283,26 @@ export function applyCanvasTransform(
     const validated = validateField(field, value);
     next[field.target][field.key] = validated;
   }
+  if (
+    contract.resizeScaleFields?.length &&
+    (nextTransform.width !== before.width ||
+      nextTransform.height !== before.height)
+  ) {
+    const scale = Math.max(
+      nextTransform.width / before.width,
+      nextTransform.height / before.height,
+    );
+    for (const key of contract.resizeScaleFields) {
+      const field = fieldFor(definition, key);
+      const current = fieldValue(clip, field);
+      if (typeof current !== "number")
+        throw new Error(`Canvas resize scale field ${key} must be numeric.`);
+      next[field.target][field.key] = validateField(
+        field,
+        Math.round(current * scale),
+      );
+    }
+  }
   return next;
 }
 

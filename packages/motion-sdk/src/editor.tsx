@@ -495,7 +495,8 @@ export const standaloneTextModule: EditableComponent = {
       anchor: "anchor",
     },
     operations: { move: true, resize: true, rotate: true },
-    resizeMode: "free",
+    resizeMode: "preserve-aspect",
+    resizeScaleFields: ["fontSize"],
   },
   component: StandaloneText,
 };

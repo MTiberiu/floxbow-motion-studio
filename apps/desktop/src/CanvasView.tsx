@@ -65,11 +65,9 @@ export function CanvasView({
   const panDrag = useRef<
     { x: number; y: number; panX: number; panY: number } | undefined
   >(undefined);
-  const spaceHeldRef = useRef(false);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState<number | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [spaceHeld, setSpaceHeld] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
@@ -92,35 +90,6 @@ export function CanvasView({
     window.addEventListener("keydown", exit);
     return () => window.removeEventListener("keydown", exit);
   }, [fullscreen]);
-
-  useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        event.code === "Space" &&
-        target &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) &&
-        !target.isContentEditable
-      ) {
-        event.preventDefault();
-        spaceHeldRef.current = true;
-        setSpaceHeld(true);
-      }
-    };
-    const up = (event: KeyboardEvent) => {
-      if (event.code === "Space") {
-        spaceHeldRef.current = false;
-        setSpaceHeld(false);
-        panDrag.current = undefined;
-      }
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, []);
 
   const fitScale = Math.min(
     (viewportSize.width - 32) / manifest.width,
@@ -166,7 +135,7 @@ export function CanvasView({
   }
 
   function onPanStart(event: PointerEvent<HTMLDivElement>) {
-    if (event.button === 1 || (spaceHeldRef.current && event.button === 0)) {
+    if (event.button === 1) {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
       panDrag.current = {
@@ -234,12 +203,15 @@ export function CanvasView({
         )}
         <div
           className="canvas-surface"
-          style={{
-            width: manifest.width,
-            height: manifest.height,
-            translate: `${pan.x}px ${pan.y}px`,
-            transform: `translate(-50%,-50%) scale(${currentScale})`,
-          }}
+          style={
+            {
+              width: manifest.width,
+              height: manifest.height,
+              translate: `${pan.x}px ${pan.y}px`,
+              transform: `translate(-50%,-50%) scale(${currentScale})`,
+              "--canvas-inverse-scale": 1 / currentScale,
+            } as React.CSSProperties
+          }
           onPointerDown={onPanStart}
           onPointerMove={onPanMove}
           onPointerUp={onPanEnd}
@@ -270,7 +242,6 @@ export function CanvasView({
             onGestureEnd={onCanvasGestureEnd}
             onGestureCancel={onCanvasGestureCancel}
             onDropMedia={onDropMedia}
-            spaceHeld={spaceHeld}
           />
         </div>
         <div

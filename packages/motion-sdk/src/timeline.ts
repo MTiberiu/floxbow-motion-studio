@@ -79,6 +79,7 @@ export const canvasElementContractSchema = z
       .object({ move: z.boolean(), resize: z.boolean(), rotate: z.boolean() })
       .strict(),
     resizeMode: z.enum(["free", "preserve-aspect"]).default("free"),
+    resizeScaleFields: z.array(id).max(10).optional(),
     lockedField: id.optional(),
     visibilityField: id.optional(),
     visibleValues: z.array(z.string().max(100)).max(50).optional(),

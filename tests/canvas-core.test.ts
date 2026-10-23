@@ -80,6 +80,7 @@ test("Canvas resolves current canonical geometry and writes edits to declared JS
     height: 12,
     rotation: 15,
     anchor: "center",
+    fontSize: 86,
   });
   assert.equal(clip.props.x, 40);
   assert.equal(clip.props.y, 30);
@@ -115,6 +116,25 @@ test("Canvas transform API enforces declared operations and field validation", (
       anchor: "center",
     }),
   );
+});
+
+test("shared resize metadata scales text size together with its geometry", () => {
+  const clip = {
+    ...timeline.clips[0],
+    props: { ...timeline.clips[0].props, fontSize: 72 },
+  };
+  const next = applyCanvasTransform(clip, definition, {
+    x: 40,
+    y: 30,
+    width: 30,
+    height: 15,
+    rotation: 0,
+    anchor: "center",
+  });
+  assert.equal(next.props.width, 30);
+  assert.equal(next.props.height, 15);
+  assert.equal(next.props.fontSize, 108);
+  assert.equal(clip.props.fontSize, 72);
 });
 
 test("Canvas computes rotated bounds in composition percent space", () => {

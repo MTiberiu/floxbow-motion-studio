@@ -4,7 +4,7 @@ Text Core defines text content and typography. **Canvas Core defines how any opt
 
 ## Shared contract
 
-The serializable `canvas` field on `ComponentInfo` describes a component's stable transform contract. The clip ID is the visual element ID; `owner` identifies the capability that owns its behavior. A component maps position, size, rotation, and anchor to its declared editable `fields`. It can also declare move, resize, rotate, aspect-ratio mode, lock field, and visibility field. A visual component opts in only to operations its rendering and fields support.
+The serializable `canvas` field on `ComponentInfo` describes a component's stable transform contract. The clip ID is the visual element ID; `owner` identifies the capability that owns its behavior. A component maps position, size, rotation, and anchor to its declared editable `fields`. It can also declare move, resize, rotate, aspect-ratio mode, numeric `resizeScaleFields`, lock field, and visibility field. A visual component opts in only to operations its rendering and fields support.
 
 The `@motion/sdk/canvas` package export provides:
 
@@ -23,7 +23,7 @@ The Inspector is the precise editing path. It edits the declared fields of the p
 
 ## Implementing an opted-in visual component
 
-Declare transform fields using the existing `EditableComponent` metadata and add a serializable `canvas` contract to the component definition. Render from those same properties. For example:
+Declare transform fields using the existing `EditableComponent` metadata and add a serializable `canvas` contract to the component definition. Render from those same properties. Numeric `resizeScaleFields` are scaled proportionally by the shared transform operation and validated against their declared limits. Standalone Text opts in for `fontSize`, so Canvas resizing changes the visible glyph size as well as the geometry. For example:
 
 ```ts
 const imageDefinition = {
