@@ -187,3 +187,11 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Establish a **maximum four-file startup path**: root `AGENTS.md` (rules/navigation), `management/STATUS.md` (verified recent state/blockers with observation date), `management/NEXT_TASK.md` (one actionable task, acceptance/stop conditions), and targeted sections of `management/DECISIONS.md` (binding design constraints). Developer reads deeper code/docs **only on demand**, never the entire repository as default orientation.
 - [ ] Keep STATUS and NEXT_TASK succinct; after every development handoff, update both (including exact branch/PR/commit, CI evidence and unfinished work) in the same reviewed change when feasible. Dynamic GitHub/working-tree state must be freshly checked; do not mistake a stale status note for truth.
 - [ ] Add a cold-start acceptance test: a new agent with zero prior chat history can read at most these four files, identify the next safe task and its scope, and explain how it will verify completion without asking the owner to rebrief.
+
+
+### Manager is the primary AI role — owner workflow
+
+- [ ] Provide a short manager start-here document with role, decision boundaries, current handoff location, and links to management decisions; manager checks live PR/CI/branch state before approving or issuing instructions.
+- [ ] Manager, not the owner, drafts narrow developer directives with branch, implementation scope, tests, safety, acceptance and stop/approval conditions.
+- [ ] Manager reviews developer reports and PR evidence, records owner feedback and updates durable DECISIONS/ROADMAP/BACKLOG + concise status; never delegate product-roadmap decisions implicitly to developer.
+- [ ] Fresh-context manager test: from 3–4 authoritative local files and Git state, produce the next correct developer brief without requiring the owner to recap the project.
