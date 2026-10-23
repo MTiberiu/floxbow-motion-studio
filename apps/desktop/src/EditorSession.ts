@@ -363,7 +363,13 @@ export function useEditorSession({
           if (documentRef.current)
             sendPreview("document", { timeline: documentRef.current });
           sendPreview("seek", { frame: frameRef.current });
-          if (resumePlaybackAfterHide.current) sendPreview("play");
+          if (resumePlaybackAfterHide.current) {
+            sendPreview("play");
+            // A late frame message from the previous iframe can arrive after
+            // this new preview is ready. Only the ready handshake for the
+            // active preview should consume the resume request.
+            resumePlaybackAfterHide.current = false;
+          }
         } catch (messageError) {
           setError(String(messageError));
         }
@@ -379,7 +385,6 @@ export function useEditorSession({
         frameRef.current = event.data.frame;
         const isPlaying = event.data.playing === true;
         setPlaying(isPlaying);
-        if (isPlaying) resumePlaybackAfterHide.current = false;
       }
       if (event.data.type === "error") setError(String(event.data.message));
     },

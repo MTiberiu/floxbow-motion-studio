@@ -531,26 +531,188 @@ export function TimelineEditor({
     return () => window.removeEventListener("motion-add-image", addImage);
   }, [manifest.id, workspace]);
 
+  useEffect(() => {
+    const addVideo = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          projectId?: unknown;
+          assetId?: unknown;
+          displayName?: unknown;
+          fromFrame?: unknown;
+          trackId?: unknown;
+          x?: unknown;
+          y?: unknown;
+        }>
+      ).detail;
+      if (detail?.projectId !== manifest.id) return;
+      if (
+        typeof detail.assetId !== "string" ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(detail.assetId) ||
+        (detail.x !== undefined &&
+          (typeof detail.x !== "number" ||
+            !Number.isFinite(detail.x) ||
+            detail.x < 0 ||
+            detail.x > 100)) ||
+        (detail.y !== undefined &&
+          (typeof detail.y !== "number" ||
+            !Number.isFinite(detail.y) ||
+            detail.y < 0 ||
+            detail.y > 100))
+      ) {
+        setError("The dropped video placement is invalid.");
+        return;
+      }
+      const session = sessionRef.current;
+      const projectId = session.snapshot.projectId;
+      const sessionId = session.snapshot.sessionId;
+      void (async () => {
+        try {
+          const response = await fetch(
+            `/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(detail.assetId as string)}/video`,
+          );
+          const raw = await response.text();
+          let metadata: {
+            assetId?: unknown;
+            durationInSeconds?: unknown;
+            width?: unknown;
+            height?: unknown;
+            message?: unknown;
+          };
+          try {
+            metadata = JSON.parse(raw);
+          } catch {
+            throw new Error(raw || "The selected MP4 could not be inspected.");
+          }
+          if (!response.ok)
+            throw new Error(
+              typeof metadata.message === "string"
+                ? metadata.message
+                : "The selected MP4 could not be inspected.",
+            );
+          if (
+            metadata.assetId !== detail.assetId ||
+            typeof metadata.durationInSeconds !== "number" ||
+            !Number.isFinite(metadata.durationInSeconds) ||
+            metadata.durationInSeconds <= 0
+          )
+            throw new Error("The MP4 metadata response is invalid.");
+          const live = sessionRef.current;
+          if (
+            live.snapshot.projectId !== projectId ||
+            live.snapshot.sessionId !== sessionId ||
+            projectId !== manifest.id
+          )
+            return;
+          const current = live.commands.getCurrentDocument();
+          if (!current)
+            throw new Error("This project has no editable Timeline.");
+          const from =
+            detail.fromFrame === undefined
+              ? Math.min(live.snapshot.frame, current.durationInFrames - 1)
+              : detail.fromFrame;
+          if (
+            typeof from !== "number" ||
+            !Number.isInteger(from) ||
+            from < 0 ||
+            from >= MAX_TIMELINE_DURATION_FRAMES
+          )
+            throw new Error("The video start position is invalid.");
+          const durationInFrames = Math.ceil(
+            metadata.durationInSeconds * current.fps,
+          );
+          const end = from + durationInFrames;
+          if (end > MAX_TIMELINE_DURATION_FRAMES)
+            throw new Error(
+              "This video would exceed the maximum project duration. Shorten the project position or choose a shorter clip.",
+            );
+          const isNonVisualTrack = (candidate: { id: string; name: string }) =>
+            candidate.id === "audio" ||
+            /^(audio|soundtrack|captions|subtitles|lyrics)$/i.test(
+              candidate.name.trim(),
+            );
+          const track =
+            typeof detail.trackId === "string"
+              ? current.tracks.find((item) => item.id === detail.trackId)
+              : (current.tracks.find(
+                  (item) => item.id === "visuals" && !isNonVisualTrack(item),
+                ) ?? current.tracks.find((item) => !isNonVisualTrack(item)));
+          if (
+            !track ||
+            (typeof detail.trackId === "string" &&
+              !current.tracks.some((item) => item.id === detail.trackId)) ||
+            isNonVisualTrack(track)
+          )
+            throw new Error("Add video to a visual Timeline track.");
+          const video = {
+            id: `video-${crypto.randomUUID()}`,
+            trackId: track.id,
+            componentId: "video",
+            label:
+              typeof detail.displayName === "string"
+                ? detail.displayName.slice(0, 200)
+                : "Video",
+            from,
+            durationInFrames,
+            content: {
+              assetId: detail.assetId,
+              sourceStartSeconds: 0,
+              sourceDurationSeconds: metadata.durationInSeconds,
+            },
+            props: {
+              x: typeof detail.x === "number" ? detail.x : 50,
+              y: typeof detail.y === "number" ? detail.y : 50,
+              width: 80,
+              height: 80,
+              rotation: 0,
+              anchor: "center",
+              opacity: 1,
+              fit: "contain",
+              volume: 1,
+            },
+          };
+          live.commands.edit(
+            parseEditTimeline({
+              ...current,
+              durationInFrames: Math.max(current.durationInFrames, end),
+              clips: [...current.clips, video],
+            }),
+          );
+          live.commands.selectClip(video.id);
+          setError("");
+          setNotice(`${video.label} added as an editable Video clip.`);
+          workspace.activatePanel("editor");
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : String(cause));
+        }
+      })();
+    };
+    window.addEventListener("motion-add-video", addVideo);
+    return () => window.removeEventListener("motion-add-video", addVideo);
+  }, [manifest.id, workspace]);
+
   function handleCanvasMediaDrop(
     data: {
       projectId: string;
       assetId: string;
-      type: "audio" | "image";
+      type: "audio" | "image" | "video";
       displayName: string;
     },
     position: { x: number; y: number },
   ) {
     if (data.projectId !== manifest.id) return;
-    if (data.type !== "image") {
+    if (data.type === "audio") {
       setNotice(
         "Audio is not a Canvas element. Use Soundtrack in the Media Library.",
       );
       return;
     }
     window.dispatchEvent(
-      new CustomEvent("motion-add-image", {
-        detail: { ...data, x: position.x, y: position.y },
-      }),
+      new CustomEvent(
+        data.type === "video" ? "motion-add-video" : "motion-add-image",
+        {
+          detail: { ...data, x: position.x, y: position.y },
+        },
+      ),
     );
   }
 
@@ -558,7 +720,7 @@ export function TimelineEditor({
     data: {
       projectId: string;
       assetId: string;
-      type: "audio" | "image";
+      type: "audio" | "image" | "video";
       displayName: string;
     },
     target: { frame: number; trackId: string },
@@ -571,17 +733,25 @@ export function TimelineEditor({
       return;
     }
     const current = sessionRef.current.commands.getCurrentDocument();
+    const track = current?.tracks.find((item) => item.id === target.trackId);
+    if (!track) {
+      setNotice("The selected Timeline track is no longer available.");
+      return;
+    }
     if (
-      target.trackId === "audio" ||
-      (current && target.trackId === subtitleTrackId(current))
+      track.id === "audio" ||
+      /^(audio|soundtrack|captions|subtitles|lyrics)$/i.test(track.name.trim())
     ) {
-      setNotice("Drop an image onto a visual track to create an Image clip.");
+      setNotice("Drop an image or video onto a visual Timeline track.");
       return;
     }
     window.dispatchEvent(
-      new CustomEvent("motion-add-image", {
-        detail: { ...data, fromFrame: target.frame, trackId: target.trackId },
-      }),
+      new CustomEvent(
+        data.type === "video" ? "motion-add-video" : "motion-add-image",
+        {
+          detail: { ...data, fromFrame: target.frame, trackId: target.trackId },
+        },
+      ),
     );
   }
 
@@ -866,6 +1036,18 @@ export function TimelineEditor({
       const c = next.clips.find((c) => c.id === selectedClipId);
       if (!c) return;
       const validated = validateField(field, value);
+      if (
+        c.componentId === "video" &&
+        field.target === "content" &&
+        field.key === "sourceStartSeconds"
+      ) {
+        const sourceEnd = Number(validated) + c.durationInFrames / current.fps;
+        const sourceDuration = Number(c.content.sourceDurationSeconds);
+        if (sourceEnd > sourceDuration + 1 / current.fps)
+          throw new Error(
+            "The Video source start and clip duration exceed the MP4 duration.",
+          );
+      }
       const behavior = resolveTimelineBehavior(
         c.componentId,
         liveSession.snapshot.components,

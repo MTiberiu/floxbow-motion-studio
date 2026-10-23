@@ -40,12 +40,18 @@ import savedTimeline from "./edit-timeline.json";
 
 export const editorComponents = [subtitleModule];
 
-export default function Video({ timeline }: EditableVideoProps) {
+export default function Video({
+  timeline,
+  imageSources,
+  videoSources,
+}: EditableVideoProps) {
   return (
     <Canvas background="#000000" style={{ padding: 0 }}>
       <TimelineComposition
         timeline={timeline ?? parseEditTimeline(savedTimeline)}
         components={editorComponents}
+        imageSources={imageSources}
+        videoSources={videoSources}
       />
     </Canvas>
   );
@@ -59,6 +65,8 @@ The live `timeline` prop is the editor's authoritative draft; do not replace it 
 For a simple title or other standalone text, use the core **Add Text** clip. Its saved JSON contract and external-agent editing workflow are documented in [Standalone Text clip](STANDALONE_TEXT.md). It is available in the default scaffold and does not require adding a specialized module.
 
 For project-local images used by custom React composition code, import the file and render `<Img src={photo}/>`; that direct import is code-driven. For a first-class editable image, register a PNG in the left **Media Library** and choose **Add**, or drag it onto Canvas or a visual Timeline track. The resulting clip has its own timing and Inspector transform fields while referencing the stable asset ID. See [the Image clip contract](STANDALONE_IMAGE.md) and [Core Canvas interaction](CANVAS_CORE.md). For a linked song or narration in the editor, register an MP3/WAV in the left **Media Library** and choose **Soundtrack**. FloxBow creates a visible Audio-track clip, extends project duration as needed, and saves it with the editable Timeline. The starter composition passes its live Timeline to `TimelineComposition`; the preview and MP4 renderer attach the registered soundtrack to the same frame-based transport and render pipeline. The original media stays at its source path. See [Project Media Registry](PROJECT_MEDIA.md) and [Timeline Editor](TIMELINE_EDITOR.md).
+
+For ordinary video, register an MP4 with **Add Video**, then choose **Add** or drag it to Canvas/a visual Timeline track. The clip is independently timed and uses the shared Canvas transforms; the Inspector supports source in-point, duration via Timeline trim, transform, fit, opacity and embedded clip volume. Preview and MP4 rendering resolve the same registered asset ID. See [Standalone Video](STANDALONE_VIDEO.md). Independent audio-only clips and flexible audio timing/mixing are not implemented; the separate soundtrack remains fixed at frame zero.
 
 For a composition that owns audio directly, `Narration` from `@motion/audio` remains available with a project-local imported asset. Direct composition audio is independent from Media Registry soundtrack selection; do not add the same audio through both routes. Include attribution and license in the project README.
 

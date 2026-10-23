@@ -21,7 +21,7 @@ export const mediaAssetSchema = z
       .string()
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
       .max(120),
-    type: z.enum(["audio", "image"]),
+    type: z.enum(["audio", "image", "video"]),
     displayName: z
       .string()
       .min(1)
@@ -58,7 +58,12 @@ export type MediaRegistry = z.infer<typeof mediaRegistrySchema>;
 export const emptyMediaRegistry: MediaRegistry = { version: 1, assets: [] };
 
 export type MediaResolution =
-  | { status: "ready"; assetId: string; type: "audio" | "image"; path: string }
+  | {
+      status: "ready";
+      assetId: string;
+      type: "audio" | "image" | "video";
+      path: string;
+    }
   | { status: "missing"; assetId: string; displayName: string }
   | { status: "invalid"; assetId: string; message: string };
 
@@ -150,7 +155,20 @@ async function hasPngHeader(filePath: string) {
   }
 }
 
-/** Resolve a registered audio or image asset in a Node host process. Never send `path` to a browser preview. */
+async function hasMp4Header(filePath: string) {
+  const handle = await open(filePath, "r");
+  try {
+    const header = Buffer.alloc(12);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    return (
+      bytesRead === header.length && header.toString("ascii", 4, 8) === "ftyp"
+    );
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Resolve a registered audio, image, or video asset in a Node host process. Never send `path` to a browser preview. */
 export async function resolveMedia(
   projectRoot: string,
   registryInput: unknown,
@@ -186,7 +204,8 @@ export async function resolveMedia(
   const extension = path.extname(filePath).toLowerCase();
   if (
     (asset.type === "audio" && extension !== ".mp3" && extension !== ".wav") ||
-    (asset.type === "image" && extension !== ".png")
+    (asset.type === "image" && extension !== ".png") ||
+    (asset.type === "video" && extension !== ".mp4")
   )
     return {
       status: "invalid",
@@ -194,7 +213,9 @@ export async function resolveMedia(
       message:
         asset.type === "audio"
           ? "Only MP3 and WAV audio files are supported."
-          : "Only PNG images are supported.",
+          : asset.type === "image"
+            ? "Only PNG images are supported."
+            : "Only MP4 videos are supported.",
     };
 
   let info;
@@ -228,7 +249,9 @@ export async function resolveMedia(
     const valid =
       asset.type === "audio"
         ? await hasSupportedAudioHeader(filePath, extension)
-        : await hasPngHeader(filePath);
+        : asset.type === "image"
+          ? await hasPngHeader(filePath)
+          : await hasMp4Header(filePath);
     if (!valid)
       return {
         status: "invalid",
@@ -236,7 +259,9 @@ export async function resolveMedia(
         message:
           asset.type === "audio"
             ? "The file does not contain a valid MP3 or WAV header."
-            : "The file does not contain a valid PNG header.",
+            : asset.type === "image"
+              ? "The file does not contain a valid PNG header."
+              : "The file does not contain an MP4 video header.",
       };
   } catch {
     return {

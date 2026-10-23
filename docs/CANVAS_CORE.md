@@ -49,7 +49,7 @@ const imageDefinition = {
 
 Use `canvasElementContractSchema` and `componentInfoSchema` from `@motion/sdk/timeline` to validate registration metadata. Use `getCanvasVisualElements` and `applyCanvasTransform` from `@motion/sdk/canvas` in non-UI tooling or tests. The application owns selection state, handles, gesture math, undo checkpoints, and persistence. Do not add a component-specific Canvas controller.
 
-Current application support is implemented for standalone Text, Image, and subtitles. Other visual components must declare and validate the same contract before the editor offers spatial manipulation. A renderable React component or registry parameter alone does not promise Canvas or Inspector editability. Audio-only clips do not opt into spatial transforms.
+Current application support is implemented for standalone Text, Image, Video, and subtitles. Other visual components must declare and validate the same contract before the editor offers spatial manipulation. A renderable React component or registry parameter alone does not promise Canvas or Inspector editability. Audio-only clips do not opt into spatial transforms.
 
 ## Compatibility and limits
 

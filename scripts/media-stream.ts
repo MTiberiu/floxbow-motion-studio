@@ -19,7 +19,7 @@ export async function streamRegisteredMedia(
     });
     response.end(
       resolved.status === "missing"
-        ? "The selected audio file is missing."
+        ? "The selected media file is missing."
         : resolved.message,
     );
     return;
@@ -28,9 +28,11 @@ export async function streamRegisteredMedia(
   const mime =
     resolved.type === "image"
       ? "image/png"
-      : path.extname(resolved.path).toLowerCase() === ".mp3"
-        ? "audio/mpeg"
-        : "audio/wav";
+      : resolved.type === "video"
+        ? "video/mp4"
+        : path.extname(resolved.path).toLowerCase() === ".mp3"
+          ? "audio/mpeg"
+          : "audio/wav";
   response.setHeader("Accept-Ranges", "bytes");
   response.setHeader("Content-Type", mime);
   response.setHeader("Cache-Control", "no-store");

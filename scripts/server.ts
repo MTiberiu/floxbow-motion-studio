@@ -16,6 +16,7 @@ import { pickMediaFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
 import { streamRegisteredImage, streamRegisteredMedia } from "./media-stream";
 import { probeAudioDuration } from "./audio-probe";
+import { probeVideo } from "./video-probe";
 import { resolveMedia } from "@motion/project-loader/media";
 import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
 import { transcribeAudioWithWhisper } from "./whisper-service";
@@ -39,7 +40,9 @@ const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 export type ServerOptions = {
   audioFilePicker?: () => Promise<string | undefined>;
-  mediaFilePicker?: (type: "audio" | "image") => Promise<string | undefined>;
+  mediaFilePicker?: (
+    type: "audio" | "image" | "video",
+  ) => Promise<string | undefined>;
   /** Test seam for deterministic local-worker responses; production uses the existing Python adapter. */
   transcribeAudio?: (audioPath: string) => Promise<unknown>;
 };
@@ -200,9 +203,11 @@ export async function startServers(
                 "Content-Type":
                   resolved.type === "image"
                     ? "image/png"
-                    : path.extname(resolved.path).toLowerCase() === ".mp3"
-                      ? "audio/mpeg"
-                      : "audio/wav",
+                    : resolved.type === "video"
+                      ? "video/mp4"
+                      : path.extname(resolved.path).toLowerCase() === ".mp3"
+                        ? "audio/mpeg"
+                        : "audio/wav",
                 "Content-Length": info.size,
                 "Accept-Ranges": "bytes",
                 "Cache-Control": "no-store",
@@ -234,6 +239,8 @@ export async function startServers(
             route.length === 4 &&
             route[1] === "assets" &&
             route[3] === "thumbnail";
+          const videoProbe =
+            route.length === 4 && route[1] === "assets" && route[3] === "video";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
@@ -246,7 +253,8 @@ export async function startServers(
             !removingAsset &&
             !soundtrackProbe &&
             !transcription &&
-            !imageThumbnail
+            !imageThumbnail &&
+            !videoProbe
           ) {
             res.writeHead(404).end("Unknown media operation");
             return;
@@ -372,6 +380,10 @@ export async function startServers(
             res.writeHead(405).end();
             return;
           }
+          if (videoProbe && req.method !== "GET") {
+            res.writeHead(405).end();
+            return;
+          }
           if (built) {
             res
               .writeHead(409)
@@ -387,6 +399,55 @@ export async function startServers(
               decodeURIComponent(route[2]),
               res,
             );
+            return;
+          }
+          if (videoProbe) {
+            const videoAssetId = decodeURIComponent(route[2]);
+            const registry = await readMediaRegistry(projectRoot);
+            const resolved = await resolveMedia(
+              projectRoot,
+              registry.registry,
+              videoAssetId,
+            );
+            if (resolved.status !== "ready") {
+              res.writeHead(resolved.status === "missing" ? 404 : 422, {
+                "Content-Type": "application/json",
+              });
+              res.end(
+                JSON.stringify({
+                  message:
+                    resolved.status === "missing"
+                      ? "The selected video file is missing."
+                      : resolved.message,
+                }),
+              );
+              return;
+            }
+            if (resolved.type !== "video") {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message: "The requested media asset is not a video.",
+                }),
+              );
+              return;
+            }
+            try {
+              const metadata = await probeVideo(resolved.path);
+              res.setHeader("Content-Type", "application/json");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(JSON.stringify({ assetId: videoAssetId, ...metadata }));
+            } catch (error) {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "The selected MP4 video could not be decoded.",
+                }),
+              );
+            }
             return;
           }
           if (soundtrackProbe) {
@@ -534,7 +595,7 @@ export async function startServers(
             req.headers.origin !== shellOrigin ||
             !req.headers["content-type"]?.startsWith("application/json")
           ) {
-            res.writeHead(403).end("Only the studio shell can register audio");
+            res.writeHead(403).end("Only the studio shell can register media");
             return;
           }
           let body = "";
@@ -554,7 +615,8 @@ export async function startServers(
             typeof input.revision !== "string" ||
             (input.type !== undefined &&
               input.type !== "audio" &&
-              input.type !== "image")
+              input.type !== "image" &&
+              input.type !== "video")
           )
             throw new Error(
               "A media registry revision and supported media type are required; file paths are not accepted",

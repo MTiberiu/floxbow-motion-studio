@@ -21,6 +21,25 @@ test("Media Library drag data carries only a validated project-local asset refer
   });
 });
 
+test("Media Library drag data supports a video asset without exposing its source path", () => {
+  assert.deepEqual(
+    parseMediaAssetDragData(
+      JSON.stringify({
+        projectId: "sample-video",
+        assetId: "video-intro",
+        type: "video",
+        displayName: "Intro.mp4",
+      }),
+    ),
+    {
+      projectId: "sample-video",
+      assetId: "video-intro",
+      type: "video",
+      displayName: "Intro.mp4",
+    },
+  );
+});
+
 test("Media Library drag data rejects paths, unknown fields and malformed IDs", () => {
   const base = {
     projectId: "sample-video",

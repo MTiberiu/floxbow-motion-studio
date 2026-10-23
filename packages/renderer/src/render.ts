@@ -14,11 +14,13 @@ import { editTimelineSchema } from "@motion/sdk/timeline";
 import {
   standaloneImageClipSchema,
   standaloneTextClipSchema,
+  standaloneVideoClipSchema,
 } from "@motion/sdk/editor";
 import { readMediaRegistry } from "../../../scripts/media-store";
 import { streamRegisteredMedia } from "../../../scripts/media-stream";
 import { resolveMedia } from "@motion/project-loader/media";
 import { probeAudioDuration } from "../../../scripts/audio-probe";
+import { probeVideo } from "../../../scripts/video-probe";
 import {
   findLargeTimelineGaps,
   lastTimelineClipEnd,
@@ -90,6 +92,7 @@ export async function renderProject(root: string, id: string, still = false) {
     for (const clip of timeline.clips) {
       if (clip.componentId === "text") standaloneTextClipSchema.parse(clip);
       if (clip.componentId === "image") standaloneImageClipSchema.parse(clip);
+      if (clip.componentId === "video") standaloneVideoClipSchema.parse(clip);
     }
     if (
       timeline.fps !== m.fps ||
@@ -131,7 +134,22 @@ export async function renderProject(root: string, id: string, still = false) {
         }),
     ),
   ];
-  const mediaIds = [...new Set([...soundtrackIds, ...imageIds])];
+  const videoIds = [
+    ...new Set(
+      (timeline?.clips ?? [])
+        .filter((clip) => clip.componentId === "video")
+        .map((clip) => {
+          const assetId = clip.content.assetId;
+          if (
+            typeof assetId !== "string" ||
+            !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(assetId)
+          )
+            throw new Error("A Video Timeline clip has an invalid media ID.");
+          return assetId;
+        }),
+    ),
+  ];
+  const mediaIds = [...new Set([...soundtrackIds, ...imageIds, ...videoIds])];
   if (mediaIds.length) {
     const registry = await readMediaRegistry(path.join(root, "projects", id));
     for (const assetId of imageIds) {
@@ -186,6 +204,44 @@ export async function renderProject(root: string, id: string, still = false) {
       }
     }
   }
+  if (videoIds.length) {
+    const registry = await readMediaRegistry(path.join(root, "projects", id));
+    for (const assetId of videoIds) {
+      const media = await resolveMedia(
+        path.join(root, "projects", id),
+        registry.registry,
+        assetId,
+      );
+      if (media.status !== "ready" || media.type !== "video")
+        throw new Error(
+          media.status === "missing"
+            ? "A Video clip file is missing. Relink it in the Media Library before rendering."
+            : media.status === "ready"
+              ? "A Video clip must reference a registered MP4 asset."
+              : media.message,
+        );
+      const actual = await probeVideo(media.path);
+      for (const clip of timeline!.clips.filter(
+        (item) =>
+          item.componentId === "video" && item.content.assetId === assetId,
+      )) {
+        const sourceStart = Number(clip.content.sourceStartSeconds ?? 0);
+        const declaredDuration = Number(clip.content.sourceDurationSeconds);
+        const clipDuration = clip.durationInFrames / timeline!.fps;
+        const tolerance = 1 / timeline!.fps;
+        if (
+          !Number.isFinite(sourceStart) ||
+          !Number.isFinite(declaredDuration) ||
+          sourceStart < 0 ||
+          Math.abs(declaredDuration - actual.durationInSeconds) > tolerance ||
+          sourceStart + clipDuration > actual.durationInSeconds + tolerance
+        )
+          throw new Error(
+            `Video clip ${clip.id} exceeds the probed duration of its MP4 source. Correct its source start or Timeline range.`,
+          );
+      }
+    }
+  }
   if (timeline) {
     const contentEnd = lastTimelineClipEnd(timeline);
     if (contentEnd < timeline.durationInFrames)
@@ -224,9 +280,10 @@ export async function renderProject(root: string, id: string, still = false) {
       `import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};`,
       `const audioSources=${JSON.stringify(audioServer.sources)};`,
       `const imageSources=${JSON.stringify(audioServer.sources)};`,
+      `const videoSources=${JSON.stringify(audioServer.sources)};`,
       `const timeline=${JSON.stringify(timeline)};`,
-      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
-      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
+      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources} videoSources={videoSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
+      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources,videoSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
     ].join("\n");
     await writeFile(entry, entrySource);
     const serveUrl = await bundle({

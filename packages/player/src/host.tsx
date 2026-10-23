@@ -6,6 +6,7 @@ import {
   serializableComponentInfo,
   standaloneTextModule,
   standaloneImageModule,
+  standaloneVideoModule,
   type EditableVideoProps,
   type EditableComponent,
 } from "@motion/sdk/editor";
@@ -51,6 +52,7 @@ function PreviewHost({
     );
   const audioSources = timeline ? sourcesFor(timeline, "soundtrack") : {};
   const imageSources = timeline ? sourcesFor(timeline, "image") : undefined;
+  const videoSources = timeline ? sourcesFor(timeline, "video") : undefined;
   const requestedParentOrigin =
     new URLSearchParams(location.search).get("hostOrigin") ?? "";
   const previewPort = Number(location.port);
@@ -68,9 +70,14 @@ function PreviewHost({
         parentOrigin,
       );
     const mediaError = (event: Event) => {
-      if (event.target instanceof HTMLAudioElement) {
+      if (
+        event.target instanceof HTMLAudioElement ||
+        event.target instanceof HTMLVideoElement
+      ) {
         const message =
-          "The selected audio could not be decoded or played. Check that the MP3/WAV is available and supported.";
+          event.target instanceof HTMLVideoElement
+            ? "The selected MP4 video could not be decoded or played. Check that the registered file is available and supported."
+            : "The selected audio could not be decoded or played. Check that the MP3/WAV is available and supported.";
         setError(message);
         send("error", { message });
       }
@@ -80,10 +87,12 @@ function PreviewHost({
         [
           standaloneTextModule,
           standaloneImageModule,
+          standaloneVideoModule,
           ...(module.editorComponents ?? []).filter(
             (component) =>
               component.id !== standaloneTextModule.id &&
-              component.id !== standaloneImageModule.id,
+              component.id !== standaloneImageModule.id &&
+              component.id !== standaloneVideoModule.id,
           ),
         ].map(serializableComponentInfo),
       );
@@ -247,7 +256,7 @@ function PreviewHost({
             timeline?.durationInFrames ?? manifest.durationInFrames,
         }}
         playerRef={player}
-        inputProps={{ timeline, audioSources, imageSources }}
+        inputProps={{ timeline, audioSources, imageSources, videoSources }}
       />
     </>
   );

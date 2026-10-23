@@ -25,6 +25,7 @@ function AudioAwareComposition({
   composition,
   audioSources,
   imageSources,
+  videoSources,
   timeline,
   projectId,
   ...props
@@ -65,6 +66,22 @@ function AudioAwareComposition({
         ];
       }),
   );
+  const videoSourceMap = Object.fromEntries(
+    (timeline?.clips ?? [])
+      .filter(
+        (clip) =>
+          clip.componentId === "video" &&
+          typeof clip.content.assetId === "string",
+      )
+      .map((clip) => {
+        const assetId = String(clip.content.assetId);
+        return [
+          assetId,
+          videoSources?.[assetId] ??
+            `${location.origin}/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/stream`,
+        ];
+      }),
+  );
   return (
     <>
       <Video
@@ -72,6 +89,7 @@ function AudioAwareComposition({
         timeline={timeline}
         audioSources={sourceMap}
         imageSources={timeline ? imageSourceMap : imageSources}
+        videoSources={timeline ? videoSourceMap : videoSources}
       />
       <TimelineSoundtrackAudio timeline={timeline} audioSources={sourceMap} />
     </>

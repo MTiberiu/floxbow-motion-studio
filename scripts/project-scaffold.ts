@@ -38,13 +38,14 @@ import savedTimeline from "./edit-timeline.json";
 
 export const editorComponents = [subtitleModule, standaloneImageModule];
 
-export default function Video({ timeline, audioSources, imageSources }: EditableVideoProps) {
+export default function Video({ timeline, audioSources, imageSources, videoSources }: EditableVideoProps) {
   return (
     <Canvas background="#000000" style={{ padding: 0 }}>
       <TimelineComposition
         timeline={timeline ?? parseEditTimeline(savedTimeline)}
         components={editorComponents}
         imageSources={imageSources}
+        videoSources={videoSources}
       />
     </Canvas>
   );

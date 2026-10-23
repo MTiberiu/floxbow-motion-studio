@@ -158,6 +158,7 @@ const audioFixturePath = path.join(
   "flox-smoke-audio.wav",
 );
 const imageFixturePath = path.join(audioFixtureDirectory, "flox-smoke.png");
+const videoFixturePath = path.join(audioFixtureDirectory, "flox-smoke.mp4");
 function sineWaveWav(seconds: number) {
   const sampleRate = 8_000;
   const samples = sampleRate * seconds;
@@ -223,6 +224,29 @@ function solidPng(red: number, green: number, blue: number, size = 16) {
 const audioFixture = sineWaveWav(8);
 await writeFile(audioFixturePath, audioFixture);
 await writeFile(imageFixturePath, solidPng(255, 96, 12));
+await execFileAsync(
+  "ffmpeg",
+  [
+    "-v",
+    "error",
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=blue:s=64x64:r=30",
+    "-t",
+    "2",
+    "-an",
+    "-c:v",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    videoFixturePath,
+  ],
+  { windowsHide: true, timeout: 60_000 },
+);
 let pickerCalls = 0;
 let whisperHostAudioPath = "";
 let markSecondPickerStarted!: () => void;
@@ -254,6 +278,7 @@ const servers = await startServers(built, await findSmokePortOffset(), {
   audioFilePicker: pickAudioFixture,
   mediaFilePicker: async (type) => {
     if (type === "image") return imageFixturePath;
+    if (type === "video") return videoFixturePath;
     return pickAudioFixture();
   },
 });
@@ -2714,6 +2739,134 @@ try {
     savedImage = await readImageClip();
     expect(savedImage.clip.props).toMatchObject({ x: 15, y: 70 });
 
+    // Registered MP4 media becomes a canonical, independently editable Video
+    // clip, using the same Canvas transform and Timeline range controls.
+    await page.getByRole("button", { name: "Add Video", exact: true }).click();
+    const videoAsset = page
+      .getByRole("listitem")
+      .filter({ hasText: "flox-smoke" })
+      .filter({ hasText: "VIDEO" });
+    await expect(
+      videoAsset.getByText("Available", { exact: true }),
+    ).toBeVisible();
+    const videoAssetText = await videoAsset.locator("small").innerText();
+    const videoAssetId = videoAssetText.split("·").at(-1)?.trim();
+    expect(videoAssetId).toMatch(/^video-[a-f0-9-]{36}$/);
+    const videoProbeResponse = await fetch(
+      new URL(
+        `/api/media/${thirdId}/assets/${videoAssetId}/video`,
+        servers.url,
+      ),
+    );
+    expect(videoProbeResponse.status).toBe(200);
+    expect(await videoProbeResponse.json()).toMatchObject({
+      assetId: videoAssetId,
+      width: 64,
+      height: 64,
+    });
+    const videoStreamResponse = await fetch(
+      new URL(
+        `/api/media/${thirdId}/assets/${videoAssetId}/stream`,
+        servers.previewOrigin,
+      ),
+      { headers: { Range: "bytes=0-11" } },
+    );
+    expect(videoStreamResponse.status).toBe(206);
+    expect(videoStreamResponse.headers.get("content-type")).toContain(
+      "video/mp4",
+    );
+    expect(
+      Buffer.from(await videoStreamResponse.arrayBuffer()).toString(
+        "ascii",
+        4,
+        8,
+      ),
+    ).toBe("ftyp");
+
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 180);
+    await expect(page.getByTestId("frame-readout")).toContainText("180 /");
+    await videoAsset
+      .getByRole("button", { name: /Add .* to Timeline/ })
+      .click();
+    const videoClip = page.locator('.timeline-clip[data-clip-id^="video-"]');
+    await expect(videoClip).toBeVisible();
+    const videoClipId = await videoClip.getAttribute("data-clip-id");
+    expect(videoClipId).toBeTruthy();
+    await videoClip.click();
+    const videoPreview = page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator(`video[data-video-asset-id="${videoAssetId}"]`);
+    await expect(videoPreview).toBeVisible();
+    const videoPositionX = page.getByLabel("Position X (%)", { exact: true });
+    await videoPositionX.fill("62");
+    await expect
+      .poll(() =>
+        videoPreview.evaluate(
+          (element) => (element as HTMLVideoElement).style.left,
+        ),
+      )
+      .toBe("62%");
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(videoPositionX).toHaveValue("50");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(videoPositionX).toHaveValue("62");
+    await expect(page.getByLabel("Video fit", { exact: true })).toHaveValue(
+      "contain",
+    );
+
+    // Moving the left trim advances the source in-point; the right edge remains
+    // stable, and the source timing is saved in the same Timeline clip.
+    await page.getByLabel("Clip start time (seconds)").fill("6.5");
+    await expect(page.getByLabel("Clip end time (seconds)")).toHaveValue(
+      "8.000",
+    );
+    await expect(page.getByLabel("Source start time (seconds)")).toHaveValue(
+      "0.5",
+    );
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 202);
+    await expect
+      .poll(() =>
+        videoPreview.evaluate(
+          (element) => (element as HTMLVideoElement).readyState,
+        ),
+      )
+      .toBeGreaterThanOrEqual(2);
+    await expect
+      .poll(() =>
+        videoPreview.evaluate(
+          (element) => (element as HTMLVideoElement).currentTime,
+        ),
+      )
+      .toBeGreaterThan(0.5);
+
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    const videoTimelinePath = path.join(textProjectPath, "edit-timeline.json");
+    const savedVideoDocument = JSON.parse(
+      await readFile(videoTimelinePath, "utf8"),
+    );
+    const savedVideoClip = savedVideoDocument.clips.find(
+      (clip: { id: string }) => clip.id === videoClipId,
+    );
+    expect(savedVideoClip).toMatchObject({
+      componentId: "video",
+      content: { assetId: videoAssetId, sourceStartSeconds: 0.5 },
+      props: { x: 62 },
+      from: 195,
+      durationInFrames: 45,
+    });
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(videoPositionX).toHaveValue("62");
+    await expect(page.getByLabel("Source start time (seconds)")).toHaveValue(
+      "0.5",
+    );
+
     standaloneTextVideo = await renderProject(root, thirdId, false);
     const diagnosticFramePath = path.join(
       audioFixtureDirectory,
@@ -2779,6 +2932,60 @@ try {
         orangeImagePixels += 1;
     }
     expect(orangeImagePixels).toBeGreaterThan(1_000);
+
+    const renderedVideoFramePath = path.join(
+      audioFixtureDirectory,
+      "rendered-video-frame.png",
+    );
+    await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        "6.75",
+        "-i",
+        standaloneTextVideo,
+        "-frames:v",
+        "1",
+        renderedVideoFramePath,
+      ],
+      { windowsHide: true, timeout: 60_000 },
+    );
+    const renderedVideoFrame = await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-i",
+        renderedVideoFramePath,
+        "-frames:v",
+        "1",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "pipe:1",
+      ],
+      {
+        windowsHide: true,
+        timeout: 60_000,
+        maxBuffer: 8 * 1024 * 1024,
+        encoding: "buffer",
+      },
+    );
+    const videoPixels = Buffer.from(renderedVideoFrame.stdout);
+    let blueVideoPixels = 0;
+    for (let index = 0; index + 2 < videoPixels.length; index += 3) {
+      if (
+        videoPixels[index] < 80 &&
+        videoPixels[index + 1] < 100 &&
+        videoPixels[index + 2] > 120
+      )
+        blueVideoPixels += 1;
+    }
+    expect(blueVideoPixels).toBeGreaterThan(10_000);
 
     const savedImageIdsBeforeDrop = new Set(
       savedImage.document.clips

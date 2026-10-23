@@ -8,6 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
+import { probeVideo } from "./video-probe";
 import {
   emptyMediaRegistry,
   mediaAssetSchema,
@@ -149,6 +150,7 @@ export async function registerMediaAsset(
         ? resolution.message
         : `The selected ${type} file is missing.`,
     );
+  if (type === "video") await probeVideo(resolution.path);
 
   return persistMediaRegistry(projectRoot, registry, expectedRevision);
 }

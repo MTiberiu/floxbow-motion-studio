@@ -4,7 +4,7 @@ import { MEDIA_ASSET_DRAG_TYPE } from "./media-drag";
 
 type MediaAssetView = {
   id: string;
-  type: "audio" | "image";
+  type: "audio" | "image" | "video";
   displayName: string;
   status: "ready" | "missing" | "invalid";
   message?: string;
@@ -77,7 +77,7 @@ export function MediaPanel({
       if (!response.ok) throw new Error(await response.text());
       await refresh();
       setNotice(
-        `${type === "audio" ? "Audio" : "PNG image"} linked to this project. The original file stays in place.`,
+        `${type === "audio" ? "Audio" : type === "image" ? "PNG image" : "MP4 video"} linked to this project. The original file stays in place.`,
       );
     } catch (cause) {
       await refresh();
@@ -87,15 +87,18 @@ export function MediaPanel({
     }
   }
 
-  function addImageToTimeline(asset: MediaAssetView) {
+  function addAssetToTimeline(asset: MediaAssetView) {
     window.dispatchEvent(
-      new CustomEvent("motion-add-image", {
-        detail: {
-          projectId,
-          assetId: asset.id,
-          displayName: asset.displayName,
+      new CustomEvent(
+        asset.type === "video" ? "motion-add-video" : "motion-add-image",
+        {
+          detail: {
+            projectId,
+            assetId: asset.id,
+            displayName: asset.displayName,
+          },
         },
-      }),
+      ),
     );
     workspace.activatePanel("editor");
   }
@@ -175,7 +178,12 @@ export function MediaPanel({
     event: React.DragEvent<HTMLLIElement>,
     asset: MediaAssetView,
   ) {
-    if (asset.status !== "ready" || !projectId || built) {
+    if (
+      asset.status !== "ready" ||
+      asset.type === "audio" ||
+      !projectId ||
+      built
+    ) {
       event.preventDefault();
       return;
     }
@@ -231,6 +239,20 @@ export function MediaPanel({
           >
             {adding ? "Choosing file…" : "Add PNG"}
           </button>
+          <button
+            type="button"
+            disabled={
+              !projectId ||
+              built ||
+              loading ||
+              adding ||
+              Boolean(removing) ||
+              !snapshot
+            }
+            onClick={() => void addMedia("video")}
+          >
+            {adding ? "Choosing file…" : "Add Video"}
+          </button>
         </div>
       </header>
 
@@ -271,7 +293,9 @@ export function MediaPanel({
               <li
                 className={`media-asset media-${asset.status}${selectedAssetId === asset.id ? " is-selected" : ""}`}
                 key={asset.id}
-                draggable={asset.status === "ready" && !built}
+                draggable={
+                  asset.status === "ready" && asset.type !== "audio" && !built
+                }
                 onDragStart={(event) => beginAssetDrag(event, asset)}
                 onClick={() => setSelectedAssetId(asset.id)}
                 data-media-asset-id={asset.id}
@@ -295,7 +319,13 @@ export function MediaPanel({
                         }}
                       />
                     ) : (
-                      <span>{asset.type === "audio" ? "♫" : "▧"}</span>
+                      <span>
+                        {asset.type === "audio"
+                          ? "♫"
+                          : asset.type === "video"
+                            ? "▶"
+                            : "▧"}
+                      </span>
                     )}
                   </span>
                   <span className="media-asset-name">
@@ -320,15 +350,16 @@ export function MediaPanel({
                   </span>
                 )}
                 <div className="media-asset-actions">
-                  {asset.type === "image" && asset.status === "ready" && (
-                    <button
-                      type="button"
-                      onClick={() => addImageToTimeline(asset)}
-                      aria-label={`Add ${asset.displayName} to Timeline`}
-                    >
-                      Add
-                    </button>
-                  )}
+                  {(asset.type === "image" || asset.type === "video") &&
+                    asset.status === "ready" && (
+                      <button
+                        type="button"
+                        onClick={() => addAssetToTimeline(asset)}
+                        aria-label={`Add ${asset.displayName} to Timeline`}
+                      >
+                        Add
+                      </button>
+                    )}
                   {asset.type === "audio" && (
                     <button
                       type="button"

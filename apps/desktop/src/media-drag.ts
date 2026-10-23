@@ -3,7 +3,7 @@ export const MEDIA_ASSET_DRAG_TYPE = "application/x-floxbow-media-asset+json";
 export type MediaAssetDragData = Readonly<{
   projectId: string;
   assetId: string;
-  type: "audio" | "image";
+  type: "audio" | "image" | "video";
   displayName: string;
 }>;
 
@@ -27,7 +27,9 @@ export function parseMediaAssetDragData(
       !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.projectId) ||
       typeof candidate.assetId !== "string" ||
       !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.assetId) ||
-      (candidate.type !== "audio" && candidate.type !== "image") ||
+      (candidate.type !== "audio" &&
+        candidate.type !== "image" &&
+        candidate.type !== "video") ||
       typeof candidate.displayName !== "string" ||
       candidate.displayName.length > 200
     )

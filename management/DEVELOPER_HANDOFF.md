@@ -4,38 +4,37 @@ Updated: 2026-10-23. This file records verified local progress and the next safe
 
 ## Checkout and scope
 
-- Local checkout is on `dev` at PR #38 merge `c272e9893d3f136d5c9cc4dea40bb3984439e032`.
-- The Media Library sidebar and image-placement increment is committed locally on `dev` and has not been pushed. The working tree is clean.
-- PR #38's shared Text/Canvas/Image work is integrated. Text Core defines text content and behavior; Canvas Core handles geometry for visual elements that declare its contract.
-- No personal video projects or source media have been edited. Automated media tests use generated assets and temporary projects.
+- The local checkout is on `dev`. PR #38 is merged. Local commits are not pushed to GitHub.
+- `499cc93` contains the left Media Library and PNG placement increment. The current uncommitted increment adds ordinary MP4 video clips and updates this handoff.
+- No personal projects, source media, `main`, or the independently developed Kinetic module have been changed.
+- Smoke tests create synthetic projects and media, then clean them up. At the last check, `projects/` contained only `.gitkeep`.
 
-## Current local increment: Media Library in the left sidebar
+## Implemented and verified
 
-- The separate dockable Media view has been removed. Registered project media now appears in the left project browser for the selected project.
-- The library offers native PNG/audio registration, image thumbnails, audio icons, availability/missing status, asset selection, removal, and the existing soundtrack action.
-- PNG registration remains separate from placement. An Image clip has a separate Timeline clip ID and references the registered stable asset ID. The Add action places at the playhead; drag to Canvas places at the drop position; drag to a visual Timeline track sets its start time. Reusing an asset does not copy the file.
-- The renderer receives only validated project/asset references. The thumbnail endpoint resolves registered IDs in the host and streams PNG bytes; host file paths remain private.
-- Audio drag placement is not supported. The current soundtrack is still one fixed full-duration clip at frame zero; moving/trimming and mixing audio remain unimplemented. Video media registration and ordinary video clips remain unimplemented.
-- Electron smoke passed after correcting test order: Canvas drag events arrived and created a clip, while the test had inspected disk JSON before pressing Save. The test now saves before asserting. The passing smoke confirms both Canvas and Timeline drops create separate clip IDs that reference the same registered image asset.
+- The project Media Library lives in the left project browser. It lists registered project media, provides image thumbnails and type/status indicators, supports native import, selection and removal, and keeps registered asset IDs separate from each placement's Timeline clip ID.
+- PNG assets can be added at the playhead, dragged onto Canvas to set their position, or dropped onto the visual Timeline track to set their start time. Reusing an asset creates another clip without copying the source.
+- MP4 can now be imported through the trusted native picker, registered with a stable video asset ID, previewed and rendered from the registered media route. Video clips receive independent clip IDs and support Timeline placement, trim, seek, volume, fit, and shared Canvas transforms through canonical Timeline properties. A left trim advances the video source in-point; trims beyond the probed source duration are rejected.
+- The generated project scaffold passes registered video sources to the same `TimelineComposition` used by preview and renderer. The host resolves source paths; renderer-facing data contains project-local asset references and safe media URLs, not host filesystem paths.
+- EditorSession remains the only document and save owner, preview remains in the primary editor, and the shared Canvas contract remains the geometry interface for visual elements. Text Core, Image and Video keep their own content/render behavior while Canvas Core handles declared spatial operations.
+- The existing soundtrack path remains one selected, full-duration audio clip fixed at frame zero. Audio placement, trimming, mixing and multiple independent audio clips are not implemented.
 
-## Architecture and compatibility boundaries
+## Compatibility and open limitations
 
-- Timeline v1 project JSON remains canonical and EditorSession remains the only document/save owner.
-- Media registration is host-mediated and separate from Timeline placement. Asset IDs identify source files; clip IDs identify each placement.
-- The current Audio track supports the existing soundtrack workflow through the shared Remotion transport and renderer. It is not a general multi-clip audio editor.
-- Do not change `main`, personal projects/media, Kinetic, project schemas, or persistence contracts as part of this sidebar increment.
-- The requested complete sample project with multiple independent PNG layers, Text, ordinary Video, Audio, save/reload, Undo/Redo and MP4 parity is not yet supported because ordinary Video clips are absent. Do not report that acceptance scenario complete.
+- Timeline v1 and existing project JSON remain canonical. Video source registration is in the existing project media registry; placements reference the asset ID and retain an independent clip ID.
+- The new video path accepts MP4 files with a valid MP4 container and probes duration/dimensions using the installed FFprobe. Other video containers/codecs and transcoding are not supported.
+- Canvas interaction overlays remain editor-only; the composition renderer consumes canonical geometry and media timing for MP4 output.
+- The requested acceptance project with a composed scene of many independent PNGs, Text, ordinary Video and Audio has not been assembled end-to-end. Multiple PNG placements and video clips are supported individually; the general independent-audio workflow remains a gap.
+- Physical listening and hardware-specific playback checks still require user verification. Automated tests verify decoder/playback state and rendered media, not the user's speakers or headphones.
 
-## Verification status
+## Verification for the current local increment
 
-- Base `dev` was clean immediately after PR #38 merge.
-- `npm test`: 74/74 passed, including media drag-data validation and Canvas contract tests.
-- `npm run typecheck`, `npm run validate` and `npm run build` passed. Build reported the existing dependency annotation and large-chunk warnings.
-- `npm run test:smoke` passed in development mode, including media thumbnails and Canvas/Timeline drops. Electron needs normal Windows process-launch permissions in this environment.
-- `npm run test:built` passed for the built starter, capability metadata and preview.
-- `git diff --check` passed. Prettier passes for changed documentation; the repository-wide check still reports existing baseline formatting failures in `apps/desktop/src/main.tsx` and `scripts/smoke.ts`. Their unrelated lines were kept as-is.
-- Smoke cleanup left `projects/` with only `.gitkeep`; no user project or media was changed.
+- `npm test`: 79/79 passed.
+- `npm run typecheck`, `npm run validate`, and `npm run build`: passed. Build emitted existing dependency annotation and large-chunk warnings.
+- `npm run test:smoke`: passed in development mode, including hide/reopen playback, PNG and MP4 import/placement, video preview transform, source-aware trimming, save/reload and MP4 rendering. The render assertions inspect output pixels. The EditorSession resume flag is consumed by the active preview's ready handshake so late frame messages from the previous iframe cannot cancel it.
+- `npm run test:editor`: passed, including detached Timeline command/preview synchronization, attach/close recovery, single preview, revision conflict and project-session invalidation.
+- `npm run test:built`: passed for the built empty starter, capability metadata, preview and documentation. The full video editing/export scenario was exercised in development mode, not repeated against the built app.
+- `git diff --check` and Prettier on all changed implementation, test, and documentation files passed. Do not treat repository-wide formatting warnings in unrelated baseline files as part of this increment.
 
 ## Next logical increment
 
-The left Media Library and PNG placement slice is implemented and verified. Next inspect the current media schemas, Remotion preview/render adapters and editable clip contracts for ordinary video and flexible audio. Report which paths already exist and identify the smallest next implementation increment. Keep soundtrack movement/trimming separate until preview and MP4 timing can be demonstrated together. Update this handoff with verified behavior and concrete gaps after each substantial increment.
+Continue the practical Core Editor milestone by proving a saved/reloaded composition made from multiple independent PNG clips and editable Text, then address general audio clips only after designing and testing matching preview, Timeline and MP4 timing. Preserve separate media asset and clip identities, one canonical Timeline document, shared Canvas interactions, Inspector edits, Undo/Redo and external JSON reload/conflict handling. Do not start AI Animator, Skills, MCP, Kinetic changes, scene redesign or a generic plugin/3D framework as part of that work.
