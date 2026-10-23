@@ -145,3 +145,8 @@ After standalone Image JSON/Inspector/MP4 integration, prioritize a reviewable *
 ### Near-term UI time readability — D-020
 
 Introduce a shared project-FPS-aware UI formatter/parser for seconds/milliseconds on the Timeline ruler, playhead and Inspector time controls, retaining integer frames in canonical JSON. Offer optional frames/timecode display for technical work. Round user input to legal frame positions, prevent time drift, and cover varying FPS, minute rollover, trim, subtitle and seek cases. Deliver as a narrow Core usability PR, separate from Media Library and Canvas selection.
+
+
+### Primary adoption gate — zero-repeat local agent handoff
+
+Before investing in MCP or a large tooling surface, implement/prototype a minimal repository-local **START_HERE / AGENTS / Skill** entrypoint for developer, manager and animator workflows using existing management docs, actual Git/CI state and live project/capability JSON. Evaluate with a completely fresh agent context: can it answer what exists, what is approved, what's broken, what's next, and how to resume a video project without asking the owner to re-explain? Keep it concise, maintainable and version-matched via Git checkout. This is the core personal productivity purpose of agent integration; CLI and optional local MCP follow demonstrable workflow gaps.
