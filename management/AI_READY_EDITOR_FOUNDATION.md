@@ -87,3 +87,21 @@ Future **dynamic parameter binding** requirements: stable component/parameter ID
 The user chooses which parameters deserve UI control *later*; avoid automatically showing thousands of particles/shader internals or all camera axes on the main Timeline. Unexposed code remains controllable via the AI. A requested parameter is not magically editable without the agent adapting the original code and registering a supported binding. An honest implemented-vs-planned capabilities guide must spell out this boundary.
 
 **Architectural implication:** shared type/validation/Inspector/keyframe infrastructure can be generic while binding implementation remains module-/scene-owned. Investigate extension of existing `EditableComponent.fields` and Timeline v1 instead of designing a second disconnected JSON format. Not a task for the currently agreed Media/Video/Audio sprint unless essential compatibility decisions arise.
+
+## Scene-first mental model and progressive drill-down (owner decision, 2026-10-23)
+
+**Owner's central requirement:** treat a movie as a sequence/overlap of **scenes**; each scene is a time-bounded, visually composited unit (a viewing window / mask for its internal layers, with clear clipping or compositing boundaries). A complex AI-written animation should appear as **one understandable scene on the top-level Timeline**, not thousands of clips for its globe points, labels, HUD, camera and effects.
+
+**Progressive disclosure, not forced upfront metadata:**
+- Main Timeline: scene spans, coarse timing, transitions, primary overlay/text/audio where appropriate. Keep it legible.
+- Open/expand/zoom into a scene: inspect internal logical layers or selected exposed parameter tracks, without inflating the entire movie Timeline. UX method (double-click drill-down, disclosure tree, nested view, or zoom) is **undecided** and should be prototyped; do not lock in one navigation solution prematurely.
+- Right-side Inspector: selected scene or selected internal element exposes only its declared editable parameters.
+- On-demand: owner asks AI to expose HUD colors, camera path keyframes or any chosen property; AI refactors code and registers validated canonical JSON bindings, preserving original behavior. Not every private shader value or particle belongs on the Timeline by default.
+- Keep scene-level time and local element time explicitly mapped to global canonical frames, including trims, overlaps, seeking and export. A visual mask/clip should not imply a pre-rendered flattened video or destroy layer editability.
+- Integrate with existing Timeline v1, Canvas Core and declared field metadata where viable. Survey D-017 scene/ripple decisions before proposing schema changes. Do **not** assert nested Timeline/editable 3D API already exists.
+
+**Key user story:** "A film has a 15s globe sequence. On the movie Timeline I select 'Global Routes' as one scene. I can open the scene to inspect logical 2D and 3D layers, then ask AI to expose camera orbit/approach/left-shift keyframes. Only those keyframes appear in the scene's detailed view, while film-level Timeline stays clean." Scene-level transforms/cropping/masking and object-level transforms must remain distinguishable.
+
+**Product test:** make a short multi-scene composition with one complex scene (e.g. 3D content + HUD + title + effects). Demonstrate film-level Timeline readability, scene entry/exit, at least one selected internal layer, a dynamically exposed parameter, preview/export and correct global↔local frame mapping. First settle navigation/data model with a minimal vertical slice; avoid building a general nested scene-graph/keyframe UI in the current Media/Video/Audio sprint.
+
+This scene-first principle is **priority product direction**, despite UI exploration remaining open. Related research: `management/FUTURE_VISUAL_CAPABILITIES.md` for layered composition and `management/CREATIVE_DIRECTOR_RESEARCH.md` for later creative skills.
