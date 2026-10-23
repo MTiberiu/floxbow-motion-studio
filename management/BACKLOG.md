@@ -146,3 +146,12 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Rebase/refresh PR #33 onto repaired `dev`; require passing CI for its **actual latest HEAD**, not a previously green SHA.
 - [ ] Review proposed **PNG-first Image** slice (audit complete, not yet implemented): host-only image path, stable reused media assetId, independent clip IDs, native file picker, Timeline placement at 6s, Inspector position/scale and duration, external AI JSON round trip, dirty draft protection, MP4 representative-frame check.
 - [ ] At shared Inspector Transform implementation (after first Image JSON/MP4 proof), make XY pad and rotation dial **selection-first quick controls** usable for small/offscreen/overlapped objects; direct Canvas click must not be required; retain numerical precision, Center/Reset and single-step undo.
+
+
+### Canvas selection and direct manipulation — high-priority shared Core UX (D-019)
+
+- [ ] Click/select supported visual elements on Canvas; selection synchronized across Timeline/layer list and Inspector, with clear stacked overlap behavior.
+- [ ] Shared editor-only selection box, move drag, resize handles, rotation handle; reasonable aspect-ratio constraints, snapping, zoom scaling and keyboard/fine adjustments.
+- [ ] Reuse canonical transforms and Core transaction/Undo; ensure drag/rotate/resize commit safely to project JSON and preview/export exactly, not to a visual-only overlay.
+- [ ] Modules declare transform support; lock/hidden/off-canvas and audio-only elements have correct special behavior; small targets selectable via layer list and Inspector XY/dial.
+- [ ] Prototype after first Image round trip, then extend to Text/Video and module-owned visuals; review scope separately from basic PNG import PR.
