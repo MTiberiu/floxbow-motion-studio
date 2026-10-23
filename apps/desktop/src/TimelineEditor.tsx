@@ -109,6 +109,15 @@ export function TimelineEditor({
       }
     | undefined
   >(undefined);
+  const canvasGesture = useRef<
+    | {
+        startVersion: number;
+        latestVersion: number;
+        checkpointed: boolean;
+        canceled: boolean;
+      }
+    | undefined
+  >(undefined);
   const clipboard = useRef<
     import("@motion/sdk/timeline").TimelineClip | undefined
   >(undefined);
@@ -217,6 +226,30 @@ export function TimelineEditor({
   const checkpoint = () => {
     sourceCommandId.current = null;
     sessionCheckpoint();
+  };
+  const beginCanvasGesture = () => {
+    const version = commands.getStateVersion();
+    canvasGesture.current = {
+      startVersion: version,
+      latestVersion: version,
+      checkpointed: false,
+      canceled: false,
+    };
+  };
+  const endCanvasGesture = () => {
+    canvasGesture.current = undefined;
+  };
+  const cancelCanvasGesture = () => {
+    const gesture = canvasGesture.current;
+    canvasGesture.current = undefined;
+    if (!gesture?.checkpointed || gesture.canceled) return;
+    if (commands.getStateVersion() === gesture.latestVersion) {
+      undo();
+    } else {
+      setNotice(
+        "Canvas gesture was interrupted by another edit. Its changes remain available to Undo.",
+      );
+    }
   };
   useEffect(() => {
     send("playback-boundary", { endFrame: playbackEndFrame });
@@ -1494,15 +1527,27 @@ export function TimelineEditor({
             sourceCommandId.current = null;
             sessionSelectClips(clipIds);
           }}
-          onCanvasGestureStart={checkpoint}
+          onCanvasGestureStart={beginCanvasGesture}
           onCanvasTransform={(changes) => {
+            const gesture = canvasGesture.current;
+            if (gesture?.canceled) return;
             const current = commands.getCurrentDocument();
             if (!current) return;
-            const definitions = new Map(
-              components.map((item) => [item.id, item]),
-            );
-            edit(
-              {
+            if (
+              gesture &&
+              commands.getStateVersion() !== gesture.latestVersion
+            ) {
+              gesture.canceled = true;
+              setNotice(
+                "Canvas gesture stopped because another edit changed this element.",
+              );
+              return;
+            }
+            try {
+              const definitions = new Map(
+                components.map((item) => [item.id, item]),
+              );
+              const next = parseEditTimeline({
                 ...current,
                 clips: current.clips.map((clip) => {
                   const transform = changes.get(clip.id);
@@ -1511,11 +1556,27 @@ export function TimelineEditor({
                     ? applyCanvasTransform(clip, definition, transform)
                     : clip;
                 }),
-              },
-              false,
-            );
+              });
+              if (gesture && !gesture.checkpointed) {
+                if (commands.getStateVersion() !== gesture.startVersion) {
+                  gesture.canceled = true;
+                  setNotice(
+                    "Canvas gesture stopped because another edit changed this element.",
+                  );
+                  return;
+                }
+                checkpoint();
+                gesture.checkpointed = true;
+              }
+              edit(next, false);
+              if (gesture) gesture.latestVersion = commands.getStateVersion();
+            } catch (canvasError) {
+              setError(String(canvasError));
+              if (gesture) gesture.canceled = true;
+            }
           }}
-          onCanvasGestureEnd={() => {}}
+          onCanvasGestureEnd={endCanvasGesture}
+          onCanvasGestureCancel={cancelCanvasGesture}
         />
         <button
           className="panel-splitter inspector-splitter"

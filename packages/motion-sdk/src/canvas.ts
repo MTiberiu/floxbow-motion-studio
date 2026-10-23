@@ -27,6 +27,9 @@ export type CanvasTransform = {
   anchor: CanvasAnchor;
 };
 
+export type CanvasPoint = { x: number; y: number };
+export type CanvasViewportSize = { width: number; height: number };
+
 export type CanvasVisualElement = {
   id: string;
   owner: string;
@@ -50,6 +53,82 @@ const anchors = new Set<CanvasAnchor>([
   "bottom-center",
   "bottom-right",
 ]);
+
+const anchorFactors: Record<CanvasAnchor, CanvasPoint> = {
+  "top-left": { x: 0, y: 0 },
+  "top-center": { x: 0.5, y: 0 },
+  "top-right": { x: 1, y: 0 },
+  "middle-left": { x: 0, y: 0.5 },
+  center: { x: 0.5, y: 0.5 },
+  "middle-right": { x: 1, y: 0.5 },
+  "bottom-left": { x: 0, y: 1 },
+  "bottom-center": { x: 0.5, y: 1 },
+  "bottom-right": { x: 1, y: 1 },
+};
+
+function rotatedAnchorOffset(
+  transform: CanvasTransform,
+  viewport: CanvasViewportSize,
+) {
+  const anchor = anchorFactors[transform.anchor];
+  const x = (0.5 - anchor.x) * (transform.width / 100) * viewport.width;
+  const y = (0.5 - anchor.y) * (transform.height / 100) * viewport.height;
+  const radians = (transform.rotation * Math.PI) / 180;
+  return {
+    x: x * Math.cos(radians) - y * Math.sin(radians),
+    y: x * Math.sin(radians) + y * Math.cos(radians),
+  };
+}
+
+/** Return the transformed element center in rendered Canvas pixel coordinates. */
+export function canvasVisualCenterInViewport(
+  element: CanvasVisualElement,
+  viewport: CanvasViewportSize,
+): CanvasPoint {
+  const offset = rotatedAnchorOffset(element.transform, viewport);
+  return {
+    x: (element.transform.x / 100) * viewport.width + offset.x,
+    y: (element.transform.y / 100) * viewport.height + offset.y,
+  };
+}
+
+/** Return the declared anchor position, in percentages, for a rendered center. */
+export function canvasAnchorPositionForCenter(
+  center: CanvasPoint,
+  transform: CanvasTransform,
+  viewport: CanvasViewportSize,
+): CanvasPoint {
+  const offset = rotatedAnchorOffset(transform, viewport);
+  return {
+    x: ((center.x - offset.x) / viewport.width) * 100,
+    y: ((center.y - offset.y) / viewport.height) * 100,
+  };
+}
+
+/** Return the rotated visual bounds in actual rendered Canvas pixels. */
+export function canvasVisualBoundsInViewport(
+  element: CanvasVisualElement,
+  viewport: CanvasViewportSize,
+) {
+  const center = canvasVisualCenterInViewport(element, viewport);
+  const radians = (element.transform.rotation * Math.PI) / 180;
+  const width = (element.transform.width / 100) * viewport.width;
+  const height = (element.transform.height / 100) * viewport.height;
+  const halfWidth =
+    (Math.abs(Math.cos(radians)) * width +
+      Math.abs(Math.sin(radians)) * height) /
+    2;
+  const halfHeight =
+    (Math.abs(Math.sin(radians)) * width +
+      Math.abs(Math.cos(radians)) * height) /
+    2;
+  return {
+    left: center.x - halfWidth,
+    top: center.y - halfHeight,
+    right: center.x + halfWidth,
+    bottom: center.y + halfHeight,
+  };
+}
 
 function fieldFor(definition: ComponentInfo, key: string): EditableField {
   const field = definition.fields.find((candidate) => candidate.key === key);
@@ -178,6 +257,16 @@ export function applyCanvasTransform(
     throw new Error("This visual element cannot be rotated.");
   if (visual.locked)
     throw new Error("This visual element is locked and cannot be transformed.");
+  if (
+    visual.resizeMode === "preserve-aspect" &&
+    (nextTransform.width !== before.width ||
+      nextTransform.height !== before.height)
+  ) {
+    const beforeRatio = before.width / before.height;
+    const nextRatio = nextTransform.width / nextTransform.height;
+    if (Math.abs(beforeRatio - nextRatio) > 1e-6)
+      throw new Error("This visual element must preserve its aspect ratio.");
+  }
 
   const next = structuredClone(clip);
   const entries: [string | undefined, number | string][] = [
@@ -197,37 +286,7 @@ export function applyCanvasTransform(
   return next;
 }
 
-/** Compute the axis-aligned composition-space bounds for overlays and marquee hit tests. */
+/** Compute rotated bounds in a square normalized coordinate space. */
 export function canvasVisualBounds(element: CanvasVisualElement) {
-  const radians = (element.transform.rotation * Math.PI) / 180;
-  const width = element.transform.width;
-  const height = element.transform.height;
-  const anchorOffsets: Record<CanvasAnchor, [number, number]> = {
-    "top-left": [0, 0],
-    "top-center": [0.5, 0],
-    "top-right": [1, 0],
-    "middle-left": [0, 0.5],
-    center: [0.5, 0.5],
-    "middle-right": [1, 0.5],
-    "bottom-left": [0, 1],
-    "bottom-center": [0.5, 1],
-    "bottom-right": [1, 1],
-  };
-  const [anchorX, anchorY] = anchorOffsets[element.transform.anchor];
-  const centerX = element.transform.x + (0.5 - anchorX) * width;
-  const centerY = element.transform.y + (0.5 - anchorY) * height;
-  const halfWidth =
-    (Math.abs(Math.cos(radians)) * width +
-      Math.abs(Math.sin(radians)) * height) /
-    2;
-  const halfHeight =
-    (Math.abs(Math.sin(radians)) * width +
-      Math.abs(Math.cos(radians)) * height) /
-    2;
-  return {
-    left: centerX - halfWidth,
-    top: centerY - halfHeight,
-    right: centerX + halfWidth,
-    bottom: centerY + halfHeight,
-  };
+  return canvasVisualBoundsInViewport(element, { width: 100, height: 100 });
 }

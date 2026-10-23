@@ -3,6 +3,9 @@ import { test } from "node:test";
 import {
   applyCanvasTransform,
   canvasVisualBounds,
+  canvasVisualBoundsInViewport,
+  canvasVisualCenterInViewport,
+  canvasAnchorPositionForCenter,
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import {
@@ -131,6 +134,83 @@ test("Canvas computes rotated bounds in composition percent space", () => {
   assert.ok(Math.abs(rotated.right - 45) < 1e-10);
   assert.ok(Math.abs(rotated.top - 20) < 1e-10);
   assert.ok(Math.abs(rotated.bottom - 40) < 1e-10);
+});
+
+test("Canvas rotation geometry uses the rendered aspect ratio and keeps rotated anchors fixed", () => {
+  const visual = getCanvasVisualElement(
+    {
+      ...timeline.clips[0],
+      props: {
+        ...timeline.clips[0].props,
+        x: 20,
+        y: 30,
+        width: 20,
+        height: 10,
+        rotation: 90,
+        anchor: "top-left",
+      },
+    },
+    definition,
+  );
+  assert.ok(visual);
+  const viewport = { width: 1920, height: 1080 };
+  const center = canvasVisualCenterInViewport(visual, viewport);
+  assert.ok(Math.abs(center.x - 330) < 1e-10);
+  assert.ok(Math.abs(center.y - 516) < 1e-10);
+  const bounds = canvasVisualBoundsInViewport(visual, viewport);
+  assert.ok(Math.abs((bounds.left + bounds.right) / 2 - center.x) < 1e-10);
+  assert.ok(Math.abs((bounds.top + bounds.bottom) / 2 - center.y) < 1e-10);
+
+  for (const anchor of ["top-left", "bottom-right", "center"] as const) {
+    const initial = { ...visual.transform, anchor };
+    const initialCenter = canvasVisualCenterInViewport(
+      { ...visual, transform: initial },
+      viewport,
+    );
+    const updated = canvasAnchorPositionForCenter(
+      initialCenter,
+      { ...initial, rotation: 137 },
+      viewport,
+    );
+    const rotated = canvasVisualCenterInViewport(
+      {
+        ...visual,
+        transform: { ...initial, ...updated, rotation: 137 },
+      },
+      viewport,
+    );
+    assert.ok(Math.abs(rotated.x - initialCenter.x) < 1e-10, anchor);
+    assert.ok(Math.abs(rotated.y - initialCenter.y) < 1e-10, anchor);
+  }
+});
+
+test("Canvas core rejects resize changes that violate a declared aspect ratio", () => {
+  const preserveAspect = componentInfoSchema.parse({
+    ...definition,
+    canvas: { ...definition.canvas, resizeMode: "preserve-aspect" },
+  });
+  assert.throws(
+    () =>
+      applyCanvasTransform(timeline.clips[0], preserveAspect, {
+        x: 40,
+        y: 30,
+        width: 30,
+        height: 10,
+        rotation: 0,
+        anchor: "center",
+      }),
+    /preserve its aspect ratio/,
+  );
+  const resized = applyCanvasTransform(timeline.clips[0], preserveAspect, {
+    x: 40,
+    y: 30,
+    width: 40,
+    height: 20,
+    rotation: 0,
+    anchor: "center",
+  });
+  assert.equal(resized.props.width, 40);
+  assert.equal(resized.props.height, 20);
 });
 
 test("a module-owned subtitle opts into the same Canvas contract through metadata", () => {

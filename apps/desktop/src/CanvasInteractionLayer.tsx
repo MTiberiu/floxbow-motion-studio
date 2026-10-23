@@ -1,9 +1,13 @@
 import { useRef, useState, type PointerEvent } from "react";
 import {
   canvasVisualBounds,
+  canvasVisualBoundsInViewport,
+  canvasVisualCenterInViewport,
+  canvasAnchorPositionForCenter,
   getCanvasVisualElements,
   type CanvasTransform,
   type CanvasVisualElement,
+  type CanvasViewportSize,
 } from "@motion/sdk/canvas";
 import type { ComponentInfo, EditTimeline } from "@motion/sdk/timeline";
 
@@ -13,8 +17,10 @@ type Gesture = {
   mode: "move" | "resize" | "rotate" | "marquee";
   start: Point;
   initial: CanvasVisualElement[];
+  viewport: CanvasViewportSize;
   handle?: { x: number; y: number };
   active: boolean;
+  checkpointed: boolean;
   additive: boolean;
 };
 
@@ -27,19 +33,20 @@ export type CanvasInteractionLayerProps = {
   onGestureStart: () => void;
   onTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
   onGestureEnd: () => void;
+  onGestureCancel: () => void;
   spaceHeld?: boolean;
 };
 
 const anchorTranslations: Record<string, string> = {
-  "top-left": "0 0",
-  "top-center": "-50% 0",
-  "top-right": "-100% 0",
-  "middle-left": "0 -50%",
-  center: "-50% -50%",
-  "middle-right": "-100% -50%",
-  "bottom-left": "0 -100%",
-  "bottom-center": "-50% -100%",
-  "bottom-right": "-100% -100%",
+  "top-left": "0, 0",
+  "top-center": "-50%, 0",
+  "top-right": "-100%, 0",
+  "middle-left": "0, -50%",
+  center: "-50%, -50%",
+  "middle-right": "-100%, -50%",
+  "bottom-left": "0, -100%",
+  "bottom-center": "-50%, -100%",
+  "bottom-right": "-100%, -100%",
 };
 const anchorOrigins: Record<string, string> = {
   "top-left": "top left",
@@ -52,39 +59,13 @@ const anchorOrigins: Record<string, string> = {
   "bottom-center": "bottom center",
   "bottom-right": "bottom right",
 };
-const anchorFactors: Record<string, Point> = {
-  "top-left": { x: 0, y: 0 },
-  "top-center": { x: 0.5, y: 0 },
-  "top-right": { x: 1, y: 0 },
-  "middle-left": { x: 0, y: 0.5 },
-  center: { x: 0.5, y: 0.5 },
-  "middle-right": { x: 1, y: 0.5 },
-  "bottom-left": { x: 0, y: 1 },
-  "bottom-center": { x: 0.5, y: 1 },
-  "bottom-right": { x: 1, y: 1 },
-};
-
-function centerOf(element: CanvasVisualElement): Point {
-  const anchor = anchorFactors[element.transform.anchor];
-  return {
-    x: element.transform.x + (0.5 - anchor.x) * element.transform.width,
-    y: element.transform.y + (0.5 - anchor.y) * element.transform.height,
-  };
-}
-
-function anchorAt(center: Point, transform: CanvasTransform): Point {
-  const anchor = anchorFactors[transform.anchor];
-  const radians = (transform.rotation * Math.PI) / 180;
-  const x = (anchor.x - 0.5) * transform.width;
-  const y = (anchor.y - 0.5) * transform.height;
-  return {
-    x: center.x + x * Math.cos(radians) - y * Math.sin(radians),
-    y: center.y + x * Math.sin(radians) + y * Math.cos(radians),
-  };
-}
-
-function boundsFor(elements: readonly CanvasVisualElement[]) {
-  const bounds = elements.map(canvasVisualBounds);
+function boundsFor(
+  elements: readonly CanvasVisualElement[],
+  viewport: CanvasViewportSize,
+) {
+  const bounds = elements.map((element) =>
+    canvasVisualBoundsInViewport(element, viewport),
+  );
   return {
     left: Math.min(...bounds.map((item) => item.left)),
     top: Math.min(...bounds.map((item) => item.top)),
@@ -114,6 +95,7 @@ export function CanvasInteractionLayer({
   onGestureStart,
   onTransform,
   onGestureEnd,
+  onGestureCancel,
   spaceHeld = false,
 }: CanvasInteractionLayerProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -124,13 +106,28 @@ export function CanvasInteractionLayer({
     ? getCanvasVisualElements(timeline, components, frame)
     : [];
   const selected = elements.filter((item) => selectedIds.includes(item.id));
-  const selectionBounds = selected.length ? boundsFor(selected) : undefined;
+  const measuredSize = root.current?.getBoundingClientRect();
+  const renderViewport = {
+    width: Math.max(1, measuredSize?.width ?? 100),
+    height: Math.max(1, measuredSize?.height ?? 100),
+  };
+  const selectionBounds =
+    selected.length > 0 ? boundsFor(selected, renderViewport) : undefined;
+
+  function viewportSize(): CanvasViewportSize {
+    const rect = root.current?.getBoundingClientRect();
+    return {
+      width: Math.max(1, rect?.width ?? 100),
+      height: Math.max(1, rect?.height ?? 100),
+    };
+  }
 
   function point<T extends HTMLElement>(event: PointerEvent<T>): Point {
-    const rect = root.current!.getBoundingClientRect();
+    const rect = root.current?.getBoundingClientRect();
+    if (!rect) return { x: event.clientX, y: event.clientY };
     return {
-      x: ((event.clientX - rect.left) / rect.width) * 100,
-      y: ((event.clientY - rect.top) / rect.height) * 100,
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
     };
   }
 
@@ -144,6 +141,7 @@ export function CanvasInteractionLayer({
     if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
+    const viewport = viewportSize();
     const additive = event.shiftKey || event.ctrlKey || event.metaKey;
     let initial = selected;
     if (target) {
@@ -178,8 +176,10 @@ export function CanvasInteractionLayer({
       mode,
       start: point(event),
       initial,
+      viewport,
       handle,
       active: false,
+      checkpointed: false,
       additive,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -192,11 +192,8 @@ export function CanvasInteractionLayer({
     const here = point(event);
     const dx = here.x - current.start.x;
     const dy = here.y - current.start.y;
-    if (!current.active && Math.hypot(dx, dy) < 0.35) return;
-    if (!current.active && current.mode !== "marquee") {
-      current.active = true;
-      onGestureStart();
-    }
+    if (!current.active && Math.hypot(dx, dy) < 3) return;
+    if (!current.active && current.mode !== "marquee") current.active = true;
     if (current.mode === "marquee") {
       setMarquee({
         left: Math.min(current.start.x, here.x),
@@ -213,12 +210,12 @@ export function CanvasInteractionLayer({
         if (item.locked || !item.operations.move) continue;
         changes.set(item.id, {
           ...item.transform,
-          x: item.transform.x + dx,
-          y: item.transform.y + dy,
+          x: item.transform.x + (dx / current.viewport.width) * 100,
+          y: item.transform.y + (dy / current.viewport.height) * 100,
         });
       }
     } else if (current.mode === "rotate") {
-      const selection = boundsFor(current.initial);
+      const selection = boundsFor(current.initial, current.viewport);
       const center = {
         x: (selection.left + selection.right) / 2,
         y: (selection.top + selection.bottom) / 2,
@@ -233,7 +230,10 @@ export function CanvasInteractionLayer({
       for (const item of current.initial) {
         if (item.locked || !item.operations.rotate || !item.operations.move)
           continue;
-        const centerOfItem = centerOf(item);
+        const centerOfItem = canvasVisualCenterInViewport(
+          item,
+          current.viewport,
+        );
         const relativeX = centerOfItem.x - center.x;
         const relativeY = centerOfItem.y - center.y;
         const nextCenter = {
@@ -250,18 +250,26 @@ export function CanvasInteractionLayer({
         changes.set(item.id, {
           ...item.transform,
           rotation,
-          ...anchorAt(nextCenter, { ...item.transform, rotation }),
+          ...canvasAnchorPositionForCenter(
+            nextCenter,
+            { ...item.transform, rotation },
+            current.viewport,
+          ),
         });
       }
     } else if (current.mode === "resize" && current.handle) {
-      const originalBounds = boundsFor(current.initial);
+      const originalBounds = boundsFor(current.initial, current.viewport);
       const fixed = {
         x: current.handle.x < 0 ? originalBounds.right : originalBounds.left,
         y: current.handle.y < 0 ? originalBounds.bottom : originalBounds.top,
       };
       const moving = {
-        x: current.start.x + dx,
-        y: current.start.y + dy,
+        x:
+          (current.handle.x < 0 ? originalBounds.left : originalBounds.right) +
+          dx,
+        y:
+          (current.handle.y < 0 ? originalBounds.top : originalBounds.bottom) +
+          dy,
       };
       const oldWidth = Math.max(1, originalBounds.right - originalBounds.left);
       const oldHeight = Math.max(1, originalBounds.bottom - originalBounds.top);
@@ -277,32 +285,48 @@ export function CanvasInteractionLayer({
         x: (fixed.x + moving.x) / 2,
         y: (fixed.y + moving.y) / 2,
       };
+      const preserveAspectScale =
+        Math.abs(scaleX - 1) >= Math.abs(scaleY - 1) ? scaleX : scaleY;
       for (const item of current.initial) {
         if (item.locked || !item.operations.resize || !item.operations.move)
           continue;
-        const center = centerOf(item);
+        const center = canvasVisualCenterInViewport(item, current.viewport);
         const updatedCenter = {
           x: nextCenter.x + (center.x - oldCenter.x) * scaleX,
           y: nextCenter.y + (center.y - oldCenter.y) * scaleY,
         };
+        const itemScaleX =
+          item.resizeMode === "preserve-aspect" ? preserveAspectScale : scaleX;
+        const itemScaleY =
+          item.resizeMode === "preserve-aspect" ? preserveAspectScale : scaleY;
         const transform = {
           ...item.transform,
-          width: Math.max(1, item.transform.width * scaleX),
-          height: Math.max(1, item.transform.height * scaleY),
+          width: Math.max(1, item.transform.width * itemScaleX),
+          height: Math.max(1, item.transform.height * itemScaleY),
         };
         changes.set(item.id, {
           ...transform,
-          ...anchorAt(updatedCenter, transform),
+          ...canvasAnchorPositionForCenter(
+            updatedCenter,
+            transform,
+            current.viewport,
+          ),
         });
       }
     }
-    if (changes.size) onTransform(changes);
+    if (changes.size) {
+      if (!current.checkpointed) {
+        current.checkpointed = true;
+        onGestureStart();
+      }
+      onTransform(changes);
+    }
   }
 
-  function end(event: PointerEvent<HTMLDivElement>) {
+  function end(event: PointerEvent<HTMLDivElement>, canceled = false) {
     const current = gesture.current;
     if (!current || current.pointerId !== event.pointerId) return;
-    if (current.mode === "marquee") {
+    if (current.mode === "marquee" && !canceled) {
       const here = point(event);
       const finalRect = {
         left: Math.min(current.start.x, here.x),
@@ -311,12 +335,18 @@ export function CanvasInteractionLayer({
         bottom: Math.max(current.start.y, here.y),
       };
       const hits = elements
-        .filter((item) => intersects(canvasVisualBounds(item), finalRect))
+        .filter((item) =>
+          intersects(
+            canvasVisualBoundsInViewport(item, current.viewport),
+            finalRect,
+          ),
+        )
         .map((item) => item.id);
       onSelect(
         current.additive ? [...new Set([...selectedIds, ...hits])] : hits,
       );
-    } else if (current.active) onGestureEnd();
+    } else if (current.checkpointed && canceled) onGestureCancel();
+    else if (current.checkpointed) onGestureEnd();
     gesture.current = undefined;
     setMarquee(undefined);
   }
@@ -334,6 +364,10 @@ export function CanvasInteractionLayer({
     };
   }
 
+  function percent(value: number, dimension: number) {
+    return `${(value / dimension) * 100}%`;
+  }
+
   return (
     <div
       ref={root}
@@ -342,7 +376,7 @@ export function CanvasInteractionLayer({
       onPointerDown={(event) => start(event, "marquee")}
       onPointerMove={move}
       onPointerUp={end}
-      onPointerCancel={end}
+      onPointerCancel={(event) => end(event, true)}
     >
       {elements.map((item) => {
         const isSelected = selectedIds.includes(item.id);
@@ -376,10 +410,16 @@ export function CanvasInteractionLayer({
         <div
           className="canvas-group-bounds"
           style={{
-            left: `${selectionBounds.left}%`,
-            top: `${selectionBounds.top}%`,
-            width: `${selectionBounds.right - selectionBounds.left}%`,
-            height: `${selectionBounds.bottom - selectionBounds.top}%`,
+            left: percent(selectionBounds.left, renderViewport.width),
+            top: percent(selectionBounds.top, renderViewport.height),
+            width: percent(
+              selectionBounds.right - selectionBounds.left,
+              renderViewport.width,
+            ),
+            height: percent(
+              selectionBounds.bottom - selectionBounds.top,
+              renderViewport.height,
+            ),
           }}
           data-testid="canvas-selection-bounds"
         >
@@ -410,7 +450,7 @@ export function CanvasInteractionLayer({
               aria-label="Rotate selection"
               className="canvas-transform-handle rotate-handle group-rotate-handle"
               style={{ left: "50%", top: 0 }}
-              onPointerDown={(event) => start(event, "rotate", selected[0])}
+              onPointerDown={(event) => start(event, "rotate")}
             />
           )}
         </div>
@@ -419,10 +459,13 @@ export function CanvasInteractionLayer({
         <div
           className="canvas-marquee"
           style={{
-            left: `${marquee.left}%`,
-            top: `${marquee.top}%`,
-            width: `${marquee.right - marquee.left}%`,
-            height: `${marquee.bottom - marquee.top}%`,
+            left: percent(marquee.left, renderViewport.width),
+            top: percent(marquee.top, renderViewport.height),
+            width: percent(marquee.right - marquee.left, renderViewport.width),
+            height: percent(
+              marquee.bottom - marquee.top,
+              renderViewport.height,
+            ),
           }}
           aria-hidden="true"
         />

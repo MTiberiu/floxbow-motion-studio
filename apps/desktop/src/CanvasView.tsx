@@ -30,6 +30,7 @@ export type CanvasViewProps = {
   onCanvasGestureStart: () => void;
   onCanvasTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
   onCanvasGestureEnd: () => void;
+  onCanvasGestureCancel: () => void;
 };
 
 export function CanvasView({
@@ -52,6 +53,7 @@ export function CanvasView({
   onCanvasGestureStart,
   onCanvasTransform,
   onCanvasGestureEnd,
+  onCanvasGestureCancel,
 }: CanvasViewProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const panDrag = useRef<
@@ -260,6 +262,7 @@ export function CanvasView({
             onGestureStart={onCanvasGestureStart}
             onTransform={onCanvasTransform}
             onGestureEnd={onCanvasGestureEnd}
+            onGestureCancel={onCanvasGestureCancel}
             spaceHeld={spaceHeld}
           />
         </div>

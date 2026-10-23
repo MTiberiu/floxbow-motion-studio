@@ -2230,7 +2230,64 @@ try {
       page.getByText("2 elements selected", { exact: true }),
     ).toBeVisible();
     await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
+
+    // Rotation uses rendered Canvas geometry and must keep the full selection.
     await textHitbox.click();
+    await page.getByLabel("Anchor", { exact: true }).selectOption("top-left");
+    await page.getByLabel("Rotation (°)", { exact: true }).fill("25");
+    await subtitleHitbox.click({ modifiers: ["Shift"] });
+    await expect(
+      page.getByText("2 elements selected", { exact: true }),
+    ).toBeVisible();
+    const selectedBounds = await page
+      .getByTestId("canvas-selection-bounds")
+      .boundingBox();
+    const rotationHandle = await page
+      .getByRole("button", { name: "Rotate selection" })
+      .boundingBox();
+    expect(selectedBounds).toBeTruthy();
+    expect(rotationHandle).toBeTruthy();
+    const rotationStart = {
+      x: rotationHandle!.x + rotationHandle!.width / 2,
+      y: rotationHandle!.y + rotationHandle!.height / 2,
+    };
+    const rotationCenter = {
+      x: selectedBounds!.x + selectedBounds!.width / 2,
+      y: selectedBounds!.y + selectedBounds!.height / 2,
+    };
+    const textCanvasTransformBefore = await textHitbox.evaluate(
+      (element) => getComputedStyle(element).transform,
+    );
+    const subtitleCanvasTransformBefore = await subtitleHitbox.evaluate(
+      (element) => getComputedStyle(element).transform,
+    );
+    const rotationRadius = Math.max(24, selectedBounds!.height / 2);
+    await page.mouse.move(rotationStart.x, rotationStart.y);
+    await page.mouse.down();
+    await page.mouse.move(rotationCenter.x + rotationRadius, rotationCenter.y, {
+      steps: 5,
+    });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        return textHitbox.evaluate(
+          (element) => getComputedStyle(element).transform,
+        );
+      })
+      .not.toBe(textCanvasTransformBefore);
+    await expect
+      .poll(async () => {
+        return subtitleHitbox.evaluate(
+          (element) => getComputedStyle(element).transform,
+        );
+      })
+      .not.toBe(subtitleCanvasTransformBefore);
+
+    await textHitbox.click();
+    await page.getByLabel("Anchor", { exact: true }).selectOption("center");
+    await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
+    await page.getByLabel("Position X (%)", { exact: true }).fill("68");
+    await page.getByLabel("Position Y (%)", { exact: true }).fill("24");
     await expect(inspectorText).toHaveValue("AI editable title");
     await page
       .getByRole("button", { name: "Save project", exact: true })
@@ -2411,6 +2468,22 @@ try {
     await imageInspectorY.fill("70");
     await imageInspectorWidth.fill("24");
     await imageInspectorHeight.fill("20");
+    await page
+      .getByLabel("Anchor", { exact: true })
+      .selectOption("bottom-right");
+    await page.getByLabel("Rotation (°)", { exact: true }).fill("35");
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Undo", exact: true }),
+    ).toBeDisabled();
 
     // The same Canvas interaction layer operates an Image clip through the
     // public visual-element contract, without a separate Image drag system.
@@ -2424,9 +2497,97 @@ try {
       x: imageBounds!.x + imageBounds!.width / 2,
       y: imageBounds!.y + imageBounds!.height / 2,
     };
+
+    // Canceling a live pointer gesture must restore its starting document and
+    // remove the gesture's provisional undo checkpoint.
+    await page.evaluate(() => {
+      window.addEventListener(
+        "pointerdown",
+        (event) => {
+          (
+            window as typeof window & { __smokePointerId?: number }
+          ).__smokePointerId = event.pointerId;
+        },
+        { capture: true, once: true },
+      );
+    });
     await page.mouse.move(imageCenter.x, imageCenter.y);
     await page.mouse.down();
-    await page.mouse.move(imageCenter.x + 48, imageCenter.y + 12, { steps: 4 });
+    await page.mouse.move(imageCenter.x + 42, imageCenter.y + 18, { steps: 3 });
+    const activePointerId = await page.evaluate(
+      () =>
+        (window as typeof window & { __smokePointerId?: number })
+          .__smokePointerId,
+    );
+    expect(activePointerId).toBeDefined();
+    await page.evaluate(
+      ({ id, pointerId }) => {
+        document
+          .querySelector<HTMLElement>(`[data-canvas-element-id="${id}"]`)
+          ?.dispatchEvent(
+            new PointerEvent("pointercancel", {
+              bubbles: true,
+              cancelable: true,
+              pointerId,
+            }),
+          );
+      },
+      { id: imageClipId, pointerId: activePointerId! },
+    );
+    await page.mouse.up();
+    await expect(imageInspectorX).toHaveValue("15");
+    await expect(imageInspectorY).toHaveValue("70");
+    await expect(
+      page.getByRole("button", { name: "Undo", exact: true }),
+    ).toBeDisabled();
+
+    // Resize is based on the rendered rotated bounds, while preserving the
+    // element's non-center anchor and existing rotation.
+    const rotatedImageResizeHandle = page.getByRole("button", {
+      name: "Resize selection right bottom",
+    });
+    const resizeBounds = await rotatedImageResizeHandle.boundingBox();
+    expect(resizeBounds).toBeTruthy();
+    await page.mouse.move(
+      resizeBounds!.x + resizeBounds!.width / 2,
+      resizeBounds!.y + resizeBounds!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      resizeBounds!.x + resizeBounds!.width / 2 + 36,
+      resizeBounds!.y + resizeBounds!.height / 2 + 24,
+      { steps: 4 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () => Number(await imageInspectorWidth.inputValue()))
+      .not.toBe(24);
+    await expect
+      .poll(async () => Number(await imageInspectorHeight.inputValue()))
+      .not.toBe(20);
+    await expect(page.getByLabel("Rotation (°)", { exact: true })).toHaveValue(
+      "35",
+    );
+    await expect(page.getByLabel("Anchor", { exact: true })).toHaveValue(
+      "bottom-right",
+    );
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(imageInspectorWidth).toHaveValue("24");
+    await expect(imageInspectorHeight).toHaveValue("20");
+
+    await page.getByLabel("Anchor", { exact: true }).selectOption("center");
+    await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
+    const centeredImageBounds = await imageHitbox.boundingBox();
+    expect(centeredImageBounds).toBeTruthy();
+    const centeredImage = {
+      x: centeredImageBounds!.x + centeredImageBounds!.width / 2,
+      y: centeredImageBounds!.y + centeredImageBounds!.height / 2,
+    };
+    await page.mouse.move(centeredImage.x, centeredImage.y);
+    await page.mouse.down();
+    await page.mouse.move(centeredImage.x + 48, centeredImage.y + 12, {
+      steps: 4,
+    });
     await page.mouse.up();
     await expect
       .poll(async () => Number(await imageInspectorX.inputValue()))
