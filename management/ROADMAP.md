@@ -85,12 +85,12 @@ These requirements are agreed **product targets**, not implemented features or p
 
 **Merged milestones confirmed:** PR #29 Timeline extension and PR #31 universal editing/Play/seek are integrated in `dev`; PR #30 integrated documentation, latest verified merge `f09a52dc10c36103f1a2cfc85d876c7700b27cb`.
 
-**Current integration gate:** PR #32, [Standalone editable Text clips](https://github.com/MTiberiu/floxbow-motion-studio/pull/32), HEAD `dfe61f68c9fc20f75ebda0f99bf0e427aad6ddb5`, was reviewed and approved **conditionally**; its CI subsequently completed successfully, and merge was explicitly authorized. **As of this document edit PR #32 remains OPEN, not merged.** Check actual current state before proceeding. Do not claim Core Text shipped until it is merged.
+**Merged Core Text milestone:** PR #32, [Standalone editable Text clips](https://github.com/MTiberiu/floxbow-motion-studio/pull/32), merged into `dev` at `bb2402ab115e31974480e52a65189444c3360696`. Standalone Text now has JSON-backed text, X/Y, font size, color and alignment in Inspector/Canvas and saved Remotion output. This is an initial narrow contract, **not** the complete Core project model.
 
 **Core Editor V1 technical audit completed** (developer report received). Findings: Timeline v1/EditorSession/media MP3-WAV registry/subtitle tooling/Remotion provide partial foundations; React composition can still own creative content, there is no comprehensive standalone image/video/multi-audio Core, no module-owned layer schema, and Whisper regeneration can replace unrelated subtitle clips after confirmation. Audit proposed a versioned canonical model, stable ownership, typed built-ins, protected external edits and a single integrated acceptance project. Audit was accepted **with modified implementation sequence**: verify AI↔JSON↔UI round-trip immediately through standalone Text (PR #32), rather than delivering only abstract infrastructure.
 
 **Next approved planning direction (not automatic code authorization):**
-1. Close/merge PR #32 safely, sync `dev`, and confirm Text JSON→Inspector/Canvas→save→MP4 parity.
+1. PR #32 has merged: retain and regression-test Text JSON→Inspector/Canvas→save→MP4 parity as the baseline.
 2. **Next implementation proposal:** unified Media Library and first-class Image/Video registration **separate from** placement on ordinary Timeline tracks. Stable asset IDs, individual clip IDs, image at 6s, agent JSON edit, Inspector correction, save/reload, representative rendered frame; assess video decoding/security and avoid fake UI-only support.
 3. Extend multi-track audio with movable clips, volume/mix and proven preview/MP4 parity; soundtrack remains locked until verified.
 4. Complete common Core services and module-facing validated contracts: typed properties, shared text/fonts/styles, transforms, basic animation, Inspector, selection/group editing, visibility and ownership.
