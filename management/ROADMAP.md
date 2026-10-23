@@ -121,3 +121,10 @@ After standard clips and project-data round trips are reliable, add first-class 
 ## Direct-manipulation Inspector UX gate — D-019
 
 Once Image clips have a validated transform/JSON round trip, prototype an **XY joystick-style position pad** (diagonal movement included) and a **circular rotation dial** in the shared Inspector, with direct Canvas controls where suitable. Keep exact numeric fields, keyboard support and reset. Both UI modes and future AI tools must modify the same canonical transform data. Verify drag gesture = one undoable operation, and JSON/preview/MP4 parity. Evaluate as a focused shared-Transform UX increment, not an Image-import blocker.
+
+
+### Integration blocker observed before first Image implementation — 2026-10-23
+
+Documentation-only PR #33 remains open, with failing CI at the latest checked HEAD. The Electron smoke on `scripts/smoke.ts` near line 1997 observed saved third-project subtitle text `New subtitle` rather than expected `Caption belongs to project three`. This is a real UI→save mismatch needing root-cause analysis; do not dismiss as flaky or waive the assertion. The failed run may be a race or application state bug; its root cause is **not yet determined**. Previously reported green runs for older commits cannot authorize the current PR HEAD. CI and merge status are volatile: verify the live PR HEAD rather than trusting the SHA in this note.
+
+**Execution gate:** reproduce/fix the subtitle Inspector/persistence regression in a narrow code PR against `dev`, deterministic test without arbitrary sleeps; then refresh/revalidate PR #33 and merge only with successful CI. The Image audit is complete but implementation has **not** started or been approved. Its proposed minimal next slice: PNG asset registration via native picker, stable asset IDs distinct from Image clip IDs, safe host-only path resolution, ordinary Image Timeline clip at 6s, shared Inspector position/scale, external JSON reload/conflict, and preview/MP4 verification. Review implementation scope after the save bug is resolved. Do not let joystick/dial work expand the initial Image PR.
