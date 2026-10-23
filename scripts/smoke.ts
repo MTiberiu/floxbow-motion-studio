@@ -1449,9 +1449,12 @@ try {
     await expect(detachedClip.locator(".clip-title")).toHaveText(
       "Human edited caption",
     );
-    await detachedPage!
-      .getByRole("button", { name: "Undo", exact: true })
-      .click();
+    const detachedUndo = detachedPage!.getByRole("button", {
+      name: "Undo",
+      exact: true,
+    });
+    await expect(detachedUndo).toBeEnabled();
+    await detachedUndo.click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Detached Inspector edit",
     );
