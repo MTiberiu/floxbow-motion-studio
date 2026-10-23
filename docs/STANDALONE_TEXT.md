@@ -18,14 +18,34 @@ The clip is stored in `edit-timeline.json`. Timing remains integer project frame
   "props": {
     "x": 68,
     "y": 24,
+    "width": 80,
+    "height": 20,
+    "rotation": 0,
+    "anchor": "center",
     "fontSize": 84,
+    "fontFamily": "Arial",
+    "fontWeight": "700",
+    "italic": false,
     "color": "#00ff00",
-    "alignment": "right"
+    "alignment": "right",
+    "opacity": 1,
+    "lineSpacing": 1.15,
+    "fadeInFrames": 0,
+    "fadeOutFrames": 0,
+    "slideInFrames": 0,
+    "slideOutFrames": 0,
+    "scaleInFrames": 0,
+    "scaleOutFrames": 0,
+    "slideDirection": "up"
   }
 }
 ```
 
-`x` and `y` are percentages of the composition (0–100), `fontSize` is 8–500 pixels, `color` is a six-digit hex color, and `alignment` is `left`, `center`, or `right`. If optional appearance values are omitted, defaults are x/y 50, font size 72, white, and center. Text content is limited to 20,000 characters. The editor also exposes these same six values in Inspector.
+`x` and `y` are percentages of the composition (0–100). `width` and `height` are text-box percentages (1–100); `rotation` is degrees; `anchor` is one of the nine named box anchors. `fontSize` is 8–500 pixels. `fontFamily` is one of Arial, Georgia, Impact, Times New Roman or Verdana. `fontWeight` is a string from `400`, `500`, `600`, `700`, `800`, `900`; `700` and above are bold weights. `italic` is boolean. `color` is a six-digit hex color, `alignment` is left/center/right, `opacity` is 0–1, and `lineSpacing` is 0.5–3. Text content is limited to 20,000 characters.
+
+The frame-based animation controls are declarative and default to zero (disabled): `fadeInFrames`, `fadeOutFrames`, `slideInFrames`, `slideOutFrames`, `scaleInFrames`, and `scaleOutFrames`, each 0–900 frames. `slideDirection` is up/down/left/right. Animation runs deterministically from the clip-local frame in both preview and MP4; no editor-only handle or canvas state is saved. Existing Text clips may omit the new optional properties and continue using the compatible defaults.
+
+Inspector exposes the same supported properties. Timeline timing remains integer frames. Canvas transforms, Inspector controls, external JSON edits and rendering all use the saved clip's canonical `props`.
 
 ## External agent editing
 
@@ -35,7 +55,7 @@ The running editor checks the file revision. When there is no local draft, the n
 
 After the user edits the same property in Inspector and saves, the value is written back to this clip in `edit-timeline.json`. Preview and render use the same `TimelineComposition` and saved values. Render with `npm run render -- <project-id>` after saving.
 
-The built-in renderer uses an absolute percentage position, one font size, color and text alignment. It does not provide transforms, animation, text boxes, font selection, wrapping controls or keyframes. Projects may still contain custom React compositions, but those remain code-owned unless their values are represented by real editable clips and Inspector fields.
+Custom React compositions remain valid for visual behavior. A component's renderability or declared props do not make those values editable automatically; only documented canonical fields with real editor controls are user-editable.
 
 ## Public API
 
