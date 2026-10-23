@@ -116,3 +116,8 @@ After standard clips and project-data round trips are reliable, add first-class 
 **After reusable Core operations (including structural scene/ripple operations where available) and a real end-to-end external-agent workflow:** assess whether a **thin MCP adapter** offers practical agent interoperability beyond Skills + CLI. It must delegate to the same Core edit engine, expose only narrowly scoped safe tools/resources, and respect human drafts and permissions. Defer a large MCP server, general autonomous module installation and background agent orchestration.
 
 **Continue immediate feature order:** stabilize and merge PR #33 documentation, then plan the Image/Media Library slice. Agent transport work must not delay the editor's missing fundamentals.
+
+
+## Direct-manipulation Inspector UX gate — D-019
+
+Once Image clips have a validated transform/JSON round trip, prototype an **XY joystick-style position pad** (diagonal movement included) and a **circular rotation dial** in the shared Inspector, with direct Canvas controls where suitable. Keep exact numeric fields, keyboard support and reset. Both UI modes and future AI tools must modify the same canonical transform data. Verify drag gesture = one undoable operation, and JSON/preview/MP4 parity. Evaluate as a focused shared-Transform UX increment, not an Image-import blocker.
