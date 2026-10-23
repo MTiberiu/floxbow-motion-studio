@@ -943,7 +943,6 @@ try {
     await page.getByRole("button", { name: "Add subtitle" }).click();
     const review = page.locator(".timeline-review");
     await expect(review.locator("summary")).toContainText("long gap");
-    await review.locator("summary").click();
     await expect(review.getByText(/Long gap on Captions:/)).toBeVisible();
     await review.getByRole("button", { name: /^Locate / }).last().click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(

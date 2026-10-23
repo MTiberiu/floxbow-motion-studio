@@ -1239,7 +1239,7 @@ export function TimelineEditor({
           </select>
         </label>
       </div>
-      <details className="timeline-review">
+      <details className="timeline-review" open={timelineWarnings.length > 0}>
         <summary>
           Timeline review:{" "}
           {timelineWarnings.length
