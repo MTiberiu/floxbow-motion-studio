@@ -36,13 +36,13 @@ The grouping below is **our routing proposal**, not the actual upstream folder s
 6. Render, inspect and compare with the intended visual outcome; revise once before declaring finished.
 7. Store a short postmortem with successful techniques and failed assumptions — this is how the local library can eventually grow.
 
-## Demonstration: one vague prompt, two outcomes
+## Generic illustration of skill selection (not a request to change the owner's story)
 
-**Prompt:** "A company rejects an offer that later changes an entire industry."
+**Illustrative example only (NOT the animator's assignment):** "A company rejects an offer that later changes an entire industry."
 
-**Weak fallback:** one generic company photo, repeated zoom-in, line of text, no clear change in stakes.
+**Weak fallback for this illustration:** one generic company photo, repeated zoom-in, line of text, no clear change in stakes.
 
-**Proposed better method:** a document/photographic collage with a clear initial decision, three independently positioned layers in the foreground/midground/background, staged movement and a reveal linking the rejection to consequences; title only when needed to communicate the turning point. **This is an illustrative candidate treatment, not a guarantee or command to always do collage**. Skills must justify it against alternatives and available media.
+**Proposed better method for this illustration:** a document/photographic collage with a clear initial decision, three independently positioned layers in the foreground/midground/background, staged movement and a reveal linking the rejection to consequences; title only when needed to communicate the turning point. **This is an illustrative candidate treatment, not a guarantee or command to always do collage**. Skills must justify it against alternatives and available media.
 
 ## What the experiment should measure
 
