@@ -108,3 +108,19 @@ FloxBow is a **JSON-driven video editor with an external AI coding-agent workflo
 **Concrete first test:** create standalone Text in UI, save, edit its X/Y/text/color in project JSON as Codex, see new values in Canvas/Inspector, adjust them in UI, save and verify JSON plus MP4. **Next test:** import image once into Media Library (asset ID), place at six seconds as a separate clip ID, edit placement via JSON and UI, and verify the same round trip. A module-owned Whisper/Codex subtitle layer must eventually follow the identical contract. File layout and API naming are audit-driven; do not preapprove a new schema or unsafe plugin execution.
 
 Supported existing module animations may be instantiated/configured by agent-authored data without modifying React; unknown types must fail clearly while preserving original data. Agent access is through documented data/contracts, never arbitrary executable project JSON.
+
+
+## D-017 — Scenes, explicit ripple editing, and AI-safe timeline operations
+
+**Intent:** A video is naturally planned as a sequence of **scenes** with stable IDs, start/duration in integer frames, and associated clips/layers. Scenes are a **Core timeline organizing and timing concept**, not an isolated Timeline per module. They may include ordinary Text/Audio/Image/Video clips and module-owned layers; scene membership must not erase clip identities, module ownership or the canonical JSON source of truth. Scene schema and API names are **proposals pending implementation audit**, not shipped features.
+
+**Two different operations must never be confused:**
+
+1. **Trim/extend selected clip only:** change a subtitle/image/text/other clip's duration within the existing scene, without changing scene duration or shifting later clips/scenes. Show a bounded conflict/overlap warning if needed. A clip crossing the scene end requires an explicit resolution, not silent scene growth.
+2. **Expand/contract scene with ripple:** explicitly change a scene's duration by `deltaFrames`. Shift every **following scene** by the delta. Within the edited scene, optionally ripple only the elements after the specified edit boundary/anchor by the same delta, while preserving relative offsets and clip IDs. Elements before that boundary stay where they are. Clearly define policies for clips crossing the boundary, linked audio, locked tracks, and project duration; reject or preview ambiguous operations rather than silently corrupt synchronization.
+
+A scene handle may trigger the explicit scene-ripple operation; an ordinary clip trim defaults to **clip-only**. UI must display which mode is active and preview what moves. Changes are a single validated, atomic, undoable transaction with save/reload/render parity.
+
+**AI contract:** Codex should preferably call or author a **declarative validated Core edit operation** (target scene/clip ID, requested duration/frame delta, mode, boundary and scope), rather than manually recompute dozens of JSON timestamps. Core evaluates the operation and persists its resulting canonical project JSON; JSON is still the source of truth. An agent may edit documented JSON directly for simple changes, but must use the same invariants and validation for structural/ripple changes. Provide capability discovery, precise errors and conflict checks. No automatic AI interpretation of ambiguous user intent as ripple.
+
+**When:** record and design this now, but implement scene ownership/ripple once Core clip types, shared editing transactions, and Timeline foundations are stable. Not a blocker for the initial Image Media Library slice.
