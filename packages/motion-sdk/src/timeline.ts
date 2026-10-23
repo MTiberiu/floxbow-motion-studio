@@ -9,7 +9,32 @@ export const editTimelineSchema=z.object({version:z.literal(1),fps:z.number().in
 export type EditTimeline=z.infer<typeof editTimelineSchema>;
 export type TimelineClip=z.infer<typeof clipSchema>;
 export const fieldSchema=z.object({key:id,label:z.string().max(100),target:z.enum(['content','props']).default('props'),type:z.enum(['text','number','color','select','boolean']),default:z.union([z.string(),z.number(),z.boolean()]),min:z.number().optional(),max:z.number().optional(),step:z.number().positive().optional(),options:z.array(z.string()).max(50).optional()});
-export const componentInfoSchema=z.object({id,name:z.string().max(100),fields:z.array(fieldSchema).max(50),timelineBehavior:z.string().regex(/^[a-z][a-z0-9-]*$/).max(80).optional()});
+export const canvasElementContractSchema=z.object({
+ owner:z.string().regex(/^[a-z][a-z0-9.-]*$/).max(100).optional(),
+ coordinateSpace:z.literal('composition-percent').default('composition-percent'),
+ transform:z.object({x:id,y:id,width:id,height:id,rotation:id.optional(),anchor:id.optional()}).strict(),
+ operations:z.object({move:z.boolean(),resize:z.boolean(),rotate:z.boolean()}).strict(),
+ resizeMode:z.enum(['free','preserve-aspect']).default('free'),
+ lockedField:id.optional(),
+ visibilityField:id.optional(),
+}).strict();
+export const componentInfoSchema=z.object({id,name:z.string().max(100),fields:z.array(fieldSchema).max(50),timelineBehavior:z.string().regex(/^[a-z][a-z0-9-]*$/).max(80).optional(),canvas:canvasElementContractSchema.optional()}).superRefine((info,ctx)=>{
+ const contract=info.canvas;if(!contract)return;
+ const mapped:[string,string,'number'|'select'|'boolean'][]=[
+  ['x',contract.transform.x,'number'],['y',contract.transform.y,'number'],
+  ['width',contract.transform.width,'number'],['height',contract.transform.height,'number'],
+ ];
+ if(contract.transform.rotation)mapped.push(['rotation',contract.transform.rotation,'number']);
+ if(contract.transform.anchor)mapped.push(['anchor',contract.transform.anchor,'select']);
+ if(contract.lockedField)mapped.push(['lockedField',contract.lockedField,'boolean']);
+ if(contract.visibilityField)mapped.push(['visibilityField',contract.visibilityField,'boolean']);
+ for(const [key,fieldKey,type] of mapped){
+  const field=info.fields.find(candidate=>candidate.key===fieldKey);
+  if(!field)ctx.addIssue({code:'custom',path:['canvas',key],message:`Canvas ${key} must reference a declared editable field`});
+  else if(field.type!==type)ctx.addIssue({code:'custom',path:['canvas',key],message:`Canvas ${key} must reference a ${type} field`});
+ }
+ if(contract.operations.rotate&&!contract.transform.rotation)ctx.addIssue({code:'custom',path:['canvas','operations','rotate'],message:'Rotation requires a rotation field'});
+});
 export const componentInfosSchema=z.array(componentInfoSchema).max(100);
 export type ComponentInfo=z.infer<typeof componentInfoSchema>;
 export type EditableField=z.infer<typeof fieldSchema>;

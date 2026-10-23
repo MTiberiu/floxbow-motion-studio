@@ -1,0 +1,132 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  applyCanvasTransform,
+  canvasVisualBounds,
+  getCanvasVisualElement,
+} from "@motion/sdk/canvas";
+import {
+  standaloneTextModule,
+  serializableComponentInfo,
+} from "@motion/sdk/editor";
+import { componentInfoSchema, parseEditTimeline } from "@motion/sdk/timeline";
+
+const definition = serializableComponentInfo(standaloneTextModule);
+const timeline = parseEditTimeline({
+  version: 1,
+  fps: 30,
+  durationInFrames: 90,
+  tracks: [{ id: "visuals", name: "Visuals" }],
+  clips: [
+    {
+      id: "text-a",
+      trackId: "visuals",
+      componentId: "text",
+      label: "Title",
+      from: 0,
+      durationInFrames: 90,
+      content: { text: "Hello" },
+      props: { x: 40, y: 30, width: 20, height: 10, rotation: 0 },
+    },
+  ],
+});
+
+test("visual components declare a validated, serializable shared Canvas contract", () => {
+  assert.deepEqual(
+    componentInfoSchema.parse(definition).canvas,
+    definition.canvas,
+  );
+  assert.throws(() =>
+    componentInfoSchema.parse({
+      ...definition,
+      canvas: {
+        ...definition.canvas,
+        transform: { ...definition.canvas?.transform, x: "missing-x" },
+      },
+    }),
+  );
+});
+
+test("Canvas resolves current canonical geometry and writes edits to declared JSON fields", () => {
+  const clip = timeline.clips[0];
+  const visual = getCanvasVisualElement(clip, definition);
+  assert.ok(visual);
+  assert.deepEqual(visual.transform, {
+    x: 40,
+    y: 30,
+    width: 20,
+    height: 10,
+    rotation: 0,
+    anchor: "center",
+  });
+
+  const next = applyCanvasTransform(clip, definition, {
+    x: 44,
+    y: 36,
+    width: 24,
+    height: 12,
+    rotation: 15,
+    anchor: "center",
+  });
+  assert.deepEqual(next.props, {
+    x: 44,
+    y: 36,
+    width: 24,
+    height: 12,
+    rotation: 15,
+    anchor: "center",
+  });
+  assert.equal(clip.props.x, 40);
+  assert.equal(clip.props.y, 30);
+});
+
+test("Canvas transform API enforces declared operations and field validation", () => {
+  const fixed = componentInfoSchema.parse({
+    ...definition,
+    canvas: {
+      ...definition.canvas,
+      operations: { move: false, resize: false, rotate: false },
+    },
+  });
+  assert.throws(
+    () =>
+      applyCanvasTransform(timeline.clips[0], fixed, {
+        x: 41,
+        y: 30,
+        width: 20,
+        height: 10,
+        rotation: 0,
+        anchor: "center",
+      }),
+    /cannot be moved/,
+  );
+  assert.throws(() =>
+    applyCanvasTransform(timeline.clips[0], definition, {
+      x: 40,
+      y: 30,
+      width: 101,
+      height: 10,
+      rotation: 0,
+      anchor: "center",
+    }),
+  );
+});
+
+test("Canvas computes rotated bounds in composition percent space", () => {
+  const visual = getCanvasVisualElement(timeline.clips[0], definition);
+  assert.ok(visual);
+  assert.deepEqual(canvasVisualBounds(visual), {
+    left: 30,
+    top: 25,
+    right: 50,
+    bottom: 35,
+  });
+  const rotated = canvasVisualBounds({
+    ...visual,
+    transform: { ...visual.transform, rotation: 90 },
+  });
+  assert.ok(Math.abs(rotated.left - 35) < 1e-10);
+  assert.ok(Math.abs(rotated.right - 45) < 1e-10);
+  assert.ok(Math.abs(rotated.top - 20) < 1e-10);
+  assert.ok(Math.abs(rotated.bottom - 40) < 1e-10);
+});

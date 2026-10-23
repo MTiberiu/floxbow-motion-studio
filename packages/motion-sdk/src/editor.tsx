@@ -379,6 +379,20 @@ export const standaloneTextModule: EditableComponent = {
   id: "text",
   name: "Text",
   fields: standaloneTextFields,
+  canvas: {
+    owner: "core.text",
+    coordinateSpace: "composition-percent",
+    transform: {
+      x: "x",
+      y: "y",
+      width: "width",
+      height: "height",
+      rotation: "rotation",
+      anchor: "anchor",
+    },
+    operations: { move: true, resize: true, rotate: true },
+    resizeMode: "free",
+  },
   component: StandaloneText,
 };
 /** Strip executable renderer code before metadata crosses the isolated preview bridge. */
