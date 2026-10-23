@@ -18,6 +18,7 @@ export type EditorSessionSnapshot = Readonly<{
   saving: boolean;
   components: readonly ComponentInfo[];
   selectedClipId: string;
+  selectedClipIds: readonly string[];
   frame: number;
   playing: boolean;
   previewGeneration: number;
@@ -30,6 +31,7 @@ export type EditorSessionSnapshot = Readonly<{
 export type EditorSessionCommands = Readonly<{
   edit: (next: EditTimeline, checkpoint?: boolean) => void;
   selectClip: (clipId: string) => void;
+  selectClips: (clipIds: readonly string[]) => void;
   seek: (frame: number) => void;
   play: () => void;
   pause: () => void;
@@ -47,6 +49,7 @@ export type EditorSessionCommands = Readonly<{
   setNotice: (message: string) => void;
   getCurrentDocument: () => EditTimeline | undefined;
   getSelectedClipId: () => string;
+  getSelectedClipIds: () => readonly string[];
   getStateVersion: () => number;
 }>;
 
@@ -87,8 +90,9 @@ export function useEditorSession({
   const [conflict, setConflict] = useState(false);
   const [saving, setSaving] = useState(false);
   const [components, setComponents] = useState<ComponentInfo[]>([]);
-  const [selectedClipId, setSelectedClipId] = useState("");
-  const selectedClipIdRef = useRef("");
+  const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
+  const selectedClipIdsRef = useRef<string[]>([]);
+  const selectedClipId = selectedClipIds[0] ?? "";
   const [frame, setFrame] = useState(0);
   const frameRef = useRef(
     Math.min(manifest.fps * 2, manifest.durationInFrames - 1),
@@ -393,6 +397,7 @@ export function useEditorSession({
     saving,
     components,
     selectedClipId,
+    selectedClipIds,
     frame,
     playing,
     previewGeneration,
@@ -404,8 +409,21 @@ export function useEditorSession({
   const commands: EditorSessionCommands = {
     edit,
     selectClip: (clipId) => {
-      selectedClipIdRef.current = clipId;
-      setSelectedClipId(clipId);
+      const next = clipId ? [clipId] : [];
+      selectedClipIdsRef.current = next;
+      setSelectedClipIds(next);
+      advanceStateVersion();
+    },
+    selectClips: (clipIds) => {
+      if (clipIds.length > 256)
+        throw new Error("A maximum of 256 Timeline elements can be selected.");
+      const document = documentRef.current;
+      const available = new Set(document?.clips.map((clip) => clip.id) ?? []);
+      const next = [...new Set(clipIds)];
+      if (next.some((clipId) => !available.has(clipId)))
+        throw new Error("Selection contains an element that no longer exists.");
+      selectedClipIdsRef.current = next;
+      setSelectedClipIds(next);
       advanceStateVersion();
     },
     seek,
@@ -431,7 +449,8 @@ export function useEditorSession({
     setError,
     setNotice,
     getCurrentDocument: () => documentRef.current,
-    getSelectedClipId: () => selectedClipIdRef.current,
+    getSelectedClipId: () => selectedClipIdsRef.current[0] ?? "",
+    getSelectedClipIds: () => selectedClipIdsRef.current,
     getStateVersion: () => stateVersionRef.current,
   };
   return { snapshot: state, commands };

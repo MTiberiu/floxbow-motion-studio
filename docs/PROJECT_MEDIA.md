@@ -1,6 +1,6 @@
 # Project Media Registry
 
-The first media registry supports linked MP3 and WAV files. It gives a project a stable asset ID and a human-readable name while leaving the source file at its original location. Registration does not copy or move media.
+The media registry currently supports linked MP3/WAV audio and PNG images. It gives each project asset a stable ID and human-readable name while leaving the source file at its original location. Registration does not copy or move media. An asset ID identifies a source file; Timeline clip IDs identify separate uses of that asset.
 
 ## Public API
 
@@ -17,7 +17,7 @@ const registry: MediaRegistry = mediaRegistrySchema.parse(JSON.parse(text));
 const result = await resolveMedia(projectRoot, registry, "song-main");
 ```
 
-The resolver returns `ready` with a host-only path, `missing` when a registered file no longer exists, or `invalid` when its entry, path, file type, extension, or basic audio header is unsuitable. It only resolves IDs present in a valid registry. Keep the `ready.path` in a Node host process; do not send it to the browser preview. In the live editor, the user can choose **Use as soundtrack** for a ready asset. The host resolves and duration-probes the asset, while the preview receives only a stable asset ID and a same-origin streaming URL. Rendering resolves the same ID in Node and streams it to Remotion from a short-lived loopback endpoint.
+The resolver returns `ready` with a host-only path, `missing` when a registered file no longer exists, or `invalid` when its entry, path, file type, extension, or basic format signature is unsuitable. It only resolves IDs present in a valid registry. Keep the `ready.path` in a Node host process; do not send it to the browser preview. For audio, the user can choose **Use as soundtrack**. For a PNG, **Add to Timeline** creates an editable Image clip that references the registered asset. Preview and rendering receive same-origin streaming URLs, not host paths.
 
 ## Project file format
 
@@ -40,7 +40,7 @@ Store the optional file at `projects/<project-id>/media.json`:
 }
 ```
 
-Asset IDs are stable project identifiers and are independent of filenames. Version 1 accepts unique slug IDs, non-empty display names, the `audio` media type, and an absolute host filesystem path for an `external-file` source. MP3 and WAV extensions are supported; the host resolver checks a basic file header. A missing source keeps its registry entry so other project data remains intact.
+Asset IDs are stable project identifiers and are independent of filenames. Version 1 accepts unique slug IDs, non-empty display names, `audio` or `image` media types, and an absolute host filesystem path for an `external-file` source. MP3/WAV are supported for audio and PNG for images; the host resolver checks a basic file signature. A missing source keeps its registry entry so other project data remains intact.
 
 Projects without `media.json` are treated as having an empty version 1 registry. The editor creates the file only when the first asset is registered. The current UI generates IDs and names from the native file selection; an external agent may edit the same JSON file, but must preserve IDs for existing assets and validate changes against the public schema.
 
@@ -48,7 +48,7 @@ Projects without `media.json` are treated as having an empty version 1 registry.
 
 The shell reads the current registry revision and polls for valid external edits. Registration submits that revision to the host, which opens the native file picker and then validates and atomically saves the updated registry. Removal targets one stable asset ID and submits the same revision through the host's specific remove operation. It requires user confirmation and deletes only that registry entry; the original source file is never deleted, even when the entry is already missing. Unknown IDs return a clear error. If the file changes before a UI operation saves, the host returns a conflict and preserves the external edit; reload the panel before trying again. Malformed external JSON or schema data is reported instead of being silently replaced.
 
-The browser sends no file path. The host accepts a revision only, checks the exact shell origin, and obtains the selected path from a native MP3/WAV picker. The read API returns names and availability, never source paths. Registry paths are local and may not work on another computer; users and coding agents need filesystem access to the referenced file. Do not commit personal media paths or user media to the public framework repository.
+The browser sends no file path. The host accepts a revision and media type, checks the exact shell origin, and obtains the selected path from a native picker restricted to MP3/WAV audio or PNG images. The read API returns names and availability, never source paths. Registry paths are local and may not work on another computer; users and coding agents need filesystem access to the referenced file. Do not commit personal media paths or user media to the public framework repository.
 
 ## UI and external-agent round trip
 
@@ -87,4 +87,4 @@ The Timeline currently has one soundtrack clip on an Audio track and subtitle cl
 
 ## Current limitations
 
-The registry is an initial linked-audio slice, not a general media manager. It does not copy/collect files or relink moved sources. Soundtrack selection, preview/render playback and local Whisper subtitle generation are available in the live editor; the built snapshot currently reports that registry editing and local transcription are unavailable. Audio mixing/effects, waveform editing, and media collection are future work.
+The registry is an initial linked-media slice, not a general media manager. It does not copy/collect files or relink moved sources. PNG clips share the Core Canvas transform contract and the same Timeline v1 JSON as other editable clips. Image sequences, masks, crop handles and image animation controls are not implemented. Soundtrack selection, preview/render playback and local Whisper subtitle generation are available in the live editor; the built snapshot currently reports that registry editing and local transcription are unavailable. Audio mixing/effects, waveform editing, and media collection are future work.

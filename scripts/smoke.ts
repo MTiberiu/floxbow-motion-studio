@@ -1,8 +1,15 @@
-import { _electron as electron, expect, type Page } from "@playwright/test";
+import {
+  _electron as electron,
+  expect,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import electronPath from "electron";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
+import { createServer as createNetServer } from "node:net";
 import { promisify } from "node:util";
+import { deflateSync } from "node:zlib";
 import {
   mkdtemp,
   readFile,
@@ -18,6 +25,63 @@ import { startServers, root, projectsDir } from "./server";
 import { renderProject } from "../packages/renderer/src/render";
 import { mediaRegistrySchema } from "@motion/project-loader/media";
 const execFileAsync = promisify(execFile);
+
+async function findSmokePortOffset() {
+  const isPortAvailable = (port: number) =>
+    new Promise<boolean>((resolve) => {
+      const server = createNetServer();
+      server.once("error", () => resolve(false));
+      server.listen(port, "127.0.0.1", () => server.close(() => resolve(true)));
+    });
+  for (let offset = 10; offset < 10_000; offset += 1) {
+    const ports = [5173, 5174, 24680, 24681].map((port) => port + offset);
+    let available = true;
+    for (const port of ports) {
+      if (!(await isPortAvailable(port))) {
+        available = false;
+        break;
+      }
+    }
+    if (available) return offset;
+  }
+  throw new Error(
+    "Could not find a free port range for the Electron smoke test.",
+  );
+}
+
+async function setFrameFromUiTime(page: Page, label: string, frame: number) {
+  const input = page.getByLabel(label, { exact: true });
+  const fps = Number(await input.getAttribute("data-fps"));
+  if (!Number.isFinite(fps) || fps <= 0)
+    throw new Error(`The ${label} input does not expose its project FPS.`);
+  await input.fill((frame / fps).toFixed(3));
+}
+
+async function readFrameFromUiTime(page: Page, label: string) {
+  const input = page.getByLabel(label, { exact: true });
+  const fps = Number(await input.getAttribute("data-fps"));
+  if (!Number.isFinite(fps) || fps <= 0)
+    throw new Error(`The ${label} input does not expose its project FPS.`);
+  return Math.round(Number(await input.inputValue()) * fps);
+}
+
+async function setClipRangeTime(page: Page, label: string, frame: number) {
+  await setFrameFromUiTime(page, label, frame);
+}
+
+async function readClipRangeTime(page: Page, label: string) {
+  return readFrameFromUiTime(page, label);
+}
+
+async function readClipFrameRange(clip: Locator) {
+  return clip.evaluate(
+    (element) =>
+      [
+        Number(element.getAttribute("data-from-frame")),
+        Number(element.getAttribute("data-end-frame")),
+      ] as const,
+  );
+}
 
 async function verifyTimelineZoom(page: Page) {
   const zoom = page.getByLabel("Timeline zoom", { exact: true });
@@ -93,6 +157,7 @@ const audioFixturePath = path.join(
   audioFixtureDirectory,
   "flox-smoke-audio.wav",
 );
+const imageFixturePath = path.join(audioFixtureDirectory, "flox-smoke.png");
 function sineWaveWav(seconds: number) {
   const sampleRate = 8_000;
   const samples = sampleRate * seconds;
@@ -116,8 +181,48 @@ function sineWaveWav(seconds: number) {
     );
   return output;
 }
+function solidPng(red: number, green: number, blue: number, size = 16) {
+  const crc32 = (bytes: Buffer) => {
+    let crc = 0xffffffff;
+    for (const byte of bytes) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit += 1)
+        crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (name: string, data: Buffer) => {
+    const type = Buffer.from(name, "ascii");
+    const checksum = Buffer.alloc(4);
+    checksum.writeUInt32BE(crc32(Buffer.concat([type, data])));
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    return Buffer.concat([length, type, data, checksum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0);
+  header.writeUInt32BE(size, 4);
+  header[8] = 8;
+  header[9] = 2;
+  const row = Buffer.alloc(1 + size * 3);
+  for (let x = 0; x < size; x += 1) {
+    row[1 + x * 3] = red;
+    row[2 + x * 3] = green;
+    row[3 + x * 3] = blue;
+  }
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    chunk("IHDR", header),
+    chunk(
+      "IDAT",
+      deflateSync(Buffer.concat(Array.from({ length: size }, () => row))),
+    ),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 const audioFixture = sineWaveWav(8);
 await writeFile(audioFixturePath, audioFixture);
+await writeFile(imageFixturePath, solidPng(255, 96, 12));
 let pickerCalls = 0;
 let whisperHostAudioPath = "";
 let markSecondPickerStarted!: () => void;
@@ -125,7 +230,17 @@ let releaseSecondPicker!: (selectedPath: string | undefined) => void;
 const secondPickerStarted = new Promise<void>((resolve) => {
   markSecondPickerStarted = resolve;
 });
-const servers = await startServers(built, 10, {
+async function pickAudioFixture() {
+  pickerCalls += 1;
+  if (pickerCalls === 2) {
+    markSecondPickerStarted();
+    return new Promise<string | undefined>((resolve) => {
+      releaseSecondPicker = resolve;
+    });
+  }
+  return audioFixturePath;
+}
+const servers = await startServers(built, await findSmokePortOffset(), {
   transcribeAudio: async (audioPath) => {
     whisperHostAudioPath = audioPath;
     return {
@@ -136,15 +251,10 @@ const servers = await startServers(built, 10, {
       ],
     };
   },
-  audioFilePicker: async () => {
-    pickerCalls += 1;
-    if (pickerCalls === 2) {
-      markSecondPickerStarted();
-      return new Promise((resolve) => {
-        releaseSecondPicker = resolve;
-      });
-    }
-    return audioFixturePath;
+  audioFilePicker: pickAudioFixture,
+  mediaFilePicker: async (type) => {
+    if (type === "image") return imageFixturePath;
+    return pickAudioFixture();
   },
 });
 const env = Object.fromEntries(
@@ -172,8 +282,10 @@ try {
     for (const key of Object.keys(localStorage))
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
-  await page.reload();
-  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible({ timeout: 20_000 });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByText("Create your first video project")).toBeVisible();
 
   await page.getByRole("button", { name: "Explore capabilities" }).click();
@@ -487,11 +599,12 @@ try {
       .toBeGreaterThan(0);
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect
-      .poll(() =>
-        audioElement.evaluate(
-          (element: HTMLAudioElement) =>
-            !element.paused && element.readyState >= 2,
-        ),
+      .poll(
+        () =>
+          audioElement.evaluate(
+            (element: HTMLAudioElement) =>
+              !element.paused && element.readyState >= 2,
+          ),
         { timeout: 20_000 },
       )
       .toBe(true);
@@ -504,7 +617,7 @@ try {
         audioElement.evaluate((element: HTMLAudioElement) => element.paused),
       )
       .toBe(true);
-    await page.getByLabel("Playhead frame", { exact: true }).fill("150");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 150);
     await expect
       .poll(() =>
         audioElement.evaluate(
@@ -561,9 +674,11 @@ try {
         audioElement.evaluate((element: HTMLAudioElement) => !element.paused),
       )
       .toBe(true);
-    await audioTimelineWindow!
-      .getByLabel("Timeline playhead frame", { exact: true })
-      .fill("90");
+    await setFrameFromUiTime(
+      audioTimelineWindow!,
+      "Timeline playhead time (seconds)",
+      90,
+    );
     await expect
       .poll(() =>
         audioElement.evaluate((element: HTMLAudioElement) => !element.paused),
@@ -577,9 +692,11 @@ try {
         audioElement.evaluate((element: HTMLAudioElement) => element.paused),
       )
       .toBe(true);
-    await audioTimelineWindow!
-      .getByLabel("Timeline playhead frame", { exact: true })
-      .fill("165");
+    await setFrameFromUiTime(
+      audioTimelineWindow!,
+      "Timeline playhead time (seconds)",
+      165,
+    );
     await expect
       .poll(() =>
         audioElement.evaluate(
@@ -706,7 +823,9 @@ try {
     );
     expect(lockedEditResult.status).toBe("rejected");
     expect(lockedEditResult.message).toContain("Soundtrack timing is fixed");
-    await expect(detachedSoundtrack.locator("small")).toHaveText("0–240");
+    await expect(detachedSoundtrack.locator("small")).toHaveText(
+      "0:00.000–0:08.000",
+    );
     await audioTimelineWindow!
       .getByRole("button", { name: "Attach Timeline", exact: true })
       .click();
@@ -857,11 +976,9 @@ try {
       .getByRole("button", { name: "Remove from Project" })
       .click();
     await expect(page.getByRole("status")).toContainText(
-      "The original audio file was not deleted",
+      "The original file was not deleted",
     );
-    expect(confirmationText).toContain(
-      "The original audio file will NOT be deleted",
-    );
+    expect(confirmationText).toContain("The original file will NOT be deleted");
     const afterUiRemoval = mediaRegistrySchema.parse(
       JSON.parse(await readFile(mediaFile, "utf8")),
     );
@@ -914,15 +1031,15 @@ try {
     await expect(page.locator('[data-editor-view="canvas"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="timeline"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="inspector"]')).toHaveCount(1);
-    await expect(
-      page.getByLabel("Playback ends", { exact: true }),
-    ).toHaveValue("content");
+    await expect(page.getByLabel("Playback ends", { exact: true })).toHaveValue(
+      "content",
+    );
     await page
       .getByLabel("Playback ends", { exact: true })
       .selectOption("project");
-    await expect(
-      page.getByLabel("Playback ends", { exact: true }),
-    ).toHaveValue("project");
+    await expect(page.getByLabel("Playback ends", { exact: true })).toHaveValue(
+      "project",
+    );
     await page
       .getByLabel("Playback ends", { exact: true })
       .selectOption("content");
@@ -933,19 +1050,22 @@ try {
       page.getByRole("button", { name: /^Clip subtitle-/ }),
     ).toBeVisible();
     const initialClipStart = await page
-      .getByLabel("Clip start frame", { exact: true })
+      .getByLabel("Clip start time (seconds)", { exact: true })
       .inputValue();
     const initialClipEnd = await page
-      .getByLabel("Clip end frame", { exact: true })
+      .getByLabel("Clip end time (seconds)", { exact: true })
       .inputValue();
-    await page.getByLabel("Clip start frame", { exact: true }).fill("0");
-    await page.getByLabel("Clip end frame", { exact: true }).fill("30");
-    await page.getByLabel("Playhead frame", { exact: true }).fill("239");
+    await setClipRangeTime(page, "Clip start time (seconds)", 0);
+    await setClipRangeTime(page, "Clip end time (seconds)", 30);
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 239);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     const review = page.locator(".timeline-review");
     await expect(review.locator("summary")).toContainText("long gap");
     await expect(review.getByText(/Long gap on Captions:/)).toBeVisible();
-    await review.getByRole("button", { name: /^Locate / }).last().click();
+    await review
+      .getByRole("button", { name: /^Locate / })
+      .last()
+      .click();
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "New subtitle",
     );
@@ -955,12 +1075,12 @@ try {
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(
-      page.getByLabel("Clip start frame", { exact: true }),
+      page.getByLabel("Clip start time (seconds)", { exact: true }),
     ).toHaveValue(initialClipStart);
     await expect(
-      page.getByLabel("Clip end frame", { exact: true }),
+      page.getByLabel("Clip end time (seconds)", { exact: true }),
     ).toHaveValue(initialClipEnd);
-    await page.getByLabel("Playhead frame", { exact: true }).fill("90");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 90);
     const soundtrackTrackId = await page
       .locator(".audio-clip")
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
@@ -999,7 +1119,7 @@ try {
     await page
       .getByLabel("Text", { exact: true })
       .fill("Second selected caption");
-    await page.getByLabel("Playhead frame", { exact: true }).fill("120");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 120);
     await expect(
       preview.getByText("Second selected caption", { exact: true }),
     ).toBeVisible();
@@ -1012,7 +1132,7 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Human edited caption",
     );
-    await page.getByLabel("Playhead frame", { exact: true }).fill("60");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 60);
     await expect(
       preview.getByText("Human edited caption", { exact: true }),
     ).toBeVisible();
@@ -1036,34 +1156,59 @@ try {
     await originalClip.focus();
     await page.keyboard.press("Control+c");
     await page.keyboard.press("Control+v");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      2,
+    );
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(1);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      1,
+    );
     await page.keyboard.press("Control+y");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      2,
+    );
 
     const dragSource = page.locator(".timeline-clip:not(.audio-clip)").first();
     const dragSourceId = await dragSource.getAttribute("data-clip-id");
     const dragBox = await dragSource.boundingBox();
     expect(dragBox).toBeTruthy();
     await page.keyboard.down("Control");
-    await page.mouse.move(dragBox!.x + dragBox!.width / 2, dragBox!.y + dragBox!.height / 2);
+    await page.mouse.move(
+      dragBox!.x + dragBox!.width / 2,
+      dragBox!.y + dragBox!.height / 2,
+    );
     await page.mouse.down();
-    await page.mouse.move(dragBox!.x + dragBox!.width / 2 + 80, dragBox!.y + dragBox!.height / 2, { steps: 5 });
+    await page.mouse.move(
+      dragBox!.x + dragBox!.width / 2 + 80,
+      dragBox!.y + dragBox!.height / 2,
+      { steps: 5 },
+    );
     await page.mouse.up();
     await page.keyboard.up("Control");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(3);
-    const dragCopyId = await page.locator(".timeline-clip.is-selected").getAttribute("data-clip-id");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      3,
+    );
+    const dragCopyId = await page
+      .locator(".timeline-clip.is-selected")
+      .getAttribute("data-clip-id");
     expect(dragCopyId).toBeTruthy();
     expect(dragCopyId).not.toBe(dragSourceId);
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      2,
+    );
     await page.keyboard.press("Control+y");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(3);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      3,
+    );
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(2);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      2,
+    );
     await page.keyboard.press("Control+z");
-    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(1);
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      1,
+    );
     await originalClip.click();
 
     const detachedClipId = await page
@@ -1133,61 +1278,59 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Human edited caption",
     );
-    await detachedPage!
-      .getByLabel("Timeline playhead frame", { exact: true })
-      .fill("60");
+    await setFrameFromUiTime(
+      detachedPage!,
+      "Timeline playhead time (seconds)",
+      60,
+    );
     await expect(
       preview.getByText("Human edited caption", { exact: true }),
     ).toBeVisible();
-    const frameBeforePlayback = Number(
-      await detachedPage!
-        .getByLabel("Timeline playhead frame", { exact: true })
-        .inputValue(),
+    const frameBeforePlayback = await readFrameFromUiTime(
+      detachedPage!,
+      "Timeline playhead time (seconds)",
     );
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect
-      .poll(async () =>
-        Number(
-          await detachedPage!
-            .getByLabel("Timeline playhead frame", { exact: true })
-            .inputValue(),
-        ),
+      .poll(() =>
+        readFrameFromUiTime(detachedPage!, "Timeline playhead time (seconds)"),
       )
       .not.toBe(frameBeforePlayback);
-    const frameDuringPlayback = Number(
-      await detachedPage!
-        .getByLabel("Timeline playhead frame", { exact: true })
-        .inputValue(),
+    const frameDuringPlayback = await readFrameFromUiTime(
+      detachedPage!,
+      "Timeline playhead time (seconds)",
     );
     await page.waitForTimeout(1200);
     expect(
-      Number(
-        await detachedPage!
-          .getByLabel("Timeline playhead frame", { exact: true })
-          .inputValue(),
+      await readFrameFromUiTime(
+        detachedPage!,
+        "Timeline playhead time (seconds)",
       ),
     ).toBeGreaterThan(frameDuringPlayback);
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     await expect
-      .poll(async () =>
-        detachedPage!
-          .getByLabel("Timeline playhead frame", { exact: true })
-          .inputValue(),
+      .poll(() =>
+        readFrameFromUiTime(detachedPage!, "Timeline playhead time (seconds)"),
       )
-      .toBe(
-        await page.getByLabel("Playhead frame", { exact: true }).inputValue(),
-      );
+      .toBe(await readFrameFromUiTime(page, "Playhead time (seconds)"));
 
-    const detachedPlayhead = detachedPage!.getByLabel(
-      "Timeline playhead frame",
-      { exact: true },
-    );
     for (const frame of [121, 37, 83]) {
-      await detachedPlayhead.fill(String(frame));
-      await expect(detachedPlayhead).toHaveValue(String(frame));
-      await expect(
-        page.getByLabel("Playhead frame", { exact: true }),
-      ).toHaveValue(String(frame));
+      await setFrameFromUiTime(
+        detachedPage!,
+        "Timeline playhead time (seconds)",
+        frame,
+      );
+      await expect
+        .poll(() =>
+          readFrameFromUiTime(
+            detachedPage!,
+            "Timeline playhead time (seconds)",
+          ),
+        )
+        .toBe(frame);
+      await expect
+        .poll(() => readFrameFromUiTime(page, "Playhead time (seconds)"))
+        .toBe(frame);
     }
 
     const originalRange = await detachedClip.locator("small").innerText();
@@ -1308,10 +1451,7 @@ try {
       )
       .toBeGreaterThan(0);
     await expect
-      .poll(async () => {
-        const range = await detachedClip.locator("small").innerText();
-        return Number(range.split("–")[0]);
-      })
+      .poll(async () => (await readClipFrameRange(detachedClip))[0])
       .toBeGreaterThan(0);
     await detachedPage!.waitForTimeout(6500);
     await detachedPage!.evaluate(() => {
@@ -1319,41 +1459,37 @@ try {
         new MouseEvent("mouseup", { buttons: 0, bubbles: true }),
       );
     });
-    const mainStartFrame = page.getByLabel("Clip start frame", {
-      exact: true,
-    });
-    const mainEndFrame = page.getByLabel("Clip end frame", { exact: true });
+    await expect(detachedPage!.locator(".timeline-dock")).not.toHaveAttribute(
+      "data-drag-active",
+      "true",
+    );
+    await expect(
+      detachedPage!.locator(".detached-timeline-window"),
+    ).not.toHaveAttribute("data-command-busy", "true");
     await expect
       .poll(async () => {
-        const range = await detachedClip.locator("small").innerText();
-        const [start, end] = range.split("–").map(Number);
+        const [start, end] = await readClipFrameRange(detachedClip);
         const [authoritativeStart, authoritativeEnd] = await Promise.all([
-          mainStartFrame.inputValue(),
-          mainEndFrame.inputValue(),
+          readClipRangeTime(page, "Clip start time (seconds)"),
+          readClipRangeTime(page, "Clip end time (seconds)"),
         ]);
-        return (
-          start === Number(authoritativeStart) &&
-          end === Number(authoritativeEnd)
-        );
+        return start === authoritativeStart && end === authoritativeEnd;
       })
       .toBe(true);
     const rangeAfterEdgeDrag = await detachedClip.locator("small").innerText();
+    const [, endFrameAfterEdgeDrag] = await readClipFrameRange(detachedClip);
     const durationAfterEdgeDrag =
       Number(
         await detachedPage!
           .locator(".time-ruler")
           .getAttribute("aria-valuemax"),
       ) + 1;
-    expect(Number(rangeAfterEdgeDrag.split("–")[1])).toBeGreaterThan(
-      durationBeforeEdgeDrag,
-    );
+    expect(endFrameAfterEdgeDrag).toBeGreaterThan(durationBeforeEdgeDrag);
     expect(durationAfterEdgeDrag).toBeGreaterThan(durationBeforeEdgeDrag);
     await detachedPage!
       .getByRole("button", { name: "Undo", exact: true })
       .click();
-    await expect(detachedClip.locator("small")).toHaveText(
-      rangeBeforeEdgeDrag,
-    );
+    await expect(detachedClip.locator("small")).toHaveText(rangeBeforeEdgeDrag);
     await expect
       .poll(() =>
         detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
@@ -1368,7 +1504,9 @@ try {
         detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
       )
       .toBe(String(durationAfterEdgeDrag - 1));
-    await page.getByRole("button", { name: "Delete clip", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Delete clip", exact: true })
+      .click();
     await expect(
       detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`),
     ).toHaveCount(0);
@@ -1380,7 +1518,7 @@ try {
     await page
       .getByLabel("Playback ends", { exact: true })
       .selectOption("content");
-    await page.getByLabel("Playhead frame", { exact: true }).fill("0");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 0);
     const canvas = page.locator('[data-editor-view="canvas"]');
     await canvas.getByRole("button", { name: "Play", exact: true }).click();
     await expect(
@@ -1393,14 +1531,16 @@ try {
       (await canvas.getByTestId("frame-readout").innerText()).split("/")[0],
     );
     expect(contentEndFrame).toBeLessThan(durationAfterEdgeDrag - 1);
-    await page.getByLabel("Playhead frame", { exact: true }).fill("0");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 0);
     await canvas.getByRole("button", { name: "Play", exact: true }).click();
     await expect(
       canvas.getByRole("button", { name: "Pause", exact: true }),
     ).toBeVisible();
-    await page
-      .getByLabel("Playhead frame", { exact: true })
-      .fill(String(durationAfterEdgeDrag - 10));
+    await setFrameFromUiTime(
+      page,
+      "Playhead time (seconds)",
+      durationAfterEdgeDrag - 10,
+    );
     await expect(
       canvas.getByRole("button", { name: "Play", exact: true }),
     ).toBeVisible({ timeout: 2_000 });
@@ -1412,9 +1552,7 @@ try {
     await expect(
       detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`),
     ).toHaveCount(1);
-    await detachedPage!
-      .locator(`[data-clip-id="${detachedClipId}"]`)
-      .click();
+    await detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`).click();
     await page
       .getByRole("button", { name: "Save project", exact: true })
       .click();
@@ -1429,9 +1567,21 @@ try {
     );
     expect(extendedProject.durationInFrames).toBe(durationAfterEdgeDrag);
     expect(extendedTimeline.durationInFrames).toBe(durationAfterEdgeDrag);
+    const reloadTimelineResponse = page.waitForResponse((response) => {
+      const request = response.request();
+      return (
+        new URL(response.url()).pathname === `/api/edit/${id}` &&
+        request.method() === "GET"
+      );
+    });
     await page
       .getByRole("button", { name: "Reload from disk", exact: true })
       .click();
+    await reloadTimelineResponse;
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
+      "Human edited caption",
+    );
+    await expect(page.getByText("Loaded the file on disk.")).toBeVisible();
     await expect(detachedClip.locator("small")).toHaveText(rangeAfterEdgeDrag);
     await expect
       .poll(() =>
@@ -1442,6 +1592,9 @@ try {
     await page
       .getByLabel("Text", { exact: true })
       .fill("Detached Inspector edit");
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
+      "Detached Inspector edit",
+    );
     await expect(detachedClip.locator(".clip-title")).toHaveText(
       "Detached Inspector edit",
     );
@@ -1464,15 +1617,20 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Human edited caption",
     );
-    await detachedPage!
-      .getByLabel("Timeline playhead frame", { exact: true })
-      .fill(rangeAfterEdgeDrag.split("–")[0]);
+    const [rangeStartFrame] = await readClipFrameRange(detachedClip);
+    await setFrameFromUiTime(
+      detachedPage!,
+      "Timeline playhead time (seconds)",
+      rangeStartFrame,
+    );
     await expect(
       preview.getByText("Human edited caption", { exact: true }),
     ).toBeVisible();
-    await detachedPage!
-      .getByLabel("Timeline playhead frame", { exact: true })
-      .fill("90");
+    await setFrameFromUiTime(
+      detachedPage!,
+      "Timeline playhead time (seconds)",
+      90,
+    );
     await detachedPage!
       .getByRole("button", { name: "Add track", exact: true })
       .evaluate((button) => {
@@ -1575,9 +1733,9 @@ try {
       "data-clip-id",
       selectedBeforeAttach!,
     );
-    await expect(
-      page.getByLabel("Playhead frame", { exact: true }),
-    ).toHaveValue("90");
+    await expect
+      .poll(() => readFrameFromUiTime(page, "Playhead time (seconds)"))
+      .toBe(90);
     const originalPrimaryClip = page.locator(
       `.timeline-clip[data-clip-id="${detachedClipId}"]`,
     );
@@ -1886,7 +2044,7 @@ try {
     await page
       .getByLabel("Text", { exact: true })
       .fill("Draft survives panel changes");
-    await page.getByLabel("Playhead frame", { exact: true }).fill("42");
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 42);
     await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(
       page.getByRole("region", { name: "Project media" }),
@@ -1899,9 +2057,9 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "Draft survives panel changes",
     );
-    await expect(
-      page.getByLabel("Playhead frame", { exact: true }),
-    ).toHaveValue("42");
+    await expect
+      .poll(() => readFrameFromUiTime(page, "Playhead time (seconds)"))
+      .toBe(42);
     await expect(
       page.locator(`.timeline-clip[data-clip-id="${activeClipId}"]`),
     ).toHaveClass(/is-selected/);
@@ -2019,7 +2177,9 @@ try {
     const textPreview = page
       .frameLocator('[data-panel-id="editor"] iframe')
       .locator(`[data-standalone-text-id="${textClipId}"]`);
+    const previewFrame = page.locator('[data-panel-id="editor"] iframe');
     await inspectorText.fill("AI editable title");
+    await expect(textPreview).toHaveText("AI editable title");
     await page.getByLabel("Position X (%)").fill("68");
     await page.getByLabel("Position Y (%)").fill("24");
     await page.getByLabel("Font size", { exact: true }).fill("84");
@@ -2028,6 +2188,50 @@ try {
     await expect(textPreview).toHaveText("AI editable title");
     await expect(textPreview).toHaveCSS("color", "rgb(0, 255, 0)");
     await expect(textPreview).toHaveCSS("text-align", "right");
+    const textHitbox = page.locator(`[data-canvas-element-id="${textClipId}"]`);
+    const textBounds = await textHitbox.boundingBox();
+    expect(textBounds).toBeTruthy();
+    await page.mouse.move(
+      textBounds!.x + textBounds!.width / 2,
+      textBounds!.y + textBounds!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      textBounds!.x + textBounds!.width / 2 + 36,
+      textBounds!.y + textBounds!.height / 2 + 10,
+      { steps: 3 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () =>
+        Number(await page.getByLabel("Position X (%)").inputValue()),
+      )
+      .toBeGreaterThan(68);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect
+      .poll(async () =>
+        Number(await page.getByLabel("Position X (%)").inputValue()),
+      )
+      .toBeGreaterThan(68);
+    await page.getByLabel("Position X (%)").fill("68");
+    await page.getByLabel("Position Y (%)").fill("24");
+    const subtitleClipId = await page
+      .locator(".subtitle-clip")
+      .first()
+      .getAttribute("data-clip-id");
+    expect(subtitleClipId).toBeTruthy();
+    const subtitleHitbox = page.locator(
+      `[data-canvas-element-id="${subtitleClipId}"]`,
+    );
+    await subtitleHitbox.click({ modifiers: ["Shift"] });
+    await expect(
+      page.getByText("2 elements selected", { exact: true }),
+    ).toBeVisible();
+    await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
+    await textHitbox.click();
+    await expect(inspectorText).toHaveValue("AI editable title");
     await page
       .getByRole("button", { name: "Save project", exact: true })
       .click();
@@ -2037,10 +2241,7 @@ try {
     await expect(
       page.getByText("Saved to the project. Renders use these edits."),
     ).toBeVisible();
-    const standaloneTextPath = path.join(
-      textProjectPath,
-      "edit-timeline.json",
-    );
+    const standaloneTextPath = path.join(textProjectPath, "edit-timeline.json");
     const readTextClip = async () => {
       const document = JSON.parse(await readFile(standaloneTextPath, "utf8"));
       return {
@@ -2064,10 +2265,18 @@ try {
       },
     });
 
+    const beforeSavedReload = await previewFrame.getAttribute(
+      "data-preview-generation",
+    );
     await page
       .getByRole("button", { name: "Reload from disk", exact: true })
       .click();
+    await expect(previewFrame).not.toHaveAttribute(
+      "data-preview-generation",
+      beforeSavedReload ?? "",
+    );
     await expect(inspectorText).toHaveValue("AI editable title");
+    await expect(textPreview).toHaveText("AI editable title");
     await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
     await expect(page.getByLabel("Position Y (%)")).toHaveValue("24");
     await expect(page.getByLabel("Font size", { exact: true })).toHaveValue(
@@ -2117,22 +2326,31 @@ try {
     ).toBeDisabled();
     standaloneSaved = await readTextClip();
     expect(standaloneSaved.clip.content.text).toBe("New external title");
+    const beforeConflictReload = await previewFrame.getAttribute(
+      "data-preview-generation",
+    );
     await page
       .getByRole("button", { name: "Reload from disk", exact: true })
       .click();
     await expect(inspectorText).toHaveValue("New external title");
+    await expect(previewFrame).not.toHaveAttribute(
+      "data-preview-generation",
+      beforeConflictReload ?? "",
+    );
+    await expect(textPreview).toHaveText("New external title");
     await expect(page.getByLabel("Alignment", { exact: true })).toHaveValue(
       "right",
     );
 
     await inspectorText.fill("Final title from Inspector");
-    await page.getByLabel("Position X (%)").fill("68");
-    await page.getByLabel("Position Y (%)").fill("24");
+    await expect(textPreview).toHaveText("Final title from Inspector");
+    await page.getByLabel("Position X (%)").fill("50");
+    await page.getByLabel("Position Y (%)").fill("40");
     await page.getByLabel("Font size", { exact: true }).fill("84");
     await page.getByLabel("Color", { exact: true }).fill("#00ff00");
-    await page.getByLabel("Alignment", { exact: true }).selectOption("right");
-    await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
-    await expect(textPreview).toHaveAttribute("style", /left:\s*68%/);
+    await page.getByLabel("Alignment", { exact: true }).selectOption("center");
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("50");
+    await expect(textPreview).toHaveAttribute("style", /left:\s*50%/);
     await expect(textPreview).toHaveText("Final title from Inspector");
     await page
       .getByRole("button", { name: "Save project", exact: true })
@@ -2147,23 +2365,192 @@ try {
     expect(standaloneSaved.clip).toMatchObject({
       content: { text: "Final title from Inspector" },
       props: {
-        x: 68,
-        y: 24,
+        x: 50,
+        y: 40,
         fontSize: 84,
         color: "#00ff00",
-        alignment: "right",
+        alignment: "center",
       },
     });
+    expect(standaloneSaved.clip.from).toBeLessThanOrEqual(75);
+    expect(
+      standaloneSaved.clip.from + standaloneSaved.clip.durationInFrames,
+    ).toBeGreaterThan(75);
+
+    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await page.getByRole("button", { name: "Add PNG", exact: true }).click();
+    const imageAsset = page
+      .getByRole("listitem")
+      .filter({ hasText: "flox-smoke" });
+    await expect(
+      imageAsset.getByText("Available", { exact: true }),
+    ).toBeVisible();
+    const imageAssetText = await imageAsset.locator("small").innerText();
+    const imageId = imageAssetText.split("·").at(-1)?.trim();
+    expect(imageId).toMatch(/^image-[a-f0-9-]{36}$/);
+    await imageAsset
+      .getByRole("button", { name: /Add .* to Timeline/ })
+      .click();
+    const imageClip = page.locator('.timeline-clip[data-clip-id^="image-"]');
+    await expect(imageClip).toBeVisible();
+    const imageClipId = await imageClip.getAttribute("data-clip-id");
+    expect(imageClipId).toBeTruthy();
+    const imagePreview = page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator(`img[data-image-asset-id="${imageId}"]`);
+    await expect(imagePreview).toBeVisible();
+    const initialPreviewGeneration = await previewFrame.getAttribute(
+      "data-preview-generation",
+    );
+    await imageClip.click();
+    const imageInspectorX = page.getByLabel("Position X (%)", { exact: true });
+    const imageInspectorY = page.getByLabel("Position Y (%)", { exact: true });
+    const imageInspectorWidth = page.getByLabel("Width (%)", { exact: true });
+    const imageInspectorHeight = page.getByLabel("Height (%)", { exact: true });
+    await imageInspectorX.fill("15");
+    await imageInspectorY.fill("70");
+    await imageInspectorWidth.fill("24");
+    await imageInspectorHeight.fill("20");
+
+    // The same Canvas interaction layer operates an Image clip through the
+    // public visual-element contract, without a separate Image drag system.
+    const imageHitbox = page.locator(
+      `[data-canvas-element-id="${imageClipId}"]`,
+    );
+    await expect(imageHitbox).toBeVisible();
+    const imageBounds = await imageHitbox.boundingBox();
+    expect(imageBounds).toBeTruthy();
+    const imageCenter = {
+      x: imageBounds!.x + imageBounds!.width / 2,
+      y: imageBounds!.y + imageBounds!.height / 2,
+    };
+    await page.mouse.move(imageCenter.x, imageCenter.y);
+    await page.mouse.down();
+    await page.mouse.move(imageCenter.x + 48, imageCenter.y + 12, { steps: 4 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => Number(await imageInspectorX.inputValue()))
+      .toBeGreaterThan(15);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(imageInspectorX).toHaveValue("15");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect
+      .poll(async () => Number(await imageInspectorX.inputValue()))
+      .toBeGreaterThan(15);
+
+    // Keep the rendered Image separate from the green Text so both outputs
+    // can be verified in the same exported frame.
+    await imageInspectorX.fill("15");
+    await imageInspectorY.fill("70");
+    await imageInspectorWidth.fill("24");
+    await imageInspectorHeight.fill("20");
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    const imageTimelinePath = path.join(textProjectPath, "edit-timeline.json");
+    const readImageClip = async () => {
+      const document = JSON.parse(await readFile(imageTimelinePath, "utf8"));
+      return {
+        document,
+        clip: document.clips.find(
+          (item: { id: string }) => item.id === imageClipId,
+        ),
+      };
+    };
+    let savedImage = await readImageClip();
+    expect(savedImage.clip).toMatchObject({
+      componentId: "image",
+      content: { assetId: imageId },
+      props: { x: 15, y: 70, width: 24, height: 20 },
+    });
+    const writeExternalImageUpdate = async (
+      change: (clip: Record<string, any>) => void,
+    ) => {
+      const { document, clip } = await readImageClip();
+      change(clip);
+      const temporary = `${imageTimelinePath}.agent-${randomUUID()}.tmp`;
+      await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, {
+        flag: "wx",
+      });
+      await rename(temporary, imageTimelinePath);
+    };
+    await writeExternalImageUpdate((clip) => {
+      clip.props.x = 35;
+      clip.props.y = 42;
+      clip.props.width = 30;
+      clip.props.height = 25;
+    });
+    await expect(imageInspectorX).toHaveValue("35");
+    await expect(
+      page.getByText("Updated from project files.", { exact: true }),
+    ).toBeVisible();
+    await expect(previewFrame).not.toHaveAttribute(
+      "data-preview-generation",
+      initialPreviewGeneration ?? "",
+    );
+    await expect(imagePreview).toBeVisible();
+    const pausePlayback = page.getByRole("button", { name: "Pause" });
+    if (await pausePlayback.isVisible()) await pausePlayback.click();
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 2.5 * 30);
+    await expect(page.getByTestId("frame-readout")).toContainText("75 /");
+    await expect(imageInspectorX).toHaveValue("35");
+    await expect(imageInspectorY).toHaveValue("42");
+    await expect
+      .poll(() =>
+        imagePreview.evaluate(
+          (element) => (element as HTMLImageElement).style.left,
+        ),
+      )
+      .toBe("35%");
+    await expect
+      .poll(() =>
+        imagePreview.evaluate(
+          (element) => (element as HTMLImageElement).style.top,
+        ),
+      )
+      .toBe("42%");
+    await imageInspectorX.fill("15");
+    await imageInspectorY.fill("70");
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    savedImage = await readImageClip();
+    expect(savedImage.clip.props).toMatchObject({ x: 15, y: 70 });
+
     standaloneTextVideo = await renderProject(root, thirdId, false);
+    const diagnosticFramePath = path.join(
+      audioFixtureDirectory,
+      "rendered-text-frame.png",
+    );
+    await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        "2.5",
+        "-i",
+        standaloneTextVideo,
+        "-frames:v",
+        "1",
+        diagnosticFramePath,
+      ],
+      { windowsHide: true, timeout: 60_000 },
+    );
     const renderedTextFrame = await execFileAsync(
       "ffmpeg",
       [
         "-v",
         "error",
-        "-ss",
-        "3.5",
         "-i",
-        standaloneTextVideo,
+        diagnosticFramePath,
         "-frames:v",
         "1",
         "-f",
@@ -2181,11 +2568,7 @@ try {
     );
     const renderedTextPixels = Buffer.from(renderedTextFrame.stdout);
     let greenTextPixels = 0;
-    for (
-      let index = 0;
-      index + 2 < renderedTextPixels.length;
-      index += 3
-    ) {
+    for (let index = 0; index + 2 < renderedTextPixels.length; index += 3) {
       if (
         renderedTextPixels[index] < 100 &&
         renderedTextPixels[index + 1] > 150 &&
@@ -2194,6 +2577,17 @@ try {
         greenTextPixels += 1;
     }
     expect(greenTextPixels).toBeGreaterThan(100);
+    let orangeImagePixels = 0;
+    for (let index = 0; index + 2 < renderedTextPixels.length; index += 3) {
+      if (
+        renderedTextPixels[index] > 180 &&
+        renderedTextPixels[index + 1] > 45 &&
+        renderedTextPixels[index + 1] < 150 &&
+        renderedTextPixels[index + 2] < 60
+      )
+        orangeImagePixels += 1;
+    }
+    expect(orangeImagePixels).toBeGreaterThan(1_000);
 
     await selectProject(id);
     await expect(
@@ -2282,13 +2676,29 @@ try {
     await missingAudio
       .getByRole("button", { name: "Remove from Project" })
       .click();
-    await expect(
-      page.getByText("No audio is registered for this project yet."),
-    ).toBeVisible();
     expect(missingRemovalConfirmed).toBe(true);
-    expect(JSON.parse(await readFile(mediaFile, "utf8")).assets).toHaveLength(
-      0,
-    );
+    await expect
+      .poll(async () => {
+        const assets = JSON.parse(await readFile(mediaFile, "utf8")).assets;
+        return assets.map(({ id }: { id: string }) => id);
+      })
+      .toEqual([]);
+    const remainingMedia = JSON.parse(await readFile(mediaFile, "utf8")).assets;
+    expect(remainingMedia).toHaveLength(0);
+    const otherProjectMedia = JSON.parse(
+      await readFile(path.join(textProjectPath, "media.json"), "utf8"),
+    ).assets;
+    expect(
+      otherProjectMedia.some(
+        (asset: { id: string; type: string }) =>
+          asset.id === imageId && asset.type === "image",
+      ),
+    ).toBe(true);
+    await expect(
+      page.getByText("No media is registered for this project yet.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     console.log(
       "PASS development: detached Timeline commands, preview sync, attach/close recovery, single preview, conflict protection and project-session invalidation.",
     );
@@ -2304,6 +2714,17 @@ try {
           .innerText()
           .catch(() => "unavailable"),
       );
+    const previewFrame = page
+      ?.frames()
+      .find((frame) => frame.url().includes("/preview.html?"));
+    if (previewFrame)
+      console.error(
+        "PREVIEW:",
+        await previewFrame
+          .locator("body")
+          .innerText()
+          .catch(() => "unavailable"),
+      );
   }
   throw error;
 } finally {
@@ -2312,8 +2733,7 @@ try {
   await rm(audioFixtureDirectory, { recursive: true, force: true });
   if (renderedStill) await rm(renderedStill, { force: true });
   if (renderedVideo) await rm(renderedVideo, { force: true });
-  if (standaloneTextVideo)
-    await rm(standaloneTextVideo, { force: true });
+  if (standaloneTextVideo) await rm(standaloneTextVideo, { force: true });
   if (!built)
     await Promise.all(
       createdIds.map((projectId) =>

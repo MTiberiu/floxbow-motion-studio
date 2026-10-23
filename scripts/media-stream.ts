@@ -5,7 +5,7 @@ import type { ServerResponse } from "node:http";
 import { readMediaRegistry } from "./media-store";
 import { resolveMedia } from "@motion/project-loader/media";
 
-export async function streamRegisteredAudio(
+export async function streamRegisteredMedia(
   projectRoot: string,
   assetId: string,
   rangeHeader: string | undefined,
@@ -26,9 +26,11 @@ export async function streamRegisteredAudio(
   }
   const info = await stat(resolved.path);
   const mime =
-    path.extname(resolved.path).toLowerCase() === ".mp3"
-      ? "audio/mpeg"
-      : "audio/wav";
+    resolved.type === "image"
+      ? "image/png"
+      : path.extname(resolved.path).toLowerCase() === ".mp3"
+        ? "audio/mpeg"
+        : "audio/wav";
   response.setHeader("Accept-Ranges", "bytes");
   response.setHeader("Content-Type", mime);
   response.setHeader("Cache-Control", "no-store");
@@ -78,3 +80,5 @@ export async function streamRegisteredAudio(
   }
   createReadStream(resolved.path, { start, end }).pipe(response);
 }
+
+export const streamRegisteredAudio = streamRegisteredMedia;

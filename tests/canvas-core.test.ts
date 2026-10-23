@@ -9,6 +9,8 @@ import {
   standaloneTextModule,
   serializableComponentInfo,
 } from "@motion/sdk/editor";
+import { subtitleModule } from "@motion/lyrics-sync/component";
+import { createSubtitleClip } from "@motion/lyrics-sync/subtitles";
 import { componentInfoSchema, parseEditTimeline } from "@motion/sdk/timeline";
 
 const definition = serializableComponentInfo(standaloneTextModule);
@@ -129,4 +131,28 @@ test("Canvas computes rotated bounds in composition percent space", () => {
   assert.ok(Math.abs(rotated.right - 45) < 1e-10);
   assert.ok(Math.abs(rotated.top - 20) < 1e-10);
   assert.ok(Math.abs(rotated.bottom - 40) < 1e-10);
+});
+
+test("a module-owned subtitle opts into the same Canvas contract through metadata", () => {
+  const subtitleDefinition = serializableComponentInfo(subtitleModule);
+  const caption = createSubtitleClip({
+    id: "caption-canvas",
+    trackId: "visuals",
+    from: 0,
+    durationInFrames: 60,
+    content: { text: "A caption", status: "unverified" },
+  });
+  const visual = getCanvasVisualElement(caption, subtitleDefinition);
+  assert.ok(visual);
+  assert.equal(visual.owner, "lyrics-sync.subtitles");
+  assert.deepEqual(visual.operations, {
+    move: true,
+    resize: true,
+    rotate: true,
+  });
+  const hidden = getCanvasVisualElement(
+    { ...caption, content: { ...caption.content, presentation: "hidden" } },
+    subtitleDefinition,
+  );
+  assert.equal(hidden, undefined);
 });

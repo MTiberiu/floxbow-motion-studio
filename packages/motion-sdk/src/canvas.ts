@@ -88,9 +88,16 @@ export function getCanvasVisualElement(
     typeof anchorValue === "string" && anchors.has(anchorValue as CanvasAnchor)
       ? (anchorValue as CanvasAnchor)
       : "center";
-  const visible = contract.visibilityField
-    ? readField(clip, definition, contract.visibilityField) === true
+  const visibilityDefinition = contract.visibilityField
+    ? fieldFor(definition, contract.visibilityField)
+    : undefined;
+  const visibilityValue = visibilityDefinition
+    ? readField(clip, definition, visibilityDefinition.key)
     : true;
+  const visible =
+    visibilityDefinition?.type === "select"
+      ? (contract.visibleValues?.includes(String(visibilityValue)) ?? true)
+      : visibilityValue === true;
   if (!visible) return;
 
   return {

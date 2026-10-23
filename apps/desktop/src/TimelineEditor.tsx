@@ -28,6 +28,7 @@ import {
 } from "./timeline-operations";
 import { CanvasView } from "./CanvasView";
 import { TimelineView } from "./TimelineView";
+import { applyCanvasTransform } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
 import {
   changeClipRangeWithDurationExtension,
@@ -127,6 +128,7 @@ export function TimelineEditor({
     dirty,
     components,
     selectedClipId: selected,
+    selectedClipIds: selectedIds,
     frame,
     playing,
     previewGeneration,
@@ -140,6 +142,7 @@ export function TimelineEditor({
   const {
     edit: sessionEdit,
     selectClip: sessionSelectClip,
+    selectClips: sessionSelectClips,
     seek: sessionSeek,
     save,
     reloadFromDisk: reloadDisk,
@@ -170,9 +173,17 @@ export function TimelineEditor({
     sourceCommandId.current = null;
     sessionEdit(next, createCheckpoint);
   };
-  const setSelected = (clipId: string) => {
+  const setSelected = (clipId: string, additive = false) => {
     sourceCommandId.current = null;
-    sessionSelectClip(clipId);
+    if (!additive) {
+      sessionSelectClip(clipId);
+      return;
+    }
+    const current = commands.getSelectedClipIds();
+    const next = current.includes(clipId)
+      ? current.filter((candidate) => candidate !== clipId)
+      : [...current, clipId];
+    sessionSelectClips(next);
   };
   const seek = (nextFrame: number) => {
     sourceCommandId.current = null;
@@ -182,6 +193,27 @@ export function TimelineEditor({
     sourceCommandId.current = null;
     sessionPause();
   };
+  useEffect(() => {
+    if (!active) return;
+    const togglePlayback = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (
+        target.closest(
+          "input, textarea, select, button, a, [role='button'], [contenteditable='true'], [role='textbox']",
+        ) ||
+        !target.closest(".timeline-editor") ||
+        target.closest(".timeline-dock")
+      )
+        return;
+      event.preventDefault();
+      if (playing) pause();
+      else play();
+    };
+    window.addEventListener("keydown", togglePlayback);
+    return () => window.removeEventListener("keydown", togglePlayback);
+  }, [active, playing, pause, play]);
   const checkpoint = () => {
     sourceCommandId.current = null;
     sessionCheckpoint();
@@ -221,6 +253,7 @@ export function TimelineEditor({
     document: snapshot.document ?? null,
     components,
     selectedClipId: selected,
+    selectedClipIds: selectedIds,
     frame,
     playing,
     dirty,
@@ -361,6 +394,65 @@ export function TimelineEditor({
   }, [manifest.id, commands, edit]);
 
   useEffect(() => {
+    const addImage = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          projectId?: unknown;
+          assetId?: unknown;
+          displayName?: unknown;
+        }>
+      ).detail;
+      if (
+        detail?.projectId !== manifest.id ||
+        typeof detail.assetId !== "string" ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(detail.assetId)
+      )
+        return;
+      const live = sessionRef.current;
+      const current = live.commands.getCurrentDocument();
+      if (live.snapshot.projectId !== manifest.id || !current) return;
+      const from = Math.min(live.snapshot.frame, current.durationInFrames - 1);
+      const image = {
+        id: `image-${crypto.randomUUID()}`,
+        trackId:
+          current.tracks.find((track) => track.id === "visuals")?.id ??
+          current.tracks[0].id,
+        componentId: "image",
+        label:
+          typeof detail.displayName === "string"
+            ? detail.displayName.slice(0, 200)
+            : "Image",
+        from,
+        durationInFrames: Math.min(
+          current.fps * 5,
+          current.durationInFrames - from,
+        ),
+        content: { assetId: detail.assetId },
+        props: {
+          x: 50,
+          y: 50,
+          width: 80,
+          height: 80,
+          rotation: 0,
+          anchor: "center",
+          opacity: 1,
+          fit: "contain",
+        },
+      };
+      live.commands.edit(
+        parseEditTimeline({ ...current, clips: [...current.clips, image] }),
+      );
+      live.commands.selectClip(image.id);
+      setNotice(
+        `${image.label} added as an editable Image clip. Save the project to keep it.`,
+      );
+      workspace.activatePanel("editor");
+    };
+    window.addEventListener("motion-add-image", addImage);
+    return () => window.removeEventListener("motion-add-image", addImage);
+  }, [manifest.id, workspace]);
+
+  useEffect(() => {
     if (!detachedTimeline || !window.floxBowWindows) return;
     void window.floxBowWindows
       .publishTimelineFrame({
@@ -436,6 +528,17 @@ export function TimelineEditor({
               throw new Error("The selected clip no longer exists.");
             sourceCommandId.current = envelope.commandId;
             sessionSelectClip(command.clipId);
+          } else if (command.type === "selectClips") {
+            if (
+              command.clipIds.some(
+                (clipId) => !current?.clips.some((clip) => clip.id === clipId),
+              )
+            )
+              throw new Error(
+                "The selection includes a missing Timeline clip.",
+              );
+            sourceCommandId.current = envelope.commandId;
+            sessionSelectClips(command.clipIds);
           } else if (command.type === "seek") {
             if (!current || command.frame >= current.durationInFrames)
               throw new Error(
@@ -1384,6 +1487,35 @@ export function TimelineEditor({
           onSeek={seek}
           onPlay={play}
           onPause={pause}
+          timeline={doc}
+          components={components}
+          selectedClipIds={selectedIds}
+          onSelectClips={(clipIds) => {
+            sourceCommandId.current = null;
+            sessionSelectClips(clipIds);
+          }}
+          onCanvasGestureStart={checkpoint}
+          onCanvasTransform={(changes) => {
+            const current = commands.getCurrentDocument();
+            if (!current) return;
+            const definitions = new Map(
+              components.map((item) => [item.id, item]),
+            );
+            edit(
+              {
+                ...current,
+                clips: current.clips.map((clip) => {
+                  const transform = changes.get(clip.id);
+                  const definition = definitions.get(clip.componentId);
+                  return transform && definition
+                    ? applyCanvasTransform(clip, definition, transform)
+                    : clip;
+                }),
+              },
+              false,
+            );
+          }}
+          onCanvasGestureEnd={() => {}}
         />
         <button
           className="panel-splitter inspector-splitter"
@@ -1403,6 +1535,7 @@ export function TimelineEditor({
           manifest={editorManifest}
           document={doc}
           clip={clip}
+          selectedCount={selectedIds.length}
           definition={definition}
           onEdit={edit}
           onChangeProperty={property}
@@ -1473,7 +1606,7 @@ export function TimelineEditor({
               manifest={editorManifest}
               document={doc}
               components={components}
-              selectedClipId={selected}
+              selectedClipIds={selectedIds}
               frame={frame}
               playing={playing}
               onEdit={(next, createCheckpoint = true) => {
@@ -1485,6 +1618,10 @@ export function TimelineEditor({
                 );
               }}
               onSelectClip={setSelected}
+              onSelectClips={(ids) => {
+                sourceCommandId.current = null;
+                sessionSelectClips(ids);
+              }}
               onSeek={seek}
               onPause={pause}
               onPlay={play}

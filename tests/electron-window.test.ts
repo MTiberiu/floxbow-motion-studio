@@ -33,7 +33,10 @@ const testTimeline = {
   clips: [],
 };
 
-function timelineSnapshot(instanceId: string, overrides: Record<string, unknown> = {}) {
+function timelineSnapshot(
+  instanceId: string,
+  overrides: Record<string, unknown> = {},
+) {
   return {
     panelId: "timeline",
     projectId: request.projectId,
@@ -47,6 +50,7 @@ function timelineSnapshot(instanceId: string, overrides: Record<string, unknown>
     document: testTimeline,
     components: [],
     selectedClipId: "",
+    selectedClipIds: [],
     frame: 0,
     playing: false,
     dirty: false,
@@ -259,25 +263,41 @@ test("Timeline snapshots use a strict 1 MiB schema while control messages remain
   assert.equal(isWithinTimelineSnapshotLimit(valid), true);
   assert.equal(isTimelineSnapshot({ ...valid, extra: true }), false);
   assert.equal(isTimelineSnapshot({ ...valid, frame: 180 }), false);
-  assert.equal(isTimelineSnapshot({ ...valid, document: { ...testTimeline, clips: [{ ...((testTimeline.clips[0] ?? {}) as object), invalid: true }] } }), false);
+  assert.equal(
+    isTimelineSnapshot({
+      ...valid,
+      document: {
+        ...testTimeline,
+        clips: [
+          { ...((testTimeline.clips[0] ?? {}) as object), invalid: true },
+        ],
+      },
+    }),
+    false,
+  );
   const oversized = timelineSnapshot(instanceId, {
     document: {
       ...testTimeline,
-      clips: [{
-        id: "caption",
-        trackId: "visuals",
-        componentId: "subtitles",
-        label: "Caption",
-        from: 0,
-        durationInFrames: 180,
-        content: { text: "x".repeat(MAX_TIMELINE_SNAPSHOT_BYTES) },
-        props: {},
-      }],
+      clips: [
+        {
+          id: "caption",
+          trackId: "visuals",
+          componentId: "subtitles",
+          label: "Caption",
+          from: 0,
+          durationInFrames: 180,
+          content: { text: "x".repeat(MAX_TIMELINE_SNAPSHOT_BYTES) },
+          props: {},
+        },
+      ],
     },
   });
   assert.equal(isWithinTimelineSnapshotLimit(oversized), false);
   assert.equal(isTimelineSnapshot(oversized), false);
-  assert.equal(isWithinMessageLimit("x".repeat(MAX_IPC_MESSAGE_BYTES + 1)), false);
+  assert.equal(
+    isWithinMessageLimit("x".repeat(MAX_IPC_MESSAGE_BYTES + 1)),
+    false,
+  );
 });
 
 test("Timeline commands and acknowledgments require a scoped command ID and exact schema", () => {
@@ -292,13 +312,74 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
     command: { type: "seek", frame: 42 },
   };
   assert.equal(isTimelineCommand(command), true);
-  assert.equal(isTimelineCommand({ ...command, command: { type: "copy" } }), true);
-  assert.equal(isTimelineCommand({ ...command, command: { type: "delete", extra: true } }), false);
-  assert.equal(isTimelineCommand({ ...command, command: { type: "beginClipGesture", gestureId: instanceId, clipId: "caption", duplicateId: "clip-copy" } }), true);
-  assert.equal(isTimelineCommand({ ...command, command: { type: "beginClipGesture", gestureId: instanceId, clipId: "caption", duplicateId: "../bad" } }), false);
-  assert.equal(isTimelineCommand({ ...command, commandId: `${instanceId}:2`, extra: 1 }), false);
-  assert.equal(isTimelineCommand({ ...command, commandId: `${instanceId}:x` }), false);
-  assert.equal(isTimelineCommand({ ...command, command: { type: "execute", code: "x" } }), false);
+  assert.equal(
+    isTimelineCommand({ ...command, command: { type: "copy" } }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({ ...command, command: { type: "delete", extra: true } }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "beginClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        duplicateId: "clip-copy",
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "beginClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        duplicateId: "../bad",
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({ ...command, commandId: `${instanceId}:2`, extra: 1 }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({ ...command, commandId: `${instanceId}:x` }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({ ...command, command: { type: "execute", code: "x" } }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: { type: "selectClips", clipIds: ["a", "b"] },
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: { type: "selectClips", clipIds: ["a", "a"] },
+    }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "selectClips",
+        clipIds: Array.from({ length: 257 }, (_, index) => String(index)),
+      },
+    }),
+    false,
+  );
   const result = {
     panelId: "timeline",
     projectId: request.projectId,
@@ -310,11 +391,22 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
     message: "Stale session.",
   };
   assert.equal(isTimelineCommandResult(result), true);
-  assert.equal(isTimelineCommandResult({ ...result, message: "x".repeat(5000) }), false);
-  assert.equal(isTimelineFrame({
-    panelId: "timeline", projectId: request.projectId, sessionId: request.sessionId,
-    instanceId, stateVersion: 7, frame: 42, playing: false,
-  }), true);
+  assert.equal(
+    isTimelineCommandResult({ ...result, message: "x".repeat(5000) }),
+    false,
+  );
+  assert.equal(
+    isTimelineFrame({
+      panelId: "timeline",
+      projectId: request.projectId,
+      sessionId: request.sessionId,
+      instanceId,
+      stateVersion: 7,
+      frame: 42,
+      playing: false,
+    }),
+    true,
+  );
 });
 
 test("only the primary opens the one fixed, sandboxed Timeline route", () => {
@@ -371,17 +463,45 @@ test("only the primary opens the one fixed, sandboxed Timeline route", () => {
 
 test("Timeline snapshots and commands relay only between the primary and the registered child", () => {
   const { invoke, primary, windows } = createHarness();
-  const opened = invoke(CHANNELS.openPanel, primary, request) as { instanceId: string };
+  const opened = invoke(CHANNELS.openPanel, primary, request) as {
+    instanceId: string;
+  };
   const child = windows[1];
   const snapshot = timelineSnapshot(opened.instanceId);
-  assert.deepEqual(invoke(CHANNELS.timelineSnapshot, primary, snapshot), { status: "sent" });
-  assert.equal(child.webContents.sent.at(-1)?.channel, CHANNELS.timelineSnapshot);
+  assert.equal(
+    isTimelineSnapshot({
+      ...snapshot,
+      selectedClipIds: ["a", "b"],
+      selectedClipId: "a",
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineSnapshot({
+      ...snapshot,
+      selectedClipIds: ["a", "a"],
+      selectedClipId: "a",
+    }),
+    false,
+  );
+  assert.deepEqual(invoke(CHANNELS.timelineSnapshot, primary, snapshot), {
+    status: "sent",
+  });
+  assert.equal(
+    child.webContents.sent.at(-1)?.channel,
+    CHANNELS.timelineSnapshot,
+  );
   assert.throws(
     () => invoke(CHANNELS.timelineSnapshot, child, snapshot),
     /window role/,
   );
   assert.throws(
-    () => invoke(CHANNELS.timelineSnapshot, primary, timelineSnapshot("b7e53745-4f09-42b8-b49b-cd9c30be5a6e")),
+    () =>
+      invoke(
+        CHANNELS.timelineSnapshot,
+        primary,
+        timelineSnapshot("b7e53745-4f09-42b8-b49b-cd9c30be5a6e"),
+      ),
     /stale window or session/,
   );
   const command = {
@@ -393,11 +513,24 @@ test("Timeline snapshots and commands relay only between the primary and the reg
     stateVersion: 0,
     command: { type: "seek", frame: 24 },
   };
-  assert.deepEqual(invoke(CHANNELS.timelineCommand, child, command), { status: "queued" });
-  assert.equal(primary.webContents.sent.at(-1)?.channel, CHANNELS.timelineCommand);
-  assert.deepEqual(invoke(CHANNELS.timelineCommand, child, command), { status: "duplicate" });
-  assert.equal(child.webContents.sent.at(-1)?.channel, CHANNELS.timelineCommandResult);
-  assert.equal((child.webContents.sent.at(-1)?.payload as { status: string }).status, "rejected");
+  assert.deepEqual(invoke(CHANNELS.timelineCommand, child, command), {
+    status: "queued",
+  });
+  assert.equal(
+    primary.webContents.sent.at(-1)?.channel,
+    CHANNELS.timelineCommand,
+  );
+  assert.deepEqual(invoke(CHANNELS.timelineCommand, child, command), {
+    status: "duplicate",
+  });
+  assert.equal(
+    child.webContents.sent.at(-1)?.channel,
+    CHANNELS.timelineCommandResult,
+  );
+  assert.equal(
+    (child.webContents.sent.at(-1)?.payload as { status: string }).status,
+    "rejected",
+  );
   const accepted = {
     panelId: "timeline",
     projectId: request.projectId,
@@ -408,28 +541,52 @@ test("Timeline snapshots and commands relay only between the primary and the reg
     stateVersion: 1,
     message: "",
   };
-  assert.deepEqual(invoke(CHANNELS.timelineCommandResult, primary, accepted), { status: "sent" });
+  assert.deepEqual(invoke(CHANNELS.timelineCommandResult, primary, accepted), {
+    status: "sent",
+  });
   assert.equal(child.webContents.sent.at(-1)?.payload, accepted);
-  assert.deepEqual(invoke(CHANNELS.timelineFrame, primary, {
-    panelId: "timeline", projectId: request.projectId, sessionId: request.sessionId,
-    instanceId: opened.instanceId, stateVersion: 1, frame: 24, playing: false,
-  }), { status: "sent" });
+  assert.deepEqual(
+    invoke(CHANNELS.timelineFrame, primary, {
+      panelId: "timeline",
+      projectId: request.projectId,
+      sessionId: request.sessionId,
+      instanceId: opened.instanceId,
+      stateVersion: 1,
+      frame: 24,
+      playing: false,
+    }),
+    { status: "sent" },
+  );
   assert.equal(child.webContents.sent.at(-1)?.channel, CHANNELS.timelineFrame);
 });
 
 test("primary or child attach closes only its registered Timeline instance", () => {
   const primaryRequest = createHarness();
-  const opened = primaryRequest.invoke(CHANNELS.openPanel, primaryRequest.primary, request) as { instanceId: string };
+  const opened = primaryRequest.invoke(
+    CHANNELS.openPanel,
+    primaryRequest.primary,
+    request,
+  ) as { instanceId: string };
   const child = primaryRequest.windows[1];
-  assert.equal(primaryRequest.invoke(CHANNELS.closePanel, primaryRequest.primary, {
-    panelId: "timeline", instanceId: opened.instanceId,
-  }), true);
+  assert.equal(
+    primaryRequest.invoke(CHANNELS.closePanel, primaryRequest.primary, {
+      panelId: "timeline",
+      instanceId: opened.instanceId,
+    }),
+    true,
+  );
   assert.equal(child.isDestroyed(), true);
-  assert.equal(primaryRequest.primary.webContents.sent.at(-1)?.channel, CHANNELS.panelClosed);
+  assert.equal(
+    primaryRequest.primary.webContents.sent.at(-1)?.channel,
+    CHANNELS.panelClosed,
+  );
 
   const childRequest = createHarness();
   childRequest.invoke(CHANNELS.openPanel, childRequest.primary, request);
-  assert.equal(childRequest.invoke(CHANNELS.closePanel, childRequest.windows[1]), true);
+  assert.equal(
+    childRequest.invoke(CHANNELS.closePanel, childRequest.windows[1]),
+    true,
+  );
   assert.equal(childRequest.windows[1].isDestroyed(), true);
 });
 

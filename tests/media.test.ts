@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import {
   mediaAssetSchema,
@@ -12,6 +19,7 @@ import {
   readMediaRegistry,
   readMediaWithAvailability,
   registerAudioAsset,
+  registerMediaAsset,
   removeMediaAsset,
 } from "../scripts/media-store";
 
@@ -33,6 +41,13 @@ function wavFixture() {
   return bytes;
 }
 
+function pngFixture() {
+  return Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jJMAAAAAASUVORK5CYII=",
+    "base64",
+  );
+}
+
 async function tempDirectory(prefix: string) {
   const testRoot = path.resolve(".test-tmp");
   await mkdir(testRoot, { recursive: true });
@@ -49,9 +64,15 @@ test("media registry validates versioned audio entries, absolute platform paths,
   const unc = mediaAssetSchema.parse({
     ...windows,
     id: "unc-song",
-    source: { kind: "external-file", path: "\\\\media-server\\share\\song.mp3" },
+    source: {
+      kind: "external-file",
+      path: "\\\\media-server\\share\\song.mp3",
+    },
   });
-  const registry = mediaRegistrySchema.parse({ version: 1, assets: [windows, unc] });
+  const registry = mediaRegistrySchema.parse({
+    version: 1,
+    assets: [windows, unc],
+  });
   assert.equal(registry.assets.length, 2);
   assert.throws(() =>
     mediaRegistrySchema.parse({ version: 1, assets: [windows, windows] }),
@@ -81,14 +102,45 @@ test("host resolver accepts valid MP3/WAV, reports missing and invalid sources, 
     const registry = mediaRegistrySchema.parse({
       version: 1,
       assets: [
-        { id: "wav-audio", type: "audio", displayName: "WAV", source: { kind: "external-file", path: wav } },
-        { id: "mp3-audio", type: "audio", displayName: "MP3", source: { kind: "external-file", path: mp3 } },
-        { id: "missing-audio", type: "audio", displayName: "Missing", source: { kind: "external-file", path: path.join(directory, "gone.wav") } },
-        { id: "wrong-type", type: "audio", displayName: "Wrong type", source: { kind: "external-file", path: corrupt } },
-        { id: "not-file", type: "audio", displayName: "Not a file", source: { kind: "external-file", path: directorySource } },
+        {
+          id: "wav-audio",
+          type: "audio",
+          displayName: "WAV",
+          source: { kind: "external-file", path: wav },
+        },
+        {
+          id: "mp3-audio",
+          type: "audio",
+          displayName: "MP3",
+          source: { kind: "external-file", path: mp3 },
+        },
+        {
+          id: "missing-audio",
+          type: "audio",
+          displayName: "Missing",
+          source: {
+            kind: "external-file",
+            path: path.join(directory, "gone.wav"),
+          },
+        },
+        {
+          id: "wrong-type",
+          type: "audio",
+          displayName: "Wrong type",
+          source: { kind: "external-file", path: corrupt },
+        },
+        {
+          id: "not-file",
+          type: "audio",
+          displayName: "Not a file",
+          source: { kind: "external-file", path: directorySource },
+        },
       ],
     });
-    assert.equal((await resolveMedia(directory, registry, "wav-audio")).status, "ready");
+    assert.equal(
+      (await resolveMedia(directory, registry, "wav-audio")).status,
+      "ready",
+    );
     const mp3Result = await resolveMedia(directory, registry, "mp3-audio");
     assert.equal(mp3Result.status, "ready");
     if (mp3Result.status === "ready") {
@@ -96,10 +148,22 @@ test("host resolver accepts valid MP3/WAV, reports missing and invalid sources, 
       assert.deepEqual(publicView, { assetId: "mp3-audio", status: "ready" });
       assert.equal("path" in publicView, false);
     }
-    assert.equal((await resolveMedia(directory, registry, "missing-audio")).status, "missing");
-    assert.equal((await resolveMedia(directory, registry, "wrong-type")).status, "invalid");
-    assert.equal((await resolveMedia(directory, registry, "not-file")).status, "invalid");
-    assert.equal((await resolveMedia(directory, registry, "not-registered")).status, "invalid");
+    assert.equal(
+      (await resolveMedia(directory, registry, "missing-audio")).status,
+      "missing",
+    );
+    assert.equal(
+      (await resolveMedia(directory, registry, "wrong-type")).status,
+      "invalid",
+    );
+    assert.equal(
+      (await resolveMedia(directory, registry, "not-file")).status,
+      "invalid",
+    );
+    assert.equal(
+      (await resolveMedia(directory, registry, "not-registered")).status,
+      "invalid",
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -119,9 +183,15 @@ test("Windows absolute paths are portable in the schema and resolved only on a c
         },
       ],
     };
-    assert.equal(mediaRegistrySchema.parse(registry).assets[0].source.path, "C:\\Music\\song.wav");
+    assert.equal(
+      mediaRegistrySchema.parse(registry).assets[0].source.path,
+      "C:\\Music\\song.wav",
+    );
     if (process.platform !== "win32")
-      assert.equal((await resolveMedia(root, registry, "windows-song")).status, "invalid");
+      assert.equal(
+        (await resolveMedia(root, registry, "windows-song")).status,
+        "invalid",
+      );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -137,19 +207,74 @@ test("projects without media.json stay readable and registration persists a link
 
     const empty = await readMediaRegistry(projectRoot);
     assert.deepEqual(empty.registry, { version: 1, assets: [] });
-    assert.equal((await readFile(path.join(projectRoot, "media.json")).catch(() => undefined)), undefined);
+    assert.equal(
+      await readFile(path.join(projectRoot, "media.json")).catch(
+        () => undefined,
+      ),
+      undefined,
+    );
 
-    const saved = await registerAudioAsset(projectRoot, sourcePath, empty.revision);
+    const saved = await registerAudioAsset(
+      projectRoot,
+      sourcePath,
+      empty.revision,
+    );
     assert.equal(saved.registry.assets.length, 1);
     assert.match(saved.registry.assets[0].id, /^audio-/);
     assert.equal(saved.registry.assets[0].displayName, "external");
     assert.equal(saved.registry.assets[0].source.path, sourcePath);
     assert.equal((await readFile(sourcePath)).equals(wavFixture()), true);
-    assert.equal(await readFile(path.join(projectRoot, "media.json"), "utf8").then((text) => JSON.parse(text).version), 1);
+    assert.equal(
+      await readFile(path.join(projectRoot, "media.json"), "utf8").then(
+        (text) => JSON.parse(text).version,
+      ),
+      1,
+    );
 
     const reopened = await readMediaRegistry(projectRoot);
     assert.equal(reopened.revision, saved.revision);
     assert.deepEqual(reopened.registry, saved.registry);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("PNG registration creates a stable image asset and never treats it as audio", async () => {
+  const directory = await tempDirectory("floxbow-media-image-");
+  try {
+    const projectRoot = path.join(directory, "project");
+    const sourcePath = path.join(directory, "forest.png");
+    await mkdir(projectRoot);
+    await writeFile(sourcePath, pngFixture());
+    const initial = await readMediaRegistry(projectRoot);
+    const saved = await registerMediaAsset(
+      projectRoot,
+      sourcePath,
+      "image",
+      initial.revision,
+    );
+    const asset = saved.registry.assets[0];
+    assert.match(asset.id, /^image-/);
+    assert.equal(asset.type, "image");
+    assert.equal(asset.source.path, sourcePath);
+    assert.deepEqual(await readFile(sourcePath), pngFixture());
+    assert.deepEqual(
+      await resolveMedia(projectRoot, saved.registry, asset.id),
+      { status: "ready", assetId: asset.id, type: "image", path: sourcePath },
+    );
+    assert.equal(
+      mediaRegistrySchema.parse(saved.registry).assets[0].type,
+      "image",
+    );
+    await assert.rejects(
+      registerMediaAsset(
+        projectRoot,
+        path.join(directory, "forest.wav"),
+        "image",
+        saved.revision,
+      ),
+      /Only PNG images/,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -166,19 +291,33 @@ test("removal deletes only the chosen registry entry and preserves other IDs and
     await writeFile(secondSource, wavFixture());
 
     const initial = await readMediaRegistry(projectRoot);
-    const first = await registerAudioAsset(projectRoot, firstSource, initial.revision);
-    const two = await registerAudioAsset(projectRoot, secondSource, first.revision);
+    const first = await registerAudioAsset(
+      projectRoot,
+      firstSource,
+      initial.revision,
+    );
+    const two = await registerAudioAsset(
+      projectRoot,
+      secondSource,
+      first.revision,
+    );
     const removed = await removeMediaAsset(
       projectRoot,
       two.registry.assets[0].id,
       two.revision,
     );
 
-    assert.deepEqual(removed.registry.assets.map((asset) => asset.id), [two.registry.assets[1].id]);
+    assert.deepEqual(
+      removed.registry.assets.map((asset) => asset.id),
+      [two.registry.assets[1].id],
+    );
     assert.equal(removed.registry.assets[0].source.path, secondSource);
     assert.deepEqual(await readFile(firstSource), wavFixture());
     assert.deepEqual(await readFile(secondSource), wavFixture());
-    assert.deepEqual((await readMediaRegistry(projectRoot)).registry, removed.registry);
+    assert.deepEqual(
+      (await readMediaRegistry(projectRoot)).registry,
+      removed.registry,
+    );
     await assert.rejects(
       removeMediaAsset(projectRoot, two.registry.assets[0].id, two.revision),
       /CONFLICT: The media registry changed/,
@@ -202,31 +341,59 @@ test("removing a missing source is safe and concurrent add/remove reports a revi
     await writeFile(existingSource, wavFixture());
     await writeFile(concurrentSource, wavFixture());
     const initial = await readMediaRegistry(projectRoot);
-    const saved = await registerAudioAsset(projectRoot, existingSource, initial.revision);
+    const saved = await registerAudioAsset(
+      projectRoot,
+      existingSource,
+      initial.revision,
+    );
     const id = saved.registry.assets[0].id;
     await unlink(existingSource);
 
-    const removedMissing = await removeMediaAsset(projectRoot, id, saved.revision);
+    const removedMissing = await removeMediaAsset(
+      projectRoot,
+      id,
+      saved.revision,
+    );
     assert.equal(removedMissing.registry.assets.length, 0);
-    assert.equal((await readMediaRegistry(projectRoot)).revision, removedMissing.revision);
+    assert.equal(
+      (await readMediaRegistry(projectRoot)).revision,
+      removedMissing.revision,
+    );
 
     await writeFile(existingSource, wavFixture());
-    const withAsset = await registerAudioAsset(projectRoot, concurrentSource, removedMissing.revision);
+    const withAsset = await registerAudioAsset(
+      projectRoot,
+      concurrentSource,
+      removedMissing.revision,
+    );
     const concurrent = await Promise.allSettled([
-      removeMediaAsset(projectRoot, withAsset.registry.assets[0].id, withAsset.revision),
+      removeMediaAsset(
+        projectRoot,
+        withAsset.registry.assets[0].id,
+        withAsset.revision,
+      ),
       registerAudioAsset(projectRoot, existingSource, withAsset.revision),
     ]);
-    assert.equal(concurrent.filter((result) => result.status === "fulfilled").length, 1);
+    assert.equal(
+      concurrent.filter((result) => result.status === "fulfilled").length,
+      1,
+    );
     const rejected = concurrent.find((result) => result.status === "rejected");
     assert.ok(rejected && rejected.status === "rejected");
-    assert.match(String(rejected.reason), /CONFLICT: The media registry changed/);
+    assert.match(
+      String(rejected.reason),
+      /CONFLICT: The media registry changed/,
+    );
 
     const final = await readMediaRegistry(projectRoot);
     if (concurrent[0].status === "fulfilled") {
       assert.equal(final.registry.assets.length, 0);
     } else {
       assert.equal(final.registry.assets.length, 2);
-      assert.equal(final.registry.assets[0].id, withAsset.registry.assets[0].id);
+      assert.equal(
+        final.registry.assets[0].id,
+        withAsset.registry.assets[0].id,
+      );
       assert.deepEqual(await readFile(concurrentSource), wavFixture());
     }
     assert.deepEqual(await readFile(concurrentSource), wavFixture());
@@ -243,7 +410,11 @@ test("external registry edits become visible and stale UI writes are rejected wi
     await mkdir(projectRoot);
     await writeFile(sourcePath, wavFixture());
     const initial = await readMediaRegistry(projectRoot);
-    const saved = await registerAudioAsset(projectRoot, sourcePath, initial.revision);
+    const saved = await registerAudioAsset(
+      projectRoot,
+      sourcePath,
+      initial.revision,
+    );
     const externalRegistry = {
       ...saved.registry,
       assets: [
@@ -256,7 +427,10 @@ test("external registry edits become visible and stale UI writes are rejected wi
         },
       ],
     };
-    await writeFile(path.join(projectRoot, "media.json"), `${JSON.stringify(externalRegistry, null, 2)}\n`);
+    await writeFile(
+      path.join(projectRoot, "media.json"),
+      `${JSON.stringify(externalRegistry, null, 2)}\n`,
+    );
 
     const reloaded = await readMediaWithAvailability(projectRoot);
     assert.notEqual(reloaded.revision, saved.revision);
@@ -266,11 +440,20 @@ test("external registry edits become visible and stale UI writes are rejected wi
       registerAudioAsset(projectRoot, sourcePath, saved.revision),
       /CONFLICT: The media registry changed/,
     );
-    assert.equal((await readMediaRegistry(projectRoot)).registry.assets.length, 2);
+    assert.equal(
+      (await readMediaRegistry(projectRoot)).registry.assets.length,
+      2,
+    );
 
     const duplicateAsset = { ...externalRegistry.assets[0], id: "duplicate" };
-    const invalidEdit = { version: 1, assets: [duplicateAsset, duplicateAsset] };
-    await writeFile(path.join(projectRoot, "media.json"), JSON.stringify(invalidEdit));
+    const invalidEdit = {
+      version: 1,
+      assets: [duplicateAsset, duplicateAsset],
+    };
+    await writeFile(
+      path.join(projectRoot, "media.json"),
+      JSON.stringify(invalidEdit),
+    );
     await assert.rejects(readMediaRegistry(projectRoot));
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -285,7 +468,11 @@ test("missing linked audio remains registered and becomes a visible missing stat
     await mkdir(projectRoot);
     await writeFile(sourcePath, wavFixture());
     const initial = await readMediaRegistry(projectRoot);
-    const saved = await registerAudioAsset(projectRoot, sourcePath, initial.revision);
+    const saved = await registerAudioAsset(
+      projectRoot,
+      sourcePath,
+      initial.revision,
+    );
     await unlink(sourcePath);
 
     const current = await readMediaWithAvailability(projectRoot);

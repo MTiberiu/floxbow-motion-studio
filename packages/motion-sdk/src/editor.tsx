@@ -1,5 +1,5 @@
 import { type ComponentType } from "react";
-import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, Sequence, useCurrentFrame } from "remotion";
 import { z } from "zod";
 import { SoundtrackAudio } from "@motion/audio";
 import {
@@ -11,11 +11,16 @@ import {
   type EditableField,
 } from "./timeline";
 export type EditableComponent = ComponentInfo & {
-  component: ComponentType<{ clip: TimelineClip; frame?: number }>;
+  component: ComponentType<{
+    clip: TimelineClip;
+    frame?: number;
+    imageSources?: Readonly<Record<string, string>>;
+  }>;
 };
 export type EditableVideoProps = {
   timeline?: EditTimeline;
   audioSources?: Readonly<Record<string, string>>;
+  imageSources?: Readonly<Record<string, string>>;
 };
 
 export const standaloneTextPropsSchema = z
@@ -68,6 +73,44 @@ export const standaloneTextClipSchema = z
     componentId: z.literal("text"),
     content: z.object({ text: z.string().max(20_000) }).passthrough(),
     props: standaloneTextPropsSchema,
+  })
+  .passthrough();
+
+export const standaloneImageClipSchema = z
+  .object({
+    componentId: z.literal("image"),
+    content: z
+      .object({
+        assetId: z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .max(120),
+      })
+      .passthrough(),
+    props: z
+      .object({
+        x: z.number().finite().min(0).max(100).default(50),
+        y: z.number().finite().min(0).max(100).default(50),
+        width: z.number().finite().min(1).max(100).default(80),
+        height: z.number().finite().min(1).max(100).default(80),
+        rotation: z.number().finite().min(-3600).max(3600).default(0),
+        anchor: z
+          .enum([
+            "top-left",
+            "top-center",
+            "top-right",
+            "middle-left",
+            "center",
+            "middle-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+          ])
+          .default("center"),
+        opacity: z.number().finite().min(0).max(1).default(1),
+        fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+      })
+      .passthrough(),
   })
   .passthrough();
 
@@ -367,11 +410,19 @@ function StandaloneText({
 function FrameAwareComponent({
   component: Component,
   clip,
+  imageSources,
 }: {
   component: EditableComponent["component"];
   clip: TimelineClip;
+  imageSources?: Readonly<Record<string, string>>;
 }) {
-  return <Component clip={clip} frame={useCurrentFrame()} />;
+  return (
+    <Component
+      clip={clip}
+      frame={useCurrentFrame()}
+      imageSources={imageSources}
+    />
+  );
 }
 
 /** Core editable text available in every TimelineComposition without module activation. */
@@ -395,6 +446,163 @@ export const standaloneTextModule: EditableComponent = {
   },
   component: StandaloneText,
 };
+
+const imageFields: EditableField[] = [
+  {
+    key: "x",
+    target: "props",
+    label: "Position X (%)",
+    type: "number",
+    default: 50,
+    min: 0,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "y",
+    target: "props",
+    label: "Position Y (%)",
+    type: "number",
+    default: 50,
+    min: 0,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "width",
+    target: "props",
+    label: "Width (%)",
+    type: "number",
+    default: 80,
+    min: 1,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "height",
+    target: "props",
+    label: "Height (%)",
+    type: "number",
+    default: 80,
+    min: 1,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "rotation",
+    target: "props",
+    label: "Rotation (°)",
+    type: "number",
+    default: 0,
+    min: -3600,
+    max: 3600,
+    step: 1,
+  },
+  {
+    key: "anchor",
+    target: "props",
+    label: "Anchor",
+    type: "select",
+    default: "center",
+    options: [
+      "top-left",
+      "top-center",
+      "top-right",
+      "middle-left",
+      "center",
+      "middle-right",
+      "bottom-left",
+      "bottom-center",
+      "bottom-right",
+    ],
+  },
+  {
+    key: "opacity",
+    target: "props",
+    label: "Opacity",
+    type: "number",
+    default: 1,
+    min: 0,
+    max: 1,
+    step: 0.01,
+  },
+  {
+    key: "fit",
+    target: "props",
+    label: "Image fit",
+    type: "select",
+    default: "contain",
+    options: ["contain", "cover", "fill"],
+  },
+];
+
+function StandaloneImage({
+  clip,
+  imageSources,
+}: {
+  clip: TimelineClip;
+  imageSources?: Readonly<Record<string, string>>;
+}) {
+  const image = standaloneImageClipSchema.parse(clip);
+  const source = imageSources?.[image.content.assetId];
+  if (!source && imageSources === undefined) return null;
+  if (!source)
+    throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
+  const { x, y, width, height, rotation, anchor, opacity, fit } = image.props;
+  const positions: Record<string, { translate: string; origin: string }> = {
+    "top-left": { translate: "0 0", origin: "top left" },
+    "top-center": { translate: "-50% 0", origin: "top center" },
+    "top-right": { translate: "-100% 0", origin: "top right" },
+    "middle-left": { translate: "0 -50%", origin: "center left" },
+    center: { translate: "-50% -50%", origin: "center" },
+    "middle-right": { translate: "-100% -50%", origin: "center right" },
+    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+  };
+  const position = positions[anchor];
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <Img
+        data-image-asset-id={image.content.assetId}
+        src={source}
+        style={{
+          position: "absolute",
+          left: `${x}%`,
+          top: `${y}%`,
+          width: `${width}%`,
+          height: `${height}%`,
+          transform: `translate(${position.translate}) rotate(${rotation}deg)`,
+          transformOrigin: position.origin,
+          opacity,
+          objectFit: fit,
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+/** Core Image clips reference registered media IDs and share Canvas transforms. */
+export const standaloneImageModule: EditableComponent = {
+  id: "image",
+  name: "Image",
+  fields: imageFields,
+  canvas: {
+    owner: "core.image",
+    coordinateSpace: "composition-percent",
+    transform: {
+      x: "x",
+      y: "y",
+      width: "width",
+      height: "height",
+      rotation: "rotation",
+      anchor: "anchor",
+    },
+    operations: { move: true, resize: true, rotate: true },
+    resizeMode: "free",
+  },
+  component: StandaloneImage,
+};
 /** Strip executable renderer code before metadata crosses the isolated preview bridge. */
 export function serializableComponentInfo(
   component: EditableComponent,
@@ -405,14 +613,19 @@ export function serializableComponentInfo(
 export function TimelineComposition({
   timeline,
   components,
+  imageSources,
 }: {
   timeline: EditTimeline;
   components: EditableComponent[];
+  imageSources?: Readonly<Record<string, string>>;
 }) {
   const t = parseEditTimeline(timeline);
   const registeredComponents = [
     standaloneTextModule,
-    ...components.filter((component) => component.id !== "text"),
+    standaloneImageModule,
+    ...components.filter(
+      (component) => component.id !== "text" && component.id !== "image",
+    ),
   ];
   return (
     <AbsoluteFill style={{ background: "#000000" }}>
@@ -434,7 +647,11 @@ export function TimelineComposition({
                 durationInFrames={clip.durationInFrames}
                 name={clip.label}
               >
-                <FrameAwareComponent component={Element} clip={clip} />
+                <FrameAwareComponent
+                  component={Element}
+                  clip={clip}
+                  imageSources={imageSources}
+                />
               </Sequence>
             );
           }),

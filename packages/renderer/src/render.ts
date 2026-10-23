@@ -11,9 +11,12 @@ import { randomUUID } from "node:crypto";
 import { discover, projectId } from "@motion/project-loader";
 import { safeFile } from "@motion/project-loader";
 import { editTimelineSchema } from "@motion/sdk/timeline";
-import { standaloneTextClipSchema } from "@motion/sdk/editor";
+import {
+  standaloneImageClipSchema,
+  standaloneTextClipSchema,
+} from "@motion/sdk/editor";
 import { readMediaRegistry } from "../../../scripts/media-store";
-import { streamRegisteredAudio } from "../../../scripts/media-stream";
+import { streamRegisteredMedia } from "../../../scripts/media-stream";
 import { resolveMedia } from "@motion/project-loader/media";
 import { probeAudioDuration } from "../../../scripts/audio-probe";
 import {
@@ -35,7 +38,7 @@ async function startRenderAudioServer(projectRoot: string, assetIds: string[]) {
       response.writeHead(404).end();
       return;
     }
-    void streamRegisteredAudio(
+    void streamRegisteredMedia(
       projectRoot,
       match[2],
       request.headers.range,
@@ -43,7 +46,9 @@ async function startRenderAudioServer(projectRoot: string, assetIds: string[]) {
     ).catch((error) => {
       if (!response.headersSent) response.writeHead(500);
       response.end(
-        error instanceof Error ? error.message : "Audio source failed.",
+        error instanceof Error
+          ? error.message
+          : "Registered media source failed.",
       );
     });
   });
@@ -82,8 +87,10 @@ export async function renderProject(root: string, id: string, still = false) {
     timeline = editTimelineSchema.parse(
       JSON.parse(await readFile(timelineFile, "utf8")),
     );
-    for (const clip of timeline.clips)
+    for (const clip of timeline.clips) {
       if (clip.componentId === "text") standaloneTextClipSchema.parse(clip);
+      if (clip.componentId === "image") standaloneImageClipSchema.parse(clip);
+    }
     if (
       timeline.fps !== m.fps ||
       timeline.durationInFrames !== m.durationInFrames
@@ -109,6 +116,40 @@ export async function renderProject(root: string, id: string, still = false) {
         }),
     ),
   ];
+  const imageIds = [
+    ...new Set(
+      (timeline?.clips ?? [])
+        .filter((clip) => clip.componentId === "image")
+        .map((clip) => {
+          const assetId = clip.content.assetId;
+          if (
+            typeof assetId !== "string" ||
+            !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(assetId)
+          )
+            throw new Error("An Image Timeline clip has an invalid media ID.");
+          return assetId;
+        }),
+    ),
+  ];
+  const mediaIds = [...new Set([...soundtrackIds, ...imageIds])];
+  if (mediaIds.length) {
+    const registry = await readMediaRegistry(path.join(root, "projects", id));
+    for (const assetId of imageIds) {
+      const media = await resolveMedia(
+        path.join(root, "projects", id),
+        registry.registry,
+        assetId,
+      );
+      if (media.status !== "ready" || media.type !== "image")
+        throw new Error(
+          media.status === "missing"
+            ? "An Image clip file is missing. Relink it in Project Media before rendering."
+            : media.status === "ready"
+              ? "An Image clip must reference a registered PNG asset."
+              : media.message,
+        );
+    }
+  }
   if (soundtrackIds.length) {
     const registry = await readMediaRegistry(path.join(root, "projects", id));
     for (const assetId of soundtrackIds) {
@@ -124,6 +165,10 @@ export async function renderProject(root: string, id: string, still = false) {
             : media.message,
         );
       }
+      if (media.type !== "audio")
+        throw new Error(
+          "A soundtrack clip must reference a registered audio asset.",
+        );
       const durationInSeconds = await probeAudioDuration(media.path);
       const clips = timeline!.clips.filter(
         (clip) =>
@@ -169,7 +214,7 @@ export async function renderProject(root: string, id: string, still = false) {
     await mkdir(path.join(root, "out"), { recursive: true });
     audioServer = await startRenderAudioServer(
       path.join(root, "projects", id),
-      soundtrackIds,
+      mediaIds,
     );
     const entry = path.join(job, "entry.tsx");
     const entrySource = [
@@ -178,9 +223,10 @@ export async function renderProject(root: string, id: string, still = false) {
       "import {TimelineSoundtrackAudio} from '@motion/sdk/editor';",
       `import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};`,
       `const audioSources=${JSON.stringify(audioServer.sources)};`,
+      `const imageSources=${JSON.stringify(audioServer.sources)};`,
       `const timeline=${JSON.stringify(timeline)};`,
-      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
-      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
+      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
+      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
     ].join("\n");
     await writeFile(entry, entrySource);
     const serveUrl = await bundle({

@@ -7,6 +7,9 @@ import {
   changeClipRange,
   validateField,
   componentInfosSchema,
+  frameToSeconds,
+  secondsToFrame,
+  formatFrameTime,
 } from "@motion/sdk/timeline";
 import { serializableComponentInfo } from "@motion/sdk/editor";
 import {
@@ -27,6 +30,17 @@ import { manifestSchema } from "@motion/project-loader/schema";
 import { readEditor, saveEditor } from "../scripts/editor-store";
 import { resolveTimelineBehavior } from "../apps/desktop/src/timeline-behaviors";
 import { subtitleModule, Subtitles } from "@motion/lyrics-sync/component";
+
+test("human-readable Timeline time converts through FPS without changing frame precision", () => {
+  for (const fps of [24, 25, 30, 60, 120]) {
+    for (const frame of [0, 1, 7, 123, fps * 60 + 9]) {
+      assert.equal(secondsToFrame(frameToSeconds(frame, fps), fps), frame);
+    }
+  }
+  assert.equal(formatFrameTime(90, 30), "0:03.000");
+  assert.equal(secondsToFrame(3.015, 30), 90);
+  assert.throws(() => frameToSeconds(10, 0), /FPS must be positive/);
+});
 
 function timeline() {
   return parseEditTimeline({
@@ -87,39 +101,83 @@ test("timeline moves on frame boundaries and trimming keeps spoken word position
   const c = moved.clips.find((clip) => clip.id === "lyric-1")!;
   assert.equal(c.from, 30);
   assert.deepEqual(c.content.words, t.clips[0].content.words);
-  const trim = changeClipRange(t, "lyric-1", 30, 180, true, subtitleTimelineBehavior).clips[0];
+  const trim = changeClipRange(
+    t,
+    "lyric-1",
+    30,
+    180,
+    true,
+    subtitleTimelineBehavior,
+  ).clips[0];
   const word = (trim.content.words as { start: number; end: number }[])[2];
   assert.equal(word.start + trim.from / t.fps, 2);
   assert.equal(trim.durationInFrames, 150);
-  assert.throws(() => parseEditTimeline({ ...t, clips: [{ ...t.clips[0], from: 500 }] }));
-  assert.throws(() => parseEditTimeline({ ...t, clips: [t.clips[0], t.clips[0]] }));
+  assert.throws(() =>
+    parseEditTimeline({ ...t, clips: [{ ...t.clips[0], from: 500 }] }),
+  );
+  assert.throws(() =>
+    parseEditTimeline({ ...t, clips: [t.clips[0], t.clips[0]] }),
+  );
 });
 
 test("timeline behavior metadata is serializable and dispatches only trusted built-ins", () => {
   const metadata = serializableComponentInfo(subtitleModule);
   assert.equal(metadata.timelineBehavior, "subtitle");
   assert.equal("component" in metadata, false);
-  assert.deepEqual(componentInfosSchema.parse(JSON.parse(JSON.stringify([metadata]))), [metadata]);
-  assert.equal(resolveTimelineBehavior("subtitles", []).id, "subtitle", "legacy subtitle registration keeps its editing behavior");
-  assert.equal(resolveTimelineBehavior("generic-title", []).id, "generic-visual");
-  assert.equal(resolveTimelineBehavior("generic-title", [{ ...metadata, id: "generic-title", timelineBehavior: "unknown-custom" }]).id, "generic-visual");
-  assert.equal(resolveTimelineBehavior("generic-title", [{ ...metadata, id: "generic-title", timelineBehavior: "subtitle" }]).id, "subtitle");
+  assert.deepEqual(
+    componentInfosSchema.parse(JSON.parse(JSON.stringify([metadata]))),
+    [metadata],
+  );
+  assert.equal(
+    resolveTimelineBehavior("subtitles", []).id,
+    "subtitle",
+    "legacy subtitle registration keeps its editing behavior",
+  );
+  assert.equal(
+    resolveTimelineBehavior("generic-title", []).id,
+    "generic-visual",
+  );
+  assert.equal(
+    resolveTimelineBehavior("generic-title", [
+      { ...metadata, id: "generic-title", timelineBehavior: "unknown-custom" },
+    ]).id,
+    "generic-visual",
+  );
+  assert.equal(
+    resolveTimelineBehavior("generic-title", [
+      { ...metadata, id: "generic-title", timelineBehavior: "subtitle" },
+    ]).id,
+    "subtitle",
+  );
 });
 
 test("generic content with words and status is unchanged by range edits; subtitle behavior remains specialized", () => {
   const t = timeline();
   const generic = structuredClone(t);
   generic.clips[0].componentId = "generic-title";
-  generic.clips[0].content = { words: [{ id: "w", text: "Label", start: 1, end: 2 }], status: "reviewed" };
+  generic.clips[0].content = {
+    words: [{ id: "w", text: "Label", start: 1, end: 2 }],
+    status: "reviewed",
+  };
   const resized = changeClipRange(generic, "lyric-1", 30, 150, true).clips[0];
   assert.deepEqual(resized.content, generic.clips[0].content);
   const subtitle = structuredClone(t.clips[0]);
   subtitle.content.status = "reviewed";
   t.clips[0] = subtitle;
-  const trimmed = changeClipRange(t, subtitle.id, 30, 150, true, subtitleTimelineBehavior).clips[0];
+  const trimmed = changeClipRange(
+    t,
+    subtitle.id,
+    30,
+    150,
+    true,
+    subtitleTimelineBehavior,
+  ).clips[0];
   assert.equal(trimmed.content.status, "unverified");
   assert.equal((trimmed.content.words as { start: number }[])[0].start, -0.5);
-  const duplicated = subtitleTimelineBehavior.duplicateContent!(subtitle.content, subtitle.id);
+  const duplicated = subtitleTimelineBehavior.duplicateContent!(
+    subtitle.content,
+    subtitle.id,
+  );
   assert.equal(duplicated.repeatOf, subtitle.id);
 });
 
@@ -127,7 +185,11 @@ test("subtitle timing is independent from styling; JSON/SRT/LRC preserve documen
   const t = timeline();
   const data = exportSubtitles(t);
   const styled = structuredClone(t);
-  styled.clips[0].props = { color: "#ff0000", animation: "rise", fontFamily: "Georgia" };
+  styled.clips[0].props = {
+    color: "#ff0000",
+    animation: "rise",
+    fontFamily: "Georgia",
+  };
   assert.deepEqual(exportSubtitles(styled), data);
   const json = importSubtitles(JSON.stringify(data), "json", 12);
   assert.deepEqual(json, data);
@@ -142,10 +204,22 @@ test("subtitle timing is independent from styling; JSON/SRT/LRC preserve documen
   assert.equal(srt.segments[0].content.words, undefined);
   const lrc = importSubtitles(subtitlesToLRC(data), "lrc", 12);
   assert.equal(lrc.segments[1].start, 6);
-  const repeats = importSubtitles("[00:00.00][00:06.00]Repeated line", "lrc", 12);
+  const repeats = importSubtitles(
+    "[00:00.00][00:06.00]Repeated line",
+    "lrc",
+    12,
+  );
   assert.equal(repeats.segments.length, 2);
-  assert.throws(() => importSubtitles("1\n00:00:04,000 --> 00:00:01,000\nInvalid", "srt", 12));
-  assert.throws(() => subtitleClips({ ...data, segments: [{ ...data.segments[0], end: 20 }] }, t, "captions"));
+  assert.throws(() =>
+    importSubtitles("1\n00:00:04,000 --> 00:00:01,000\nInvalid", "srt", 12),
+  );
+  assert.throws(() =>
+    subtitleClips(
+      { ...data, segments: [{ ...data.segments[0], end: 20 }] },
+      t,
+      "captions",
+    ),
+  );
 });
 
 test("subtitle text corrections preserve stable segment and word timing", () => {
@@ -223,11 +297,10 @@ test("subtitle cues separate speaker, visual presentation and consumer routing",
   );
 
   const cues = getSubtitleCues(t);
-  assert.deepEqual(cues.map((cue) => cue.id), [
-    "lyric-1",
-    "lyric-2",
-    "caption-no-consumer",
-  ]);
+  assert.deepEqual(
+    cues.map((cue) => cue.id),
+    ["lyric-1", "lyric-2", "caption-no-consumer"],
+  );
   assert.equal(cues[0].start, 1);
   assert.equal(cues[0].end, 7);
   assert.equal(cues[0].speakerId, "speaker-a");
@@ -287,7 +360,11 @@ test("subtitle cues separate speaker, visual presentation and consumer routing",
     ],
   });
   assert.equal(mismatch[0].wordTimingStatus, "text-mismatch");
-  assert.equal(mismatch[0].words?.length, 3, "mismatched intervals remain available as evidence");
+  assert.equal(
+    mismatch[0].words?.length,
+    3,
+    "mismatched intervals remain available as evidence",
+  );
 });
 
 test("subtitle routing IDs validate and unknown assignments survive JSON interchange", () => {
@@ -298,7 +375,11 @@ test("subtitle routing IDs validate and unknown assignments survive JSON interch
     presentation: "bubble",
     consumerIds: ["future-character-01", "temporarily-offline-02"],
   };
-  const imported = importSubtitles(JSON.stringify(exportSubtitles(t)), "json", 12);
+  const imported = importSubtitles(
+    JSON.stringify(exportSubtitles(t)),
+    "json",
+    12,
+  );
   assert.equal(imported.segments[0].content.speakerId, "speaker-a");
   assert.equal(imported.segments[0].content.presentation, "bubble");
   assert.deepEqual(imported.segments[0].content.consumerIds, [
@@ -317,7 +398,10 @@ test("subtitle routing IDs validate and unknown assignments survive JSON interch
   assert.throws(() =>
     subtitleContentSchema.parse({
       text: "x",
-      consumerIds: Array.from({ length: 33 }, (_, index) => `character-${index}`),
+      consumerIds: Array.from(
+        { length: 33 },
+        (_, index) => `character-${index}`,
+      ),
     }),
   );
   assert.throws(() =>
@@ -331,7 +415,11 @@ test("subtitle renderer keeps legacy captions and suppresses bubble or hidden te
     ...clip,
     content: { ...clip.content, presentation },
   });
-  assert.notEqual(Subtitles({ clip }), null, "legacy content keeps caption rendering");
+  assert.notEqual(
+    Subtitles({ clip }),
+    null,
+    "legacy content keeps caption rendering",
+  );
   assert.notEqual(Subtitles({ clip: withPresentation("both") }), null);
   assert.equal(Subtitles({ clip: withPresentation("bubble") }), null);
   assert.equal(Subtitles({ clip: withPresentation("hidden") }), null);
@@ -359,7 +447,15 @@ test("subtitle constructors and content parsing reject invalid clip data", () =>
 });
 
 test("declared property controls validate their values", () => {
-  const field = { key: "size", label: "Size", target: "props" as const, type: "number" as const, default: 40, min: 12, max: 120 };
+  const field = {
+    key: "size",
+    label: "Size",
+    target: "props" as const,
+    type: "number" as const,
+    default: 40,
+    min: 12,
+    max: 120,
+  };
   assert.equal(validateField(field, 64), 64);
   assert.throws(() => validateField(field, -1));
   assert.throws(() => validateField(field, NaN));
@@ -389,8 +485,14 @@ test("project saves are validated, persistent and reject stale agent revisions",
     const saved = await saveEditor(directory, manifest, next, disk.revision);
     assert.equal(saved.timeline.clips[0].from, 15);
     assert.notEqual(saved.revision, disk.revision);
-    await assert.rejects(saveEditor(directory, manifest, t, disk.revision), /CONFLICT/);
-    await assert.rejects(saveEditor(directory, manifest, { ...t, fps: 60 }, saved.revision), /match/);
+    await assert.rejects(
+      saveEditor(directory, manifest, t, disk.revision),
+      /CONFLICT/,
+    );
+    await assert.rejects(
+      saveEditor(directory, manifest, { ...t, fps: 60 }, saved.revision),
+      /match/,
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -404,11 +506,32 @@ test("version 1 save/reload preserves generic clip metadata without interpreting
     const t = timeline();
     const visual = t.clips[0];
     visual.componentId = "generic-title";
-    visual.content = { words: [{ id: "w", text: "Title", start: 0.2, end: 0.8 }], status: "reviewed" };
-    const manifest = manifestSchema.parse({ id: "v1-fixture", name: "V1 Fixture", type: "explainer", width: 1920, height: 1080, fps: 30, durationInFrames: 360, entry: "Composition.tsx", editTimeline: "edit.json", sdkVersion: "0.1.0" });
+    visual.content = {
+      words: [{ id: "w", text: "Title", start: 0.2, end: 0.8 }],
+      status: "reviewed",
+    };
+    const manifest = manifestSchema.parse({
+      id: "v1-fixture",
+      name: "V1 Fixture",
+      type: "explainer",
+      width: 1920,
+      height: 1080,
+      fps: 30,
+      durationInFrames: 360,
+      entry: "Composition.tsx",
+      editTimeline: "edit.json",
+      sdkVersion: "0.1.0",
+    });
     await writeFile(path.join(directory, "edit.json"), JSON.stringify(t));
     const disk = await readEditor(directory, manifest);
-    const changed = changeClipRange(disk.timeline, visual.id, 30, 150, true, resolveTimelineBehavior(visual.componentId, []));
+    const changed = changeClipRange(
+      disk.timeline,
+      visual.id,
+      30,
+      150,
+      true,
+      resolveTimelineBehavior(visual.componentId, []),
+    );
     const saved = await saveEditor(directory, manifest, changed, disk.revision);
     const reloaded = await readEditor(directory, manifest);
     assert.equal(reloaded.timeline.version, 1);
@@ -447,12 +570,23 @@ test("external project-file updates are readable and block saves based on an old
 
     const reloaded = await readEditor(directory, manifest);
     assert.notEqual(reloaded.revision, loadedByEditor.revision);
-    assert.equal(reloaded.timeline.clips[0].content.text, "Changed by an external agent");
+    assert.equal(
+      reloaded.timeline.clips[0].content.text,
+      "Changed by an external agent",
+    );
     await assert.rejects(
-      saveEditor(directory, manifest, loadedByEditor.timeline, loadedByEditor.revision),
+      saveEditor(
+        directory,
+        manifest,
+        loadedByEditor.timeline,
+        loadedByEditor.revision,
+      ),
       /CONFLICT: The project changed on disk/,
     );
-    assert.equal(JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text, "Changed by an external agent");
+    assert.equal(
+      JSON.parse(await readFile(editPath, "utf8")).clips[0].content.text,
+      "Changed by an external agent",
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

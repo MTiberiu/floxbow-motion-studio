@@ -33,16 +33,18 @@ export async function createProject(projectsDirectory: string, rawId: string) {
 import { TimelineComposition, type EditableVideoProps } from "@motion/sdk/editor";
 import { parseEditTimeline } from "@motion/sdk/timeline";
 import { subtitleModule } from "@motion/lyrics-sync/component";
+import { standaloneImageModule } from "@motion/sdk/editor";
 import savedTimeline from "./edit-timeline.json";
 
-export const editorComponents = [subtitleModule];
+export const editorComponents = [subtitleModule, standaloneImageModule];
 
-export default function Video({ timeline, audioSources }: EditableVideoProps) {
+export default function Video({ timeline, audioSources, imageSources }: EditableVideoProps) {
   return (
     <Canvas background="#000000" style={{ padding: 0 }}>
       <TimelineComposition
         timeline={timeline ?? parseEditTimeline(savedTimeline)}
         components={editorComponents}
+        imageSources={imageSources}
       />
     </Canvas>
   );

@@ -42,6 +42,7 @@ export type ClosePanelRequest = Readonly<{
 
 export type TimelineCommand =
   | Readonly<{ type: "selectClip"; clipId: string }>
+  | Readonly<{ type: "selectClips"; clipIds: readonly string[] }>
   | Readonly<{ type: "seek"; frame: number }>
   | Readonly<{ type: "play" | "pause" | "undo" | "redo" }>
   | Readonly<{ type: "copy" | "cut" | "paste" | "duplicate" | "delete" }>
@@ -75,6 +76,7 @@ export type TimelineSnapshot = Readonly<{
   document: unknown | null;
   components: readonly unknown[];
   selectedClipId: string;
+  selectedClipIds: readonly string[];
   frame: number;
   playing: boolean;
   dirty: boolean;

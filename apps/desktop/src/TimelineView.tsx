@@ -15,6 +15,11 @@ import type {
   EditTimeline,
   TimelineClip,
 } from "@motion/sdk/timeline";
+import {
+  formatFrameTime,
+  frameToSeconds,
+  secondsToFrame,
+} from "@motion/sdk/timeline";
 
 type Drag = {
   clip: TimelineClip;
@@ -29,6 +34,15 @@ type Drag = {
   active: boolean;
   duplicateId?: string;
 };
+type TimelineMarquee = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  additive: boolean;
+  active: boolean;
+};
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
 type ZoomAnchor = { fraction: number; width: number; scrollLeft: number };
@@ -39,14 +53,15 @@ export type TimelineViewProps = {
   };
   document?: EditTimeline;
   components: readonly ComponentInfo[];
-  selectedClipId: string;
+  selectedClipIds: readonly string[];
   frame: number;
   playing?: boolean;
   onEdit: (
     next: EditTimeline | ((current: EditTimeline) => EditTimeline),
     checkpoint?: boolean,
   ) => void;
-  onSelectClip: (clipId: string) => void;
+  onSelectClip: (clipId: string, additive?: boolean) => void;
+  onSelectClips: (clipIds: readonly string[]) => void;
   onSeek: (frame: number) => void;
   onPause: () => void;
   onPlay?: () => void;
@@ -88,11 +103,12 @@ export function TimelineView({
   manifest,
   document,
   components,
-  selectedClipId,
+  selectedClipIds,
   frame,
   playing = false,
   onEdit,
   onSelectClip,
+  onSelectClips,
   onSeek,
   onPause,
   onPlay,
@@ -120,6 +136,7 @@ export function TimelineView({
   const [zoom, setZoom] = useState(1);
   const [viewportWidth, setViewportWidth] = useState(900);
   const [dragging, setDragging] = useState(false);
+  const [marquee, setMarquee] = useState<TimelineMarquee>();
   const operationRef = useRef(onTimelineOperation);
   operationRef.current = onTimelineOperation;
 
@@ -270,7 +287,7 @@ export function TimelineView({
   function begin(event: PointerEvent, clip: TimelineClip, mode: Drag["mode"]) {
     if (!document || !ruler.current) return;
     event.stopPropagation();
-    onSelectClip(clip.id);
+    onSelectClip(clip.id, event.shiftKey || event.ctrlKey || event.metaKey);
     const gestureId = crypto.randomUUID();
     drag.current = {
       clip: structuredClone(clip),
@@ -410,6 +427,70 @@ export function TimelineView({
     );
   }
 
+  function beginMarquee(event: PointerEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget || event.button !== 0) return;
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setMarquee({
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+      additive,
+      active: false,
+    });
+  }
+
+  function moveMarquee(event: PointerEvent<HTMLDivElement>) {
+    setMarquee((current) => {
+      if (!current || current.pointerId !== event.pointerId) return current;
+      return {
+        ...current,
+        x: event.clientX,
+        y: event.clientY,
+        active:
+          current.active ||
+          Math.hypot(
+            event.clientX - current.startX,
+            event.clientY - current.startY,
+          ) > 3,
+      };
+    });
+  }
+
+  function finishMarquee(event: PointerEvent<HTMLDivElement>) {
+    const current = marquee;
+    if (!current || current.pointerId !== event.pointerId) return;
+    if (current.active) {
+      const left = Math.min(current.startX, event.clientX);
+      const right = Math.max(current.startX, event.clientX);
+      const top = Math.min(current.startY, event.clientY);
+      const bottom = Math.max(current.startY, event.clientY);
+      const hits = [
+        ...(scroll.current?.querySelectorAll<HTMLElement>(
+          ".timeline-clip[data-clip-id]",
+        ) ?? []),
+      ]
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return (
+            rect.left <= right &&
+            rect.right >= left &&
+            rect.top <= bottom &&
+            rect.bottom >= top
+          );
+        })
+        .map((element) => element.dataset.clipId)
+        .filter((id): id is string => Boolean(id));
+      const next = current.additive
+        ? [...new Set([...selectedClipIds, ...hits])]
+        : hits;
+      onSelectClips(next);
+    } else if (!current.additive) onSelectClip("");
+    setMarquee(undefined);
+  }
+
   return document ? (
     <div
       className="timeline-dock"
@@ -513,14 +594,18 @@ export function TimelineView({
           </button>
         </div>
         <label>
-          View{" "}
+          Time (seconds){" "}
           <input
-            aria-label="Timeline playhead frame"
+            aria-label="Timeline playhead time (seconds)"
+            data-fps={manifest.fps}
             type="number"
             min={0}
-            max={manifest.durationInFrames - 1}
-            value={frame}
-            onChange={(event) => onSeek(Number(event.target.value))}
+            max={frameToSeconds(manifest.durationInFrames - 1, manifest.fps)}
+            step={0.001}
+            value={frameToSeconds(frame, manifest.fps).toFixed(3)}
+            onChange={(event) =>
+              onSeek(secondsToFrame(Number(event.target.value), manifest.fps))
+            }
           />
         </label>
       </div>
@@ -591,7 +676,10 @@ export function TimelineView({
               <div
                 className="track-lane"
                 data-track={track.id}
-                onPointerDown={() => onSelectClip("")}
+                onPointerDown={beginMarquee}
+                onPointerMove={moveMarquee}
+                onPointerUp={finishMarquee}
+                onPointerCancel={finishMarquee}
               >
                 {document.clips
                   .filter((clip) => clip.trackId === track.id)
@@ -607,15 +695,17 @@ export function TimelineView({
                             ? `Audio clip ${clip.id}; fixed at frame zero`
                             : `Clip ${clip.id}`
                         }
-                        aria-pressed={selectedClipId === clip.id}
+                        aria-pressed={selectedClipIds.includes(clip.id)}
                         data-clip-id={clip.id}
+                        data-from-frame={clip.from}
+                        data-end-frame={clip.from + clip.durationInFrames}
                         data-range-locked={soundtrackClip ? "true" : undefined}
                         title={
                           soundtrackClip
                             ? "Soundtrack timing is fixed at frame zero; it cannot be moved or trimmed."
                             : undefined
                         }
-                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${soundtrackClip ? "audio-clip" : ""} ${selectedClipId === clip.id ? "is-selected" : ""}`}
+                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${soundtrackClip ? "audio-clip" : ""} ${selectedClipIds.includes(clip.id) ? "is-selected" : ""}`}
                         style={{
                           left: `${(clip.from / displayDurationInFrames) * 100}%`,
                           width: `${(clip.durationInFrames / displayDurationInFrames) * 100}%`,
@@ -624,13 +714,19 @@ export function TimelineView({
                           if (!soundtrackClip) begin(event, clip, "move");
                           else {
                             event.stopPropagation();
-                            onSelectClip(clip.id);
+                            onSelectClip(
+                              clip.id,
+                              event.shiftKey || event.ctrlKey || event.metaKey,
+                            );
                           }
                         }}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            onSelectClip(clip.id);
+                            onSelectClip(
+                              clip.id,
+                              event.shiftKey || event.ctrlKey || event.metaKey,
+                            );
                           }
                           if (
                             !soundtrackClip &&
@@ -675,7 +771,11 @@ export function TimelineView({
                           {String(clip.content.text ?? clip.label)}
                         </span>
                         <small>
-                          {clip.from}–{clip.from + clip.durationInFrames}
+                          {formatFrameTime(clip.from, document.fps)}–
+                          {formatFrameTime(
+                            clip.from + clip.durationInFrames,
+                            document.fps,
+                          )}
                         </small>
                         {!soundtrackClip && (
                           <button
@@ -720,6 +820,18 @@ export function TimelineView({
         <button onClick={() => onExportTiming("lrc")}>Export LRC</button>
         <button onClick={onExportDocument}>Export editable timeline</button>
       </div>
+      {marquee?.active && (
+        <div
+          className="timeline-marquee"
+          style={{
+            left: Math.min(marquee.startX, marquee.x),
+            top: Math.min(marquee.startY, marquee.y),
+            width: Math.abs(marquee.x - marquee.startX),
+            height: Math.abs(marquee.y - marquee.startY),
+          }}
+          aria-hidden="true"
+        />
+      )}
     </div>
   ) : (
     <p className="muted timeline-loading" data-editor-view="timeline">

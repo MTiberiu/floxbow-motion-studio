@@ -9,12 +9,12 @@ import {
   publicMediaAvailability,
   readMediaRegistry,
   readMediaWithAvailability,
-  registerAudioAsset,
+  registerMediaAsset,
   removeMediaAsset,
 } from "./media-store";
-import { pickAudioFile } from "./audio-file-picker";
+import { pickMediaFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
-import { streamRegisteredAudio } from "./media-stream";
+import { streamRegisteredMedia } from "./media-stream";
 import { probeAudioDuration } from "./audio-probe";
 import { resolveMedia } from "@motion/project-loader/media";
 import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
@@ -39,6 +39,7 @@ const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 export type ServerOptions = {
   audioFilePicker?: () => Promise<string | undefined>;
+  mediaFilePicker?: (type: "audio" | "image") => Promise<string | undefined>;
   /** Test seam for deterministic local-worker responses; production uses the existing Python adapter. */
   transcribeAudio?: (audioPath: string) => Promise<unknown>;
 };
@@ -197,16 +198,18 @@ export async function startServers(
             res
               .writeHead(200, {
                 "Content-Type":
-                  path.extname(resolved.path).toLowerCase() === ".mp3"
-                    ? "audio/mpeg"
-                    : "audio/wav",
+                  resolved.type === "image"
+                    ? "image/png"
+                    : path.extname(resolved.path).toLowerCase() === ".mp3"
+                      ? "audio/mpeg"
+                      : "audio/wav",
                 "Content-Length": info.size,
                 "Accept-Ranges": "bytes",
                 "Cache-Control": "no-store",
               })
               .end();
           } else {
-            await streamRegisteredAudio(
+            await streamRegisteredMedia(
               path.join(projectsDir, id),
               assetId,
               req.headers.range,
@@ -323,6 +326,15 @@ export async function startServers(
                 );
               return;
             }
+            if (resolved.type !== "audio") {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message: "Whisper transcription requires an audio asset.",
+                }),
+              );
+              return;
+            }
             try {
               const raw = await (
                 options.transcribeAudio ?? transcribeAudioWithWhisper
@@ -381,6 +393,15 @@ export async function startServers(
                     resolved.status === "missing"
                       ? "The selected audio file is missing."
                       : resolved.message,
+                }),
+              );
+              return;
+            }
+            if (resolved.type !== "audio") {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message: "The soundtrack must be an audio asset.",
                 }),
               );
               return;
@@ -510,11 +531,16 @@ export async function startServers(
             !input ||
             typeof input !== "object" ||
             Array.isArray(input) ||
-            Object.keys(input).length !== 1 ||
-            typeof input.revision !== "string"
+            Object.keys(input).some(
+              (key) => key !== "revision" && key !== "type",
+            ) ||
+            typeof input.revision !== "string" ||
+            (input.type !== undefined &&
+              input.type !== "audio" &&
+              input.type !== "image")
           )
             throw new Error(
-              "A media registry revision is required; file paths are not accepted",
+              "A media registry revision and supported media type are required; file paths are not accepted",
             );
 
           const current = await readMediaRegistry(projectRoot);
@@ -522,20 +548,25 @@ export async function startServers(
             res
               .writeHead(409)
               .end(
-                "CONFLICT: The media registry changed. Reload it before adding audio.",
+                "CONFLICT: The media registry changed. Reload it before adding media.",
               );
             return;
           }
+          const mediaType = input.type ?? "audio";
           const selectedPath = await (
-            options.audioFilePicker ?? pickAudioFile
-          )();
+            options.mediaFilePicker ??
+            (mediaType === "audio" && options.audioFilePicker
+              ? () => options.audioFilePicker!()
+              : () => pickMediaFile(mediaType))
+          )(mediaType);
           if (!selectedPath) {
             res.writeHead(204).end();
             return;
           }
-          const saved = await registerAudioAsset(
+          const saved = await registerMediaAsset(
             projectRoot,
             selectedPath,
+            mediaType,
             input.revision,
           );
           res.setHeader("Content-Type", "application/json");
