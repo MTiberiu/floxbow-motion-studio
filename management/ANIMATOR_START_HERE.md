@@ -45,25 +45,17 @@ A film is composed of **scenes**, each with a coherent purpose and time span. A 
 
 Keep the original meaning/creative logic with the project so future editing does not sever motion from its narrative motivation.
 
-## Concrete onboarding test — reconstruct the story
+## Concrete onboarding test — recreate the owner's existing story
 
-**Goal:** demonstrate that the Skills change design decisions, not merely prompt length.
+**Use the exact story/brief already provided by the owner to this animator in the ongoing animation work.** Do NOT substitute a generic historical-company story, a fictional company, or a new benchmark prompt. The animator already knows the story and should preserve the established subject, facts, narrative intent, constraints, and assets. If there is an existing animation, rebuild/improve **that same story**, using the skills to rethink cinematic treatment, scene breakdown, layered assets, staging and motion; do not silently rewrite the plot.
 
-Use the *existing company-missed-opportunity historical documentary story* as the first brief if the owner/animator already has it; otherwise use this self-contained test premise:
-
-> "A video about a company dismissing a small competitor's offer, then realizing years later it lost a defining opportunity. Make it cinematic and understandable without long narration."
-
-Default target: **15–25 seconds**, vertical or horizontal according to the current project. Use only licensed, original, generated or test assets.
-
-**Do this now on your own animation/test branch, not the docs branch:**
-- Read this page, then [ANIMATOR_SKILL_TREE.md](ANIMATOR_SKILL_TREE.md); choose **only relevant** source Skills (start with director-skills, plus motion and layered-scene methods).
-- Write a short skill-selection log: which sources were consulted, exactly which idea each contributed, and which were rejected.
-- Draft story beats; choose a motivated visual treatment. Deliberately evaluate a **layered photo/document collage** versus a single photo zoom.
-- Describe **at least one layered scene** with independent PNG/photo cutouts, foreground/background, type, composition, camera/parallax and a meaningful reveal. Multiple images are not mandatory if you justify a better solution.
-- Produce a detailed scene-by-scene Production Spec, then implement if feasible on the actual checkout. Do not block the experiment to rebuild FloxBow Core.
-- Render and inspect representative frames/video, report what matched the spec and what did not. If missing assets/APIs prevent finished rendering, provide the actual blocker and best verified partial artifact.
-
-**Do not present the unmodified source reference or a copy of proprietary branded imagery as original work.** A story inspired by a real-world case may need factual sourcing if asserting real historical facts; this self-contained benchmark can use fictional companies.
+**Do this on your current animation/test branch, not the docs branch:**
+- Read this page and [ANIMATOR_SKILL_TREE.md](ANIMATOR_SKILL_TREE.md), select only relevant knowledge sources.
+- Briefly identify the owner's actual story and agreed requirements from your existing context/project files; don't ask the owner to repeat an already provided brief.
+- Record which Skills were consulted and how they changed practical choices.
+- Prepare scene-by-scene Director Brief and executable Production Spec for **that same story**, including meaningful scene composition, independent cutouts/layers where justified, camera, text, transitions, timing and render checks.
+- Implement and render on the installed FloxBow version as far as it supports. Avoid unrelated Core development.
+- Report evidence of better animation quality and honest blockers.
 
 ### Deliverables
 
