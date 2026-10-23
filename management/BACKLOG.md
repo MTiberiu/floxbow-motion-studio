@@ -119,3 +119,13 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Explicit handling for boundary-spanning clips, protected/locked tracks, audio sync, cross-scene overlays, negative durations, overlaps and project end; preview scope, safe rollback and Undo/Redo.
 - [ ] Shared validated edit operation contract for external Codex and UI: target ID, mode, delta/new duration, anchor/scope, conflict/revision check, deterministic updated JSON; avoid requiring agents to manually adjust every downstream timestamp.
 - [ ] Acceptance fixture: scene A 10s and B 8s; extending a caption within A leaves B fixed; expanding A by 2s shifts B and specified in-scene downstream elements by exactly 2s; JSON/UI/preview/MP4 agree after external AI edit and subsequent human correction.
+
+
+## AI agent discovery and tool interfaces — explicitly deferred (D-018)
+
+- [ ] During Core clip development, make registered capabilities machine-discoverable (type, supported fields/operations, constraints, version and error semantics); do not duplicate editor logic in agent adapters.
+- [ ] After successful Media Library/Image bidirectional JSON-to-UI-to-render proof, review a minimal **Agent Skill + CLI** for discover/list, validate, edit, and render using canonical Core transactions.
+- [ ] Ensure direct JSON and CLI edits share validation, stable-ID targeting, conflict/revision protection, preview/render results and ownership limits; document safe external-agent write procedure.
+- [ ] Once shared Core operations and a real agent workflow are stable, evaluate **MCP as optional thin adapter** over the same API (not the authoritative data store, editing engine or primary documentation).
+- [ ] When an effect is missing, capability discovery should return supported alternatives and a scoped SDK extension path; new module code requires explicit development permissions, validation and trust checks.
+- [ ] Benchmark context/token overhead, integration usability, security boundaries and maintenance before selecting MCP transport. No general autonomous plugin installation in initial Core Editor V1.
