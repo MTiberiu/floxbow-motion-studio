@@ -58,7 +58,6 @@ The visual editor should eventually expose **Settings → Modules**, allowing us
 
 The media registry's first schema is documented in `docs/PROJECT_MEDIA.md`; portability and relative-path policy, relinking, optional proxy/cache handling, model installation UX, multiple compositions per project, and the exact activation/visibility schema and editor extension slot API remain open. Do not treat these as settled architecture.
 
-
 ## D-010 — One canonical Timeline with module-owned content (approved product direction)
 
 The editor must allow multiple module instances to coexist on **one canonical Timeline**, with stable ownership of groups/layers/child elements. A module operation may modify only its explicitly targeted content; a generic component type or shared Captions track is not sufficient authority to replace unrelated clips. Module instance identity, layer identity, and provenance must be distinguishable from UI grouping and content/media type. External coding agents and the UI must read/write the same validated project data (D-002).
@@ -88,7 +87,6 @@ Open-source users must be able to base custom projects/modules on a **specific i
 ## Additional open architecture choices
 
 Determine minimally sufficient layer/instance identifiers and scoped edit commands; how groups and inherited text styles are represented and migrated; editor-only versus render visibility; transcription comparison UX; safe external-agent edit/reload workflow; multi-audio tracks/mixing; image asset registration versus scene image usage; release compatibility matrix and migration tooling. These remain design questions, not shipped features.
-
 
 ## D-015 — Core editor first, specialized modules second (approved product direction)
 
