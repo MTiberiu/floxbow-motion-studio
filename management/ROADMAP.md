@@ -133,3 +133,10 @@ Documentation-only PR #33 remains open, with failing CI at the latest checked HE
 ### Canvas manipulation priority (D-019 refinement)
 
 After standalone Image JSON/Inspector/MP4 integration, prioritize a reviewable **shared Canvas Transform overlay**: click/select visual elements, drag to move, resize handles, rotation handle, live preview, fine snapping and keyboard/Inspector fallback. It must apply consistently to standalone Text/Image/Video and opted-in module-owned spatial content; do not attach geometric handles to audio-only clips. Selection must synchronize Timeline, Canvas and Inspector; tiny/offscreen/overlapping items remain selectable from the layer list and adjustable by XY/dial. Editor-only handles must not render into MP4. Validate one drag as one Undo step and identical saved JSON/preview/export values. This takes priority over solely cosmetic Inspector redesign.
+
+
+### Immediate editor usability gates — Space, Canvas selection and preview transport
+
+**Short-term, separate PR:** audit existing playback focus and keyboard architecture, implement Space to toggle Play/Pause in editor context without interfering with typing, focused buttons, dialogs or system shortcuts; verify docked/detached editor, seeking behavior, and a reproducible playback-resume regression. Investigate intermittent preview/player failures, keeping the current Remotion transport unless real evidence supports replacement.
+
+**Shared transform milestone:** Canvas hit-testing and edit-only handles (move/scale/rotate), synchronized Timeline selection, **multi-select** (modifier-click/marquee as appropriate), selection group transform, coherent Undo/Redo and overlap/lock ownership behavior. The user should be able to visually lay out an entire scene without searching tiny numerical Inspector fields. Keep AI/Core JSON contract and MP4 parity.
