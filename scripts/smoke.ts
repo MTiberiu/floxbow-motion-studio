@@ -1982,6 +1982,10 @@ try {
       ).toBeEnabled({ timeout: 15_000 });
       await page.getByRole("button", { name: "Add subtitle" }).click();
       await page.getByLabel("Text", { exact: true }).fill(caption);
+      const previewSubtitle = page
+        .frameLocator('[data-panel-id="editor"] iframe')
+        .locator("[data-subtitle-id]");
+      await expect(previewSubtitle).toHaveText(caption);
       await page
         .getByRole("button", { name: "Save project", exact: true })
         .click();
