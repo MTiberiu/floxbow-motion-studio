@@ -98,3 +98,10 @@ These requirements are agreed **product targets**, not implemented features or p
 6. Run one end-to-end acceptance project (standalone text, image, video, at least two audio tracks, module subtitle layers) with external Codex round-trip and MP4 verification.
 
 **Non-negotiable workflow:** AI agent does most edits via documented project data; human reviews and adjusts via UI. Changes must be bidirectional, validated, conflict-safe, and persist through export. Build reviewable PRs with tests; do not start new work automatically after any merge. `main` and user-owned projects/media remain untouched.
+
+
+## Future Core scene editing milestone (D-017)
+
+After standard clips and project-data round trips are reliable, add first-class scenes on the **same canonical Timeline**, plus explicit clip-only trim and scene-duration ripple operations. A 10-second scene expanded by 2 seconds moves all following scenes by 2 seconds; elements after a user-selected ripple anchor **inside** the scene also shift, while a subtitle extended within the current scene need not move anything else. Provide clear handle/mode UI, overlap/locked/linked-audio policy, scope preview, transaction/Undo, and AI-callable validated edit operations that save deterministic JSON. Do not implement by making Codex rewrite every clip start frame. Do not silently ripple when merely extending an individual subtitle. Scene/group model must coexist with module-owned layers and external JSON change protection.
+
+**Scheduling:** this is a later Core milestone, not part of the first Media Library + Image/Video PR. Confirm product semantics and timing boundaries in a focused design review before coding.
