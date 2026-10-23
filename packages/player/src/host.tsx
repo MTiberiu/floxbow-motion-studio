@@ -12,6 +12,7 @@ import {
   parseEditTimeline,
   type EditTimeline,
 } from "@motion/sdk/timeline";
+import { timelinePlaybackEnd } from "@motion/sdk/timeline-analysis";
 import { StudioPlayer } from "./index";
 type VideoModule = {
   default: ComponentType<EditableVideoProps>;
@@ -30,6 +31,8 @@ function PreviewHost({
   timelineRef.current = timeline;
   const [error, setError] = useState("");
   const playbackCheck = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const configuredPlaybackEnd = useRef(manifest.durationInFrames);
+  const activePlaybackEnd = useRef(manifest.durationInFrames);
   const sourcesFor = (document: EditTimeline) =>
     Object.fromEntries(
       document.clips
@@ -80,7 +83,29 @@ function PreviewHost({
         frame: player.current?.getCurrentFrame() ?? 0,
         playing: player.current?.isPlaying() ?? false,
       });
-    const onFrame: CallbackListener<"frameupdate"> = () => report();
+    const onFrame: CallbackListener<"frameupdate"> = () => {
+      const currentPlayer = player.current;
+      const currentFrame = currentPlayer?.getCurrentFrame() ?? 0;
+      if (
+        currentPlayer?.isPlaying() &&
+        currentFrame + 1 >= activePlaybackEnd.current
+      ) {
+        currentPlayer.pause();
+        report();
+        return;
+      }
+      report();
+    };
+    const onPlay = () => {
+      const currentFrame = player.current?.getCurrentFrame() ?? 0;
+      const duration =
+        timelineRef.current?.durationInFrames ?? manifest.durationInFrames;
+      activePlaybackEnd.current =
+        currentFrame >= configuredPlaybackEnd.current
+          ? duration
+          : configuredPlaybackEnd.current;
+      report();
+    };
     const clearPlaybackCheck = () => {
       if (playbackCheck.current) {
         clearTimeout(playbackCheck.current);
@@ -106,27 +131,46 @@ function PreviewHost({
             if (next.fps !== manifest.fps)
               throw new Error("Timeline FPS does not match project.json");
             timelineRef.current = next;
+            configuredPlaybackEnd.current = timelinePlaybackEnd(next);
+            activePlaybackEnd.current = configuredPlaybackEnd.current;
             setTimeline(next);
             setError("");
             break;
           }
+          case "playback-boundary": {
+            const duration =
+              timelineRef.current?.durationInFrames ??
+              manifest.durationInFrames;
+            if (
+              !Number.isInteger(e.data.endFrame) ||
+              e.data.endFrame < 1 ||
+              e.data.endFrame > duration
+            )
+              throw new Error("The preview playback boundary is invalid.");
+            configuredPlaybackEnd.current = e.data.endFrame;
+            const currentFrame = player.current?.getCurrentFrame() ?? 0;
+            activePlaybackEnd.current =
+              currentFrame >= e.data.endFrame ? duration : e.data.endFrame;
+            break;
+          }
           case "seek":
             if (Number.isInteger(e.data.frame)) {
-              player.current?.seekTo(
-                Math.max(
-                  0,
-                  Math.min(
-                    (timelineRef.current?.durationInFrames ??
-                      manifest.durationInFrames) - 1,
-                    e.data.frame,
-                  ),
-                ),
-              );
+              const duration =
+                timelineRef.current?.durationInFrames ??
+                manifest.durationInFrames;
+              const frame = Math.max(0, Math.min(duration - 1, e.data.frame));
+              if (player.current?.isPlaying())
+                activePlaybackEnd.current =
+                  frame >= configuredPlaybackEnd.current
+                    ? duration
+                    : configuredPlaybackEnd.current;
+              player.current?.seekTo(frame);
               report();
             }
             break;
           case "play":
             clearPlaybackCheck();
+            onPlay();
             player.current?.play();
             if (
               timelineRef.current?.clips.some(
@@ -165,7 +209,7 @@ function PreviewHost({
     document.addEventListener("error", mediaError, true);
     const p = player.current;
     p?.addEventListener("frameupdate", onFrame);
-    p?.addEventListener("play", report);
+    p?.addEventListener("play", onPlay);
     p?.addEventListener("pause", report);
     p?.addEventListener("seeked", report);
     ready();
@@ -176,7 +220,7 @@ function PreviewHost({
       window.removeEventListener("project-module-updated", refreshMetadata);
       document.removeEventListener("error", mediaError, true);
       p?.removeEventListener("frameupdate", onFrame);
-      p?.removeEventListener("play", report);
+      p?.removeEventListener("play", onPlay);
       p?.removeEventListener("pause", report);
       p?.removeEventListener("seeked", report);
     };

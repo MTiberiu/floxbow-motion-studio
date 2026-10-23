@@ -167,6 +167,7 @@ try {
   );
   await page.evaluate(() => {
     localStorage.removeItem("motion-project");
+    localStorage.removeItem("motion-preview-playback-end");
     for (const key of Object.keys(localStorage))
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
@@ -912,11 +913,54 @@ try {
     await expect(page.locator('[data-editor-view="canvas"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="timeline"]')).toHaveCount(1);
     await expect(page.locator('[data-editor-view="inspector"]')).toHaveCount(1);
+    await expect(
+      page.getByLabel("Playback ends", { exact: true }),
+    ).toHaveValue("content");
+    await page
+      .getByLabel("Playback ends", { exact: true })
+      .selectOption("project");
+    await expect(
+      page.getByLabel("Playback ends", { exact: true }),
+    ).toHaveValue("project");
+    await page
+      .getByLabel("Playback ends", { exact: true })
+      .selectOption("content");
+    await expect(page.locator(".timeline-review summary")).toBeVisible();
     await verifyTimelineZoom(page);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(
       page.getByRole("button", { name: /^Clip subtitle-/ }),
     ).toBeVisible();
+    const initialClipStart = await page
+      .getByLabel("Clip start frame", { exact: true })
+      .inputValue();
+    const initialClipEnd = await page
+      .getByLabel("Clip end frame", { exact: true })
+      .inputValue();
+    await page.getByLabel("Clip start frame", { exact: true }).fill("0");
+    await page.getByLabel("Clip end frame", { exact: true }).fill("30");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("239");
+    await page.getByRole("button", { name: "Add subtitle" }).click();
+    const review = page.locator(".timeline-review");
+    await expect(review.locator("summary")).toContainText("long gap");
+    await review.locator("summary").click();
+    await expect(review.getByText(/Long gap on Captions:/)).toBeVisible();
+    await review.getByRole("button", { name: /^Locate / }).last().click();
+    await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
+      "New subtitle",
+    );
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.locator(".timeline-clip.subtitle-clip")).toHaveCount(1);
+    await page.locator(".timeline-clip.subtitle-clip").first().click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(
+      page.getByLabel("Clip start frame", { exact: true }),
+    ).toHaveValue(initialClipStart);
+    await expect(
+      page.getByLabel("Clip end frame", { exact: true }),
+    ).toHaveValue(initialClipEnd);
+    await page.getByLabel("Playhead frame", { exact: true }).fill("90");
     const soundtrackTrackId = await page
       .locator(".audio-clip")
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
@@ -1324,6 +1368,53 @@ try {
         detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
       )
       .toBe(String(durationAfterEdgeDrag - 1));
+    await page.getByRole("button", { name: "Delete clip", exact: true }).click();
+    await expect(
+      detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`),
+    ).toHaveCount(0);
+    await expect
+      .poll(() =>
+        detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
+      )
+      .toBe(String(durationAfterEdgeDrag - 1));
+    await page
+      .getByLabel("Playback ends", { exact: true })
+      .selectOption("content");
+    await page.getByLabel("Playhead frame", { exact: true }).fill("0");
+    const canvas = page.locator('[data-editor-view="canvas"]');
+    await canvas.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(
+      canvas.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible({ timeout: 12_000 });
+    const contentEndFrame = Number(
+      (await canvas.getByTestId("frame-readout").innerText()).split("/")[0],
+    );
+    expect(contentEndFrame).toBeLessThan(durationAfterEdgeDrag - 1);
+    await page.getByLabel("Playhead frame", { exact: true }).fill("0");
+    await canvas.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(
+      canvas.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByLabel("Playhead frame", { exact: true })
+      .fill(String(durationAfterEdgeDrag - 10));
+    await expect(
+      canvas.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible({ timeout: 2_000 });
+    const tailSeekFrame = Number(
+      (await canvas.getByTestId("frame-readout").innerText()).split("/")[0],
+    );
+    expect(tailSeekFrame).toBeGreaterThanOrEqual(durationAfterEdgeDrag - 2);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(
+      detachedPage!.locator(`[data-clip-id="${detachedClipId}"]`),
+    ).toHaveCount(1);
+    await detachedPage!
+      .locator(`[data-clip-id="${detachedClipId}"]`)
+      .click();
     await page
       .getByRole("button", { name: "Save project", exact: true })
       .click();

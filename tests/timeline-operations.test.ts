@@ -4,6 +4,8 @@ import { parseEditTimeline } from "@motion/sdk/timeline";
 import {
   findLargeTimelineGaps,
   lastTimelineClipEnd,
+  timelineGapWarnings,
+  timelinePlaybackEnd,
 } from "@motion/sdk/timeline-analysis";
 import {
   addTimelineClipCopy,
@@ -113,4 +115,36 @@ test("large gap analysis reports visual/audio timeline intervals without changin
     },
   );
   assert.equal(document.durationInFrames, 300);
+});
+
+test("preview playback end can avoid blank tail without changing export duration", () => {
+  assert.equal(timelinePlaybackEnd(document), 270);
+  assert.equal(timelinePlaybackEnd(document, true), 300);
+  assert.equal(document.durationInFrames, 300);
+  const empty = parseEditTimeline({
+    ...document,
+    clips: [],
+  });
+  assert.equal(timelinePlaybackEnd(empty), empty.durationInFrames);
+});
+
+test("editor gap warnings locate visual clips and ignore soundtrack-only gaps", () => {
+  const warnings = timelineGapWarnings(document);
+  assert.equal(warnings.length, 1);
+  assert.deepEqual(warnings[0], {
+    trackId: "visual",
+    trackName: "Visual",
+    from: 30,
+    end: 240,
+    previousClipId: "title",
+    nextClipId: "end-card",
+    kind: "between",
+  });
+
+  const late = parseEditTimeline({
+    ...document,
+    clips: [document.clips[2]],
+  });
+  assert.equal(timelineGapWarnings(late)[0]?.kind, "late");
+  assert.equal(timelineGapWarnings(late)[0]?.nextClipId, "end-card");
 });

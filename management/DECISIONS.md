@@ -54,12 +54,6 @@ The visual editor should eventually expose **Settings → Modules**, allowing us
 
 **Status:** discussed product direction, **not an implemented setting or approved schema**. No `editor.config.json` format, slot descriptor, or editor-module loader is standardized yet. TASK 005 provides a concrete subtitle inspector integration, but does not implement project module activation or a general slot system. Use that integration as evidence when deciding whether more configuration is needed; do not design a universal plugin system in advance.
 
-## D-010 — Shared Timeline editing commands
-
-Selection, clip operations, playback transport, and undo/redo belong to shared editor infrastructure. Components provide content, declared properties, identity through stable clip IDs, and optional operation constraints through trusted timeline behavior metadata. The EditorSession remains the only document and save owner; docked and detached Timeline views issue the same validated intents. Timeline v1 remains unchanged. The current implementation is single-selection; group operations are future work. Soundtrack remains fixed and protected until moving audio is verified through both preview and MP4 rendering.
-
-**Duration policy:** the saved project duration remains the preview/export boundary and is never inferred down from clip content. Playback stops at that boundary rather than looping. Long empty intervals are reported before render with adjacent clip IDs, while intentional blank time and project duration remain untouched.
-
 ## Open choices — not decisions
 
 The media registry's first schema is documented in `docs/PROJECT_MEDIA.md`; portability and relative-path policy, relinking, optional proxy/cache handling, model installation UX, multiple compositions per project, and the exact activation/visibility schema and editor extension slot API remain open. Do not treat these as settled architecture.

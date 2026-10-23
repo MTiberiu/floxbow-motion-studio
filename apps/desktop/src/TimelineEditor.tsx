@@ -7,6 +7,10 @@ import {
 } from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
+  timelineGapWarnings,
+  timelinePlaybackEnd,
+} from "@motion/sdk/timeline-analysis";
+import {
   parseEditTimeline,
   changeClipRange,
   fieldValue,
@@ -114,6 +118,9 @@ export function TimelineEditor({
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
   const [transcribing, setTranscribing] = useState(false);
+  const [playToProjectEnd, setPlayToProjectEnd] = useState(
+    () => localStorage.getItem("motion-preview-playback-end") === "project",
+  );
   const { snapshot, commands } = session;
   const {
     document: doc,
@@ -148,6 +155,10 @@ export function TimelineEditor({
   const editorManifest = doc
     ? { ...manifest, durationInFrames: doc.durationInFrames }
     : manifest;
+  const playbackEndFrame = doc
+    ? timelinePlaybackEnd(doc, playToProjectEnd)
+    : manifest.durationInFrames;
+  const timelineWarnings = doc ? timelineGapWarnings(doc) : [];
   const edit = (next: EditTimeline, createCheckpoint = true) => {
     const current = commands.getCurrentDocument();
     if (current && !soundtrackTimingUnchanged(current, next)) {
@@ -175,6 +186,9 @@ export function TimelineEditor({
     sourceCommandId.current = null;
     sessionCheckpoint();
   };
+  useEffect(() => {
+    send("playback-boundary", { endFrame: playbackEndFrame });
+  }, [send, playbackEndFrame, previewGeneration]);
   const [inspectorWidth, setInspectorWidth] = useState(
     () => Number(localStorage.getItem("motion-inspector-width")) || 270,
   );
@@ -1206,7 +1220,72 @@ export function TimelineEditor({
         <button disabled={!redoCount} onClick={redo}>
           Redo
         </button>
+        <label className="playback-end-control">
+          Playback ends
+          <select
+            aria-label="Playback ends"
+            value={playToProjectEnd ? "project" : "content"}
+            onChange={(event) => {
+              const useProjectEnd = event.currentTarget.value === "project";
+              localStorage.setItem(
+                "motion-preview-playback-end",
+                useProjectEnd ? "project" : "content",
+              );
+              setPlayToProjectEnd(useProjectEnd);
+            }}
+          >
+            <option value="content">At last clip</option>
+            <option value="project">At project end</option>
+          </select>
+        </label>
       </div>
+      <details className="timeline-review">
+        <summary>
+          Timeline review:{" "}
+          {timelineWarnings.length
+            ? `${timelineWarnings.length} long gap${timelineWarnings.length === 1 ? "" : "s"}`
+            : "no long gaps"}
+        </summary>
+        {timelineWarnings.length ? (
+          <ul>
+            {timelineWarnings.map((warning) => {
+              const seconds = (warning.end - warning.from) / manifest.fps;
+              const label =
+                warning.kind === "late"
+                  ? `Late isolated clip on ${warning.trackName}: starts at ${(warning.end / manifest.fps).toFixed(1)}s after ${seconds.toFixed(1)}s empty.`
+                  : warning.kind === "between"
+                    ? `Long gap on ${warning.trackName}: ${seconds.toFixed(1)}s from ${(warning.from / manifest.fps).toFixed(1)}s to ${(warning.end / manifest.fps).toFixed(1)}s.`
+                    : `Empty tail on ${warning.trackName}: ${seconds.toFixed(1)}s after the last clip.`;
+              const targetIds = [
+                warning.previousClipId,
+                warning.nextClipId,
+              ].filter((id): id is string => Boolean(id));
+              return (
+                <li key={`${warning.trackId}:${warning.from}:${warning.end}`}>
+                  <span>{label}</span>
+                  {targetIds.map((id) => {
+                    const target = doc?.clips.find((item) => item.id === id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => {
+                          setSelected(id);
+                          seek(target?.from ?? warning.from);
+                        }}
+                      >
+                        Locate {target?.label ?? id}
+                      </button>
+                    );
+                  })}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p>No long empty intervals were found on visual tracks.</p>
+        )}
+      </details>
       {conflict && (
         <p className="error" role="alert">
           The project changed on disk while you were editing. Export your draft
@@ -1238,7 +1317,10 @@ export function TimelineEditor({
           frame={frame}
           playing={playing}
           iframeRef={iframe}
-          onPreviewLoad={() => send("hello")}
+          onPreviewLoad={() => {
+            send("hello");
+            send("playback-boundary", { endFrame: playbackEndFrame });
+          }}
           onSeek={seek}
           onPlay={play}
           onPause={pause}
