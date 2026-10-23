@@ -164,3 +164,11 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Click to select visuals in Canvas, display editor-only move/resize/rotation handles, synchronized with Timeline/Inspector; selection via layer list remains available.
 - [ ] Multi-select canvas visuals with explicit modifiers and optional marquee; transform selected group consistently with one Undo operation and owner/lock checks; validate JSON and rendered MP4 after saves.
 - [ ] Separate small keyboard/playback fixes from Image asset import and broad shared Transform UI changes.
+
+
+### User-facing time units — prioritized Core UX (D-020)
+
+- [ ] Default to time in seconds/milliseconds (e.g. `00:06.500`) across relevant Timeline/Inspector/playhead/clip/subtitle controls rather than unexplained frame integers.
+- [ ] Keep canonical saved times as integer frames; implement shared frame↔time formatter/parser based on project FPS, with explicit frame rounding and no drift.
+- [ ] Preserve optional frames/SMPTE-like timecode mode for advanced users, correctly treating non-integer FPS where supported.
+- [ ] Test edit/seek/trim/save/reload at multiple FPS and minute boundaries; ensure AI JSON contracts, preview and MP4 remain unchanged.
