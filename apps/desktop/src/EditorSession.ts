@@ -46,6 +46,7 @@ export type EditorSessionCommands = Readonly<{
   setError: (message: string) => void;
   setNotice: (message: string) => void;
   getCurrentDocument: () => EditTimeline | undefined;
+  getSelectedClipId: () => string;
   getStateVersion: () => number;
 }>;
 
@@ -87,6 +88,7 @@ export function useEditorSession({
   const [saving, setSaving] = useState(false);
   const [components, setComponents] = useState<ComponentInfo[]>([]);
   const [selectedClipId, setSelectedClipId] = useState("");
+  const selectedClipIdRef = useRef("");
   const [frame, setFrame] = useState(0);
   const frameRef = useRef(
     Math.min(manifest.fps * 2, manifest.durationInFrames - 1),
@@ -402,6 +404,7 @@ export function useEditorSession({
   const commands: EditorSessionCommands = {
     edit,
     selectClip: (clipId) => {
+      selectedClipIdRef.current = clipId;
       setSelectedClipId(clipId);
       advanceStateVersion();
     },
@@ -428,6 +431,7 @@ export function useEditorSession({
     setError,
     setNotice,
     getCurrentDocument: () => documentRef.current,
+    getSelectedClipId: () => selectedClipIdRef.current,
     getStateVersion: () => stateVersionRef.current,
   };
   return { snapshot: state, commands };

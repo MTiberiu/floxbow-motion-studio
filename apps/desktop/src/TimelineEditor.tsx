@@ -618,17 +618,22 @@ export function TimelineEditor({
     components,
   ]);
   function property(field: EditableField, value: unknown) {
-    // Inspector input events can arrive before React commits the previous
-    // property edit. Extend the latest session document so a later field
-    // change cannot restore values captured by this render.
-    const current = commands.getCurrentDocument();
+    // Inspector events can arrive before React commits a prior property or
+    // selection update. Read both the document and selection from the live
+    // EditorSession so an event cannot target a stale clip from this render.
+    const liveSession = sessionRef.current;
+    const current = liveSession.commands.getCurrentDocument();
+    const selectedClipId = liveSession.commands.getSelectedClipId();
     if (!current) return;
     try {
       const next = structuredClone(current);
-      const c = next.clips.find((c) => c.id === selected);
+      const c = next.clips.find((c) => c.id === selectedClipId);
       if (!c) return;
       const validated = validateField(field, value);
-      const behavior = resolveTimelineBehavior(c.componentId, components);
+      const behavior = resolveTimelineBehavior(
+        c.componentId,
+        liveSession.snapshot.components,
+      );
       const behaviorEdit =
         field.target === "content"
           ? behavior.editContent?.(c.content, field.key, validated)
