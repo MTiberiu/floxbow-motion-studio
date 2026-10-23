@@ -1,6 +1,6 @@
 # Standalone Image clip
 
-Image assets are registered once in the project's `media.json`; Timeline clips reference the stable asset ID and have independent clip IDs and timing. Use **Media → Add PNG**, then **Add to Timeline** on the linked asset. The original image stays at its source path. The Image clip is part of Timeline v1 and uses the shared [Core Canvas interaction contract](CANVAS_CORE.md).
+Image assets are registered once in the project's `media.json`; Timeline clips reference the stable asset ID and have independent clip IDs and timing. Use **Media Library → Add PNG**, then **Add** on the linked asset to place it at the playhead. You can also drag a registered image onto Canvas to place it there, or onto a visual Timeline track to set its start time. The original image stays at its source path. The Image clip is part of Timeline v1 and uses the shared [Core Canvas interaction contract](CANVAS_CORE.md).
 
 ## Canonical JSON
 

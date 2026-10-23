@@ -82,3 +82,36 @@ export async function streamRegisteredMedia(
 }
 
 export const streamRegisteredAudio = streamRegisteredMedia;
+
+/** Stream only a validated registered PNG for the trusted shell's media thumbnail. */
+export async function streamRegisteredImage(
+  projectRoot: string,
+  assetId: string,
+  response: ServerResponse,
+) {
+  const registry = await readMediaRegistry(projectRoot);
+  const resolved = await resolveMedia(projectRoot, registry.registry, assetId);
+  if (resolved.status !== "ready" || resolved.type !== "image") {
+    response.writeHead(resolved.status === "missing" ? 404 : 422, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    response.end(
+      resolved.status === "missing"
+        ? "The registered image file is missing."
+        : resolved.status === "invalid"
+          ? resolved.message
+          : "The requested media asset is not an image.",
+    );
+    return;
+  }
+  const info = await stat(resolved.path);
+  response.writeHead(200, {
+    "Content-Type": "image/png",
+    "Content-Length": info.size,
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+  });
+  createReadStream(resolved.path).pipe(response);
+}

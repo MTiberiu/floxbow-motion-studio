@@ -20,6 +20,11 @@ import {
   frameToSeconds,
   secondsToFrame,
 } from "@motion/sdk/timeline";
+import {
+  MEDIA_ASSET_DRAG_TYPE,
+  parseMediaAssetDragData,
+  type MediaAssetDragData,
+} from "./media-drag";
 
 type Drag = {
   clip: TimelineClip;
@@ -97,6 +102,10 @@ export type TimelineViewProps = {
   onImportFile: (file: File | undefined) => void;
   onExportTiming: (format: "json" | "srt" | "lrc") => void;
   onExportDocument: () => void;
+  onDropMedia?: (
+    data: MediaAssetDragData,
+    target: { frame: number; trackId: string },
+  ) => void;
 };
 
 export function TimelineView({
@@ -124,6 +133,7 @@ export function TimelineView({
   onImportFile,
   onExportTiming,
   onExportDocument,
+  onDropMedia,
 }: TimelineViewProps) {
   const scroll = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
@@ -212,6 +222,38 @@ export function TimelineView({
         initialScale.current.frames,
   );
   const hasDocument = Boolean(document);
+
+  function allowMediaDrop(event: React.DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.types.includes(MEDIA_ASSET_DRAG_TYPE)) return;
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest(".track-lane")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function dropMedia(event: React.DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.types.includes(MEDIA_ASSET_DRAG_TYPE)) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const lane = target.closest<HTMLElement>(".track-lane");
+    if (!lane) return;
+    event.preventDefault();
+    const data = parseMediaAssetDragData(
+      event.dataTransfer.getData(MEDIA_ASSET_DRAG_TYPE),
+    );
+    const rect = lane.getBoundingClientRect();
+    const trackId = lane.dataset.track;
+    if (!data || !rect.width || !trackId || !onDropMedia) return;
+    const fraction = Math.max(
+      0,
+      Math.min(1, (event.clientX - rect.left) / rect.width),
+    );
+    const targetFrame = Math.min(
+      MAX_TIMELINE_DURATION_FRAMES - 1,
+      Math.max(0, Math.floor(fraction * displayDurationInFrames)),
+    );
+    onDropMedia(data, { frame: targetFrame, trackId });
+  }
 
   useEffect(() => {
     const element = scroll.current;
@@ -609,7 +651,12 @@ export function TimelineView({
           />
         </label>
       </div>
-      <div className="timeline-scroll" ref={scroll}>
+      <div
+        className="timeline-scroll"
+        ref={scroll}
+        onDragOverCapture={allowMediaDrop}
+        onDropCapture={dropMedia}
+      >
         <div
           className="timeline-canvas"
           style={{

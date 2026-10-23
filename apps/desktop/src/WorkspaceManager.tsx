@@ -8,7 +8,7 @@ import {
 import { DockablePanel } from "./DockablePanel";
 import "./workspace.css";
 
-export type PanelId = "editor" | "media" | "lyrics-sync" | "capabilities";
+export type PanelId = "editor" | "lyrics-sync" | "capabilities";
 export type PanelSize = { width: number; height: number };
 export type PanelRegistration = {
   id: PanelId;
@@ -30,13 +30,6 @@ export const PANEL_REGISTRY: readonly PanelRegistration[] = [
     minSize: { width: 640, height: 420 },
     preferredSize: { width: 1120, height: 760 },
     overflow: "content-managed",
-  },
-  {
-    id: "media",
-    title: "Media",
-    minSize: { width: 480, height: 360 },
-    preferredSize: { width: 900, height: 680 },
-    overflow: "panel-scroll",
   },
   {
     id: "lyrics-sync",

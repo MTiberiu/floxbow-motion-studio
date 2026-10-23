@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWorkspaceManager } from "./WorkspaceManager";
+import { MEDIA_ASSET_DRAG_TYPE } from "./media-drag";
 
 type MediaAssetView = {
   id: string;
@@ -26,6 +27,7 @@ export function MediaPanel({
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string>();
+  const [selectedAssetId, setSelectedAssetId] = useState("");
 
   const refresh = useCallback(async () => {
     if (!projectId || built) {
@@ -169,16 +171,36 @@ export function MediaPanel({
     }
   }
 
+  function beginAssetDrag(
+    event: React.DragEvent<HTMLLIElement>,
+    asset: MediaAssetView,
+  ) {
+    if (asset.status !== "ready" || !projectId || built) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.setData(
+      MEDIA_ASSET_DRAG_TYPE,
+      JSON.stringify({
+        projectId,
+        assetId: asset.id,
+        type: asset.type,
+        displayName: asset.displayName,
+      }),
+    );
+    event.dataTransfer.effectAllowed = "copy";
+  }
+
   return (
-    <section className="media-panel" aria-label="Project media">
+    <section
+      className="media-panel media-panel-sidebar"
+      aria-label="Project media"
+    >
       <header className="media-panel-header">
         <div>
-          <span className="eyebrow">PROJECT MEDIA</span>
-          <h2>Media Library</h2>
-          <p className="muted">
-            Audio and PNG files are referenced in this project. FloxBow does not
-            copy or move them.
-          </p>
+          <span className="eyebrow">PROJECT ASSETS</span>
+          <h3>Media Library</h3>
+          <p className="muted">Linked files stay at their original location.</p>
         </div>
         <div className="media-panel-actions">
           <button
@@ -243,59 +265,93 @@ export function MediaPanel({
 
       {snapshot && snapshot.assets.length > 0 && (
         <ul className="media-assets">
-          {snapshot.assets.map((asset) => (
-            <li className={`media-asset media-${asset.status}`} key={asset.id}>
-              <span className="media-asset-icon" aria-hidden="true">
-                {asset.type === "audio" ? "♫" : "▧"}
-              </span>
-              <span className="media-asset-name">
-                <strong>{asset.displayName}</strong>
-                <small>
-                  {asset.type.toUpperCase()} · {asset.id}
-                </small>
-              </span>
-              <span className={`media-asset-status ${asset.status}`}>
-                {asset.status === "ready"
-                  ? "Available"
-                  : asset.status === "missing"
-                    ? "Missing file"
-                    : "Invalid source"}
-              </span>
-              {asset.type === "image" && asset.status === "ready" && (
-                <button
-                  type="button"
-                  onClick={() => addImageToTimeline(asset)}
-                  aria-label={`Add ${asset.displayName} to Timeline`}
-                >
-                  Add to Timeline
-                </button>
-              )}
-              {asset.status !== "ready" && (
-                <span className="media-asset-warning" role="alert">
-                  {asset.status === "missing"
-                    ? "The original file cannot be found. The registry entry is preserved."
-                    : asset.message}
-                </span>
-              )}
-              <button
-                className="media-remove"
-                type="button"
-                disabled={adding || Boolean(removing) || built}
-                onClick={() => void removeAsset(asset)}
+          {snapshot.assets.map((asset) => {
+            const thumbnailUrl = `/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(asset.id)}/thumbnail`;
+            return (
+              <li
+                className={`media-asset media-${asset.status}${selectedAssetId === asset.id ? " is-selected" : ""}`}
+                key={asset.id}
+                draggable={asset.status === "ready" && !built}
+                onDragStart={(event) => beginAssetDrag(event, asset)}
+                onClick={() => setSelectedAssetId(asset.id)}
+                data-media-asset-id={asset.id}
               >
-                {removing === asset.id ? "Removing…" : "Remove from Project"}
-              </button>
-              {asset.type === "audio" && (
                 <button
+                  className="media-asset-select"
                   type="button"
-                  disabled={asset.status !== "ready" || built}
-                  onClick={() => void useAsSoundtrack(asset)}
+                  aria-label={`Select ${asset.displayName}`}
+                  aria-pressed={selectedAssetId === asset.id}
+                  onClick={() => setSelectedAssetId(asset.id)}
+                  title={asset.displayName}
                 >
-                  Use as soundtrack
+                  <span className="media-asset-preview" aria-hidden="true">
+                    {asset.type === "image" && asset.status === "ready" ? (
+                      <img
+                        src={thumbnailUrl}
+                        alt=""
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.hidden = true;
+                        }}
+                      />
+                    ) : (
+                      <span>{asset.type === "audio" ? "♫" : "▧"}</span>
+                    )}
+                  </span>
+                  <span className="media-asset-name">
+                    <strong>{asset.displayName}</strong>
+                    <small>
+                      {asset.type.toUpperCase()} · {asset.id}
+                    </small>
+                  </span>
                 </button>
-              )}
-            </li>
-          ))}
+                <span className={`media-asset-status ${asset.status}`}>
+                  {asset.status === "ready"
+                    ? "Available"
+                    : asset.status === "missing"
+                      ? "Missing file"
+                      : "Invalid"}
+                </span>
+                {asset.status !== "ready" && (
+                  <span className="media-asset-warning" role="alert">
+                    {asset.status === "missing"
+                      ? "Original file not found. Registry entry preserved."
+                      : asset.message}
+                  </span>
+                )}
+                <div className="media-asset-actions">
+                  {asset.type === "image" && asset.status === "ready" && (
+                    <button
+                      type="button"
+                      onClick={() => addImageToTimeline(asset)}
+                      aria-label={`Add ${asset.displayName} to Timeline`}
+                    >
+                      Add
+                    </button>
+                  )}
+                  {asset.type === "audio" && (
+                    <button
+                      type="button"
+                      disabled={asset.status !== "ready" || built}
+                      aria-label="Use as soundtrack"
+                      onClick={() => void useAsSoundtrack(asset)}
+                    >
+                      Soundtrack
+                    </button>
+                  )}
+                  <button
+                    className="media-remove"
+                    type="button"
+                    disabled={adding || Boolean(removing) || built}
+                    onClick={() => void removeAsset(asset)}
+                    aria-label="Remove from Project"
+                  >
+                    {removing === asset.id ? "…" : "×"}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

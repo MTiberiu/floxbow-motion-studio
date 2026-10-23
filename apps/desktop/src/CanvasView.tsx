@@ -9,6 +9,7 @@ import {
 } from "@motion/sdk/timeline";
 import { CanvasInteractionLayer } from "./CanvasInteractionLayer";
 import type { CanvasTransform } from "@motion/sdk/canvas";
+import type { MediaAssetDragData } from "./media-drag";
 
 export type CanvasViewProps = {
   manifest: ProjectManifest;
@@ -31,6 +32,10 @@ export type CanvasViewProps = {
   onCanvasTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
   onCanvasGestureEnd: () => void;
   onCanvasGestureCancel: () => void;
+  onDropMedia?: (
+    data: MediaAssetDragData,
+    position: { x: number; y: number },
+  ) => void;
 };
 
 export function CanvasView({
@@ -54,6 +59,7 @@ export function CanvasView({
   onCanvasTransform,
   onCanvasGestureEnd,
   onCanvasGestureCancel,
+  onDropMedia,
 }: CanvasViewProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const panDrag = useRef<
@@ -263,6 +269,7 @@ export function CanvasView({
             onTransform={onCanvasTransform}
             onGestureEnd={onCanvasGestureEnd}
             onGestureCancel={onCanvasGestureCancel}
+            onDropMedia={onDropMedia}
             spaceHeld={spaceHeld}
           />
         </div>

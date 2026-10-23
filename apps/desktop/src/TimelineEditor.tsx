@@ -433,6 +433,10 @@ export function TimelineEditor({
           projectId?: unknown;
           assetId?: unknown;
           displayName?: unknown;
+          fromFrame?: unknown;
+          trackId?: unknown;
+          x?: unknown;
+          y?: unknown;
         }>
       ).detail;
       if (
@@ -444,26 +448,63 @@ export function TimelineEditor({
       const live = sessionRef.current;
       const current = live.commands.getCurrentDocument();
       if (live.snapshot.projectId !== manifest.id || !current) return;
-      const from = Math.min(live.snapshot.frame, current.durationInFrames - 1);
+      const from =
+        detail.fromFrame === undefined
+          ? Math.min(live.snapshot.frame, current.durationInFrames - 1)
+          : detail.fromFrame;
+      if (
+        typeof from !== "number" ||
+        !Number.isInteger(from) ||
+        from < 0 ||
+        from >= MAX_TIMELINE_DURATION_FRAMES ||
+        (detail.x !== undefined &&
+          (typeof detail.x !== "number" ||
+            !Number.isFinite(detail.x) ||
+            detail.x < 0 ||
+            detail.x > 100)) ||
+        (detail.y !== undefined &&
+          (typeof detail.y !== "number" ||
+            !Number.isFinite(detail.y) ||
+            detail.y < 0 ||
+            detail.y > 100))
+      ) {
+        setError("The dropped image placement is invalid.");
+        return;
+      }
+      const trackId =
+        typeof detail.trackId === "string" &&
+        current.tracks.some(
+          (track) => track.id === detail.trackId && track.id !== "audio",
+        )
+          ? detail.trackId
+          : (current.tracks.find((track) => track.id === "visuals")?.id ??
+            current.tracks.find((track) => track.id !== "audio")?.id);
+      if (!trackId) {
+        setError("Add a visual Timeline track before placing an image.");
+        return;
+      }
+      const durationInFrames = Math.min(
+        current.fps * 5,
+        MAX_TIMELINE_DURATION_FRAMES - from,
+      );
+      if (durationInFrames < 1) {
+        setError("The image cannot be placed beyond the Timeline limit.");
+        return;
+      }
       const image = {
         id: `image-${crypto.randomUUID()}`,
-        trackId:
-          current.tracks.find((track) => track.id === "visuals")?.id ??
-          current.tracks[0].id,
+        trackId,
         componentId: "image",
         label:
           typeof detail.displayName === "string"
             ? detail.displayName.slice(0, 200)
             : "Image",
         from,
-        durationInFrames: Math.min(
-          current.fps * 5,
-          current.durationInFrames - from,
-        ),
+        durationInFrames,
         content: { assetId: detail.assetId },
         props: {
-          x: 50,
-          y: 50,
+          x: typeof detail.x === "number" ? detail.x : 50,
+          y: typeof detail.y === "number" ? detail.y : 50,
           width: 80,
           height: 80,
           rotation: 0,
@@ -473,17 +514,76 @@ export function TimelineEditor({
         },
       };
       live.commands.edit(
-        parseEditTimeline({ ...current, clips: [...current.clips, image] }),
+        parseEditTimeline({
+          ...current,
+          durationInFrames: Math.max(
+            current.durationInFrames,
+            from + durationInFrames,
+          ),
+          clips: [...current.clips, image],
+        }),
       );
       live.commands.selectClip(image.id);
-      setNotice(
-        `${image.label} added as an editable Image clip. Save the project to keep it.`,
-      );
+      setNotice(`${image.label} placed as an editable Image clip.`);
       workspace.activatePanel("editor");
     };
     window.addEventListener("motion-add-image", addImage);
     return () => window.removeEventListener("motion-add-image", addImage);
   }, [manifest.id, workspace]);
+
+  function handleCanvasMediaDrop(
+    data: {
+      projectId: string;
+      assetId: string;
+      type: "audio" | "image";
+      displayName: string;
+    },
+    position: { x: number; y: number },
+  ) {
+    if (data.projectId !== manifest.id) return;
+    if (data.type !== "image") {
+      setNotice(
+        "Audio is not a Canvas element. Use Soundtrack in the Media Library.",
+      );
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("motion-add-image", {
+        detail: { ...data, x: position.x, y: position.y },
+      }),
+    );
+  }
+
+  function handleTimelineMediaDrop(
+    data: {
+      projectId: string;
+      assetId: string;
+      type: "audio" | "image";
+      displayName: string;
+    },
+    target: { frame: number; trackId: string },
+  ) {
+    if (data.projectId !== manifest.id) return;
+    if (data.type === "audio") {
+      setNotice(
+        "Audio currently uses the frame-zero Soundtrack control in the Media Library.",
+      );
+      return;
+    }
+    const current = sessionRef.current.commands.getCurrentDocument();
+    if (
+      target.trackId === "audio" ||
+      (current && target.trackId === subtitleTrackId(current))
+    ) {
+      setNotice("Drop an image onto a visual track to create an Image clip.");
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("motion-add-image", {
+        detail: { ...data, fromFrame: target.frame, trackId: target.trackId },
+      }),
+    );
+  }
 
   useEffect(() => {
     if (!detachedTimeline || !window.floxBowWindows) return;
@@ -1577,6 +1677,9 @@ export function TimelineEditor({
           }}
           onCanvasGestureEnd={endCanvasGesture}
           onCanvasGestureCancel={cancelCanvasGesture}
+          onDropMedia={(data, position) =>
+            handleCanvasMediaDrop(data, position)
+          }
         />
         <button
           className="panel-splitter inspector-splitter"
@@ -1686,6 +1789,9 @@ export function TimelineEditor({
               onSeek={seek}
               onPause={pause}
               onPlay={play}
+              onDropMedia={(data, target) =>
+                handleTimelineMediaDrop(data, target)
+              }
               onBeginClipGesture={beginClipGesture}
               onTimelineOperation={(operation) => {
                 const operationError = performTimelineOperation(operation);

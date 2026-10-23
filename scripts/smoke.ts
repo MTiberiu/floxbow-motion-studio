@@ -493,7 +493,6 @@ try {
     await expect.poll(async () => (await app!.windows()).length).toBe(1);
     await expect(page.locator(".timeline-dock")).toHaveCount(1);
 
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(
       page.getByRole("region", { name: "Project media" }),
     ).toBeVisible();
@@ -871,7 +870,6 @@ try {
     expect(pickerCalls).toBe(1);
 
     await page.reload();
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(
       page.getByText("flox-smoke-audio", { exact: true }),
     ).toBeVisible();
@@ -954,9 +952,9 @@ try {
       `${JSON.stringify(concurrentRegistry, null, 2)}\n`,
     );
     releaseSecondPicker(audioFixturePath);
-    await expect(page.getByRole("alert")).toContainText(
-      "CONFLICT: The media registry changed",
-    );
+    await expect(
+      page.locator(".media-panel-sidebar [role='alert']"),
+    ).toContainText("CONFLICT: The media registry changed");
     await expect(
       page.getByText("Agent change during file selection", { exact: true }),
     ).toBeVisible();
@@ -975,9 +973,9 @@ try {
     await uiRemovedAsset
       .getByRole("button", { name: "Remove from Project" })
       .click();
-    await expect(page.getByRole("status")).toContainText(
-      "The original file was not deleted",
-    );
+    await expect(
+      page.locator(".media-panel-sidebar .media-notice[role='status']"),
+    ).toContainText("The original file was not deleted");
     expect(confirmationText).toContain("The original file will NOT be deleted");
     const afterUiRemoval = mediaRegistrySchema.parse(
       JSON.parse(await readFile(mediaFile, "utf8")),
@@ -1017,12 +1015,16 @@ try {
 
     const agentValidContents = await readFile(mediaFile, "utf8");
     await writeFile(mediaFile, "{invalid registry", "utf8");
-    await expect(page.getByRole("alert")).toContainText(/JSON|property/i);
+    await expect(
+      page.locator(".media-panel-sidebar [role='alert']"),
+    ).toContainText(/JSON|property/i);
     expect(await readFile(mediaFile, "utf8")).toBe("{invalid registry");
     const repairedTemporaryFile = `${mediaFile}.repair-tmp`;
     await writeFile(repairedTemporaryFile, agentValidContents, { flag: "wx" });
     await rename(repairedTemporaryFile, mediaFile);
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(
+      page.locator(".media-panel-sidebar [role='alert']"),
+    ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(
@@ -2045,7 +2047,9 @@ try {
       .getByLabel("Text", { exact: true })
       .fill("Draft survives panel changes");
     await setFrameFromUiTime(page, "Playhead time (seconds)", 42);
-    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Capabilities", exact: true })
+      .click();
     await expect(
       page.getByRole("region", { name: "Project media" }),
     ).toBeVisible();
@@ -2434,7 +2438,6 @@ try {
       standaloneSaved.clip.from + standaloneSaved.clip.durationInFrames,
     ).toBeGreaterThan(75);
 
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await page.getByRole("button", { name: "Add PNG", exact: true }).click();
     const imageAsset = page
       .getByRole("listitem")
@@ -2445,6 +2448,33 @@ try {
     const imageAssetText = await imageAsset.locator("small").innerText();
     const imageId = imageAssetText.split("·").at(-1)?.trim();
     expect(imageId).toMatch(/^image-[a-f0-9-]{36}$/);
+    const imageThumbnail = imageAsset.locator("img");
+    await expect(imageThumbnail).toBeVisible();
+    await expect
+      .poll(() =>
+        imageThumbnail.evaluate(
+          (image: HTMLImageElement) => image.naturalWidth,
+        ),
+      )
+      .toBeGreaterThan(0);
+    const thumbnailResponse = await fetch(
+      new URL(`/api/media/${thirdId}/assets/${imageId}/thumbnail`, servers.url),
+    );
+    expect(thumbnailResponse.status).toBe(200);
+    expect(thumbnailResponse.headers.get("content-type")).toContain(
+      "image/png",
+    );
+    expect(Buffer.from(await thumbnailResponse.arrayBuffer())).toEqual(
+      await readFile(imageFixturePath),
+    );
+    const audioThumbnailResponse = await fetch(
+      new URL(
+        `/api/media/${id}/assets/${registeredMedia.assets[0].id}/thumbnail`,
+        servers.url,
+      ),
+    );
+    expect(audioThumbnailResponse.status).toBe(422);
+
     await imageAsset
       .getByRole("button", { name: /Add .* to Timeline/ })
       .click();
@@ -2750,6 +2780,82 @@ try {
     }
     expect(orangeImagePixels).toBeGreaterThan(1_000);
 
+    const savedImageIdsBeforeDrop = new Set(
+      savedImage.document.clips
+        .filter((clip: { componentId: string }) => clip.componentId === "image")
+        .map((clip: { id: string }) => clip.id),
+    );
+    const mediaDragSource = page.locator(`[data-media-asset-id="${imageId}"]`);
+    await mediaDragSource.dragTo(page.locator(".canvas-interaction-layer"), {
+      targetPosition: { x: 420, y: 260 },
+    });
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const document = JSON.parse(await readFile(imageTimelinePath, "utf8"));
+        return document.clips.filter(
+          (clip: { id: string; componentId: string }) =>
+            clip.componentId === "image" &&
+            !savedImageIdsBeforeDrop.has(clip.id),
+        ).length;
+      })
+      .toBe(1);
+    let currentImageDocument = JSON.parse(
+      await readFile(imageTimelinePath, "utf8"),
+    );
+    const canvasDroppedImage = currentImageDocument.clips.find(
+      (clip: { id: string; componentId: string }) =>
+        clip.componentId === "image" && !savedImageIdsBeforeDrop.has(clip.id),
+    );
+    expect(canvasDroppedImage.content.assetId).toBe(imageId);
+    expect(canvasDroppedImage.props.x).not.toBe(50);
+
+    const canvasImageId = canvasDroppedImage.id as string;
+    const timelineLane = page.locator('.track-lane[data-track="visuals"]');
+    const timelineLaneBounds = await timelineLane.boundingBox();
+    expect(timelineLaneBounds).toBeTruthy();
+    await mediaDragSource.dragTo(timelineLane, {
+      targetPosition: {
+        x: Math.floor(timelineLaneBounds!.width * 0.8),
+        y: timelineLaneBounds!.height - 2,
+      },
+    });
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const document = JSON.parse(await readFile(imageTimelinePath, "utf8"));
+        return document.clips.filter(
+          (clip: { id: string; componentId: string }) =>
+            clip.componentId === "image" &&
+            !savedImageIdsBeforeDrop.has(clip.id) &&
+            clip.id !== canvasImageId,
+        ).length;
+      })
+      .toBe(1);
+    currentImageDocument = JSON.parse(
+      await readFile(imageTimelinePath, "utf8"),
+    );
+    const timelineDroppedImage = currentImageDocument.clips.find(
+      (clip: { id: string; componentId: string }) =>
+        clip.componentId === "image" &&
+        !savedImageIdsBeforeDrop.has(clip.id) &&
+        clip.id !== canvasImageId,
+    );
+    expect(timelineDroppedImage.content.assetId).toBe(imageId);
+    expect(timelineDroppedImage.id).not.toBe(canvasImageId);
+    expect(timelineDroppedImage.trackId).toBe("visuals");
+    expect(timelineDroppedImage.from).toBeGreaterThan(0);
+
     await selectProject(id);
     await expect(
       page
@@ -2819,7 +2925,6 @@ try {
     await expect(
       page.getByRole("button", { name: "Detach Timeline", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await unlink(audioFixturePath);
     const missingAudio = page
       .getByRole("listitem")

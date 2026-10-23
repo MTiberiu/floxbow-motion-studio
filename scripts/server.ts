@@ -14,7 +14,7 @@ import {
 } from "./media-store";
 import { pickMediaFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
-import { streamRegisteredMedia } from "./media-stream";
+import { streamRegisteredImage, streamRegisteredMedia } from "./media-stream";
 import { probeAudioDuration } from "./audio-probe";
 import { resolveMedia } from "@motion/project-loader/media";
 import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
@@ -230,6 +230,10 @@ export async function startServers(
             route.length === 4 &&
             route[1] === "assets" &&
             route[3] === "transcription";
+          const imageThumbnail =
+            route.length === 4 &&
+            route[1] === "assets" &&
+            route[3] === "thumbnail";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
@@ -241,7 +245,8 @@ export async function startServers(
             route.length !== 1 &&
             !removingAsset &&
             !soundtrackProbe &&
-            !transcription
+            !transcription &&
+            !imageThumbnail
           ) {
             res.writeHead(404).end("Unknown media operation");
             return;
@@ -363,6 +368,10 @@ export async function startServers(
             }
             return;
           }
+          if (imageThumbnail && req.method !== "GET") {
+            res.writeHead(405).end();
+            return;
+          }
           if (built) {
             res
               .writeHead(409)
@@ -372,6 +381,14 @@ export async function startServers(
             return;
           }
           const projectRoot = path.join(projectsDir, id);
+          if (imageThumbnail) {
+            await streamRegisteredImage(
+              projectRoot,
+              decodeURIComponent(route[2]),
+              res,
+            );
+            return;
+          }
           if (soundtrackProbe) {
             if (req.method !== "GET") {
               res.writeHead(405).end();

@@ -413,6 +413,11 @@ function StudioShell() {
               </span>
             </div>
           </div>
+          <MediaPanel
+            key={selected}
+            projectId={selected}
+            built={state?.built ?? false}
+          />
           <div className="agent-note">
             <span>↗</span>
             <h4>Made for your AI agent.</h4>
@@ -478,8 +483,6 @@ function StudioShell() {
             }
             if (id === "lyrics-sync")
               return <div className="auxiliary-view"><Lyrics key={selected} id={selected} /></div>;
-            if (id === "media")
-              return <div className="auxiliary-view"><MediaPanel key={selected} projectId={selected} built={state?.built ?? false} active={active} /></div>;
             if (id === "capabilities")
               return <div className="auxiliary-view"><CapabilitiesExplorer /></div>;
             const exhaustive: never = id;

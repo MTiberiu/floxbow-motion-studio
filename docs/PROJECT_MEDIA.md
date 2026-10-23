@@ -1,6 +1,6 @@
 # Project Media Registry
 
-The media registry currently supports linked MP3/WAV audio and PNG images. It gives each project asset a stable ID and human-readable name while leaving the source file at its original location. Registration does not copy or move media. An asset ID identifies a source file; Timeline clip IDs identify separate uses of that asset.
+The Media Library appears in the left project browser and supports linked MP3/WAV audio and PNG images. It gives each project asset a stable ID and human-readable name while leaving the source file at its original location. Registration does not copy or move media. An asset ID identifies a source file; Timeline clip IDs identify separate uses of that asset.
 
 ## Public API
 
@@ -17,7 +17,7 @@ const registry: MediaRegistry = mediaRegistrySchema.parse(JSON.parse(text));
 const result = await resolveMedia(projectRoot, registry, "song-main");
 ```
 
-The resolver returns `ready` with a host-only path, `missing` when a registered file no longer exists, or `invalid` when its entry, path, file type, extension, or basic format signature is unsuitable. It only resolves IDs present in a valid registry. Keep the `ready.path` in a Node host process; do not send it to the browser preview. For audio, the user can choose **Use as soundtrack**. For a PNG, **Add to Timeline** creates an editable Image clip that references the registered asset. Preview and rendering receive same-origin streaming URLs, not host paths.
+The resolver returns `ready` with a host-only path, `missing` when a registered file no longer exists, or `invalid` when its entry, path, file type, extension, or basic format signature is unsuitable. It only resolves IDs present in a valid registry. Keep the `ready.path` in a Node host process; do not send it to the browser preview. The left Media Library shows PNG thumbnails or an audio icon, availability and actions. For audio, choose **Soundtrack**. For a PNG, **Add** places an editable Image clip at the playhead; dragging the asset onto Canvas creates a clip at that position, and dragging it onto a visual Timeline track creates a separately timed clip. Preview and rendering receive same-origin streaming URLs, not host paths.
 
 ## Project file format
 
@@ -54,15 +54,15 @@ The browser sends no file path. The host accepts a revision and media type, chec
 
 Use an explicit project folder and the stable ID supplied by the user. Do not identify a target by display name alone.
 
-**UI to agent:** register two or more files in the Media panel, remove one there, then have the external agent read that project's `media.json`. Validate it with `mediaRegistrySchema` from `@motion/project-loader/media` and report the remaining IDs. Confirm only the chosen ID is absent and the other entries and source files remain unchanged.
+**UI to agent:** register two or more files in the left Media Library, remove one there, then have the external agent read that project's `media.json`. Validate it with `mediaRegistrySchema` from `@motion/project-loader/media` and report the remaining IDs. Confirm only the chosen ID is absent and the other entries and source files remain unchanged.
 
-**Agent to UI:** ask the external agent to remove exactly one named stable ID from the explicit project's `media.json`. The agent should read the file and its hash, parse and validate the registry, confirm the requested ID exists, remove only that entry, validate the result, write a temporary file beside `media.json`, recheck that the original hash has not changed, and atomically rename the temporary file over `media.json`. It should reread and validate the result, confirm every other entry is unchanged, and verify the original media file remains untouched. The open Media panel should update within its polling interval without restarting the app.
+**Agent to UI:** ask the external agent to remove exactly one named stable ID from the explicit project's `media.json`. The agent should read the file and its hash, parse and validate the registry, confirm the requested ID exists, remove only that entry, validate the result, write a temporary file beside `media.json`, recheck that the original hash has not changed, and atomically rename the temporary file over `media.json`. It should reread and validate the result, confirm every other entry is unchanged, and verify the original media file remains untouched. The left Media Library should update within its polling interval without restarting the app.
 
 For a real external coding agent, use this manual acceptance checklist:
 
 - [ ] Give the agent the exact project folder and one stable asset ID to remove.
 - [ ] Confirm it validates `media.json` before and after editing and leaves every other asset unchanged.
-- [ ] Confirm the Media panel reflects the edit without restarting FloxBow.
+- [ ] Confirm the left Media Library reflects the edit without restarting FloxBow.
 - [ ] Confirm the original media source still exists and is unchanged.
 
 The automated smoke test exercises the same file contract using a test process; it does not call a separate AI coding agent. Mark the checklist only after a real agent run.
@@ -71,7 +71,7 @@ Direct file edits do not share the editor process's in-memory write lock or revi
 
 ## Soundtrack workflow
 
-1. Create or select a project and open **Media**.
+1. Create or select a project and use the **Media Library** in the left project browser.
 2. Choose **Add Audio**, select an MP3 or WAV in the native file picker, then choose **Use as soundtrack** for that asset.
 3. FloxBow adds a visible clip to the **Audio** track at frame zero. It extends the editable Timeline and project duration when the audio is longer, without shortening other clips. Selecting another soundtrack replaces the existing soundtrack clip; this is not a mixing workflow.
 4. Save the project. The preview uses the existing Remotion Player transport for sound, Canvas and playhead; the detached Timeline controls that same transport. The project can keep its saved subtitle clips in the **Captions** track, and the starter composition renders a black frame behind white captions.

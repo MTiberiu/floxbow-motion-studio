@@ -10,6 +10,7 @@ import {
   type CanvasViewportSize,
 } from "@motion/sdk/canvas";
 import type { ComponentInfo, EditTimeline } from "@motion/sdk/timeline";
+import { MEDIA_ASSET_DRAG_TYPE, parseMediaAssetDragData } from "./media-drag";
 
 type Point = { x: number; y: number };
 type Gesture = {
@@ -34,6 +35,10 @@ export type CanvasInteractionLayerProps = {
   onTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
   onGestureEnd: () => void;
   onGestureCancel: () => void;
+  onDropMedia?: (
+    data: NonNullable<ReturnType<typeof parseMediaAssetDragData>>,
+    position: { x: number; y: number },
+  ) => void;
   spaceHeld?: boolean;
 };
 
@@ -96,6 +101,7 @@ export function CanvasInteractionLayer({
   onTransform,
   onGestureEnd,
   onGestureCancel,
+  onDropMedia,
   spaceHeld = false,
 }: CanvasInteractionLayerProps) {
   const root = useRef<HTMLDivElement>(null);
@@ -368,6 +374,32 @@ export function CanvasInteractionLayer({
     return `${(value / dimension) * 100}%`;
   }
 
+  function allowMediaDrop(event: React.DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.types.includes(MEDIA_ASSET_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
+
+  function dropMedia(event: React.DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.types.includes(MEDIA_ASSET_DRAG_TYPE)) return;
+    event.preventDefault();
+    const data = parseMediaAssetDragData(
+      event.dataTransfer.getData(MEDIA_ASSET_DRAG_TYPE),
+    );
+    const rect = root.current?.getBoundingClientRect();
+    if (!data || !rect || !onDropMedia) return;
+    onDropMedia(data, {
+      x: Math.max(
+        0,
+        Math.min(100, ((event.clientX - rect.left) / rect.width) * 100),
+      ),
+      y: Math.max(
+        0,
+        Math.min(100, ((event.clientY - rect.top) / rect.height) * 100),
+      ),
+    });
+  }
+
   return (
     <div
       ref={root}
@@ -377,6 +409,8 @@ export function CanvasInteractionLayer({
       onPointerMove={move}
       onPointerUp={end}
       onPointerCancel={(event) => end(event, true)}
+      onDragOver={allowMediaDrop}
+      onDrop={dropMedia}
     >
       {elements.map((item) => {
         const isSelected = selectedIds.includes(item.id);
