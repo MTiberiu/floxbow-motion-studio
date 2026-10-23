@@ -67,3 +67,13 @@ The owner specifically requests a **task-oriented guide**, not a generic API inv
 Ask a fresh AI agent, without extra project history: **"Start with a 2D background and animated text. Add a lit, rotating Three.js cube above it, at x=60%, y=30%, with a 300×200 pixel viewport and no opaque rectangle. Keep text above the cube, support seek to frame 90, then export MP4."** The agent should locate the official example, use documented APIs, modify only project code/canonical data as supported, and produce reproducible preview/export without installing another copy of React. Also test a pure 2D scene and a full-frame 3D scene. If no supported API exists, docs must explicitly say so rather than invent imports.
 
 This is a **future implementation+documentation acceptance requirement**, not proof the 3D integration is already available. Avoid telling the active editor developer to build it before the agreed milestone.
+
+## Animator validation — actual 300x200 Three.js overlay experiment
+
+Owner relayed animator's firsthand technical notes (2026-10-23): the existing composition remained 2D and an independent **300 × 200 px Three.js viewport** was overlaid. The viewport rectangle was positioned in **2D composition coordinates**; cube, lights, and camera existed in **3D world coordinates**. This supports three official future workflows: 2D only, full-frame 3D, and mixed 2D + editable 3D viewport layers above/below 2D content.
+
+**Public API target (names illustrative, not implemented):** a transparent 3D overlay should accept 2D x/y/width/height, stacking order, frame/time, and 3D scene content. The editor should expose the 3D viewport as a canonical Timeline clip/layer with existing shared Canvas selection/placement/size controls wherever supported, not merely a React component in preview. World coordinates and viewport coordinates must be clearly distinguished.
+
+**Integration responsibilities:** centrally owned compatible Three.js/React versions, reliable Vite dependency/cache handling, transparency/compositing, preview/MP4 parity, and arbitrary-frame seek. Confirm behavior by automated development and built tests. The API removes integration boilerplate; it **does not automatically produce artistic effects** such as globe geography, Fresnel atmosphere, points, routes or shaders.
+
+**First vertical slice acceptance:** 2D background, 300x200 transparent 3D lit cube overlay independently positioned and timed, 2D foreground label, selection and editing of the viewport layer, seek backward/forward, save/reload, MP4 without editor controls. Document actual imports/examples only after running them. No broad 3D framework or new scene graph before this is proven.
