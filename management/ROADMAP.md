@@ -150,3 +150,8 @@ Introduce a shared project-FPS-aware UI formatter/parser for seconds/millisecond
 ### Primary adoption gate — zero-repeat local agent handoff
 
 Before investing in MCP or a large tooling surface, implement/prototype a minimal repository-local **START_HERE / AGENTS / Skill** entrypoint for developer, manager and animator workflows using existing management docs, actual Git/CI state and live project/capability JSON. Evaluate with a completely fresh agent context: can it answer what exists, what is approved, what's broken, what's next, and how to resume a video project without asking the owner to re-explain? Keep it concise, maintainable and version-matched via Git checkout. This is the core personal productivity purpose of agent integration; CLI and optional local MCP follow demonstrable workflow gaps.
+
+
+### Manager-first continuity gate
+
+**Priority before advanced AI transports:** give the owner's main AI **manager** a short, reliable cold-start handoff: project purpose and decision authority, current verified status, active next decision/task, and links to DECISIONS/ROADMAP/BACKLOG. The manager translates owner feedback into developer-ready directives, coordinates review/approval, and updates durable docs. Developer onboarding (AGENTS/STATUS/NEXT_TASK/targeted decisions) is downstream. Acceptance: a fresh manager can prepare a correct scoped developer instruction and identify the current review gate without the owner re-explaining prior work. Preserve local GitHub-checkout workflows; no hosted services or authentication platform.
