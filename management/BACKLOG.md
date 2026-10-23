@@ -93,3 +93,19 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 | Visibility and filtering       | Hide/lock/mute/solo behavior distinct from Timeline-only group/filter projections                                                |
 
 **Regression example:** two audio clips on different tracks and a Subtitles module transcribing the _selected_ source; standalone image/video/text still work without any module activation. Whisper original and external Codex revision are independently editable and visible. One shared end-to-end fixture must cover save/reload and MP4. Cross-platform development uses fast local targeted tests plus full CI at integration boundaries.
+
+
+## Explicit near-term Core V1 handoff — PR #32 and beyond
+
+| Item | Verified / intended status | Next evidence required |
+| --- | --- | --- |
+| Standalone Text on Timeline | PR #32 reviewed and CI green, merge authorized but **still open** at this handoff | Verify actual merge on `dev`, then preserve documented JSON/Inspector/Remotion tests |
+| Core Editor V1 technical audit | Completed and reviewed | Apply its current-state findings; do not re-request the same audit |
+| Canonical AI↔JSON↔UI contract | Partially implemented for Timeline; D-016 is mandatory principle | Show real bidirectional changes with dirty-draft protection and MP4 validation for every new built-in |
+| Media Library, Image, Video | Planned next: asset registration separate from clip placement | Image at 6 seconds: one asset ID, one clip ID, external JSON change, UI correction, MP4 frame |
+| Multi-audio | Missing despite fixed single soundtrack support | Two tracks, overlapping clips, move/volume, decodable correctly mixed MP4 |
+| Module hierarchy and Whisper revisions | Committed and unimplemented | Original, manual and Codex sets never overwrite one another; layer-wide appearance and show/hide |
+| Core module API | Audit reviewed, no final universal interface approved | Expose only justified, typed, validated module-facing services; reuse EditorSession and Timeline |
+| Long-term releases | Agreed policy, no stable release published | Versioned tag/release, compatibility, migration and contributor guidance before first stable release |
+
+**Note:** Grouping/filtering, multi-selection/group movement, snapping, richer Text fonts/presets, transforms, keyframes/effects, waveform and media relinking remain requirements or planned enhancements, **not** capabilities to claim already implemented. The development goal is an AI-editable conventional Core editor with optional module-owned groups on the same Timeline.
