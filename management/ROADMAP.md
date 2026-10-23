@@ -59,3 +59,23 @@ These requirements are agreed **product targets**, not implemented features or p
 **Near-term focus:** deliver a working end-to-end human + external Codex subtitle correction/comparison experience, not abstract infrastructure with no user-facing proof. Technical design and PR sequencing require separate audit/approval. PR #29 and subsequent Timeline tasks remain separately scoped.
 
 **Existing baseline:** PR #25 implemented soundtrack preview/export; PR #26 implemented direct local Whisper-to-Timeline transcription; PR #27 updated creator instructions; PR #28 added Timeline zoom. Whisper music accuracy and end-to-end external-agent correction are **not** yet validated.
+
+
+## Core Editor V1 — integrated architecture and acceptance plan (new direction, 2026-10-23)
+
+**Next planning deliverable after existing reviewed PRs:** an evidence-based **Core API Contract V1** audit; **not** a speculative bulk rewrite. The audit must inventory what already exists in SDK, EditorSession, media registration, player/renderer, module behaviors, schema and Inspector, and precisely identify missing module-facing contracts.
+
+**One integrated product milestone, reviewable engineering increments:**
+
+1. Finish essential Timeline operations and group editing, with one canonical timeline and conventional standalone tracks.
+2. Make Text, Audio, Image and Video first-class core content types on standard tracks, accessible without specialized modules; implement unified Media Library plus media drag-to-Timeline placement.
+3. Build reusable core service contracts for transforms/layout, basic animation/keyframes, effects/compositing, common text styles, selection/commands, layer visibility/lock/mute, project persistence/migration and preview/render. Separate essential MVP from ambitious advanced capabilities based on actual audit.
+4. Add module-owned groups/layers on the **same Timeline**, reusing shared core APIs and obeying edit ownership boundaries. Support alternative Timeline group/filter views without altering playback/export.
+5. Validate the first end-to-end module: selected audio → Whisper original → independent external Codex correction layer → compare, style, save/reload and correct MP4.
+6. Adapt other existing modules incrementally; verify no old project data is destroyed.
+
+**Acceptance fixture:** a real user-facing project with at least two overlapping/independent audio clips, image, video, standalone text, reusable transforms, a simple animation, and separate Whisper/Codex caption sets, plus module-owned layers. User can import/place/edit/move/copy, preview/seek, persist/reload and export the same composition. Validate audio mixing and timing in MP4. Do not claim completion for behavior only simulated in UI. Existing soundtrack-only limits remain explicit until proven lifted.
+
+**Test strategy:** fast focused tests per change; required automated CI and targeted Electron/render regression at reviewable integration points; one comprehensive end-to-end acceptance scenario for the integrated milestone. This aims to reduce redundant human test cycles, not remove safeguards.
+
+**Sequencing:** review/merge PR #31 separately when approved, then reconcile open documentation PR #30 with current `dev`. Execute the Core API audit before authorizing a large implementation. The already approved Transcript/Timeline/Release requirements remain in force.
