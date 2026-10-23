@@ -93,3 +93,74 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 | Visibility and filtering       | Hide/lock/mute/solo behavior distinct from Timeline-only group/filter projections                                                |
 
 **Regression example:** two audio clips on different tracks and a Subtitles module transcribing the _selected_ source; standalone image/video/text still work without any module activation. Whisper original and external Codex revision are independently editable and visible. One shared end-to-end fixture must cover save/reload and MP4. Cross-platform development uses fast local targeted tests plus full CI at integration boundaries.
+
+
+## Explicit near-term Core V1 handoff — PR #32 and beyond
+
+| Item | Verified / intended status | Next evidence required |
+| --- | --- | --- |
+| Standalone Text on Timeline | **Merged in `dev`** via PR #32 at `bb2402ab115e31974480e52a65189444c3360696` | Preserve documented JSON/Inspector/Remotion round-trip tests; extend reusable Core properties later |
+| Core Editor V1 technical audit | Completed and reviewed | Apply its current-state findings; do not re-request the same audit |
+| Canonical AI↔JSON↔UI contract | Partially implemented for Timeline; D-016 is mandatory principle | Show real bidirectional changes with dirty-draft protection and MP4 validation for every new built-in |
+| Media Library, Image, Video | Planned next: asset registration separate from clip placement | Image at 6 seconds: one asset ID, one clip ID, external JSON change, UI correction, MP4 frame |
+| Multi-audio | Missing despite fixed single soundtrack support | Two tracks, overlapping clips, move/volume, decodable correctly mixed MP4 |
+| Module hierarchy and Whisper revisions | Committed and unimplemented | Original, manual and Codex sets never overwrite one another; layer-wide appearance and show/hide |
+| Core module API | Audit reviewed, no final universal interface approved | Expose only justified, typed, validated module-facing services; reuse EditorSession and Timeline |
+| Long-term releases | Agreed policy, no stable release published | Versioned tag/release, compatibility, migration and contributor guidance before first stable release |
+
+**Note:** Grouping/filtering, multi-selection/group movement, snapping, richer Text fonts/presets, transforms, keyframes/effects, waveform and media relinking remain requirements or planned enhancements, **not** capabilities to claim already implemented. The development goal is an AI-editable conventional Core editor with optional module-owned groups on the same Timeline.
+
+
+## Scene editing and AI timeline operations — planned, not implemented (D-017)
+
+- [ ] Introduce Core scenes with stable IDs, duration/start in frames, and associations to clips/layers on the existing Timeline, compatible with module ownership and save migration.
+- [ ] Clip-only duration edit (default): selected item changes without moving scene boundaries or later scene starts; warn when crossing a boundary or colliding.
+- [ ] Explicit scene ripple duration: scene delta shifts subsequent scenes and associated elements atomically; optional internal ripple shifts clips after a specified anchor while preserving IDs, duration and linked timing semantics.
+- [ ] Explicit handling for boundary-spanning clips, protected/locked tracks, audio sync, cross-scene overlays, negative durations, overlaps and project end; preview scope, safe rollback and Undo/Redo.
+- [ ] Shared validated edit operation contract for external Codex and UI: target ID, mode, delta/new duration, anchor/scope, conflict/revision check, deterministic updated JSON; avoid requiring agents to manually adjust every downstream timestamp.
+- [ ] Acceptance fixture: scene A 10s and B 8s; extending a caption within A leaves B fixed; expanding A by 2s shifts B and specified in-scene downstream elements by exactly 2s; JSON/UI/preview/MP4 agree after external AI edit and subsequent human correction.
+
+
+## AI agent discovery and tool interfaces — explicitly deferred (D-018)
+
+- [ ] During Core clip development, make registered capabilities machine-discoverable (type, supported fields/operations, constraints, version and error semantics); do not duplicate editor logic in agent adapters.
+- [ ] After successful Media Library/Image bidirectional JSON-to-UI-to-render proof, review a minimal **Agent Skill + CLI** for discover/list, validate, edit, and render using canonical Core transactions.
+- [ ] Ensure direct JSON and CLI edits share validation, stable-ID targeting, conflict/revision protection, preview/render results and ownership limits; document safe external-agent write procedure.
+- [ ] Once shared Core operations and a real agent workflow are stable, evaluate **MCP as optional thin adapter** over the same API (not the authoritative data store, editing engine or primary documentation).
+- [ ] When an effect is missing, capability discovery should return supported alternatives and a scoped SDK extension path; new module code requires explicit development permissions, validation and trust checks.
+- [ ] Benchmark context/token overhead, integration usability, security boundaries and maintenance before selecting MCP transport. No general autonomous plugin installation in initial Core Editor V1.
+
+
+## Shared spatial Inspector UX — planned (D-019)
+
+- [ ] Shared 2D XY pad/joystick for free-direction positioning, including diagonals, with live preview and exact X/Y entry.
+- [ ] Shared rotary dial/ring for rotation, with drag-to-angle and exact degree entry; define coordinate, anchor and angle conventions.
+- [ ] Direct on-canvas move/rotate affordances where appropriate; snapping, keyboard accessibility and reset.
+- [ ] One drag gesture = one atomic, undoable Core transform operation; conflict-safe JSON persistence and preview/MP4 parity.
+- [ ] Reuse controls for Text/Image/Video and module-owned clips; prototype after first Image round-trip, not in initial import PR.
+
+
+### Immediate blocker and Image implementation gate (2026-10-23)
+
+- [ ] Investigate reproducible third-project subtitle save mismatch (`New subtitle` saved instead of `Caption belongs to project three`) from PR #33 Electron smoke; fix underlying state/persistence race in focused PR without weakening assertions.
+- [ ] Rebase/refresh PR #33 onto repaired `dev`; require passing CI for its **actual latest HEAD**, not a previously green SHA.
+- [ ] Review proposed **PNG-first Image** slice (audit complete, not yet implemented): host-only image path, stable reused media assetId, independent clip IDs, native file picker, Timeline placement at 6s, Inspector position/scale and duration, external AI JSON round trip, dirty draft protection, MP4 representative-frame check.
+- [ ] At shared Inspector Transform implementation (after first Image JSON/MP4 proof), make XY pad and rotation dial **selection-first quick controls** usable for small/offscreen/overlapped objects; direct Canvas click must not be required; retain numerical precision, Center/Reset and single-step undo.
+
+
+### Canvas selection and direct manipulation — high-priority shared Core UX (D-019)
+
+- [ ] Click/select supported visual elements on Canvas; selection synchronized across Timeline/layer list and Inspector, with clear stacked overlap behavior.
+- [ ] Shared editor-only selection box, move drag, resize handles, rotation handle; reasonable aspect-ratio constraints, snapping, zoom scaling and keyboard/fine adjustments.
+- [ ] Reuse canonical transforms and Core transaction/Undo; ensure drag/rotate/resize commit safely to project JSON and preview/export exactly, not to a visual-only overlay.
+- [ ] Modules declare transform support; lock/hidden/off-canvas and audio-only elements have correct special behavior; small targets selectable via layer list and Inspector XY/dial.
+- [ ] Prototype after first Image round trip, then extend to Text/Video and module-owned visuals; review scope separately from basic PNG import PR.
+
+
+### Player and Canvas usability — next prioritized work
+
+- [ ] Space toggles Play/Pause when keyboard focus is in editor, Timeline or Canvas; never hijacks text entry, dialogs or focused native button actions; test docked/detached and seeking/playback state consistency.
+- [ ] Investigate intermittent embedded player Play/Pause failures with reproducible traces; retain current Remotion preview transport pending evidence.
+- [ ] Click to select visuals in Canvas, display editor-only move/resize/rotation handles, synchronized with Timeline/Inspector; selection via layer list remains available.
+- [ ] Multi-select canvas visuals with explicit modifiers and optional marquee; transform selected group consistently with one Undo operation and owner/lock checks; validate JSON and rendered MP4 after saves.
+- [ ] Separate small keyboard/playback fixes from Image asset import and broad shared Transform UI changes.

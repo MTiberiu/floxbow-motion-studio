@@ -77,3 +77,66 @@ These requirements are agreed **product targets**, not implemented features or p
 **Test strategy:** fast focused tests per change; required automated CI and targeted Electron/render regression at reviewable integration points; one comprehensive end-to-end acceptance scenario for the integrated milestone. This aims to reduce redundant human test cycles, not remove safeguards.
 
 **Sequencing:** review/merge PR #31 separately when approved, then reconcile open documentation PR #30 with current `dev`. Execute the Core API audit before authorizing a large implementation. The already approved Transcript/Timeline/Release requirements remain in force.
+
+
+## Operational handoff — 2026-10-23 (for a new developer or AI agent)
+
+**Source of truth:** start by reading [DECISIONS.md](DECISIONS.md), [BACKLOG.md](BACKLOG.md), [Core Text JSON contract](../docs/STANDALONE_TEXT.md) **once PR #32 merges**, [Timeline guide](../docs/TIMELINE_EDITOR.md), and the real `dev` code. Verify GitHub PR states before stating a capability is merged. Historical planning notes above can be stale.
+
+**Merged milestones confirmed:** PR #29 Timeline extension and PR #31 universal editing/Play/seek are integrated in `dev`; PR #30 integrated documentation, latest verified merge `f09a52dc10c36103f1a2cfc85d876c7700b27cb`.
+
+**Merged Core Text milestone:** PR #32, [Standalone editable Text clips](https://github.com/MTiberiu/floxbow-motion-studio/pull/32), merged into `dev` at `bb2402ab115e31974480e52a65189444c3360696`. Standalone Text now has JSON-backed text, X/Y, font size, color and alignment in Inspector/Canvas and saved Remotion output. This is an initial narrow contract, **not** the complete Core project model.
+
+**Core Editor V1 technical audit completed** (developer report received). Findings: Timeline v1/EditorSession/media MP3-WAV registry/subtitle tooling/Remotion provide partial foundations; React composition can still own creative content, there is no comprehensive standalone image/video/multi-audio Core, no module-owned layer schema, and Whisper regeneration can replace unrelated subtitle clips after confirmation. Audit proposed a versioned canonical model, stable ownership, typed built-ins, protected external edits and a single integrated acceptance project. Audit was accepted **with modified implementation sequence**: verify AI↔JSON↔UI round-trip immediately through standalone Text (PR #32), rather than delivering only abstract infrastructure.
+
+**Next approved planning direction (not automatic code authorization):**
+1. PR #32 has merged: retain and regression-test Text JSON→Inspector/Canvas→save→MP4 parity as the baseline.
+2. **Next implementation proposal:** unified Media Library and first-class Image/Video registration **separate from** placement on ordinary Timeline tracks. Stable asset IDs, individual clip IDs, image at 6s, agent JSON edit, Inspector correction, save/reload, representative rendered frame; assess video decoding/security and avoid fake UI-only support.
+3. Extend multi-track audio with movable clips, volume/mix and proven preview/MP4 parity; soundtrack remains locked until verified.
+4. Complete common Core services and module-facing validated contracts: typed properties, shared text/fonts/styles, transforms, basic animation, Inspector, selection/group editing, visibility and ownership.
+5. Deliver module-owned Whisper Original and Codex Revised sets for explicitly selected audio, with safe scoped regeneration and independent styling/visibility, preserving manual captions.
+6. Run one end-to-end acceptance project (standalone text, image, video, at least two audio tracks, module subtitle layers) with external Codex round-trip and MP4 verification.
+
+**Non-negotiable workflow:** AI agent does most edits via documented project data; human reviews and adjusts via UI. Changes must be bidirectional, validated, conflict-safe, and persist through export. Build reviewable PRs with tests; do not start new work automatically after any merge. `main` and user-owned projects/media remain untouched.
+
+
+## Future Core scene editing milestone (D-017)
+
+After standard clips and project-data round trips are reliable, add first-class scenes on the **same canonical Timeline**, plus explicit clip-only trim and scene-duration ripple operations. A 10-second scene expanded by 2 seconds moves all following scenes by 2 seconds; elements after a user-selected ripple anchor **inside** the scene also shift, while a subtitle extended within the current scene need not move anything else. Provide clear handle/mode UI, overlap/locked/linked-audio policy, scope preview, transaction/Undo, and AI-callable validated edit operations that save deterministic JSON. Do not implement by making Codex rewrite every clip start frame. Do not silently ripple when merely extending an individual subtitle. Scene/group model must coexist with module-owned layers and external JSON change protection.
+
+**Scheduling:** this is a later Core milestone, not part of the first Media Library + Image/Video PR. Confirm product semantics and timing boundaries in a focused design review before coding.
+
+
+## Agent interface decision gates — D-018
+
+**Now / during Core clip work:** retain a single canonical JSON model, validated operations, stable IDs, capability schemas, ownership checks, and explicit revision safety. Design each new Core function so it can later be discovered and invoked without reading internal source.
+
+**After Media Library + first Image round-trip is proven:** review a **small Agent Skill and CLI discovery/validation/editing proof** using the existing Core API. Measure whether Codex can discover supported Text/Image properties, edit a saved project, validate/reload, and avoid consulting the app's React implementation. This is a review gate, not automatic approval to implement a general agent platform.
+
+**After reusable Core operations (including structural scene/ripple operations where available) and a real end-to-end external-agent workflow:** assess whether a **thin MCP adapter** offers practical agent interoperability beyond Skills + CLI. It must delegate to the same Core edit engine, expose only narrowly scoped safe tools/resources, and respect human drafts and permissions. Defer a large MCP server, general autonomous module installation and background agent orchestration.
+
+**Continue immediate feature order:** stabilize and merge PR #33 documentation, then plan the Image/Media Library slice. Agent transport work must not delay the editor's missing fundamentals.
+
+
+## Direct-manipulation Inspector UX gate — D-019
+
+Once Image clips have a validated transform/JSON round trip, prototype an **XY joystick-style position pad** (diagonal movement included) and a **circular rotation dial** in the shared Inspector, with direct Canvas controls where suitable. Keep exact numeric fields, keyboard support and reset. Both UI modes and future AI tools must modify the same canonical transform data. Verify drag gesture = one undoable operation, and JSON/preview/MP4 parity. Evaluate as a focused shared-Transform UX increment, not an Image-import blocker.
+
+
+### Integration blocker observed before first Image implementation — 2026-10-23
+
+Documentation-only PR #33 remains open, with failing CI at the latest checked HEAD. The Electron smoke on `scripts/smoke.ts` near line 1997 observed saved third-project subtitle text `New subtitle` rather than expected `Caption belongs to project three`. This is a real UI→save mismatch needing root-cause analysis; do not dismiss as flaky or waive the assertion. The failed run may be a race or application state bug; its root cause is **not yet determined**. Previously reported green runs for older commits cannot authorize the current PR HEAD. CI and merge status are volatile: verify the live PR HEAD rather than trusting the SHA in this note.
+
+**Execution gate:** reproduce/fix the subtitle Inspector/persistence regression in a narrow code PR against `dev`, deterministic test without arbitrary sleeps; then refresh/revalidate PR #33 and merge only with successful CI. The Image audit is complete but implementation has **not** started or been approved. Its proposed minimal next slice: PNG asset registration via native picker, stable asset IDs distinct from Image clip IDs, safe host-only path resolution, ordinary Image Timeline clip at 6s, shared Inspector position/scale, external JSON reload/conflict, and preview/MP4 verification. Review implementation scope after the save bug is resolved. Do not let joystick/dial work expand the initial Image PR.
+
+
+### Canvas manipulation priority (D-019 refinement)
+
+After standalone Image JSON/Inspector/MP4 integration, prioritize a reviewable **shared Canvas Transform overlay**: click/select visual elements, drag to move, resize handles, rotation handle, live preview, fine snapping and keyboard/Inspector fallback. It must apply consistently to standalone Text/Image/Video and opted-in module-owned spatial content; do not attach geometric handles to audio-only clips. Selection must synchronize Timeline, Canvas and Inspector; tiny/offscreen/overlapping items remain selectable from the layer list and adjustable by XY/dial. Editor-only handles must not render into MP4. Validate one drag as one Undo step and identical saved JSON/preview/export values. This takes priority over solely cosmetic Inspector redesign.
+
+
+### Immediate editor usability gates — Space, Canvas selection and preview transport
+
+**Short-term, separate PR:** audit existing playback focus and keyboard architecture, implement Space to toggle Play/Pause in editor context without interfering with typing, focused buttons, dialogs or system shortcuts; verify docked/detached editor, seeking behavior, and a reproducible playback-resume regression. Investigate intermittent preview/player failures, keeping the current Remotion transport unless real evidence supports replacement.
+
+**Shared transform milestone:** Canvas hit-testing and edit-only handles (move/scale/rotate), synchronized Timeline selection, **multi-select** (modifier-click/marquee as appropriate), selection group transform, coherent Undo/Redo and overlap/lock ownership behavior. The user should be able to visually lay out an entire scene without searching tiny numerical Inspector fields. Keep AI/Core JSON contract and MP4 parity.

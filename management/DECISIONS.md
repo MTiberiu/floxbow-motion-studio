@@ -99,3 +99,73 @@ Core capabilities and their consumer-facing contracts are: Timeline/tracks/group
 **Core API contract first:** audit existing `@motion/sdk/*`, EditorSession, media registry, Electron IPC, Remotion player/render, Inspector and module integrations. Produce a versioned draft **Core API Contract V1** documenting existing/reusable versus missing APIs, ownership and permissions, declared capabilities, error handling, undo/atomic transactions, persisted identifiers, migrations and parity tests. API names are provisional until audited; avoid inventing public methods prematurely. Prove the API with both (a) an ordinary standalone Text/media clip and (b) a module-owned Whisper/Codex subtitle layer, across edit/save/reload/preview/MP4. No implementation is authorized merely by recording this decision.
 
 **Delivery strategy:** organize foundation work as one integrated Core Editor V1 milestone and one shared end-to-end acceptance project, but use reviewable increments and fast targeted checks during development; retain full CI and cross-system regression checks at integration boundaries. Do not postpone all validation until the end or promise a release named v1.0.0 before release readiness.
+
+
+## D-016 — AI-first bidirectional project data is the primary Core acceptance contract
+
+FloxBow is a **JSON-driven video editor with an external AI coding-agent workflow**, not a React composition editor with optional JSON export. A new project's canonical files (possibly multiple versioned JSON documents) are the source of truth for every **supported** editable value. The UI and external agents must operate on the same validated clip/asset/property identities. A visual Inspector edit is persisted into that data on explicit save or documented autosave; an external, valid, atomic edit refreshes a clean editor without losing selection or rendering fidelity. Dirty human drafts must not be silently overwritten, and external changes must not be silently discarded. Each value has one persisted owner; React may maintain a temporary draft but must not hide a competing creative source of truth.
+
+**Concrete first test:** create standalone Text in UI, save, edit its X/Y/text/color in project JSON as Codex, see new values in Canvas/Inspector, adjust them in UI, save and verify JSON plus MP4. **Next test:** import image once into Media Library (asset ID), place at six seconds as a separate clip ID, edit placement via JSON and UI, and verify the same round trip. A module-owned Whisper/Codex subtitle layer must eventually follow the identical contract. File layout and API naming are audit-driven; do not preapprove a new schema or unsafe plugin execution.
+
+Supported existing module animations may be instantiated/configured by agent-authored data without modifying React; unknown types must fail clearly while preserving original data. Agent access is through documented data/contracts, never arbitrary executable project JSON.
+
+
+## D-017 — Scenes, explicit ripple editing, and AI-safe timeline operations
+
+**Intent:** A video is naturally planned as a sequence of **scenes** with stable IDs, start/duration in integer frames, and associated clips/layers. Scenes are a **Core timeline organizing and timing concept**, not an isolated Timeline per module. They may include ordinary Text/Audio/Image/Video clips and module-owned layers; scene membership must not erase clip identities, module ownership or the canonical JSON source of truth. Scene schema and API names are **proposals pending implementation audit**, not shipped features.
+
+**Two different operations must never be confused:**
+
+1. **Trim/extend selected clip only:** change a subtitle/image/text/other clip's duration within the existing scene, without changing scene duration or shifting later clips/scenes. Show a bounded conflict/overlap warning if needed. A clip crossing the scene end requires an explicit resolution, not silent scene growth.
+2. **Expand/contract scene with ripple:** explicitly change a scene's duration by `deltaFrames`. Shift every **following scene** by the delta. Within the edited scene, optionally ripple only the elements after the specified edit boundary/anchor by the same delta, while preserving relative offsets and clip IDs. Elements before that boundary stay where they are. Clearly define policies for clips crossing the boundary, linked audio, locked tracks, and project duration; reject or preview ambiguous operations rather than silently corrupt synchronization.
+
+A scene handle may trigger the explicit scene-ripple operation; an ordinary clip trim defaults to **clip-only**. UI must display which mode is active and preview what moves. Changes are a single validated, atomic, undoable transaction with save/reload/render parity.
+
+**AI contract:** Codex should preferably call or author a **declarative validated Core edit operation** (target scene/clip ID, requested duration/frame delta, mode, boundary and scope), rather than manually recompute dozens of JSON timestamps. Core evaluates the operation and persists its resulting canonical project JSON; JSON is still the source of truth. An agent may edit documented JSON directly for simple changes, but must use the same invariants and validation for structural/ripple changes. Provide capability discovery, precise errors and conflict checks. No automatic AI interpretation of ambiguous user intent as ripple.
+
+**When:** record and design this now, but implement scene ownership/ripple once Core clip types, shared editing transactions, and Timeline foundations are stable. Not a blocker for the initial Image Media Library slice.
+
+
+## D-018 — Agent integration is protocol-independent: Core API + Skills + CLI, optional MCP
+
+**Decision (2026-10-23):** FloxBow's canonical versioned project JSON and validated Core edit operations remain the source of truth and execution authority. Agent-specific adapters must **not** duplicate editing algorithms, invent hidden state, bypass revision/conflict checks, or require an agent to reverse-engineer React code for supported tasks. All human UI controls and AI-facing methods consume the same capability/property schemas and Core transactions.
+
+**Discovery:** Core/module capability registry must describe installed clip kinds, effects/animations, editable fields, constraints, supported operations, version compatibility, ownership and permissions; unsupported capabilities return actionable errors without silently destroying data. An agent can inspect project JSON directly for simple edits, or use atomic validated operations for structural edits such as scene ripple, linked timing, clip creation and ownership-aware changes.
+
+**Preferred layered access:** (1) canonical JSON and Core library/API first; (2) concise, versioned **Agent Skills** for discoverable workflow guidance and module-authoring instructions, loaded only when relevant; (3) a thin **CLI** (and optionally local API) for capability discovery, validated edits, lint/validate and renders; (4) a thin **MCP server** only when interoperability with supported agents has a demonstrated use case. Skills teach, CLI/API/MCP perform actions, and JSON persists state. Avoid dumping a large list of tools or all documentation into every AI context.
+
+**Extensibility:** If an installed module already supports the requested animation, an agent discovers its declared interface and configures it in project data. If not, an agent with appropriate development permissions may use SDK and targeted guidance to propose/build a module; project JSON cannot execute code or install arbitrary modules, and MCP does not grant code-execution permissions automatically. Module/plugin loading and trust are separate decisions.
+
+**Timing gates:** document these interfaces *now*; implement only necessary Core capability discovery as the Text/Image/Video/Audio/scene APIs stabilize. Revisit a minimal Skill + CLI proof **after** the first reliable Media Library/Image AI↔JSON↔UI↔MP4 slice. Decide whether to implement MCP **after** stable shared Core operations and at least one real external-agent automation scenario, weighing token/context cost, security and maintenance. No MCP implementation is authorized by this decision.
+
+
+## D-019 — Direct-manipulation Inspector controls for a modern FloxBow UI
+
+**Direction (2026-10-23):** The Core Editor should favor intuitive spatial controls, not require users to hunt through separate numeric fields for routine placement. For position, offer a compact **2D joystick/XY pad** that supports continuous movement in all directions, including diagonals, plus direct Canvas dragging/gizmos. For rotation, offer a **circular dial/ring** that the pointer can rotate naturally, plus an editable exact angle. Preserve numeric X/Y/angle entries for precision, keyboard accessibility, reset and advanced workflows; graphical controls supplement rather than replace accurate input.
+
+All interactions update the **same validated canonical transform properties** exposed through Inspector, project JSON, Core API and future CLI/Skills/MCP. Reuse these controls across standalone Text, Image, Video and module-owned elements. Avoid creating UI-only animation/transform state or component-specific competing values. Support visual focus feedback, drag preview, commit/cancel, Undo/Redo and a single undoable gesture/transaction rather than dozens of undo steps. Coordinate system, percentage/pixel conversion, anchors, snapping and angle conventions must be specified before implementation.
+
+**Timing:** Document UI/UX behavior now. Prototype the XY control and circular rotation dial when implementing **shared Core Transform/Inspector controls**, ideally alongside Image placement once basic Image JSON/Canvas/MP4 parity is proven. Do not expand the initial Image PR solely to create a full visual control redesign. No implementation authorized by this decision.
+
+
+### D-019 UX clarification — selection-first quick controls (2026-10-23)
+
+The XY joystick and rotation ring are **quick Inspector controls for an already-selected Timeline/layer item**, particularly when text is small, overlapped or off-canvas and hard to hit with a pointer. The user selects the item in the Timeline/layer list; the controls immediately manipulate that item without requiring canvas hit-testing. Continuous diagonal XY movement, rotary pointer movement, live Canvas feedback, exact optional fields, Center/Reset and fine/coarse adjustment should share canonical JSON properties and a single undoable gesture. Keep direct Canvas manipulation optional rather than a prerequisite. Design/prototype at the shared Transform Inspector phase after the Image round-trip, not in the first Image PR.
+
+
+### D-019 priority refinement — direct Canvas manipulation is a Core requirement
+
+**Observed usability need (2026-10-23):** Selecting an element only through tiny Inspector inputs makes manual video layout unnecessarily difficult. All **visual, spatially transformable** Core elements (Text/Image/Video and module-owned visual content) must be selectable in the Canvas and expose a consistent overlay: move by dragging, resize using corner/edge handles with appropriate aspect-ratio behavior, rotate by a rotation handle, plus visible selection bounds. A user should be able to position and size an element without searching through the Inspector. This must work for small, overlapping or out-of-frame content via a synchronized Timeline/layer selection and the quick Inspector XY/rotation controls. Non-spatial elements (e.g. audio) and locked/hidden items need intentional, type-appropriate selection behavior; not every clip literally gets spatial handles.
+
+**Architecture:** Core owns the canvas hit testing, selection overlay, drag gesture, pointer coordinate conversion, snapping/bounds, shared transform data and single undoable transaction. Modules declare whether and how their visual elements support transforms rather than reimplementing handles. Canvas drag, quick XY/dial, numerical Inspector edits, AI JSON and MP4 must all use the same validated canonical values. Handle UI overlays appear in editor only and must never be exported into video. Protect timeline/playback selection and existing project behavior.
+
+**Priority:** treat foundational select/move/resize/rotate Canvas UX as a near-term **Core Transform milestone**, reviewed after the Image clip round-trip or alongside shared transform work; it ranks ahead of cosmetic Inspector redesign and advanced effects. Do not silently expand the first PNG import PR without explicit scope review.
+
+
+### D-019 interaction refinement — Canvas playback and multi-selection
+
+The existing embedded Remotion-based player is a **preview transport**, not a reason to defer direct Canvas selection and transform manipulation. Preserve the current preview/render integration for now; investigate unreliable Play/Pause using concrete reproduction steps rather than replacing the player speculatively. **Space toggles Play/Pause** when focus is in the editor/Timeline/Canvas (not a text input, textarea, editable content or modal control where Space has another purpose). Playback controls and keyboard state must remain synchronized, including after seeking and dock/undock.
+
+Core Canvas selection must progress from single to **multi-selection** of transformable visual elements via Shift/Ctrl/Cmd-click and, where appropriate, marquee selection. Selection synchronizes with Timeline and Inspector. Apply move/resize/rotation to the selected group through shared validated transforms, with consistent relative positions, one Undo transaction and explicit lock/module-ownership constraints. Canvas click targets, editor-only overlays and keyboard shortcuts must not appear in MP4. Preserve selection via Timeline/layer list for tiny or overlapping elements. Design exact modifiers for Windows/macOS consistently before implementation.
+
+**Priority:** basic keyboard Play/Pause and player reliability are near-term standalone usability fixes; Canvas selection/handles and multi-selection are shared Core UI milestones after the first Image clip or sooner if a safe focused slice is feasible. Avoid bundling them into the Image import PR.
