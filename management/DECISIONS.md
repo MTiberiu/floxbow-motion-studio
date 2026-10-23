@@ -169,3 +169,12 @@ The existing embedded Remotion-based player is a **preview transport**, not a re
 Core Canvas selection must progress from single to **multi-selection** of transformable visual elements via Shift/Ctrl/Cmd-click and, where appropriate, marquee selection. Selection synchronizes with Timeline and Inspector. Apply move/resize/rotation to the selected group through shared validated transforms, with consistent relative positions, one Undo transaction and explicit lock/module-ownership constraints. Canvas click targets, editor-only overlays and keyboard shortcuts must not appear in MP4. Preserve selection via Timeline/layer list for tiny or overlapping elements. Design exact modifiers for Windows/macOS consistently before implementation.
 
 **Priority:** basic keyboard Play/Pause and player reliability are near-term standalone usability fixes; Canvas selection/handles and multi-selection are shared Core UI milestones after the first Image clip or sooner if a safe focused slice is feasible. Avoid bundling them into the Image import PR.
+
+
+## D-020 — Human-readable time display; frames remain canonical
+
+**Decision (2026-10-23):** FloxBow's persisted Timeline and Core APIs retain **integer frame positions/durations** for deterministic synchronization, migrations and rendering, but the ordinary editor UI should show and accept **seconds and milliseconds** (for example `00:06.500`) instead of exposing raw frame counts everywhere. This applies consistently to Timeline ruler/tooltips, playhead, clip start/end/duration, scene duration, subtitle timings and Inspector fields when practical. Advanced frame/timecode display may remain an explicit option for precise frame editing, not the mandatory default.
+
+**Conversion:** use each project's real FPS (including non-integer frame rates where supported). Time edits must snap/round to representable frames with an obvious displayed result; never imply sub-frame accuracy when video can only land on a frame. Avoid cumulative drift by computing from canonical frames rather than repeatedly converting displayed floats. Specify formatting for durations above one minute and inputs, keyboard edits, boundaries and locale before implementation. External agents still see frame-based versioned JSON plus documented conversion helpers; do not change the existing JSON schema merely for UI formatting.
+
+**Timing:** prioritize as near-term editor usability work, ideally a focused reusable time-input/formatter PR after existing stability gates; implement independently from PNG Image and Canvas transform overlays.
