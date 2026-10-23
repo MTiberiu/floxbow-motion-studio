@@ -74,3 +74,24 @@ Audio waveforms and multiple-track mixing, saved custom Timeline views/pinned ro
 ### Status correction
 
 Earlier tables above capture historical planning and may label Media Registry/Whisper as conceptual or partial. For the live implementation, use [ROADMAP.md](ROADMAP.md), [Project Media](../docs/PROJECT_MEDIA.md) and [Lyrics Sync](../docs/LYRICS_SYNC.md). Do not assume the new committed layer/revision or release features already exist.
+
+
+## Core Editor V1 capability inventory — agreed direction, not yet implemented
+
+The Core API Contract V1 audit must classify each core responsibility as **implemented and reusable**, **partially implemented**, **missing**, or **deferred**. Do not assume completeness from package/module names.
+
+| Core contract | Intended module reuse / product outcome |
+| --- | --- |
+| Timeline and grouping | Conventional standalone tracks and optional module-owned groups; scoped operations, multi-selection, snapping and time alignment |
+| Text | Shared typography, positioning, style presets and per-item overrides for standalone Text, Subtitles, Kinetics and scenes |
+| Audio | Reusable asset reference, multiple clips/tracks, correct seeking, mixing, volume/trim/fades and preview/export parity |
+| Image and video | Media asset references, direct placement, duration and common image/video transform, preview/export parity |
+| Unified Media Library | One discoverable UI for import/search/relink and drag-to-Timeline, reusing linked asset IDs |
+| Transforms | Position, scale, rotation, opacity, anchors and layout for standard clips and modules |
+| Animation and effects | Shared basic keyframes/easing, transitions and compositing where technically justified; advanced cases may remain deferred |
+| Editor commands | Select, multi-select, move, duplicate, copy/paste, delete, undo/redo and operation permissions |
+| Property/Inspector integration | Declared editable fields and shared controls without per-module editor reimplementation |
+| Project and render | Validated module edits, atomic undo, save/reload, schema migration and identical preview/MP4 behavior |
+| Visibility and filtering | Hide/lock/mute/solo behavior distinct from Timeline-only group/filter projections |
+
+**Regression example:** two audio clips on different tracks and a Subtitles module transcribing the *selected* source; standalone image/video/text still work without any module activation. Whisper original and external Codex revision are independently editable and visible. One shared end-to-end fixture must cover save/reload and MP4. Cross-platform development uses fast local targeted tests plus full CI at integration boundaries.
