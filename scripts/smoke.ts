@@ -1446,6 +1446,9 @@ try {
       "Detached Inspector edit",
     );
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
+    await expect(detachedClip.locator(".clip-title")).toHaveText(
+      "Human edited caption",
+    );
     await detachedPage!
       .getByRole("button", { name: "Undo", exact: true })
       .click();
