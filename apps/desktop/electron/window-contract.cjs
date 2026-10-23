@@ -186,6 +186,7 @@ function isTimelineSnapshot(value) {
       "document",
       "components",
       "selectedClipId",
+      "selectedClipIds",
       "frame",
       "playing",
       "dirty",
@@ -224,6 +225,13 @@ function isTimelineSnapshot(value) {
     value.components.every((item) => isJsonValue(item)) &&
     typeof value.selectedClipId === "string" &&
     value.selectedClipId.length <= 100 &&
+    Array.isArray(value.selectedClipIds) &&
+    value.selectedClipIds.length <= 256 &&
+    value.selectedClipIds.every(
+      (clipId) => typeof clipId === "string" && clipId.length <= 100,
+    ) &&
+    new Set(value.selectedClipIds).size === value.selectedClipIds.length &&
+    value.selectedClipId === (value.selectedClipIds[0] ?? "") &&
     Number.isInteger(value.frame) &&
     value.frame >= 0 &&
     value.frame < value.durationInFrames &&
@@ -281,6 +289,16 @@ function isTimelineCommand(value) {
       hasExactKeys(command, ["type", "clipId"]) &&
       typeof command.clipId === "string" &&
       command.clipId.length <= 100
+    );
+  if (command.type === "selectClips")
+    return (
+      hasExactKeys(command, ["type", "clipIds"]) &&
+      Array.isArray(command.clipIds) &&
+      command.clipIds.length <= 256 &&
+      command.clipIds.every(
+        (clipId) => typeof clipId === "string" && clipId.length <= 100,
+      ) &&
+      new Set(command.clipIds).size === command.clipIds.length
     );
   if (command.type === "seek")
     return (

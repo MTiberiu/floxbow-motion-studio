@@ -3,7 +3,7 @@ import { useWorkspaceManager } from "./WorkspaceManager";
 
 type MediaAssetView = {
   id: string;
-  type: "audio";
+  type: "audio" | "image";
   displayName: string;
   status: "ready" | "missing" | "invalid";
   message?: string;
@@ -57,7 +57,7 @@ export function MediaPanel({
     return () => clearInterval(timer);
   }, [refresh, active]);
 
-  async function addAudio() {
+  async function addMedia(type: MediaAssetView["type"]) {
     if (!snapshot || adding || removing || built) return;
     setAdding(true);
     setNotice("");
@@ -68,14 +68,14 @@ export function MediaPanel({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ revision: snapshot.revision }),
+          body: JSON.stringify({ revision: snapshot.revision, type }),
         },
       );
       if (response.status === 204) return;
       if (!response.ok) throw new Error(await response.text());
       await refresh();
       setNotice(
-        "Audio linked to this project. The original file stays in place.",
+        `${type === "audio" ? "Audio" : "PNG image"} linked to this project. The original file stays in place.`,
       );
     } catch (cause) {
       await refresh();
@@ -85,10 +85,23 @@ export function MediaPanel({
     }
   }
 
+  function addImageToTimeline(asset: MediaAssetView) {
+    window.dispatchEvent(
+      new CustomEvent("motion-add-image", {
+        detail: {
+          projectId,
+          assetId: asset.id,
+          displayName: asset.displayName,
+        },
+      }),
+    );
+    workspace.activatePanel("editor");
+  }
+
   async function removeAsset(asset: MediaAssetView) {
     if (!snapshot || adding || removing || built) return;
     const confirmed = window.confirm(
-      `Remove "${asset.displayName}" from this project? The original audio file will NOT be deleted.`,
+      `Remove "${asset.displayName}" from this project? The original file will NOT be deleted.`,
     );
     if (!confirmed) return;
 
@@ -107,7 +120,7 @@ export function MediaPanel({
       if (!response.ok) throw new Error(await response.text());
       await refresh();
       setNotice(
-        `${asset.displayName} was removed from this project. The original audio file was not deleted.`,
+        `${asset.displayName} was removed from this project. The original file was not deleted.`,
       );
     } catch (cause) {
       await refresh();
@@ -161,26 +174,42 @@ export function MediaPanel({
       <header className="media-panel-header">
         <div>
           <span className="eyebrow">PROJECT MEDIA</span>
-          <h2>Linked audio</h2>
+          <h2>Media Library</h2>
           <p className="muted">
-            Audio files are referenced in this project. FloxBow does not copy or
-            move them.
+            Audio and PNG files are referenced in this project. FloxBow does not
+            copy or move them.
           </p>
         </div>
-        <button
-          type="button"
-          disabled={
-            !projectId ||
-            built ||
-            loading ||
-            adding ||
-            Boolean(removing) ||
-            !snapshot
-          }
-          onClick={addAudio}
-        >
-          {adding ? "Choosing file…" : "Add Audio"}
-        </button>
+        <div className="media-panel-actions">
+          <button
+            type="button"
+            disabled={
+              !projectId ||
+              built ||
+              loading ||
+              adding ||
+              Boolean(removing) ||
+              !snapshot
+            }
+            onClick={() => void addMedia("audio")}
+          >
+            {adding ? "Choosing file…" : "Add Audio"}
+          </button>
+          <button
+            type="button"
+            disabled={
+              !projectId ||
+              built ||
+              loading ||
+              adding ||
+              Boolean(removing) ||
+              !snapshot
+            }
+            onClick={() => void addMedia("image")}
+          >
+            {adding ? "Choosing file…" : "Add PNG"}
+          </button>
+        </div>
       </header>
 
       {built && (
@@ -208,7 +237,7 @@ export function MediaPanel({
       {!loading && snapshot && snapshot.assets.length === 0 && (
         <div className="media-empty">
           <span aria-hidden="true">♫</span>
-          <p>No audio is registered for this project yet.</p>
+          <p>No media is registered for this project yet.</p>
         </div>
       )}
 
@@ -217,7 +246,7 @@ export function MediaPanel({
           {snapshot.assets.map((asset) => (
             <li className={`media-asset media-${asset.status}`} key={asset.id}>
               <span className="media-asset-icon" aria-hidden="true">
-                ♫
+                {asset.type === "audio" ? "♫" : "▧"}
               </span>
               <span className="media-asset-name">
                 <strong>{asset.displayName}</strong>
@@ -232,6 +261,15 @@ export function MediaPanel({
                     ? "Missing file"
                     : "Invalid source"}
               </span>
+              {asset.type === "image" && asset.status === "ready" && (
+                <button
+                  type="button"
+                  onClick={() => addImageToTimeline(asset)}
+                  aria-label={`Add ${asset.displayName} to Timeline`}
+                >
+                  Add to Timeline
+                </button>
+              )}
               {asset.status !== "ready" && (
                 <span className="media-asset-warning" role="alert">
                   {asset.status === "missing"
@@ -247,13 +285,15 @@ export function MediaPanel({
               >
                 {removing === asset.id ? "Removing…" : "Remove from Project"}
               </button>
-              <button
-                type="button"
-                disabled={asset.status !== "ready" || built}
-                onClick={() => void useAsSoundtrack(asset)}
-              >
-                Use as soundtrack
-              </button>
+              {asset.type === "audio" && (
+                <button
+                  type="button"
+                  disabled={asset.status !== "ready" || built}
+                  onClick={() => void useAsSoundtrack(asset)}
+                >
+                  Use as soundtrack
+                </button>
+              )}
             </li>
           ))}
         </ul>

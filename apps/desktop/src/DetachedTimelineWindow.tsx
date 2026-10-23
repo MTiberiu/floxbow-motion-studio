@@ -58,6 +58,7 @@ export function DetachedTimelineWindow({
   const pending = useRef(
     new Map<string, (result: TimelineCommandResult) => void>(),
   );
+  const queuedCommands = useRef(0);
   const snapshotWaiters = useRef(new Map<string, SnapshotWaiter>());
   const snapshotRequestTimeout = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -233,84 +234,90 @@ export function DetachedTimelineWindow({
 
   function dispatch(intent: TimelineCommandIntent) {
     const requestedGeneration = generation.current;
+    queuedCommands.current += 1;
+    setBusy(true);
     const operation = commandQueue.current.then(async () => {
-      if (requestedGeneration !== generation.current) return;
-      const current = latest.current;
-      if (!current) {
-        setError(
-          "Waiting for the authoritative editor snapshot. Retry after it arrives.",
-        );
-        return;
-      }
-      const command = typeof intent === "function" ? intent(current) : intent;
-      if (!command) return;
-      sequence.current += 1;
-      const commandId = `${context.instanceId}:${sequence.current}`;
-      const envelope: TimelineCommandEnvelope = {
-        panelId: "timeline",
-        projectId: context.projectId,
-        sessionId: context.sessionId,
-        instanceId: context.instanceId,
-        commandId,
-        stateVersion: current.stateVersion,
-        command,
-      };
-      setBusy(true);
-      const resultPromise = new Promise<TimelineCommandResult>(
-        (resolve, reject) => {
-          const timeout = setTimeout(() => {
-            pending.current.delete(commandId);
-            reject(
-              new Error("The editor did not confirm this Timeline command."),
-            );
-          }, 10000);
-          pending.current.set(commandId, (result) => {
-            clearTimeout(timeout);
-            resolve(result);
-          });
-        },
-      );
       try {
-        await bridge.sendTimelineCommand(envelope);
-        const result = await resultPromise;
         if (requestedGeneration !== generation.current) return;
-        if (result.status === "rejected") {
+        const current = latest.current;
+        if (!current) {
           setError(
-            result.message || "The editor rejected this Timeline command.",
+            "Waiting for the authoritative editor snapshot. Retry after it arrives.",
           );
-          activeGestures.current.clear();
-          generation.current += 1;
-          void bridge.requestTimelineSnapshot();
           return;
         }
-        // An ACK confirms the command, not the child’s document snapshot.
-        const confirmed =
-          (command.type === "copy" || command.type === "endClipGesture") &&
-          result.stateVersion === current.stateVersion
-            ? true
-            : await waitForAuthoritativeSnapshot(
-                commandId,
-                current.stateVersion,
-                result.stateVersion,
+        const command = typeof intent === "function" ? intent(current) : intent;
+        if (!command) return;
+        sequence.current += 1;
+        const commandId = `${context.instanceId}:${sequence.current}`;
+        const envelope: TimelineCommandEnvelope = {
+          panelId: "timeline",
+          projectId: context.projectId,
+          sessionId: context.sessionId,
+          instanceId: context.instanceId,
+          commandId,
+          stateVersion: current.stateVersion,
+          command,
+        };
+        const resultPromise = new Promise<TimelineCommandResult>(
+          (resolve, reject) => {
+            const timeout = setTimeout(() => {
+              pending.current.delete(commandId);
+              reject(
+                new Error("The editor did not confirm this Timeline command."),
               );
-        if (!confirmed)
-          throw new Error(
-            "The editor accepted the command but its authoritative Timeline snapshot did not arrive.",
-          );
-        if (command.type === "beginClipGesture")
-          activeGestures.current.add(command.gestureId);
-        if (command.type === "endClipGesture")
-          activeGestures.current.delete(command.gestureId);
-        setError("");
-      } catch (commandError) {
-        pending.current.delete(commandId);
-        setError(
-          `Timeline command failed: ${String(commandError)}. Attach or retry synchronization.`,
+            }, 10000);
+            pending.current.set(commandId, (result) => {
+              clearTimeout(timeout);
+              resolve(result);
+            });
+          },
         );
-        generation.current += 1;
-        void bridge.requestTimelineSnapshot();
+        try {
+          await bridge.sendTimelineCommand(envelope);
+          const result = await resultPromise;
+          if (requestedGeneration !== generation.current) return;
+          if (result.status === "rejected") {
+            setError(
+              result.message || "The editor rejected this Timeline command.",
+            );
+            activeGestures.current.clear();
+            generation.current += 1;
+            void bridge.requestTimelineSnapshot();
+            return;
+          }
+          // An ACK confirms the command, not the child’s document snapshot.
+          const confirmed =
+            (command.type === "copy" || command.type === "endClipGesture") &&
+            result.stateVersion === current.stateVersion
+              ? true
+              : await waitForAuthoritativeSnapshot(
+                  commandId,
+                  current.stateVersion,
+                  result.stateVersion,
+                );
+          if (!confirmed)
+            throw new Error(
+              "The editor accepted the command but its authoritative Timeline snapshot did not arrive.",
+            );
+          if (command.type === "beginClipGesture")
+            activeGestures.current.add(command.gestureId);
+          if (command.type === "endClipGesture")
+            activeGestures.current.delete(command.gestureId);
+          setError("");
+        } catch (commandError) {
+          pending.current.delete(commandId);
+          setError(
+            `Timeline command failed: ${String(commandError)}. Attach or retry synchronization.`,
+          );
+          generation.current += 1;
+          void bridge.requestTimelineSnapshot();
+        } finally {
+          // Queue-level cleanup below keeps the UI busy through all pending work.
+        }
       } finally {
-        setBusy(false);
+        queuedCommands.current = Math.max(0, queuedCommands.current - 1);
+        setBusy(queuedCommands.current > 0);
       }
     });
     commandQueue.current = operation.catch(() => undefined);
@@ -491,6 +498,7 @@ export function DetachedTimelineWindow({
       data-panel-window="timeline"
       data-editor-session-id={snapshot.sessionId}
       data-state-version={snapshot.stateVersion}
+      data-command-busy={busy ? "true" : undefined}
     >
       <header className="detached-timeline-toolbar">
         <div>
@@ -536,7 +544,7 @@ export function DetachedTimelineWindow({
         manifest={manifest}
         document={document}
         components={components}
-        selectedClipId={snapshot.selectedClipId}
+        selectedClipIds={snapshot.selectedClipIds}
         frame={snapshot.frame}
         playing={snapshot.playing}
         onEdit={(next, checkpoint = true) =>
@@ -556,7 +564,16 @@ export function DetachedTimelineWindow({
             };
           })
         }
-        onSelectClip={(clipId) => dispatch({ type: "selectClip", clipId })}
+        onSelectClip={(clipId, additive = false) => {
+          if (!additive) return dispatch({ type: "selectClip", clipId });
+          const ids = snapshot.selectedClipIds.includes(clipId)
+            ? snapshot.selectedClipIds.filter((id) => id !== clipId)
+            : [...snapshot.selectedClipIds, clipId];
+          dispatch({ type: "selectClips", clipIds: ids });
+        }}
+        onSelectClips={(clipIds) =>
+          dispatch({ type: "selectClips", clipIds: [...clipIds] })
+        }
         onSeek={(frame) => dispatch({ type: "seek", frame: Math.round(frame) })}
         onPause={() => dispatch({ type: "pause" })}
         onPlay={() => dispatch({ type: "play" })}
@@ -627,6 +644,9 @@ function isSnapshotValue(value: unknown): value is TimelineSnapshot {
     (snapshot.document === null || typeof snapshot.document === "object") &&
     Array.isArray(snapshot.components) &&
     typeof snapshot.selectedClipId === "string" &&
+    Array.isArray(snapshot.selectedClipIds) &&
+    snapshot.selectedClipIds.every((id) => typeof id === "string") &&
+    snapshot.selectedClipId === (snapshot.selectedClipIds[0] ?? "") &&
     typeof snapshot.frame === "number" &&
     typeof snapshot.playing === "boolean" &&
     typeof snapshot.dirty === "boolean" &&

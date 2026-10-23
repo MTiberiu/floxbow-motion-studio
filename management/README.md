@@ -9,6 +9,7 @@ FloxBow is an **AI-first modular creative coding toolkit**, not a fixed-function
 - [ROADMAP.md](ROADMAP.md): milestone sequence and implementation status.
 - [DECISIONS.md](DECISIONS.md): agreed product principles and boundaries.
 - [BACKLOG.md](BACKLOG.md): candidate modules, open questions, and future experiments.
+- [DEVELOPER_HANDOFF.md](DEVELOPER_HANDOFF.md): current local implementation status, remaining checks, and how to resume active work.
 
 ## Status convention
 

@@ -181,10 +181,82 @@
   border: 0;
   background: #000;
 }
+.canvas-interaction-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  touch-action: none;
+  cursor: crosshair;
+}
+.canvas-element-hitbox {
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  cursor: move;
+  touch-action: none;
+}
+.canvas-element-hitbox.is-selected {
+  border: 1px solid #c5f18a;
+  box-shadow:
+    0 0 0 1px #151c22,
+    0 0 0 3px #c5f18a66;
+}
+.canvas-element-hitbox.is-locked {
+  cursor: not-allowed;
+}
+.canvas-group-bounds {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed #c5f18a;
+  pointer-events: none;
+}
+.canvas-transform-handle {
+  position: absolute;
+  z-index: 5;
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  min-height: 12px;
+  padding: 0;
+  border: 2px solid #10151b;
+  border-radius: 50%;
+  background: #c5f18a;
+  pointer-events: auto;
+  touch-action: none;
+}
+.resize-handle {
+  transform: translate(-50%, -50%);
+  cursor: nwse-resize;
+}
+.resize-handle[style*="100%"] {
+  cursor: nesw-resize;
+}
+.rotate-handle {
+  left: 50%;
+  top: -22px;
+  transform: translate(-50%, -50%);
+  cursor: crosshair;
+}
+.group-rotate-handle::before {
+  position: absolute;
+  left: 3px;
+  top: 10px;
+  width: 1px;
+  height: 12px;
+  background: #c5f18a;
+  content: "";
+}
+.canvas-marquee {
+  position: absolute;
+  z-index: 6;
+  box-sizing: border-box;
+  border: 1px solid #c5f18a;
+  background: #c5f18a22;
+  pointer-events: none;
+}
 .canvas-pan-input {
   position: absolute;
   inset: 0 0 42px;
-  pointer-events: auto;
+  pointer-events: none;
   background: transparent;
   touch-action: none;
   cursor: default;
@@ -478,6 +550,14 @@
     #24303e calc(10% - 1px),
     #24303e 10%
   );
+}
+.timeline-marquee {
+  position: fixed;
+  z-index: 100;
+  box-sizing: border-box;
+  border: 1px solid #c5f18a;
+  background: #c5f18a22;
+  pointer-events: none;
 }
 .timeline-clip {
   position: absolute;

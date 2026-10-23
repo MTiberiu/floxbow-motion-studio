@@ -17,8 +17,11 @@ const absolutePath = z
 
 export const mediaAssetSchema = z
   .object({
-    id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120),
-    type: z.literal("audio"),
+    id: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+      .max(120),
+    type: z.enum(["audio", "image"]),
     displayName: z
       .string()
       .min(1)
@@ -55,7 +58,7 @@ export type MediaRegistry = z.infer<typeof mediaRegistrySchema>;
 export const emptyMediaRegistry: MediaRegistry = { version: 1, assets: [] };
 
 export type MediaResolution =
-  | { status: "ready"; assetId: string; type: "audio"; path: string }
+  | { status: "ready"; assetId: string; type: "audio" | "image"; path: string }
   | { status: "missing"; assetId: string; displayName: string }
   | { status: "invalid"; assetId: string; message: string };
 
@@ -68,7 +71,7 @@ function isHostAbsolutePath(value: string) {
 function hasMp3FrameHeader(buffer: Buffer) {
   for (let index = 0; index <= buffer.length - 4; index += 1) {
     const header = buffer.readUInt32BE(index);
-    const sync = (header >>> 21) === 0x7ff;
+    const sync = header >>> 21 === 0x7ff;
     const version = (header >>> 19) & 0b11;
     const layer = (header >>> 17) & 0b11;
     const bitrate = (header >>> 12) & 0b1111;
@@ -100,24 +103,54 @@ async function hasSupportedAudioHeader(filePath: string, extension: string) {
     }
 
     const start = Buffer.alloc(10);
-    const { bytesRead: startBytes } = await handle.read(start, 0, start.length, 0);
+    const { bytesRead: startBytes } = await handle.read(
+      start,
+      0,
+      start.length,
+      0,
+    );
     let frameOffset = 0;
-    if (startBytes === start.length && start.toString("ascii", 0, 3) === "ID3") {
-      const validTagSize = [6, 7, 8, 9].every((index) => (start[index] & 0x80) === 0);
+    if (
+      startBytes === start.length &&
+      start.toString("ascii", 0, 3) === "ID3"
+    ) {
+      const validTagSize = [6, 7, 8, 9].every(
+        (index) => (start[index] & 0x80) === 0,
+      );
       if (!validTagSize) return false;
       const tagSize =
         (start[6] << 21) | (start[7] << 14) | (start[8] << 7) | start[9];
-      frameOffset = 10 + tagSize + ((start[3] === 4 && (start[5] & 0x10) !== 0) ? 10 : 0);
+      frameOffset =
+        10 + tagSize + (start[3] === 4 && (start[5] & 0x10) !== 0 ? 10 : 0);
     }
     const sample = Buffer.alloc(4_096);
-    const { bytesRead } = await handle.read(sample, 0, sample.length, frameOffset);
+    const { bytesRead } = await handle.read(
+      sample,
+      0,
+      sample.length,
+      frameOffset,
+    );
     return hasMp3FrameHeader(sample.subarray(0, bytesRead));
   } finally {
     await handle.close();
   }
 }
 
-/** Resolve a registered audio asset in a Node host process. Never send `path` to a browser preview. */
+async function hasPngHeader(filePath: string) {
+  const handle = await open(filePath, "r");
+  try {
+    const signature = Buffer.alloc(8);
+    const { bytesRead } = await handle.read(signature, 0, signature.length, 0);
+    return (
+      bytesRead === 8 &&
+      signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    );
+  } finally {
+    await handle.close();
+  }
+}
+
+/** Resolve a registered audio or image asset in a Node host process. Never send `path` to a browser preview. */
 export async function resolveMedia(
   projectRoot: string,
   registryInput: unknown,
@@ -127,20 +160,42 @@ export async function resolveMedia(
   try {
     registry = mediaRegistrySchema.parse(registryInput);
   } catch {
-    return { status: "invalid", assetId, message: "The media registry is invalid." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The media registry is invalid.",
+    };
   }
 
   const asset = registry.assets.find((entry) => entry.id === assetId);
   if (!asset)
-    return { status: "invalid", assetId, message: "The media asset is not registered." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The media asset is not registered.",
+    };
 
   const filePath = asset.source.path;
   if (!isHostAbsolutePath(filePath))
-    return { status: "invalid", assetId, message: "The source path is not absolute on this host." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The source path is not absolute on this host.",
+    };
 
   const extension = path.extname(filePath).toLowerCase();
-  if (extension !== ".mp3" && extension !== ".wav")
-    return { status: "invalid", assetId, message: "Only MP3 and WAV audio files are supported." };
+  if (
+    (asset.type === "audio" && extension !== ".mp3" && extension !== ".wav") ||
+    (asset.type === "image" && extension !== ".png")
+  )
+    return {
+      status: "invalid",
+      assetId,
+      message:
+        asset.type === "audio"
+          ? "Only MP3 and WAV audio files are supported."
+          : "Only PNG images are supported.",
+    };
 
   let info;
   try {
@@ -149,20 +204,47 @@ export async function resolveMedia(
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR")
       return { status: "missing", assetId, displayName: asset.displayName };
-    return { status: "invalid", assetId, message: "The source file cannot be accessed." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The source file cannot be accessed.",
+    };
   }
 
   if (!info.isFile())
-    return { status: "invalid", assetId, message: "The source is not a regular file." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The source is not a regular file.",
+    };
   if (info.size === 0)
-    return { status: "invalid", assetId, message: "The source audio file is empty." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The source media file is empty.",
+    };
 
   try {
-    if (!(await hasSupportedAudioHeader(filePath, extension)))
-      return { status: "invalid", assetId, message: "The file does not contain a valid MP3 or WAV header." };
+    const valid =
+      asset.type === "audio"
+        ? await hasSupportedAudioHeader(filePath, extension)
+        : await hasPngHeader(filePath);
+    if (!valid)
+      return {
+        status: "invalid",
+        assetId,
+        message:
+          asset.type === "audio"
+            ? "The file does not contain a valid MP3 or WAV header."
+            : "The file does not contain a valid PNG header.",
+      };
   } catch {
-    return { status: "invalid", assetId, message: "The source file cannot be read as audio." };
+    return {
+      status: "invalid",
+      assetId,
+      message: "The source media file cannot be read.",
+    };
   }
 
-  return { status: "ready", assetId, type: "audio", path: filePath };
+  return { status: "ready", assetId, type: asset.type, path: filePath };
 }

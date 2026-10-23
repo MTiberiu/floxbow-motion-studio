@@ -24,6 +24,7 @@ class Boundary extends Component<
 function AudioAwareComposition({
   composition,
   audioSources,
+  imageSources,
   timeline,
   projectId,
   ...props
@@ -48,9 +49,30 @@ function AudioAwareComposition({
         ];
       }),
   );
+  const imageSourceMap = Object.fromEntries(
+    (timeline?.clips ?? [])
+      .filter(
+        (clip) =>
+          clip.componentId === "image" &&
+          typeof clip.content.assetId === "string",
+      )
+      .map((clip) => {
+        const assetId = String(clip.content.assetId);
+        return [
+          assetId,
+          imageSources?.[assetId] ??
+            `${location.origin}/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/stream`,
+        ];
+      }),
+  );
   return (
     <>
-      <Video {...props} timeline={timeline} audioSources={sourceMap} />
+      <Video
+        {...props}
+        timeline={timeline}
+        audioSources={sourceMap}
+        imageSources={timeline ? imageSourceMap : imageSources}
+      />
       <TimelineSoundtrackAudio timeline={timeline} audioSources={sourceMap} />
     </>
   );

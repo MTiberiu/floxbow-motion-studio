@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import type { RefObject } from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
+import type { ComponentInfo, EditTimeline } from "@motion/sdk/timeline";
+import {
+  formatFrameTime,
+  frameToSeconds,
+  secondsToFrame,
+} from "@motion/sdk/timeline";
+import { CanvasInteractionLayer } from "./CanvasInteractionLayer";
+import type { CanvasTransform } from "@motion/sdk/canvas";
 
 export type CanvasViewProps = {
   manifest: ProjectManifest;
@@ -15,6 +23,14 @@ export type CanvasViewProps = {
   onSeek: (frame: number) => void;
   onPlay: () => void;
   onPause: () => void;
+  timeline?: EditTimeline;
+  components: readonly ComponentInfo[];
+  selectedClipIds: readonly string[];
+  onSelectClips: (ids: readonly string[]) => void;
+  onCanvasGestureStart: () => void;
+  onCanvasTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
+  onCanvasGestureEnd: () => void;
+  onCanvasGestureCancel: () => void;
 };
 
 export function CanvasView({
@@ -30,6 +46,14 @@ export function CanvasView({
   onSeek,
   onPlay,
   onPause,
+  timeline,
+  components,
+  selectedClipIds,
+  onSelectClips,
+  onCanvasGestureStart,
+  onCanvasTransform,
+  onCanvasGestureEnd,
+  onCanvasGestureCancel,
 }: CanvasViewProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const panDrag = useRef<
@@ -210,10 +234,15 @@ export function CanvasView({
             translate: `${pan.x}px ${pan.y}px`,
             transform: `translate(-50%,-50%) scale(${currentScale})`,
           }}
+          onPointerDown={onPanStart}
+          onPointerMove={onPanMove}
+          onPointerUp={onPanEnd}
+          onPointerCancel={onPanEnd}
         >
           <iframe
             ref={iframeRef}
             key={`${reload}:${previewGeneration}`}
+            data-preview-generation={`${reload}:${previewGeneration}`}
             title="Composition preview"
             sandbox="allow-scripts allow-same-origin"
             allow="autoplay"
@@ -224,12 +253,17 @@ export function CanvasView({
                 : `${previewOrigin}/preview.html?project=${encodeURIComponent(manifest.id)}&hostOrigin=${encodeURIComponent(window.location.origin)}`
             }
           />
-          <div
-            className={`canvas-pan-input ${spaceHeld ? "space-pan" : ""}`}
-            onPointerDown={onPanStart}
-            onPointerMove={onPanMove}
-            onPointerUp={onPanEnd}
-            onPointerCancel={onPanEnd}
+          <CanvasInteractionLayer
+            timeline={timeline}
+            components={components}
+            frame={frame}
+            selectedIds={selectedClipIds}
+            onSelect={onSelectClips}
+            onGestureStart={onCanvasGestureStart}
+            onTransform={onCanvasTransform}
+            onGestureEnd={onCanvasGestureEnd}
+            onGestureCancel={onCanvasGestureCancel}
+            spaceHeld={spaceHeld}
           />
         </div>
         <div
@@ -251,19 +285,23 @@ export function CanvasView({
           +1 frame
         </button>
         <label>
-          Frame{" "}
+          Time (seconds){" "}
           <input
-            aria-label="Playhead frame"
+            aria-label="Playhead time (seconds)"
+            data-fps={manifest.fps}
             type="number"
             min={0}
-            max={manifest.durationInFrames - 1}
-            value={frame}
-            onChange={(event) => onSeek(Number(event.target.value))}
+            max={frameToSeconds(manifest.durationInFrames - 1, manifest.fps)}
+            step={0.001}
+            value={frameToSeconds(frame, manifest.fps).toFixed(3)}
+            onChange={(event) =>
+              onSeek(secondsToFrame(Number(event.target.value), manifest.fps))
+            }
           />
         </label>
         <output data-testid="frame-readout">
           {frame} / {manifest.durationInFrames - 1} ·{" "}
-          {(frame / manifest.fps).toFixed(3)}s
+          {formatFrameTime(frame, manifest.fps)}
         </output>
       </div>
     </div>

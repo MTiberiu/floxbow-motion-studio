@@ -5,6 +5,7 @@ import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
   serializableComponentInfo,
   standaloneTextModule,
+  standaloneImageModule,
   type EditableVideoProps,
   type EditableComponent,
 } from "@motion/sdk/editor";
@@ -34,12 +35,12 @@ function PreviewHost({
   const playbackCheck = useRef<ReturnType<typeof setTimeout> | null>(null);
   const configuredPlaybackEnd = useRef(manifest.durationInFrames);
   const activePlaybackEnd = useRef(manifest.durationInFrames);
-  const sourcesFor = (document: EditTimeline) =>
+  const sourcesFor = (document: EditTimeline, componentId: string) =>
     Object.fromEntries(
       document.clips
         .filter(
           (c) =>
-            c.componentId === "soundtrack" &&
+            c.componentId === componentId &&
             typeof c.content.assetId === "string" &&
             /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(c.content.assetId),
         )
@@ -48,7 +49,8 @@ function PreviewHost({
           `${location.origin}/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(String(c.content.assetId))}/stream`,
         ]),
     );
-  const audioSources = timeline ? sourcesFor(timeline) : {};
+  const audioSources = timeline ? sourcesFor(timeline, "soundtrack") : {};
+  const imageSources = timeline ? sourcesFor(timeline, "image") : undefined;
   const requestedParentOrigin =
     new URLSearchParams(location.search).get("hostOrigin") ?? "";
   const previewPort = Number(location.port);
@@ -77,8 +79,11 @@ function PreviewHost({
       const components = componentInfosSchema.parse(
         [
           standaloneTextModule,
+          standaloneImageModule,
           ...(module.editorComponents ?? []).filter(
-            (component) => component.id !== standaloneTextModule.id,
+            (component) =>
+              component.id !== standaloneTextModule.id &&
+              component.id !== standaloneImageModule.id,
           ),
         ].map(serializableComponentInfo),
       );
@@ -242,7 +247,7 @@ function PreviewHost({
             timeline?.durationInFrames ?? manifest.durationInFrames,
         }}
         playerRef={player}
-        inputProps={{ timeline, audioSources }}
+        inputProps={{ timeline, audioSources, imageSources }}
       />
     </>
   );

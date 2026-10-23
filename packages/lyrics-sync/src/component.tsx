@@ -18,6 +18,14 @@ import {
 export const subtitleFields: EditableField[] = [
   { key: "text", target: "content", label: "Text", type: "text", default: "" },
   {
+    key: "presentation",
+    target: "content",
+    label: "Presentation",
+    type: "select",
+    default: "caption",
+    options: ["caption", "bubble", "both", "hidden"],
+  },
+  {
     key: "fontFamily",
     target: "props",
     label: "Font",
@@ -68,6 +76,54 @@ export const subtitleFields: EditableField[] = [
     min: 5,
     max: 95,
     step: 1,
+  },
+  {
+    key: "width",
+    target: "props",
+    label: "Text box width (%)",
+    type: "number",
+    default: 88,
+    min: 1,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "height",
+    target: "props",
+    label: "Text box height (%)",
+    type: "number",
+    default: 20,
+    min: 1,
+    max: 100,
+    step: 1,
+  },
+  {
+    key: "rotation",
+    target: "props",
+    label: "Rotation (°)",
+    type: "number",
+    default: 0,
+    min: -3600,
+    max: 3600,
+    step: 1,
+  },
+  {
+    key: "anchor",
+    target: "props",
+    label: "Anchor",
+    type: "select",
+    default: "center",
+    options: [
+      "top-left",
+      "top-center",
+      "top-right",
+      "middle-left",
+      "center",
+      "middle-right",
+      "bottom-left",
+      "bottom-center",
+      "bottom-right",
+    ],
   },
   {
     key: "animation",
@@ -131,6 +187,21 @@ function SubtitleText({
   const visible = p.animation === "none" ? 1 : Math.min(entrance, exit);
   const words = content.words;
   const karaokeMatches = p.karaoke && subtitleWordTimingMatchesText(content);
+  const anchorTransforms: Record<
+    string,
+    { translate: string; origin: string }
+  > = {
+    "top-left": { translate: "0 0", origin: "top left" },
+    "top-center": { translate: "-50% 0", origin: "top center" },
+    "top-right": { translate: "-100% 0", origin: "top right" },
+    "middle-left": { translate: "0 -50%", origin: "center left" },
+    center: { translate: "-50% -50%", origin: "center" },
+    "middle-right": { translate: "-100% -50%", origin: "center right" },
+    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+  };
+  const anchor = anchorTransforms[String(p.anchor)] ?? anchorTransforms.center;
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       <div
@@ -141,8 +212,13 @@ function SubtitleText({
           position: "absolute",
           left: `${p.x}%`,
           top: `${p.y}%`,
-          transform: `translate(-50%,-50%) translateY(${p.animation === "rise" ? (1 - entrance) * 35 : 0}px)`,
-          width: "88%",
+          transform: `translate(${anchor.translate}) rotate(${Number(p.rotation)}deg) translateY(${p.animation === "rise" ? (1 - entrance) * 35 : 0}px)`,
+          transformOrigin: anchor.origin,
+          width: `${p.width}%`,
+          height: `${p.height}%`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           textAlign: "center",
           fontFamily: String(p.fontFamily),
           fontSize: Number(p.fontSize),
@@ -181,5 +257,21 @@ export const subtitleModule: EditableComponent = {
   name: "Subtitles / Lyrics",
   fields: subtitleFields,
   timelineBehavior: subtitleTimelineBehavior.id,
+  canvas: {
+    owner: "lyrics-sync.subtitles",
+    coordinateSpace: "composition-percent",
+    transform: {
+      x: "x",
+      y: "y",
+      width: "width",
+      height: "height",
+      rotation: "rotation",
+      anchor: "anchor",
+    },
+    operations: { move: true, resize: true, rotate: true },
+    resizeMode: "free",
+    visibilityField: "presentation",
+    visibleValues: ["caption", "both"],
+  },
   component: Subtitles,
 };
