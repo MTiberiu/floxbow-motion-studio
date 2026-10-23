@@ -180,3 +180,10 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Fresh-context agent test: read repo, reconstruct current architecture, management decisions, blockers, PR/CI state and next task from authoritative sources, without asking owner to repeat prior conversation.
 - [ ] Animator handoff: agent can inspect current video project JSON/assets, installed capabilities and render commands and safely continue an existing animation.
 - [ ] Maintain a concise current handoff/next-step note only if source-of-truth precedence and update responsibility are explicit; stale derived status must be checked against Git and project JSON.
+
+
+### Four-file developer AI handoff contract (2026-10-23)
+
+- [ ] Establish a **maximum four-file startup path**: root `AGENTS.md` (rules/navigation), `management/STATUS.md` (verified recent state/blockers with observation date), `management/NEXT_TASK.md` (one actionable task, acceptance/stop conditions), and targeted sections of `management/DECISIONS.md` (binding design constraints). Developer reads deeper code/docs **only on demand**, never the entire repository as default orientation.
+- [ ] Keep STATUS and NEXT_TASK succinct; after every development handoff, update both (including exact branch/PR/commit, CI evidence and unfinished work) in the same reviewed change when feasible. Dynamic GitHub/working-tree state must be freshly checked; do not mistake a stale status note for truth.
+- [ ] Add a cold-start acceptance test: a new agent with zero prior chat history can read at most these four files, identify the next safe task and its scope, and explain how it will verify completion without asking the owner to rebrief.
