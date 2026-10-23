@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { discover, projectId } from "@motion/project-loader";
 import { safeFile } from "@motion/project-loader";
 import { editTimelineSchema } from "@motion/sdk/timeline";
+import { standaloneTextClipSchema } from "@motion/sdk/editor";
 import { readMediaRegistry } from "../../../scripts/media-store";
 import { streamRegisteredAudio } from "../../../scripts/media-stream";
 import { resolveMedia } from "@motion/project-loader/media";
@@ -81,6 +82,8 @@ export async function renderProject(root: string, id: string, still = false) {
     timeline = editTimelineSchema.parse(
       JSON.parse(await readFile(timelineFile, "utf8")),
     );
+    for (const clip of timeline.clips)
+      if (clip.componentId === "text") standaloneTextClipSchema.parse(clip);
     if (
       timeline.fps !== m.fps ||
       timeline.durationInFrames !== m.durationInFrames
