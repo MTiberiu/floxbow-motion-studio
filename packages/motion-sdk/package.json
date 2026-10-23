@@ -3,5 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": {".":"./src/index.tsx","./timeline":"./src/timeline.ts","./editor":"./src/editor.tsx"}
+  "exports": {
+    ".": "./src/index.tsx",
+    "./timeline": "./src/timeline.ts",
+    "./timeline-analysis": "./src/timeline-analysis.ts",
+    "./editor": "./src/editor.tsx"
+  }
 }

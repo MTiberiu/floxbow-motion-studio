@@ -19,6 +19,9 @@ export type InspectorViewProps = {
   onChangeRange: (start: number, end: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  canChangeRange?: boolean;
+  canDuplicate?: boolean;
+  canDelete?: boolean;
 };
 
 export function InspectorView({
@@ -31,6 +34,9 @@ export function InspectorView({
   onChangeRange,
   onDuplicate,
   onDelete,
+  canChangeRange = true,
+  canDuplicate = true,
+  canDelete = true,
 }: InspectorViewProps) {
   return (
     <section
@@ -51,6 +57,7 @@ export function InspectorView({
             Track
             <select
               aria-label="Clip track"
+              disabled={!canChangeRange}
               value={clip.trackId}
               onChange={(event) =>
                 onEdit({
@@ -75,6 +82,7 @@ export function InspectorView({
               Start frame
               <input
                 aria-label="Clip start frame"
+                disabled={!canChangeRange}
                 type="number"
                 min={0}
                 max={clip.from + clip.durationInFrames - 1}
@@ -91,6 +99,7 @@ export function InspectorView({
               End frame
               <input
                 aria-label="Clip end frame"
+                disabled={!canChangeRange}
                 type="number"
                 min={clip.from + 1}
                 max={manifest.durationInFrames}
@@ -139,8 +148,12 @@ export function InspectorView({
             </p>
           )}
           <div className="tools">
-            <button onClick={onDuplicate}>Duplicate clip</button>
-            <button onClick={onDelete}>Delete clip</button>
+            <button onClick={onDuplicate} disabled={!canDuplicate}>
+              Duplicate clip
+            </button>
+            <button onClick={onDelete} disabled={!canDelete}>
+              Delete clip
+            </button>
           </div>
         </>
       ) : (

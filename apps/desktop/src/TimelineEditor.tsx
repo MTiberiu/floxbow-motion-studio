@@ -7,6 +7,10 @@ import {
 } from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
+  timelineGapWarnings,
+  timelinePlaybackEnd,
+} from "@motion/sdk/timeline-analysis";
+import {
   parseEditTimeline,
   changeClipRange,
   fieldValue,
@@ -16,6 +20,12 @@ import {
 } from "@motion/sdk/timeline";
 import { useEditorSession } from "./EditorSession";
 import { resolveTimelineBehavior } from "./timeline-behaviors";
+import {
+  addTimelineClipCopy,
+  canPerformTimelineOperation,
+  removeTimelineClip,
+  type TimelineOperation,
+} from "./timeline-operations";
 import { CanvasView } from "./CanvasView";
 import { TimelineView } from "./TimelineView";
 import { InspectorView } from "./InspectorView";
@@ -98,10 +108,19 @@ export function TimelineEditor({
       }
     | undefined
   >(undefined);
+  const clipboard = useRef<
+    import("@motion/sdk/timeline").TimelineClip | undefined
+  >(undefined);
+  useEffect(() => {
+    clipboard.current = undefined;
+  }, [manifest.id]);
   const workspace = useWorkspaceManager();
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
   const [transcribing, setTranscribing] = useState(false);
+  const [playToProjectEnd, setPlayToProjectEnd] = useState(
+    () => localStorage.getItem("motion-preview-playback-end") === "project",
+  );
   const { snapshot, commands } = session;
   const {
     document: doc,
@@ -136,6 +155,10 @@ export function TimelineEditor({
   const editorManifest = doc
     ? { ...manifest, durationInFrames: doc.durationInFrames }
     : manifest;
+  const playbackEndFrame = doc
+    ? timelinePlaybackEnd(doc, playToProjectEnd)
+    : manifest.durationInFrames;
+  const timelineWarnings = doc ? timelineGapWarnings(doc) : [];
   const edit = (next: EditTimeline, createCheckpoint = true) => {
     const current = commands.getCurrentDocument();
     if (current && !soundtrackTimingUnchanged(current, next)) {
@@ -163,6 +186,9 @@ export function TimelineEditor({
     sourceCommandId.current = null;
     sessionCheckpoint();
   };
+  useEffect(() => {
+    send("playback-boundary", { endFrame: playbackEndFrame });
+  }, [send, playbackEndFrame, previewGeneration]);
   const [inspectorWidth, setInspectorWidth] = useState(
     () => Number(localStorage.getItem("motion-inspector-width")) || 270,
   );
@@ -452,12 +478,27 @@ export function TimelineEditor({
               throw new Error(
                 "Soundtrack clips cannot be moved or trimmed. Reselect audio to change the soundtrack.",
               );
+            let gestureBaseline = current;
+            let gestureClipId = command.clipId;
+            if (command.duplicateId) {
+              const duplicate = addTimelineClipCopy(
+                current,
+                clip,
+                command.duplicateId,
+                clip.from,
+                components,
+              );
+              sessionCheckpoint();
+              sessionEdit(duplicate, false);
+              gestureBaseline = duplicate;
+              gestureClipId = command.duplicateId;
+              sessionSelectClip(gestureClipId);
+            } else sessionCheckpoint();
             sourceCommandId.current = envelope.commandId;
-            sessionCheckpoint();
             clipGesture.current = {
               gestureId: command.gestureId,
-              clipId: command.clipId,
-              baseline: structuredClone(current),
+              clipId: gestureClipId,
+              baseline: structuredClone(gestureBaseline),
               expectedVersion: commands.getStateVersion(),
             };
           } else if (command.type === "updateClipGesture") {
@@ -519,6 +560,16 @@ export function TimelineEditor({
               throw new Error("There is no edit to undo.");
             sourceCommandId.current = envelope.commandId;
             undo();
+          } else if (
+            ["copy", "cut", "paste", "duplicate", "delete"].includes(
+              command.type,
+            )
+          ) {
+            sourceCommandId.current = envelope.commandId;
+            const operationError = performTimelineOperation(
+              command.type as TimelineOperation,
+            );
+            if (operationError) throw new Error(operationError);
           } else if (command.type === "redo") {
             if (!snapshot.redoCount)
               throw new Error("There is no edit to redo.");
@@ -564,6 +615,7 @@ export function TimelineEditor({
     snapshot.undoCount,
     snapshot.redoCount,
     manifest,
+    components,
   ]);
   function property(field: EditableField, value: unknown) {
     if (!doc) return;
@@ -862,8 +914,7 @@ export function TimelineEditor({
   }
   function deleteClip() {
     if (!doc || !clip) return;
-    edit({ ...doc, clips: doc.clips.filter((item) => item.id !== clip.id) });
-    setSelected("");
+    performTimelineOperation("delete");
   }
   function addSubtitle() {
     if (!doc) return;
@@ -886,29 +937,96 @@ export function TimelineEditor({
     setSelected(c.id);
   }
   function duplicate() {
-    if (!doc || !clip) return;
-    const copy = structuredClone(clip);
-    copy.id = `clip-${crypto.randomUUID()}`;
-    copy.from = Math.min(
-      doc.durationInFrames - copy.durationInFrames,
-      copy.from + copy.durationInFrames,
+    performTimelineOperation("duplicate");
+  }
+  function performTimelineOperation(
+    operation: TimelineOperation | "undo" | "redo" | "playPause",
+  ): string | undefined {
+    const liveSnapshot = sessionRef.current.snapshot;
+    const liveCommands = sessionRef.current.commands;
+    const liveComponents = liveSnapshot.components;
+    const current = commands.getCurrentDocument();
+    const selectedClip = current?.clips.find(
+      (item) => item.id === liveSnapshot.selectedClipId,
     );
-    copy.label = clip.label + " (repeat)";
-    const duplicateContent = resolveTimelineBehavior(
-      clip.componentId,
-      components,
-    ).duplicateContent;
-    if (duplicateContent)
-      copy.content = duplicateContent(clip.content, clip.id);
-    edit({
-      ...doc,
-      clips: [
-        ...doc.clips.filter((item) => item.componentId !== "soundtrack"),
-        copy,
-        ...doc.clips.filter((item) => item.componentId === "soundtrack"),
-      ],
-    });
-    setSelected(copy.id);
+    if (operation === "playPause") {
+      if (liveSnapshot.playing) liveCommands.pause();
+      else liveCommands.play();
+      return;
+    }
+    if (operation === "undo") {
+      if (!liveSnapshot.undoCount) return "There is no edit to undo.";
+      liveCommands.undo();
+      return;
+    }
+    if (operation === "redo") {
+      if (!liveSnapshot.redoCount) return "There is no edit to redo.";
+      liveCommands.redo();
+      return;
+    }
+    if (["copy", "cut", "delete", "duplicate"].includes(operation)) {
+      if (!current || !selectedClip) return "Select a Timeline clip first.";
+      if (
+        !canPerformTimelineOperation(selectedClip, operation, liveComponents)
+      ) {
+        setNotice(
+          "Soundtrack clips are protected from copy, cut, duplicate and delete operations.",
+        );
+        return "Soundtrack clips are protected from copy, cut, duplicate and delete operations.";
+      }
+      if (operation === "copy") {
+        clipboard.current = structuredClone(selectedClip);
+        setNotice("Clip copied. Paste places it at the current playhead.");
+        return;
+      }
+      if (operation === "cut")
+        clipboard.current = structuredClone(selectedClip);
+      if (operation === "delete" || operation === "cut") {
+        edit(removeTimelineClip(current, selectedClip, liveComponents));
+        setSelected("");
+        return;
+      }
+      const id = `clip-${crypto.randomUUID()}`;
+      try {
+        const next = addTimelineClipCopy(
+          current,
+          selectedClip,
+          id,
+          selectedClip.from + selectedClip.durationInFrames,
+          liveComponents,
+        );
+        edit(next);
+        setSelected(id);
+        return;
+      } catch (operationError) {
+        setError(String(operationError));
+        return String(operationError);
+      }
+    }
+    if (operation === "paste") {
+      if (!current || !clipboard.current) {
+        setNotice("Copy a Timeline clip before pasting.");
+        return "Copy a Timeline clip before pasting.";
+      }
+      const id = `clip-${crypto.randomUUID()}`;
+      try {
+        const next = addTimelineClipCopy(
+          current,
+          clipboard.current,
+          id,
+          liveSnapshot.frame,
+          liveComponents,
+          "paste",
+        );
+        edit(next);
+        setSelected(id);
+        return;
+      } catch (operationError) {
+        setError(String(operationError));
+        return String(operationError);
+      }
+    }
+    return;
   }
   function exportTiming(format: "json" | "srt" | "lrc") {
     if (!doc) return;
@@ -931,16 +1049,41 @@ export function TimelineEditor({
       setError(String(e));
     }
   }
-  function beginClipGesture(gestureId: string, clipId: string) {
+  function beginClipGesture(
+    gestureId: string,
+    clipId: string,
+    duplicateId?: string,
+  ) {
     const baseline = commands.getCurrentDocument();
     if (!baseline) return;
     const clip = baseline.clips.find((item) => item.id === clipId);
     if (!clip) return;
-    checkpoint();
+    let gestureBaseline = baseline;
+    let gestureClipId = clipId;
+    if (duplicateId) {
+      let next: EditTimeline;
+      try {
+        next = addTimelineClipCopy(
+          baseline,
+          clip,
+          duplicateId,
+          clip.from,
+          components,
+        );
+      } catch (operationError) {
+        setError(String(operationError));
+        return;
+      }
+      checkpoint();
+      sessionEdit(next, false);
+      gestureBaseline = next;
+      gestureClipId = duplicateId;
+      setSelected(duplicateId);
+    } else checkpoint();
     clipGesture.current = {
       gestureId,
-      clipId,
-      baseline: structuredClone(baseline),
+      clipId: gestureClipId,
+      baseline: structuredClone(gestureBaseline),
       expectedVersion: commands.getStateVersion(),
     };
   }
@@ -1077,7 +1220,72 @@ export function TimelineEditor({
         <button disabled={!redoCount} onClick={redo}>
           Redo
         </button>
+        <label className="playback-end-control">
+          Playback ends
+          <select
+            aria-label="Playback ends"
+            value={playToProjectEnd ? "project" : "content"}
+            onChange={(event) => {
+              const useProjectEnd = event.currentTarget.value === "project";
+              localStorage.setItem(
+                "motion-preview-playback-end",
+                useProjectEnd ? "project" : "content",
+              );
+              setPlayToProjectEnd(useProjectEnd);
+            }}
+          >
+            <option value="content">At last clip</option>
+            <option value="project">At project end</option>
+          </select>
+        </label>
       </div>
+      <details className="timeline-review" open={timelineWarnings.length > 0}>
+        <summary>
+          Timeline review:{" "}
+          {timelineWarnings.length
+            ? `${timelineWarnings.length} long gap${timelineWarnings.length === 1 ? "" : "s"}`
+            : "no long gaps"}
+        </summary>
+        {timelineWarnings.length ? (
+          <ul>
+            {timelineWarnings.map((warning) => {
+              const seconds = (warning.end - warning.from) / manifest.fps;
+              const label =
+                warning.kind === "late"
+                  ? `Late isolated clip on ${warning.trackName}: starts at ${(warning.end / manifest.fps).toFixed(1)}s after ${seconds.toFixed(1)}s empty.`
+                  : warning.kind === "between"
+                    ? `Long gap on ${warning.trackName}: ${seconds.toFixed(1)}s from ${(warning.from / manifest.fps).toFixed(1)}s to ${(warning.end / manifest.fps).toFixed(1)}s.`
+                    : `Empty tail on ${warning.trackName}: ${seconds.toFixed(1)}s after the last clip.`;
+              const targetIds = [
+                warning.previousClipId,
+                warning.nextClipId,
+              ].filter((id): id is string => Boolean(id));
+              return (
+                <li key={`${warning.trackId}:${warning.from}:${warning.end}`}>
+                  <span>{label}</span>
+                  {targetIds.map((id) => {
+                    const target = doc?.clips.find((item) => item.id === id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => {
+                          setSelected(id);
+                          seek(target?.from ?? warning.from);
+                        }}
+                      >
+                        Locate {target?.label ?? id}
+                      </button>
+                    );
+                  })}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p>No long empty intervals were found on visual tracks.</p>
+        )}
+      </details>
       {conflict && (
         <p className="error" role="alert">
           The project changed on disk while you were editing. Export your draft
@@ -1109,7 +1317,10 @@ export function TimelineEditor({
           frame={frame}
           playing={playing}
           iframeRef={iframe}
-          onPreviewLoad={() => send("hello")}
+          onPreviewLoad={() => {
+            send("hello");
+            send("playback-boundary", { endFrame: playbackEndFrame });
+          }}
           onSeek={seek}
           onPlay={play}
           onPause={pause}
@@ -1138,6 +1349,19 @@ export function TimelineEditor({
           onChangeRange={changeRange}
           onDuplicate={duplicate}
           onDelete={deleteClip}
+          canChangeRange={
+            clip ? canPerformTimelineOperation(clip, "move", components) : false
+          }
+          canDuplicate={
+            clip
+              ? canPerformTimelineOperation(clip, "duplicate", components)
+              : false
+          }
+          canDelete={
+            clip
+              ? canPerformTimelineOperation(clip, "delete", components)
+              : false
+          }
         />
       </div>
       <div
@@ -1205,6 +1429,11 @@ export function TimelineEditor({
               onPause={pause}
               onPlay={play}
               onBeginClipGesture={beginClipGesture}
+              onTimelineOperation={(operation) => {
+                const operationError = performTimelineOperation(operation);
+                if (operationError) setError(operationError);
+              }}
+              keyboardShortcutsEnabled={active}
               onUpdateClipGesture={updateClipGesture}
               onEndClipGesture={endClipGesture}
               onResizeStart={(event) => {
