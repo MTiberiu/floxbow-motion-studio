@@ -155,3 +155,12 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 - [ ] Reuse canonical transforms and Core transaction/Undo; ensure drag/rotate/resize commit safely to project JSON and preview/export exactly, not to a visual-only overlay.
 - [ ] Modules declare transform support; lock/hidden/off-canvas and audio-only elements have correct special behavior; small targets selectable via layer list and Inspector XY/dial.
 - [ ] Prototype after first Image round trip, then extend to Text/Video and module-owned visuals; review scope separately from basic PNG import PR.
+
+
+### Player and Canvas usability — next prioritized work
+
+- [ ] Space toggles Play/Pause when keyboard focus is in editor, Timeline or Canvas; never hijacks text entry, dialogs or focused native button actions; test docked/detached and seeking/playback state consistency.
+- [ ] Investigate intermittent embedded player Play/Pause failures with reproducible traces; retain current Remotion preview transport pending evidence.
+- [ ] Click to select visuals in Canvas, display editor-only move/resize/rotation handles, synchronized with Timeline/Inspector; selection via layer list remains available.
+- [ ] Multi-select canvas visuals with explicit modifiers and optional marquee; transform selected group consistently with one Undo operation and owner/lock checks; validate JSON and rendered MP4 after saves.
+- [ ] Separate small keyboard/playback fixes from Image asset import and broad shared Transform UI changes.
