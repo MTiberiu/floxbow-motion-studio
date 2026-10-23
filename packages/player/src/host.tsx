@@ -4,6 +4,7 @@ import type { PlayerRef, CallbackListener } from "@remotion/player";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
   serializableComponentInfo,
+  standaloneTextModule,
   type EditableVideoProps,
   type EditableComponent,
 } from "@motion/sdk/editor";
@@ -74,7 +75,12 @@ function PreviewHost({
     };
     const ready = () => {
       const components = componentInfosSchema.parse(
-        (module.editorComponents ?? []).map(serializableComponentInfo),
+        [
+          standaloneTextModule,
+          ...(module.editorComponents ?? []).filter(
+            (component) => component.id !== standaloneTextModule.id,
+          ),
+        ].map(serializableComponentInfo),
       );
       send("ready", { components });
     };
