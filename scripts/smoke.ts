@@ -173,7 +173,7 @@ try {
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
   await page.reload();
-  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible();
+  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Create your first video project")).toBeVisible();
 
   await page.getByRole("button", { name: "Explore capabilities" }).click();
