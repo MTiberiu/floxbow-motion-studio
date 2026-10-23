@@ -99,7 +99,7 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 
 | Item | Verified / intended status | Next evidence required |
 | --- | --- | --- |
-| Standalone Text on Timeline | PR #32 reviewed and CI green, merge authorized but **still open** at this handoff | Verify actual merge on `dev`, then preserve documented JSON/Inspector/Remotion tests |
+| Standalone Text on Timeline | **Merged in `dev`** via PR #32 at `bb2402ab115e31974480e52a65189444c3360696` | Preserve documented JSON/Inspector/Remotion round-trip tests; extend reusable Core properties later |
 | Core Editor V1 technical audit | Completed and reviewed | Apply its current-state findings; do not re-request the same audit |
 | Canonical AI↔JSON↔UI contract | Partially implemented for Timeline; D-016 is mandatory principle | Show real bidirectional changes with dirty-draft protection and MP4 validation for every new built-in |
 | Media Library, Image, Video | Planned next: asset registration separate from clip placement | Image at 6 seconds: one asset ID, one clip ID, external JSON change, UI correction, MP4 frame |
