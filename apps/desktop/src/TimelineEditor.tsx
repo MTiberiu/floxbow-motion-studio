@@ -618,10 +618,15 @@ export function TimelineEditor({
     components,
   ]);
   function property(field: EditableField, value: unknown) {
-    if (!doc) return;
+    // Inspector input events can arrive before React commits the previous
+    // property edit. Extend the latest session document so a later field
+    // change cannot restore values captured by this render.
+    const current = commands.getCurrentDocument();
+    if (!current) return;
     try {
-      const next = structuredClone(doc);
-      const c = next.clips.find((c) => c.id === selected)!;
+      const next = structuredClone(current);
+      const c = next.clips.find((c) => c.id === selected);
+      if (!c) return;
       const validated = validateField(field, value);
       const behavior = resolveTimelineBehavior(c.componentId, components);
       const behaviorEdit =

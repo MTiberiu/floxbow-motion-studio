@@ -2121,6 +2121,8 @@ try {
     await page.getByLabel("Font size", { exact: true }).fill("84");
     await page.getByLabel("Color", { exact: true }).fill("#00ff00");
     await page.getByLabel("Alignment", { exact: true }).selectOption("right");
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
+    await expect(textPreview).toHaveAttribute("style", /left:\s*68%/);
     await expect(textPreview).toHaveText("Final title from Inspector");
     await page
       .getByRole("button", { name: "Save project", exact: true })
