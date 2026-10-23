@@ -140,3 +140,8 @@ After standalone Image JSON/Inspector/MP4 integration, prioritize a reviewable *
 **Short-term, separate PR:** audit existing playback focus and keyboard architecture, implement Space to toggle Play/Pause in editor context without interfering with typing, focused buttons, dialogs or system shortcuts; verify docked/detached editor, seeking behavior, and a reproducible playback-resume regression. Investigate intermittent preview/player failures, keeping the current Remotion transport unless real evidence supports replacement.
 
 **Shared transform milestone:** Canvas hit-testing and edit-only handles (move/scale/rotate), synchronized Timeline selection, **multi-select** (modifier-click/marquee as appropriate), selection group transform, coherent Undo/Redo and overlap/lock ownership behavior. The user should be able to visually lay out an entire scene without searching tiny numerical Inspector fields. Keep AI/Core JSON contract and MP4 parity.
+
+
+### Near-term UI time readability — D-020
+
+Introduce a shared project-FPS-aware UI formatter/parser for seconds/milliseconds on the Timeline ruler, playhead and Inspector time controls, retaining integer frames in canonical JSON. Offer optional frames/timecode display for technical work. Round user input to legal frame positions, prevent time drift, and cover varying FPS, minute rollover, trim, subtitle and seek cases. Deliver as a narrow Core usability PR, separate from Media Library and Canvas selection.
