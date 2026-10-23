@@ -77,3 +77,24 @@ These requirements are agreed **product targets**, not implemented features or p
 **Test strategy:** fast focused tests per change; required automated CI and targeted Electron/render regression at reviewable integration points; one comprehensive end-to-end acceptance scenario for the integrated milestone. This aims to reduce redundant human test cycles, not remove safeguards.
 
 **Sequencing:** review/merge PR #31 separately when approved, then reconcile open documentation PR #30 with current `dev`. Execute the Core API audit before authorizing a large implementation. The already approved Transcript/Timeline/Release requirements remain in force.
+
+
+## Operational handoff — 2026-10-23 (for a new developer or AI agent)
+
+**Source of truth:** start by reading [DECISIONS.md](DECISIONS.md), [BACKLOG.md](BACKLOG.md), [Core Text JSON contract](../docs/STANDALONE_TEXT.md) **once PR #32 merges**, [Timeline guide](../docs/TIMELINE_EDITOR.md), and the real `dev` code. Verify GitHub PR states before stating a capability is merged. Historical planning notes above can be stale.
+
+**Merged milestones confirmed:** PR #29 Timeline extension and PR #31 universal editing/Play/seek are integrated in `dev`; PR #30 integrated documentation, latest verified merge `f09a52dc10c36103f1a2cfc85d876c7700b27cb`.
+
+**Current integration gate:** PR #32, [Standalone editable Text clips](https://github.com/MTiberiu/floxbow-motion-studio/pull/32), HEAD `dfe61f68c9fc20f75ebda0f99bf0e427aad6ddb5`, was reviewed and approved **conditionally**; its CI subsequently completed successfully, and merge was explicitly authorized. **As of this document edit PR #32 remains OPEN, not merged.** Check actual current state before proceeding. Do not claim Core Text shipped until it is merged.
+
+**Core Editor V1 technical audit completed** (developer report received). Findings: Timeline v1/EditorSession/media MP3-WAV registry/subtitle tooling/Remotion provide partial foundations; React composition can still own creative content, there is no comprehensive standalone image/video/multi-audio Core, no module-owned layer schema, and Whisper regeneration can replace unrelated subtitle clips after confirmation. Audit proposed a versioned canonical model, stable ownership, typed built-ins, protected external edits and a single integrated acceptance project. Audit was accepted **with modified implementation sequence**: verify AI↔JSON↔UI round-trip immediately through standalone Text (PR #32), rather than delivering only abstract infrastructure.
+
+**Next approved planning direction (not automatic code authorization):**
+1. Close/merge PR #32 safely, sync `dev`, and confirm Text JSON→Inspector/Canvas→save→MP4 parity.
+2. **Next implementation proposal:** unified Media Library and first-class Image/Video registration **separate from** placement on ordinary Timeline tracks. Stable asset IDs, individual clip IDs, image at 6s, agent JSON edit, Inspector correction, save/reload, representative rendered frame; assess video decoding/security and avoid fake UI-only support.
+3. Extend multi-track audio with movable clips, volume/mix and proven preview/MP4 parity; soundtrack remains locked until verified.
+4. Complete common Core services and module-facing validated contracts: typed properties, shared text/fonts/styles, transforms, basic animation, Inspector, selection/group editing, visibility and ownership.
+5. Deliver module-owned Whisper Original and Codex Revised sets for explicitly selected audio, with safe scoped regeneration and independent styling/visibility, preserving manual captions.
+6. Run one end-to-end acceptance project (standalone text, image, video, at least two audio tracks, module subtitle layers) with external Codex round-trip and MP4 verification.
+
+**Non-negotiable workflow:** AI agent does most edits via documented project data; human reviews and adjusts via UI. Changes must be bidirectional, validated, conflict-safe, and persist through export. Build reviewable PRs with tests; do not start new work automatically after any merge. `main` and user-owned projects/media remain untouched.
