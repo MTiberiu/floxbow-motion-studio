@@ -4,7 +4,7 @@ Text Core defines text content and typography. **Canvas Core defines how any opt
 
 ## Shared contract
 
-The serializable `canvas` field on `ComponentInfo` describes a component's stable transform contract. The clip ID is the visual element ID; `owner` identifies the capability that owns its behavior. A component maps position, size, rotation, and anchor to its declared editable `fields`. It can also declare move, resize, rotate, aspect-ratio mode, lock field, and visibility field. A visual component opts in only to operations its rendering and fields support.
+The serializable `canvas` field on `ComponentInfo` describes a component's stable transform contract. The clip ID is the visual element ID; `owner` identifies the capability that owns its behavior. A component maps position, size, rotation, and anchor to its declared editable `fields`. It can also declare move, resize, rotate, aspect-ratio mode, numeric `resizeScaleFields`, lock field, and visibility field. A visual component opts in only to operations its rendering and fields support.
 
 The `@motion/sdk/canvas` package export provides:
 
@@ -23,7 +23,7 @@ The Inspector is the precise editing path. It edits the declared fields of the p
 
 ## Implementing an opted-in visual component
 
-Declare transform fields using the existing `EditableComponent` metadata and add a serializable `canvas` contract to the component definition. Render from those same properties. For example:
+Declare transform fields using the existing `EditableComponent` metadata and add a serializable `canvas` contract to the component definition. Render from those same properties. Numeric `resizeScaleFields` are scaled proportionally by the shared transform operation and validated against their declared limits. Standalone Text opts in for `fontSize`, so Canvas resizing changes the visible glyph size as well as the geometry. For example:
 
 ```ts
 const imageDefinition = {
@@ -49,7 +49,11 @@ const imageDefinition = {
 
 Use `canvasElementContractSchema` and `componentInfoSchema` from `@motion/sdk/timeline` to validate registration metadata. Use `getCanvasVisualElements` and `applyCanvasTransform` from `@motion/sdk/canvas` in non-UI tooling or tests. The application owns selection state, handles, gesture math, undo checkpoints, and persistence. Do not add a component-specific Canvas controller.
 
-Current application support is implemented for standalone Text, Image, and subtitles. Other visual components must declare and validate the same contract before the editor offers spatial manipulation. A renderable React component or registry parameter alone does not promise Canvas or Inspector editability. Audio-only clips do not opt into spatial transforms.
+Current application support is implemented for standalone Text, Image, Video, and subtitles. Other visual components must declare and validate the same contract before the editor offers spatial manipulation. A renderable React component or registry parameter alone does not promise Canvas or Inspector editability. Audio-only clips do not opt into spatial transforms.
+
+Single-element selection exposes four corner and four side handles. Image clips using `fill` resize freely by default, so a user may intentionally distort them; hold Shift while dragging any resize handle to keep proportions, with the opposite handle remaining anchored. Image and video dimensions can grow to 500% of the composition so the user can enlarge them beyond the Canvas edges. `contain` keeps the rendered media within its box and preserves its source proportions; `cover` fills the box without distorting, cropping when source and Canvas ratios differ; `fill` stretches media to the box. Text and subtitle corner handles preserve the box aspect and scale declared `resizeScaleFields` such as `fontSize`; one-axis box adjustments change layout width or height without changing typography. PNG and video selection outlines follow the visible source bounds in `contain` mode instead of empty layout-box margins. Ctrl/Cmd-drag on Canvas duplicates the selected element or selected group and moves the copy; Alt-drag remains an alternate gesture. Shift-drag locks movement to the dominant horizontal or vertical direction for the duration of the gesture.
+
+During Canvas movement, the selected bounds snap to composition edges and horizontal/vertical center when within 10 rendered pixels; dashed guides show the active alignment. Shift axis-lock keeps snapping on the free movement axis. The Inspector offers **Center on Canvas**, **Fit inside Canvas**, and **Fill Canvas** for Image and Video clips. Fit uses `contain` to show the full source without distortion; Fill uses `cover` to cover the composition and crop when the aspect ratios differ. Video source dimensions are probed by the trusted host and used to align `contain` selection handles; host filesystem paths remain outside the renderer.
 
 ## Compatibility and limits
 

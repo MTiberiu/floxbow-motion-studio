@@ -14,7 +14,7 @@ export function canPerformTimelineOperation(
   operation: TimelineOperation,
   components: readonly ComponentInfo[],
 ) {
-  if (clip.componentId === "soundtrack") return false;
+  if (clip.componentId === "soundtrack") return operation === "delete";
   return (
     resolveTimelineBehavior(clip.componentId, components).operations?.[
       operation

@@ -6,6 +6,8 @@ import {
   serializableComponentInfo,
   standaloneTextModule,
   standaloneImageModule,
+  standaloneVideoModule,
+  standaloneCharacterModule,
   type EditableVideoProps,
   type EditableComponent,
 } from "@motion/sdk/editor";
@@ -15,6 +17,12 @@ import {
   type EditTimeline,
 } from "@motion/sdk/timeline";
 import { timelinePlaybackEnd } from "@motion/sdk/timeline-analysis";
+import {
+  pendingSeekTarget,
+  shouldRestartPlaybackAtBoundary,
+  shouldIgnorePendingSeekFrame,
+} from "./seek-sync";
+import { isValidMasterVolume } from "./master-volume";
 import { StudioPlayer } from "./index";
 type VideoModule = {
   default: ComponentType<EditableVideoProps>;
@@ -28,19 +36,24 @@ function PreviewHost({
   manifest: ProjectManifest;
 }) {
   const player = useRef<PlayerRef>(null);
+  const pendingSeekFrame = useRef<number | null>(null);
   const [timeline, setTimeline] = useState<EditTimeline>();
   const timelineRef = useRef(timeline);
   timelineRef.current = timeline;
   const [error, setError] = useState("");
+  const [masterVolume, setMasterVolume] = useState(1);
   const playbackCheck = useRef<ReturnType<typeof setTimeout> | null>(null);
   const configuredPlaybackEnd = useRef(manifest.durationInFrames);
   const activePlaybackEnd = useRef(manifest.durationInFrames);
+  const endedAtPlaybackBoundary = useRef(false);
+  const playbackWasActive = useRef(false);
   const sourcesFor = (document: EditTimeline, componentId: string) =>
     Object.fromEntries(
       document.clips
         .filter(
           (c) =>
-            c.componentId === componentId &&
+            (c.componentId === componentId ||
+              (componentId === "video" && c.componentId === "video-audio")) &&
             typeof c.content.assetId === "string" &&
             /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(c.content.assetId),
         )
@@ -50,7 +63,29 @@ function PreviewHost({
         ]),
     );
   const audioSources = timeline ? sourcesFor(timeline, "soundtrack") : {};
-  const imageSources = timeline ? sourcesFor(timeline, "image") : undefined;
+  const imageSources = timeline
+    ? {
+        ...sourcesFor(timeline, "image"),
+        ...Object.fromEntries(
+          [
+            ...new Set(
+              timeline.clips
+                .filter((clip) => clip.componentId === "character")
+                .flatMap(
+                  (clip) =>
+                    (timeline.assetGroups ?? [])
+                      .find((group) => group.id === clip.content.groupId)
+                      ?.members.map((member) => member.assetId) ?? [],
+                ),
+            ),
+          ].map((assetId) => [
+            assetId,
+            `${location.origin}/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(assetId)}/stream`,
+          ]),
+        ),
+      }
+    : undefined;
+  const videoSources = timeline ? sourcesFor(timeline, "video") : undefined;
   const requestedParentOrigin =
     new URLSearchParams(location.search).get("hostOrigin") ?? "";
   const previewPort = Number(location.port);
@@ -68,40 +103,68 @@ function PreviewHost({
         parentOrigin,
       );
     const mediaError = (event: Event) => {
-      if (event.target instanceof HTMLAudioElement) {
+      if (
+        event.target instanceof HTMLAudioElement ||
+        event.target instanceof HTMLVideoElement
+      ) {
         const message =
-          "The selected audio could not be decoded or played. Check that the MP3/WAV is available and supported.";
+          event.target instanceof HTMLVideoElement
+            ? "The selected MP4 video could not be decoded or played. Check that the registered file is available and supported."
+            : "The selected audio could not be decoded or played. Check that the MP3/WAV is available and supported.";
         setError(message);
         send("error", { message });
       }
+    };
+    const runtimeMediaError = (event: Event) => {
+      const message = (event as CustomEvent<{ message?: unknown }>).detail
+        ?.message;
+      if (typeof message !== "string") return;
+      const detail = `Video playback stopped while seeking or decoding. Try seeking to another position and press Play, or reload the preview.\n\n${message}`;
+      setError(detail);
+      send("error", { message: detail });
     };
     const ready = () => {
       const components = componentInfosSchema.parse(
         [
           standaloneTextModule,
           standaloneImageModule,
+          standaloneVideoModule,
+          standaloneCharacterModule,
           ...(module.editorComponents ?? []).filter(
             (component) =>
               component.id !== standaloneTextModule.id &&
-              component.id !== standaloneImageModule.id,
+              component.id !== standaloneImageModule.id &&
+              component.id !== standaloneVideoModule.id &&
+              component.id !== standaloneCharacterModule.id,
           ),
         ].map(serializableComponentInfo),
       );
       send("ready", { components });
     };
-    const report = () =>
+    const report = () => {
+      const currentFrame = player.current?.getCurrentFrame() ?? 0;
+      const pendingFrame = pendingSeekFrame.current;
+      if (shouldIgnorePendingSeekFrame(currentFrame, pendingFrame)) return;
+      if (pendingFrame !== null) pendingSeekFrame.current = null;
       send("frame", {
-        frame: player.current?.getCurrentFrame() ?? 0,
+        frame: currentFrame,
         playing: player.current?.isPlaying() ?? false,
       });
+    };
     const onFrame: CallbackListener<"frameupdate"> = () => {
       const currentPlayer = player.current;
       const currentFrame = currentPlayer?.getCurrentFrame() ?? 0;
       if (
-        currentPlayer?.isPlaying() &&
+        shouldIgnorePendingSeekFrame(currentFrame, pendingSeekFrame.current)
+      )
+        return;
+      if (
+        playbackWasActive.current &&
         currentFrame + 1 >= activePlaybackEnd.current
       ) {
-        currentPlayer.pause();
+        endedAtPlaybackBoundary.current = true;
+        playbackWasActive.current = false;
+        if (currentPlayer?.isPlaying()) currentPlayer.pause();
         report();
         return;
       }
@@ -109,12 +172,29 @@ function PreviewHost({
     };
     const onPlay = () => {
       const currentFrame = player.current?.getCurrentFrame() ?? 0;
-      const duration =
-        timelineRef.current?.durationInFrames ?? manifest.durationInFrames;
-      activePlaybackEnd.current =
-        currentFrame >= configuredPlaybackEnd.current
-          ? duration
-          : configuredPlaybackEnd.current;
+      if (
+        shouldRestartPlaybackAtBoundary(
+          currentFrame,
+          activePlaybackEnd.current,
+          endedAtPlaybackBoundary.current,
+        )
+      ) {
+        pendingSeekFrame.current = pendingSeekTarget(currentFrame, 0);
+        player.current?.seekTo(0);
+        activePlaybackEnd.current = configuredPlaybackEnd.current;
+        endedAtPlaybackBoundary.current = false;
+      }
+      playbackWasActive.current = true;
+      report();
+    };
+    const onPause = () => {
+      const currentFrame = player.current?.getCurrentFrame() ?? 0;
+      if (
+        playbackWasActive.current &&
+        currentFrame + 1 >= activePlaybackEnd.current
+      )
+        endedAtPlaybackBoundary.current = true;
+      playbackWasActive.current = false;
       report();
     };
     const clearPlaybackCheck = () => {
@@ -144,6 +224,7 @@ function PreviewHost({
             timelineRef.current = next;
             configuredPlaybackEnd.current = timelinePlaybackEnd(next);
             activePlaybackEnd.current = configuredPlaybackEnd.current;
+            endedAtPlaybackBoundary.current = false;
             setTimeline(next);
             setError("");
             break;
@@ -162,30 +243,51 @@ function PreviewHost({
             const currentFrame = player.current?.getCurrentFrame() ?? 0;
             activePlaybackEnd.current =
               currentFrame >= e.data.endFrame ? duration : e.data.endFrame;
+            endedAtPlaybackBoundary.current = false;
+            break;
+          }
+          case "master-volume": {
+            if (!isValidMasterVolume(e.data.volume))
+              throw new Error("Preview volume must be between 0 and 1.");
+            setMasterVolume(e.data.volume);
             break;
           }
           case "seek":
             if (Number.isInteger(e.data.frame)) {
+              setError("");
               const duration =
                 timelineRef.current?.durationInFrames ??
                 manifest.durationInFrames;
               const frame = Math.max(0, Math.min(duration - 1, e.data.frame));
-              if (player.current?.isPlaying())
-                activePlaybackEnd.current =
-                  frame >= configuredPlaybackEnd.current
-                    ? duration
-                    : configuredPlaybackEnd.current;
+              activePlaybackEnd.current =
+                frame >= configuredPlaybackEnd.current
+                  ? duration
+                  : configuredPlaybackEnd.current;
+              endedAtPlaybackBoundary.current = false;
+              pendingSeekFrame.current = pendingSeekTarget(
+                player.current?.getCurrentFrame() ?? frame,
+                frame,
+              );
               player.current?.seekTo(frame);
-              report();
+              // Remotion may still report the previous frame synchronously
+              // after seekTo(). Acknowledge the requested frame and ignore
+              // old frameupdate callbacks until the player reaches it.
+              send("frame", {
+                frame,
+                playing: player.current?.isPlaying() ?? false,
+              });
             }
             break;
           case "play":
+            setError("");
             clearPlaybackCheck();
             onPlay();
             player.current?.play();
             if (
               timelineRef.current?.clips.some(
-                (clip) => clip.componentId === "soundtrack",
+                (clip) =>
+                  clip.componentId === "soundtrack" ||
+                  clip.componentId === "video-audio",
               )
             )
               playbackCheck.current = setTimeout(() => {
@@ -216,28 +318,39 @@ function PreviewHost({
     };
     const refreshMetadata = () => ready();
     window.addEventListener("message", receive);
+    window.addEventListener("motion-preview-media-error", runtimeMediaError);
     window.addEventListener("project-module-updated", refreshMetadata);
     document.addEventListener("error", mediaError, true);
     const p = player.current;
     p?.addEventListener("frameupdate", onFrame);
     p?.addEventListener("play", onPlay);
-    p?.addEventListener("pause", report);
+    p?.addEventListener("pause", onPause);
     p?.addEventListener("seeked", report);
     ready();
     report();
     return () => {
       clearPlaybackCheck();
       window.removeEventListener("message", receive);
+      window.removeEventListener(
+        "motion-preview-media-error",
+        runtimeMediaError,
+      );
       window.removeEventListener("project-module-updated", refreshMetadata);
       document.removeEventListener("error", mediaError, true);
       p?.removeEventListener("frameupdate", onFrame);
       p?.removeEventListener("play", onPlay);
-      p?.removeEventListener("pause", report);
+      p?.removeEventListener("pause", onPause);
       p?.removeEventListener("seeked", report);
     };
   }, [parentOrigin, module, manifest]);
+  useEffect(() => {
+    player.current?.setVolume(masterVolume);
+  }, [masterVolume]);
   return (
-    <>
+    <div
+      data-preview-master-volume={masterVolume}
+      style={{ width: "100%", height: "100%" }}
+    >
       {error && <pre role="alert">{error}</pre>}
       <StudioPlayer
         composition={module.default}
@@ -247,9 +360,10 @@ function PreviewHost({
             timeline?.durationInFrames ?? manifest.durationInFrames,
         }}
         playerRef={player}
-        inputProps={{ timeline, audioSources, imageSources }}
+        masterVolume={masterVolume}
+        inputProps={{ timeline, audioSources, imageSources, videoSources }}
       />
-    </>
+    </div>
   );
 }
 export function mountPreview(module: VideoModule, manifest: ProjectManifest) {

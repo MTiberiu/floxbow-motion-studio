@@ -24,6 +24,7 @@ import path from "node:path";
 import { startServers, root, projectsDir } from "./server";
 import { renderProject } from "../packages/renderer/src/render";
 import { mediaRegistrySchema } from "@motion/project-loader/media";
+import { transcribeVideoClipAudio } from "./video-transcription";
 const execFileAsync = promisify(execFile);
 
 async function findSmokePortOffset() {
@@ -55,6 +56,9 @@ async function setFrameFromUiTime(page: Page, label: string, frame: number) {
   if (!Number.isFinite(fps) || fps <= 0)
     throw new Error(`The ${label} input does not expose its project FPS.`);
   await input.fill((frame / fps).toFixed(3));
+  await expect
+    .poll(() => readFrameFromUiTime(page, label))
+    .toBe(frame);
 }
 
 async function readFrameFromUiTime(page: Page, label: string) {
@@ -83,9 +87,63 @@ async function readClipFrameRange(clip: Locator) {
   );
 }
 
+async function findCanvasHitPoint(hitbox: Locator) {
+  return hitbox.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const canvas = element.parentElement!.getBoundingClientRect();
+    const left = Math.max(bounds.left, canvas.left);
+    const right = Math.min(bounds.right, canvas.right);
+    const top = Math.max(bounds.top, canvas.top);
+    const bottom = Math.min(bounds.bottom, canvas.bottom);
+    const stepX = Math.max(0.5, (right - left) / 100);
+    const stepY = Math.max(0.5, (bottom - top) / 100);
+    for (let y = top + stepY / 2; y < bottom; y += stepY) {
+      for (let x = left + stepX / 2; x < right; x += stepX) {
+        const target = document.elementFromPoint(x, y);
+        if (target === element || (target && element.contains(target))) {
+          return { x, y };
+        }
+      }
+    }
+    return undefined;
+  });
+}
+
+async function inspectNarrowTimelineClip(clip: Locator) {
+  return clip.evaluate((element) => {
+    const originalWidth = element.style.width;
+    element.style.width = "22px";
+    const body = element.querySelector<HTMLElement>(".clip-body")!;
+    const handle = element.querySelector<HTMLElement>(".resize-handle")!;
+    const result = {
+      clipWidth: element.getBoundingClientRect().width,
+      contentWidth: body.getBoundingClientRect().width,
+      contentPadding: Number.parseFloat(getComputedStyle(body).paddingLeft),
+      handleFill: getComputedStyle(handle).backgroundColor,
+      handleInteriorWidth: Math.max(
+        0,
+        Math.min(
+          handle.getBoundingClientRect().right,
+          element.getBoundingClientRect().right,
+        ) - element.getBoundingClientRect().left,
+      ),
+      label: body.textContent?.trim() ?? "",
+    };
+    element.style.width = originalWidth;
+    return result;
+  });
+}
+
 async function verifyTimelineZoom(page: Page) {
   const zoom = page.getByLabel("Timeline zoom", { exact: true });
   const scroll = page.locator(".timeline-scroll");
+  const waitForLayout = () =>
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
   await zoom.selectOption("1");
   const buttonAnchorX = await page.locator(".time-ruler").evaluate((ruler) => {
     const rect = ruler.getBoundingClientRect();
@@ -101,16 +159,34 @@ async function verifyTimelineZoom(page: Page) {
   const frameAtAnchor = (x: number) =>
     page.locator(".time-ruler").evaluate((ruler, x) => {
       const rect = ruler.getBoundingClientRect();
-      const duration = Number(ruler.getAttribute("aria-valuemax")) + 1;
+      const duration = Number(ruler.getAttribute("data-range-frames"));
       return ((x - rect.left) / rect.width) * duration;
     }, x);
+  const anchorGeometry = (x: number) =>
+    page.locator(".time-ruler").evaluate((ruler, x) => {
+      const rect = ruler.getBoundingClientRect();
+      const viewport = ruler
+        .closest(".timeline-scroll")!
+        .getBoundingClientRect();
+      return {
+        rulerLeft: rect.left,
+        rulerWidth: rect.width,
+        viewportLeft: viewport.left,
+        viewportWidth: viewport.width,
+        scrollLeft: ruler.closest<HTMLElement>(".timeline-scroll")!.scrollLeft,
+        pointOffset: x - rect.left,
+      };
+    }, x);
+  const buttonGeometryBefore = await anchorGeometry(buttonAnchorX);
   const beforeButtonZoom = await frameAtAnchor(buttonAnchorX);
   await page.getByRole("button", { name: "Zoom Timeline in" }).click();
   await expect(zoom).toHaveValue("1.25");
+  await waitForLayout();
   const afterButtonZoom = await frameAtAnchor(buttonAnchorX);
+  const buttonGeometryAfter = await anchorGeometry(buttonAnchorX);
   expect(
     Math.abs(afterButtonZoom - beforeButtonZoom),
-    `button zoom anchor ${beforeButtonZoom} -> ${afterButtonZoom}`,
+    `button zoom anchor ${beforeButtonZoom} -> ${afterButtonZoom}; ${JSON.stringify({ buttonGeometryBefore, buttonGeometryAfter })}`,
   ).toBeLessThan(1);
   await expect
     .poll(() =>
@@ -135,12 +211,113 @@ async function verifyTimelineZoom(page: Page) {
     );
   }, wheelAnchorX);
   await expect(zoom).toHaveValue("1.5");
+  await waitForLayout();
   const afterWheelZoom = await frameAtAnchor(wheelAnchorX);
   expect(
     Math.abs(afterWheelZoom - beforeWheelZoom),
     `wheel zoom anchor ${beforeWheelZoom} -> ${afterWheelZoom}`,
   ).toBeLessThan(1);
   await zoom.selectOption("1");
+}
+
+async function verifyTimelinePlayheadLeftBoundary(page: Page) {
+  const zoom = page.getByLabel("Timeline zoom", { exact: true });
+  const scroll = page.locator(".timeline-scroll");
+  const ruler = page.locator(".time-ruler");
+  const originalZoom = await zoom.inputValue();
+  const originalFrame = Number(await ruler.getAttribute("aria-valuenow"));
+  const originalScrollLeft = await scroll.evaluate(
+    (element) => element.scrollLeft,
+  );
+  await zoom.selectOption("4");
+  await expect
+    .poll(() =>
+      scroll.evaluate((element) => element.scrollWidth > element.clientWidth),
+    )
+    .toBe(true);
+
+  const geometry = await scroll.evaluate((element) => {
+    const label = element.querySelector<HTMLElement>(
+      ".ruler-row .track-label",
+    )!;
+    return {
+      left: element.getBoundingClientRect().left + element.clientLeft,
+      labelWidth: label.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    };
+  });
+  expect(geometry.scrollWidth).toBeGreaterThan(geometry.clientWidth + 100);
+  await scroll.evaluate((element) => {
+    element.scrollLeft = Math.min(
+      600,
+      element.scrollWidth - element.clientWidth,
+    );
+  });
+  const before = await scroll.evaluate((element) => element.scrollLeft);
+  const startX = geometry.left + geometry.labelWidth + 80;
+  const rulerBox = await ruler.boundingBox();
+  if (!rulerBox) throw new Error("Timeline ruler is not visible");
+  const startY = rulerBox.y + rulerBox.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  const rulerEdgeX = geometry.left + geometry.labelWidth + 1;
+  await page.mouse.move(rulerEdgeX, startY);
+  const frameAtRulerEdge = await ruler.evaluate((element, x) => {
+    const rect = element.getBoundingClientRect();
+    const duration = Number(element.getAttribute("data-range-frames"));
+    const maxFrame = Number(element.getAttribute("aria-valuemax"));
+    return Math.min(
+      maxFrame,
+      Math.round(((x - rect.left) / rect.width) * duration),
+    );
+  }, rulerEdgeX);
+  await expect
+    .poll(() => ruler.getAttribute("aria-valuenow"))
+    .toBe(String(frameAtRulerEdge));
+  await page.mouse.move(geometry.left + geometry.labelWidth / 2, startY, {
+    steps: 1,
+  });
+  await page.mouse.up();
+  const after = await scroll.evaluate((element) => element.scrollLeft);
+  const frameAfterLeftDrag = Number(await ruler.getAttribute("aria-valuenow"));
+  expect(
+    after,
+    "dragging over the track controls should scroll left",
+  ).toBeLessThan(before);
+  expect(
+    frameAfterLeftDrag,
+    "the playhead should not enter the track controls",
+  ).toBe(frameAtRulerEdge);
+
+  await scroll.evaluate((element) => {
+    element.scrollLeft = 0;
+  });
+  const visibleRulerBox = await ruler.boundingBox();
+  if (!visibleRulerBox)
+    throw new Error("Timeline ruler is not visible at scroll origin");
+  await page.mouse.move(visibleRulerBox.x + 150, startY);
+  await page.mouse.down();
+  await page.mouse.move(geometry.left + geometry.labelWidth / 2, startY, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  await expect(ruler).toHaveAttribute("aria-valuenow", "0");
+  await zoom.selectOption(originalZoom);
+  await scroll.evaluate((element, value) => {
+    element.scrollLeft = value;
+  }, originalScrollLeft);
+  const restoreBox = await ruler.boundingBox();
+  if (!restoreBox)
+    throw new Error("Timeline ruler is not visible after restoring zoom");
+  const restoreRangeFrames = Number(
+    await ruler.getAttribute("data-range-frames"),
+  );
+  const restoreX =
+    restoreBox.x +
+    (originalFrame / Math.max(1, restoreRangeFrames)) * restoreBox.width;
+  await page.mouse.click(restoreX, restoreBox.y + restoreBox.height / 2);
+  await expect(ruler).toHaveAttribute("aria-valuenow", String(originalFrame));
 }
 
 const built = process.argv.includes("--built");
@@ -158,6 +335,7 @@ const audioFixturePath = path.join(
   "flox-smoke-audio.wav",
 );
 const imageFixturePath = path.join(audioFixtureDirectory, "flox-smoke.png");
+const videoFixturePath = path.join(audioFixtureDirectory, "flox-smoke.mp4");
 function sineWaveWav(seconds: number) {
   const sampleRate = 8_000;
   const samples = sampleRate * seconds;
@@ -223,8 +401,39 @@ function solidPng(red: number, green: number, blue: number, size = 16) {
 const audioFixture = sineWaveWav(8);
 await writeFile(audioFixturePath, audioFixture);
 await writeFile(imageFixturePath, solidPng(255, 96, 12));
+await execFileAsync(
+  "ffmpeg",
+  [
+    "-v",
+    "error",
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=blue:s=64x64:r=30",
+    "-i",
+    audioFixturePath,
+    "-t",
+    "2",
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
+    "-c:v",
+    "libx264",
+    "-c:a",
+    "aac",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    videoFixturePath,
+  ],
+  { windowsHide: true, timeout: 60_000 },
+);
 let pickerCalls = 0;
 let whisperHostAudioPath = "";
+let extractedVideoAudio = { start: -1, duration: -1, size: 0 };
 let markSecondPickerStarted!: () => void;
 let releaseSecondPicker!: (selectedPath: string | undefined) => void;
 const secondPickerStarted = new Promise<void>((resolve) => {
@@ -251,9 +460,39 @@ const servers = await startServers(built, await findSmokePortOffset(), {
       ],
     };
   },
+  transcribeVideoAudio: async (
+    videoPath,
+    sourceStartSeconds,
+    durationSeconds,
+  ) =>
+    transcribeVideoClipAudio(
+      videoPath,
+      sourceStartSeconds,
+      durationSeconds,
+      undefined,
+      async (audioPath) => {
+        extractedVideoAudio = {
+          start: sourceStartSeconds,
+          duration: durationSeconds,
+          size: (await stat(audioPath)).size,
+        };
+        return {
+          text: "Video audio caption",
+          segments: [
+            {
+              start: 0.2,
+              end: 0.7,
+              text: "Video audio caption",
+              words: [{ start: 0.25, end: 0.6, word: "caption" }],
+            },
+          ],
+        };
+      },
+    ),
   audioFilePicker: pickAudioFixture,
   mediaFilePicker: async (type) => {
     if (type === "image") return imageFixturePath;
+    if (type === "video") return videoFixturePath;
     return pickAudioFixture();
   },
 });
@@ -283,21 +522,37 @@ try {
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.getByText("A CLEAN WORKSPACE")).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page.getByText("Create your first video project")).toBeVisible();
-
-  await page.getByRole("button", { name: "Explore capabilities" }).click();
+  await expect
+    .poll(
+      async () =>
+        (await page.locator(".project").count()) > 0 ||
+        (await page.getByText("A CLEAN WORKSPACE").count()) > 0,
+      { timeout: 20_000 },
+    )
+    .toBe(true);
+  if ((await page.locator(".project").count()) === 0)
+    await expect(
+      page.getByText("Create your first video project"),
+    ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Capabilities explorer" }),
+    page.getByRole("button", { name: "+ Create", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".capability-preview")).toBeVisible();
-  await page.getByRole("tab", { name: "Developer / AI" }).click();
-  await expect(page.getByText("Public API", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Read docs\// }).click();
-  await expect(page.getByLabel("Documentation")).toBeVisible();
-  await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
+
+  const exploreCapabilities = page.getByRole("button", {
+    name: "Explore capabilities",
+  });
+  if ((await exploreCapabilities.count()) > 0) {
+    await exploreCapabilities.click();
+    await expect(
+      page.getByRole("region", { name: "Capabilities explorer" }),
+    ).toBeVisible();
+    await expect(page.locator(".capability-preview")).toBeVisible();
+    await page.getByRole("tab", { name: "Developer / AI" }).click();
+    await expect(page.getByText("Public API", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Read docs\// }).click();
+    await expect(page.getByLabel("Documentation")).toBeVisible();
+    await expect(page.locator(".capability-resource pre")).not.toBeEmpty();
+  }
 
   const firstPanelRequest = {
     panelId: "timeline" as const,
@@ -434,14 +689,14 @@ try {
   if (built) {
     await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Create Project" }),
+      page.getByRole("button", { name: "+ Create", exact: true }),
     ).toBeDisabled();
     console.log(
       "PASS built: empty starter, capability metadata, real preview and docs.",
     );
   } else {
     await page.getByRole("button", { name: "Editor", exact: true }).click();
-    await page.getByRole("button", { name: "Create Project" }).click();
+    await page.getByRole("button", { name: "+ Create", exact: true }).click();
     await page.getByLabel("Project name").fill(id);
     await page
       .getByRole("button", { name: "Create project", exact: true })
@@ -449,6 +704,45 @@ try {
     await expect(
       page.getByRole("heading", { name: "Composition" }),
     ).toBeVisible();
+
+    const canvasFormat = page.getByLabel("Canvas format", { exact: true });
+    await canvasFormat.selectOption("9:16");
+    await expect
+      .poll(async () => {
+        const project = JSON.parse(
+          await readFile(path.join(projectPath, "project.json"), "utf8"),
+        );
+        return [project.width, project.height];
+      })
+      .toEqual([1080, 1920]);
+    await expect
+      .poll(() =>
+        page
+          .locator(".canvas-surface")
+          .evaluate((surface) => [
+            Number.parseFloat(getComputedStyle(surface).width),
+            Number.parseFloat(getComputedStyle(surface).height),
+          ]),
+      )
+      .toEqual([1080, 1920]);
+    await canvasFormat.selectOption("21:9");
+    await expect
+      .poll(async () => {
+        const project = JSON.parse(
+          await readFile(path.join(projectPath, "project.json"), "utf8"),
+        );
+        return [project.width, project.height];
+      })
+      .toEqual([2560, 1080]);
+    await canvasFormat.selectOption("16:9");
+    await expect
+      .poll(async () => {
+        const project = JSON.parse(
+          await readFile(path.join(projectPath, "project.json"), "utf8"),
+        );
+        return [project.width, project.height];
+      })
+      .toEqual([1920, 1080]);
 
     const authoritativeSessionId = await page
       .locator(".timeline-editor")
@@ -493,12 +787,15 @@ try {
     await expect.poll(async () => (await app!.windows()).length).toBe(1);
     await expect(page.locator(".timeline-dock")).toHaveCount(1);
 
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(
       page.getByRole("region", { name: "Project media" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add Audio" })).toBeEnabled();
-    await page.getByRole("button", { name: "Add Audio" }).click();
+    const addAudioButton = page.getByRole("button", {
+      name: "Add Audio",
+      exact: true,
+    });
+    await expect(addAudioButton).toBeEnabled();
+    await addAudioButton.click();
     await expect(
       page.getByText("flox-smoke-audio", { exact: true }),
     ).toBeVisible();
@@ -551,9 +848,16 @@ try {
     await expect(
       page.getByText("Unsaved changes", { exact: true }),
     ).toBeVisible();
+    const selectedTimelineSave = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/edit/${id}`) &&
+        response.request().method() === "PUT" &&
+        response.ok(),
+    );
     await page
       .getByRole("button", { name: "Save project", exact: true })
       .click();
+    await selectedTimelineSave;
     await expect(
       page.getByText("Saved to the project. Renders use these edits."),
     ).toBeVisible();
@@ -597,6 +901,55 @@ try {
         soundtrackPreview.locator('audio[src*="/api/media/"]').count(),
       )
       .toBeGreaterThan(0);
+    const masterVolume = page.getByLabel("Application preview volume");
+    const originalMasterVolume = Number(await masterVolume.inputValue());
+    const volumeStep = originalMasterVolume >= 0.01 ? -0.01 : 0.01;
+    const expectedMasterVolume =
+      Math.round((originalMasterVolume + volumeStep) * 100) / 100;
+    await masterVolume.focus();
+    await page.keyboard.press(volumeStep < 0 ? "ArrowDown" : "ArrowUp");
+    await expect(masterVolume).toHaveValue(String(expectedMasterVolume));
+    await expect
+      .poll(() =>
+        soundtrackPreview
+          .locator("[data-preview-master-volume]")
+          .getAttribute("data-preview-master-volume"),
+      )
+      .toBe(String(expectedMasterVolume));
+    await page.keyboard.press(volumeStep < 0 ? "ArrowUp" : "ArrowDown");
+
+    await page.getByRole("button", { name: "Add audio track" }).click();
+    const audioRows = page.locator(".track-row.is-audio-track");
+    await expect(audioRows).toHaveCount(2);
+    const secondAudioRow = audioRows.last();
+    await secondAudioRow.scrollIntoViewIfNeeded();
+    const secondAudioBox = await secondAudioRow.boundingBox();
+    const soundtrackBox = await dockedSoundtrack.boundingBox();
+    expect(secondAudioBox).toBeTruthy();
+    expect(soundtrackBox).toBeTruthy();
+    await page.mouse.move(
+      soundtrackBox!.x + soundtrackBox!.width / 2,
+      soundtrackBox!.y + soundtrackBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      soundtrackBox!.x + soundtrackBox!.width / 2,
+      secondAudioBox!.y + secondAudioBox!.height / 2,
+      { steps: 5 },
+    );
+    await expect(secondAudioRow).toHaveClass(/is-drop-target/);
+    await page.mouse.up();
+    await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
+    await dockedSoundtrack.click();
+    await page.locator('select[aria-label="Audio track"]').selectOption({
+      label: "Audio",
+    });
+    await expect(audioRows.first().locator(".audio-clip")).toHaveCount(1);
+    await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(0);
+    await page.locator('select[aria-label="Audio track"]').selectOption({
+      label: "Audio 2",
+    });
+    await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect
       .poll(
@@ -830,6 +1183,38 @@ try {
       .getByRole("button", { name: "Attach Timeline", exact: true })
       .click();
     await expect.poll(async () => (await app!.windows()).length).toBe(1);
+    await dockedSoundtrack.click();
+    await page.getByRole("button", { name: "Delete audio" }).click();
+    await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(0);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(1);
+    await dockedSoundtrack.click();
+    await page.getByRole("button", { name: "Delete audio" }).click();
+    await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(0);
+    const deletedAudioRequest = page.waitForRequest(
+      (request) =>
+        request.url().endsWith(`/api/edit/${id}`) && request.method() === "PUT",
+    );
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    const saveRequest = await deletedAudioRequest;
+    const submittedTimeline = saveRequest.postDataJSON().timeline;
+    expect(
+      submittedTimeline.clips.some(
+        (clip: { componentId: string }) => clip.componentId === "soundtrack",
+      ),
+    ).toBe(false);
+    const deletedAudioResponse = await saveRequest.response();
+    expect(deletedAudioResponse?.ok()).toBe(true);
+    const deletedAudioProject = JSON.parse(
+      await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
+    );
+    expect(
+      deletedAudioProject.clips.some(
+        (clip: { componentId: string }) => clip.componentId === "soundtrack",
+      ),
+    ).toBe(false);
     const audioStreamUrl = new URL(
       `/api/media/${id}/assets/${registeredMedia.assets[0].id}/stream`,
       servers.previewOrigin,
@@ -871,7 +1256,6 @@ try {
     expect(pickerCalls).toBe(1);
 
     await page.reload();
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await expect(
       page.getByText("flox-smoke-audio", { exact: true }),
     ).toBeVisible();
@@ -927,7 +1311,7 @@ try {
       2,
     );
 
-    await page.getByRole("button", { name: "Add Audio" }).click();
+    await page.getByRole("button", { name: "Add Audio", exact: true }).click();
     await Promise.race([
       secondPickerStarted,
       new Promise<never>((_, reject) =>
@@ -954,9 +1338,9 @@ try {
       `${JSON.stringify(concurrentRegistry, null, 2)}\n`,
     );
     releaseSecondPicker(audioFixturePath);
-    await expect(page.getByRole("alert")).toContainText(
-      "CONFLICT: The media registry changed",
-    );
+    await expect(
+      page.locator(".media-panel-sidebar [role='alert']"),
+    ).toContainText("CONFLICT: The media registry changed");
     await expect(
       page.getByText("Agent change during file selection", { exact: true }),
     ).toBeVisible();
@@ -975,9 +1359,9 @@ try {
     await uiRemovedAsset
       .getByRole("button", { name: "Remove from Project" })
       .click();
-    await expect(page.getByRole("status")).toContainText(
-      "The original file was not deleted",
-    );
+    await expect(
+      page.locator(".media-panel-sidebar .media-notice[role='status']"),
+    ).toContainText("The original file was not deleted");
     expect(confirmationText).toContain("The original file will NOT be deleted");
     const afterUiRemoval = mediaRegistrySchema.parse(
       JSON.parse(await readFile(mediaFile, "utf8")),
@@ -1017,12 +1401,16 @@ try {
 
     const agentValidContents = await readFile(mediaFile, "utf8");
     await writeFile(mediaFile, "{invalid registry", "utf8");
-    await expect(page.getByRole("alert")).toContainText(/JSON|property/i);
+    await expect(
+      page.locator(".media-panel-sidebar [role='alert']"),
+    ).toContainText(/JSON|property/i);
     expect(await readFile(mediaFile, "utf8")).toBe("{invalid registry");
     const repairedTemporaryFile = `${mediaFile}.repair-tmp`;
     await writeFile(repairedTemporaryFile, agentValidContents, { flag: "wx" });
     await rename(repairedTemporaryFile, mediaFile);
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(
+      page.locator(".media-panel-sidebar [role='alert']"),
+    ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(
@@ -1044,11 +1432,16 @@ try {
       .getByLabel("Playback ends", { exact: true })
       .selectOption("content");
     await expect(page.locator(".timeline-review summary")).toBeVisible();
+    await verifyTimelinePlayheadLeftBoundary(page);
     await verifyTimelineZoom(page);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(
       page.getByRole("button", { name: /^Clip subtitle-/ }),
     ).toBeVisible();
+    const firstSubtitleClip = page
+      .locator(".timeline-clip.subtitle-clip")
+      .first();
+    await expect(firstSubtitleClip.locator(".resize-handle")).toHaveCount(2);
     const initialClipStart = await page
       .getByLabel("Clip start time (seconds)", { exact: true })
       .inputValue();
@@ -1059,9 +1452,46 @@ try {
     await setClipRangeTime(page, "Clip end time (seconds)", 30);
     await setFrameFromUiTime(page, "Playhead time (seconds)", 239);
     await page.getByRole("button", { name: "Add subtitle" }).click();
+    const subtitleClips = page.locator(".timeline-clip.subtitle-clip");
+    await expect(subtitleClips.last().locator(".resize-handle")).toHaveCount(2);
+    await expect(subtitleClips.first().locator(".resize-handle")).toHaveCount(
+      0,
+    );
+    const lastVisualClipEnd = await page
+      .locator(".timeline-clip:not(.audio-clip)")
+      .evaluateAll((elements) =>
+        Math.max(
+          ...elements.map((element) =>
+            Number(element.getAttribute("data-end-frame")),
+          ),
+        ),
+      );
+    await setFrameFromUiTime(
+      page,
+      "Playhead time (seconds)",
+      lastVisualClipEnd - 2,
+    );
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect
+      .poll(() => readFrameFromUiTime(page, "Playhead time (seconds)"))
+      .toBeGreaterThanOrEqual(lastVisualClipEnd - 2);
+    await expect(
+      page.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible({ timeout: 2_000 });
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect
+      .poll(() => readFrameFromUiTime(page, "Playhead time (seconds)"))
+      .toBeLessThan(5);
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
     const review = page.locator(".timeline-review");
-    await expect(review.locator("summary")).toContainText("long gap");
-    await expect(review.getByText(/Long gap on Captions:/)).toBeVisible();
+    await expect(review.locator("summary")).toContainText("gap");
+    await expect(review).not.toHaveAttribute("open");
+    await review.locator("summary").click();
+    await expect(
+      review.getByText(/(?:Long empty visual interval|Empty visual interval):/),
+    ).toBeVisible();
+    const warningRows = review.locator("li");
+    const warningCount = await warningRows.count();
     await review
       .getByRole("button", { name: /^Locate / })
       .last()
@@ -1069,6 +1499,13 @@ try {
     await expect(page.getByLabel("Text", { exact: true })).toHaveValue(
       "New subtitle",
     );
+    await warningRows
+      .first()
+      .getByRole("button", {
+        name: "Dismiss empty visual interval warning",
+      })
+      .click();
+    await expect(warningRows).toHaveCount(warningCount - 1);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(page.locator(".timeline-clip.subtitle-clip")).toHaveCount(1);
     await page.locator(".timeline-clip.subtitle-clip").first().click();
@@ -1081,6 +1518,10 @@ try {
       page.getByLabel("Clip end time (seconds)", { exact: true }),
     ).toHaveValue(initialClipEnd);
     await setFrameFromUiTime(page, "Playhead time (seconds)", 90);
+    await page
+      .getByRole("button", { name: "Use as soundtrack", exact: true })
+      .click();
+    await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(1);
     const soundtrackTrackId = await page
       .locator(".audio-clip")
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
@@ -1089,8 +1530,16 @@ try {
       .first()
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
     expect(generatedCaptionTrackId).not.toBe(soundtrackTrackId);
+    await page.locator(".timeline-clip.subtitle-clip").first().click();
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
     const preview = page.frameLocator('[data-panel-id="editor"] iframe');
+    await expect
+      .poll(async () =>
+        preview
+          .locator("[data-preview-master-volume]")
+          .evaluate((element) => element.getBoundingClientRect().height),
+      )
+      .toBeGreaterThan(0);
     await expect(
       preview.getByText("Human edited caption", { exact: true }),
     ).toBeVisible();
@@ -1392,12 +1841,31 @@ try {
       .getByLabel("Timeline zoom", { exact: true })
       .selectOption("8");
     const timelineScroll = detachedPage!.locator(".timeline-scroll");
-    const initialClipLeft = await detachedClip.evaluate(
-      (element) => element.getBoundingClientRect().left,
-    );
-    await timelineScroll.evaluate((element, clipLeft) => {
-      element.scrollLeft = Math.max(0, clipLeft - 200);
-    }, initialClipLeft);
+    await timelineScroll.evaluate((viewport, clipId) => {
+      const clip = viewport.querySelector<HTMLElement>(
+        `[data-clip-id="${CSS.escape(clipId)}"]`,
+      );
+      if (!clip) throw new Error("Detached Timeline clip is not rendered.");
+      const viewportRect = viewport.getBoundingClientRect();
+      const clipRect = clip.getBoundingClientRect();
+      const clipCenter = clipRect.left + clipRect.width / 2;
+      const viewportCenter = viewportRect.left + viewport.clientWidth / 2;
+      const before = {
+        scrollLeft: viewport.scrollLeft,
+        scrollWidth: viewport.scrollWidth,
+        clientWidth: viewport.clientWidth,
+        clipLeft: clipRect.left,
+        clipRight: clipRect.right,
+        viewportLeft: viewportRect.left,
+        viewportRight: viewportRect.right,
+      };
+      viewport.scrollLeft += clipCenter - viewportCenter;
+      return {
+        before,
+        scrollLeft: viewport.scrollLeft,
+        clipLeft: clip.getBoundingClientRect().left,
+      };
+    }, detachedClipId!);
     const edgeClipBox = await detachedClip.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -1418,47 +1886,52 @@ try {
     });
     expect(edgeClipBox).toBeTruthy();
     expect(timelineViewport).toBeTruthy();
-    await detachedClip.dispatchEvent("pointerdown", {
-      pointerId: 1,
-      pointerType: "mouse",
-      isPrimary: true,
-      button: 0,
-      buttons: 1,
-      clientX: edgeClipBox!.x + Math.min(edgeClipBox!.width / 2, 24),
-      clientY: edgeClipBox!.y + edgeClipBox!.height / 2,
-    });
+    const edgeDragStart = {
+      x: Math.max(
+        timelineViewport!.x + 128,
+        edgeClipBox!.x + Math.min(edgeClipBox!.width / 2, 24),
+      ),
+      y: edgeClipBox!.y + edgeClipBox!.height / 2,
+    };
+    expect(edgeDragStart.x).toBeGreaterThanOrEqual(timelineViewport!.x);
+    expect(edgeDragStart.x).toBeLessThan(
+      timelineViewport!.x + timelineViewport!.width,
+    );
+    await detachedPage!.mouse.move(edgeDragStart.x, edgeDragStart.y);
+    await detachedPage!.mouse.down();
     await expect(detachedPage!.locator(".timeline-dock")).toHaveAttribute(
       "data-drag-active",
       "true",
     );
-    await detachedPage!.waitForTimeout(100);
-    await detachedPage!.evaluate(() => {
-      const viewport = document.querySelector(".timeline-scroll")!;
-      const rect = viewport.getBoundingClientRect();
-      window.dispatchEvent(
-        new MouseEvent("mousemove", {
-          clientX: rect.right - 4,
-          clientY: rect.top + rect.height / 2,
-          bubbles: true,
-        }),
-      );
-    });
+    await detachedPage!.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    const scrollBeforeEdgeMove = await timelineScroll.evaluate(
+      (element) => element.scrollLeft,
+    );
+    const edgeTarget = await timelineScroll.evaluate(
+      (element, rowCenterY) => {
+        const rect = element.getBoundingClientRect();
+        return { x: rect.right - 4, y: rowCenterY };
+      },
+      edgeClipBox!.y + edgeClipBox!.height / 2,
+    );
+    await detachedPage!.mouse.move(edgeTarget.x, edgeTarget.y, { steps: 8 });
     await expect
       .poll(() =>
         detachedPage!
           .locator(".timeline-scroll")
           .evaluate((element) => element.scrollLeft),
       )
-      .toBeGreaterThan(0);
+      .toBeGreaterThan(scrollBeforeEdgeMove);
     await expect
       .poll(async () => (await readClipFrameRange(detachedClip))[0])
       .toBeGreaterThan(0);
     await detachedPage!.waitForTimeout(6500);
-    await detachedPage!.evaluate(() => {
-      window.dispatchEvent(
-        new MouseEvent("mouseup", { buttons: 0, bubbles: true }),
-      );
-    });
+    await detachedPage!.mouse.up();
     await expect(detachedPage!.locator(".timeline-dock")).not.toHaveAttribute(
       "data-drag-active",
       "true",
@@ -1489,6 +1962,9 @@ try {
     await detachedPage!
       .getByRole("button", { name: "Undo", exact: true })
       .click();
+    await expect(
+      detachedPage!.locator(".detached-timeline-window"),
+    ).not.toHaveAttribute("data-command-busy", "true", { timeout: 20_000 });
     await expect(detachedClip.locator("small")).toHaveText(rangeBeforeEdgeDrag);
     await expect
       .poll(() =>
@@ -1498,6 +1974,9 @@ try {
     await detachedPage!
       .getByRole("button", { name: "Redo", exact: true })
       .click();
+    await expect(
+      detachedPage!.locator(".detached-timeline-window"),
+    ).not.toHaveAttribute("data-command-busy", "true", { timeout: 20_000 });
     await expect(detachedClip.locator("small")).toHaveText(rangeAfterEdgeDrag);
     await expect
       .poll(() =>
@@ -1588,6 +2067,31 @@ try {
         detachedPage!.locator(".time-ruler").getAttribute("aria-valuemax"),
       )
       .toBe(String(durationAfterEdgeDrag - 1));
+    await detachedPage!
+      .getByLabel("Timeline zoom", { exact: true })
+      .selectOption("4");
+    await detachedPage!
+      .getByRole("button", { name: "Fit Timeline", exact: true })
+      .click();
+    await expect(detachedPage!.locator(".timeline-canvas")).toHaveAttribute(
+      "data-timeline-zoom",
+      "1",
+    );
+    const fittedTimeline = await detachedPage!
+      .locator(".timeline-canvas")
+      .evaluate((canvas) => ({
+        canvasWidth: canvas.getBoundingClientRect().width,
+        viewportWidth: canvas.closest(".timeline-scroll")!.clientWidth,
+        duration: Number(
+          canvas.getAttribute("data-timeline-duration-in-frames"),
+        ),
+      }));
+    expect(fittedTimeline.duration).toBeGreaterThanOrEqual(
+      durationAfterEdgeDrag,
+    );
+    expect(fittedTimeline.canvasWidth).toBeLessThanOrEqual(
+      fittedTimeline.viewportWidth + 12,
+    );
 
     await page
       .getByLabel("Text", { exact: true })
@@ -1631,14 +2135,184 @@ try {
       "Timeline playhead time (seconds)",
       90,
     );
-    await detachedPage!
-      .getByRole("button", { name: "Add track", exact: true })
-      .evaluate((button) => {
-        (button as HTMLButtonElement).click();
-        (button as HTMLButtonElement).click();
-      });
+    for (let index = 0; index < 2; index++) {
+      await detachedPage!
+        .locator(".timeline-actions")
+        .getByRole("button", { name: "Add visual track", exact: true })
+        .click();
+      await expect(
+        detachedPage!.locator(".detached-timeline-window"),
+      ).not.toHaveAttribute("data-command-busy", "true");
+    }
     await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
-      "5 tracks",
+      "6 tracks",
+    );
+    const verticalMove = await detachedPage!
+      .locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`)
+      .evaluate((clip) => {
+        const sourceLane = clip.closest<HTMLElement>(".track-lane")!;
+        const targetRow = Array.from(
+          document.querySelectorAll<HTMLElement>(".track-row.is-visual-track"),
+        ).find((row) => row.dataset.trackRow !== sourceLane.dataset.track)!;
+        const targetLane = targetRow.querySelector<HTMLElement>(".track-lane")!;
+        const clipRect = clip.getBoundingClientRect();
+        const laneRect = targetLane.getBoundingClientRect();
+        return {
+          sourceTrackId: sourceLane.dataset.track,
+          targetTrackId: targetLane.dataset.track,
+          x: Math.max(
+            laneRect.left + 12,
+            Math.min(clipRect.left + clipRect.width / 2, laneRect.right - 12),
+          ),
+          sourceY: clipRect.top + clipRect.height / 2,
+          targetY: laneRect.top + laneRect.height / 2,
+          targetTrackName:
+            targetRow.querySelector(".track-name")?.textContent ?? "",
+        };
+      });
+    await detachedPage!.mouse.move(verticalMove.x, verticalMove.sourceY);
+    await detachedPage!.mouse.down();
+    await detachedPage!.mouse.move(verticalMove.x, verticalMove.targetY, {
+      steps: 5,
+    });
+    await detachedPage!.mouse.up();
+    await expect
+      .poll(() =>
+        detachedPage!
+          .locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`)
+          .evaluate(
+            (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
+          ),
+      )
+      .toBe(verticalMove.targetTrackId);
+    await detachedPage!
+      .getByRole("button", { name: "Undo", exact: true })
+      .click();
+    await expect(
+      detachedPage!.locator(".detached-timeline-window"),
+    ).not.toHaveAttribute("data-command-busy", "true", { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        detachedPage!
+          .locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`)
+          .evaluate(
+            (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
+          ),
+      )
+      .toBe(verticalMove.sourceTrackId);
+    await detachedPage!
+      .getByRole("button", { name: "Redo", exact: true })
+      .click();
+    await expect(
+      detachedPage!.locator(".detached-timeline-window"),
+    ).not.toHaveAttribute("data-command-busy", "true", { timeout: 20_000 });
+    await expect
+      .poll(() =>
+        detachedPage!
+          .locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`)
+          .evaluate(
+            (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
+          ),
+      )
+      .toBe(verticalMove.targetTrackId);
+    const movedSubtitlePreview = preview.locator(
+      `[data-subtitle-id="${detachedClipId}"]`,
+    );
+    const [movedSubtitleStart] = await readClipFrameRange(
+      detachedPage!.locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`),
+    );
+    await setFrameFromUiTime(
+      page,
+      "Playhead time (seconds)",
+      movedSubtitleStart,
+    );
+    await expect(movedSubtitlePreview).toBeVisible();
+    await detachedPage!
+      .getByRole("button", {
+        name: `Hide ${verticalMove.targetTrackName}`,
+        exact: true,
+      })
+      .click();
+    await expect(movedSubtitlePreview).toHaveCount(0);
+    await detachedPage!
+      .getByRole("button", {
+        name: `Show ${verticalMove.targetTrackName}`,
+        exact: true,
+      })
+      .click();
+    await expect(movedSubtitlePreview).toBeVisible();
+    await detachedPage!
+      .getByRole("button", {
+        name: `Lock ${verticalMove.targetTrackName}`,
+        exact: true,
+      })
+      .click();
+    await expect(page.getByLabel("Text", { exact: true })).toBeDisabled();
+    await detachedPage!
+      .getByRole("button", {
+        name: `Unlock ${verticalMove.targetTrackName}`,
+        exact: true,
+      })
+      .click();
+    await expect(page.getByLabel("Text", { exact: true })).toBeEnabled();
+    for (let index = 0; index < 10; index++) {
+      await detachedPage!
+        .locator(".timeline-actions")
+        .getByRole("button", { name: "Add visual track", exact: true })
+        .click();
+      await expect(
+        detachedPage!.locator(".detached-timeline-window"),
+      ).not.toHaveAttribute("data-command-busy", "true");
+    }
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+      "16 tracks",
+    );
+    const detachedTimelineScroll = detachedPage!.locator(".timeline-scroll");
+    await detachedTimelineScroll.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    });
+    const stickyRuler = await detachedPage!
+      .locator(".ruler-row")
+      .evaluate((row) => {
+        const scroll = row.closest(".timeline-scroll")!;
+        return {
+          rowTop: row.getBoundingClientRect().top,
+          scrollTop: scroll.getBoundingClientRect().top,
+          scrollBottom: scroll.getBoundingClientRect().bottom,
+        };
+      });
+    expect(stickyRuler.rowTop).toBeGreaterThanOrEqual(
+      stickyRuler.scrollTop - 1,
+    );
+    expect(stickyRuler.rowTop).toBeLessThan(stickyRuler.scrollBottom);
+    for (let index = 0; index < 10; index++) {
+      await detachedPage!
+        .getByRole("button", { name: "Undo", exact: true })
+        .click();
+      await expect(
+        detachedPage!.locator(".detached-timeline-window"),
+      ).not.toHaveAttribute("data-command-busy", "true");
+      await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+        `${15 - index} tracks`,
+      );
+    }
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+      "6 tracks",
+    );
+    await detachedPage!
+      .locator(".timeline-actions")
+      .getByRole("button", { name: "Add visual track", exact: true })
+      .focus();
+    await detachedPage!.keyboard.press("Space");
+    await expect(
+      detachedPage!.getByRole("button", { name: /Pause/ }),
+    ).toBeVisible();
+    await detachedPage!.keyboard.press("Space");
+    await expect(
+      detachedPage!.getByRole("button", { name: /Play/ }),
+    ).toBeVisible();
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+      "6 tracks",
     );
     await detachedPage!
       .getByRole("button", { name: "Add subtitle", exact: true })
@@ -1664,6 +2338,14 @@ try {
     await expect(
       detachedPage!.locator(".timeline-clip:not(.audio-clip)"),
     ).toHaveCount(3);
+    // Earlier track visibility checks seek to the moved subtitle so its Canvas
+    // rendering can be asserted. Restore a known playhead before Attach so the
+    // lifecycle assertion below verifies preservation rather than that seek.
+    await setFrameFromUiTime(
+      detachedPage!,
+      "Timeline playhead time (seconds)",
+      90,
+    );
     const selectedBeforeAttach = await detachedPage!
       .locator(".timeline-clip.is-selected")
       .getAttribute("data-clip-id");
@@ -1843,11 +2525,12 @@ try {
       ),
     ).toHaveLength(built ? 3 : 2);
     expect(saved.tracks.map((track: { name: string }) => track.name)).toEqual([
-      "Visuals",
+      "Visual 4",
+      "Visual 3",
       "Captions",
+      "Visuals",
       "Audio",
-      "Track 4",
-      "Track 5",
+      "Audio 2",
     ]);
     expect(
       saved.clips.find(
@@ -2045,7 +2728,9 @@ try {
       .getByLabel("Text", { exact: true })
       .fill("Draft survives panel changes");
     await setFrameFromUiTime(page, "Playhead time (seconds)", 42);
-    await page.getByRole("button", { name: "Media", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Capabilities", exact: true })
+      .click();
     await expect(
       page.getByRole("region", { name: "Project media" }),
     ).toBeVisible();
@@ -2114,7 +2799,7 @@ try {
     const thirdId = `${id}-three`;
     async function selectProject(projectId: string) {
       const buttons = page!.locator(".project");
-      await expect(buttons).toHaveCount(3);
+      await expect.poll(() => buttons.count()).toBeGreaterThanOrEqual(3);
       const button = page!.locator(`.project[data-project-id="${projectId}"]`);
       await expect(button).toHaveCount(1);
       await button.click();
@@ -2179,7 +2864,21 @@ try {
       .locator(`[data-standalone-text-id="${textClipId}"]`);
     const previewFrame = page.locator('[data-panel-id="editor"] iframe');
     await inspectorText.fill("AI editable title");
+    await expect(inspectorText).toHaveValue("AI editable title");
     await expect(textPreview).toHaveText("AI editable title");
+    await inspectorText.focus();
+    await page.keyboard.press("Space");
+    await expect(inspectorText).toHaveValue("AI editable title ");
+    await inspectorText.fill("AI editable title");
+    await page.getByRole("button", { name: "Play", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(
+      page.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(
+      page.getByRole("button", { name: "Play", exact: true }),
+    ).toBeVisible();
     await page.getByLabel("Position X (%)").fill("68");
     await page.getByLabel("Position Y (%)").fill("24");
     await page.getByLabel("Font size", { exact: true }).fill("84");
@@ -2191,14 +2890,20 @@ try {
     const textHitbox = page.locator(`[data-canvas-element-id="${textClipId}"]`);
     const textBounds = await textHitbox.boundingBox();
     expect(textBounds).toBeTruthy();
+    const canvasBounds = await page
+      .getByTestId("canvas-interaction-layer")
+      .boundingBox();
+    expect(canvasBounds).toBeTruthy();
+    const dragStart = await findCanvasHitPoint(textHitbox);
+    expect(dragStart).toBeTruthy();
     await page.mouse.move(
-      textBounds!.x + textBounds!.width / 2,
-      textBounds!.y + textBounds!.height / 2,
+      dragStart!.x,
+      dragStart!.y,
     );
     await page.mouse.down();
     await page.mouse.move(
-      textBounds!.x + textBounds!.width / 2 + 36,
-      textBounds!.y + textBounds!.height / 2 + 10,
+      dragStart!.x - 36,
+      dragStart!.y + 10,
       { steps: 3 },
     );
     await page.mouse.up();
@@ -2206,7 +2911,7 @@ try {
       .poll(async () =>
         Number(await page.getByLabel("Position X (%)").inputValue()),
       )
-      .toBeGreaterThan(68);
+      .toBeLessThan(68);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
     await page.getByRole("button", { name: "Redo", exact: true }).click();
@@ -2214,7 +2919,7 @@ try {
       .poll(async () =>
         Number(await page.getByLabel("Position X (%)").inputValue()),
       )
-      .toBeGreaterThan(68);
+      .toBeLessThan(68);
     await page.getByLabel("Position X (%)").fill("68");
     await page.getByLabel("Position Y (%)").fill("24");
     const subtitleClipId = await page
@@ -2225,16 +2930,69 @@ try {
     const subtitleHitbox = page.locator(
       `[data-canvas-element-id="${subtitleClipId}"]`,
     );
+    const subtitlePreview = page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator(`[data-subtitle-id="${subtitleClipId}"]`);
     await subtitleHitbox.click({ modifiers: ["Shift"] });
     await expect(
       page.getByText("2 elements selected", { exact: true }),
     ).toBeVisible();
     await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
 
+    const groupedClips = page.locator(".timeline-clip.is-selected");
+    const groupedStartsBefore = await groupedClips.evaluateAll((clips) =>
+      clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
+    );
+    const groupedDragBox = await groupedClips.first().boundingBox();
+    expect(groupedDragBox).toBeTruthy();
+    await page.mouse.move(
+      groupedDragBox!.x + groupedDragBox!.width / 2,
+      groupedDragBox!.y + groupedDragBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      groupedDragBox!.x + groupedDragBox!.width / 2 + 45,
+      groupedDragBox!.y + groupedDragBox!.height / 2,
+      { steps: 4 },
+    );
+    await page.mouse.up();
+    await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
+    const groupedStartsAfter = await groupedClips.evaluateAll((clips) =>
+      clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
+    );
+    expect(groupedStartsAfter[0]).toBeGreaterThan(groupedStartsBefore[0]);
+    expect(groupedStartsAfter[1] - groupedStartsBefore[1]).toBe(
+      groupedStartsAfter[0] - groupedStartsBefore[0],
+    );
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect
+      .poll(() =>
+        groupedClips.evaluateAll((clips) =>
+          clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
+        ),
+      )
+      .toEqual(groupedStartsBefore);
+
     // Rotation uses rendered Canvas geometry and must keep the full selection.
     await textHitbox.click();
     await page.getByLabel("Anchor", { exact: true }).selectOption("top-left");
     await page.getByLabel("Rotation (°)", { exact: true }).fill("25");
+    const rotatedSingleBounds = await page
+      .getByTestId("canvas-selection-bounds")
+      .boundingBox();
+    const rotatedSingleHitbox = await textHitbox.boundingBox();
+    expect(rotatedSingleBounds).toBeTruthy();
+    expect(rotatedSingleHitbox).toBeTruthy();
+    expect(rotatedSingleBounds!.x).toBeCloseTo(rotatedSingleHitbox!.x, 0);
+    expect(rotatedSingleBounds!.y).toBeCloseTo(rotatedSingleHitbox!.y, 0);
+    expect(rotatedSingleBounds!.width).toBeCloseTo(
+      rotatedSingleHitbox!.width,
+      0,
+    );
+    expect(rotatedSingleBounds!.height).toBeCloseTo(
+      rotatedSingleHitbox!.height,
+      0,
+    );
     await subtitleHitbox.click({ modifiers: ["Shift"] });
     await expect(
       page.getByText("2 elements selected", { exact: true }),
@@ -2247,6 +3005,8 @@ try {
       .boundingBox();
     expect(selectedBounds).toBeTruthy();
     expect(rotationHandle).toBeTruthy();
+    expect(rotationHandle!.width).toBeGreaterThanOrEqual(24);
+    expect(rotationHandle!.height).toBeGreaterThanOrEqual(24);
     const rotationStart = {
       x: rotationHandle!.x + rotationHandle!.width / 2,
       y: rotationHandle!.y + rotationHandle!.height / 2,
@@ -2258,7 +3018,14 @@ try {
     const textCanvasTransformBefore = await textHitbox.evaluate(
       (element) => getComputedStyle(element).transform,
     );
+    const textPreviewStyleBefore = await textPreview.evaluate((element) => ({
+      transform: getComputedStyle(element).transform,
+      inlineTransform: (element as HTMLElement).style.transform,
+    }));
     const subtitleCanvasTransformBefore = await subtitleHitbox.evaluate(
+      (element) => getComputedStyle(element).transform,
+    );
+    const subtitlePreviewTransformBefore = await subtitlePreview.evaluate(
       (element) => getComputedStyle(element).transform,
     );
     const rotationRadius = Math.max(24, selectedBounds!.height / 2);
@@ -2268,6 +3035,8 @@ try {
       steps: 5,
     });
     await page.mouse.up();
+    expect(textPreviewStyleBefore.transform).not.toBe("none");
+    expect(textPreviewStyleBefore.inlineTransform).not.toBe("");
     await expect
       .poll(async () => {
         return textHitbox.evaluate(
@@ -2276,18 +3045,178 @@ try {
       })
       .not.toBe(textCanvasTransformBefore);
     await expect
+      .poll(async () =>
+        textPreview.evaluate((element) => ({
+          transform: getComputedStyle(element).transform,
+          inlineTransform: (element as HTMLElement).style.transform,
+        })),
+      )
+      .not.toEqual(textPreviewStyleBefore);
+    await expect
       .poll(async () => {
         return subtitleHitbox.evaluate(
           (element) => getComputedStyle(element).transform,
         );
       })
       .not.toBe(subtitleCanvasTransformBefore);
+    expect(subtitlePreviewTransformBefore).not.toBe("none");
+    await expect
+      .poll(async () =>
+        subtitlePreview.evaluate(
+          (element) => getComputedStyle(element).transform,
+        ),
+      )
+      .not.toBe(subtitlePreviewTransformBefore);
 
     await textHitbox.click();
     await page.getByLabel("Anchor", { exact: true }).selectOption("center");
     await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
+    await page.getByLabel("Position X (%)", { exact: true }).fill("50");
+    await page.getByLabel("Position Y (%)", { exact: true }).fill("50");
+    await page.getByLabel("Text box width (%)", { exact: true }).fill("40");
+    await page.getByLabel("Text box height (%)", { exact: true }).fill("20");
+    await expect(textHitbox).toHaveAttribute("aria-pressed", "true");
+    const canvasClipCount = await page
+      .locator(".timeline-clip:not(.audio-clip)")
+      .count();
+    const canvasSourcePositionX = Number(
+      await page.getByLabel("Position X (%)", { exact: true }).inputValue(),
+    );
+    const duplicateDragStart = await findCanvasHitPoint(textHitbox);
+    expect(duplicateDragStart).toBeTruthy();
+    await page.keyboard.down("Control");
+    await page.mouse.move(
+      duplicateDragStart!.x,
+      duplicateDragStart!.y,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      duplicateDragStart!.x + 42,
+      duplicateDragStart!.y + 8,
+      { steps: 4 },
+    );
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      canvasClipCount + 1,
+    );
+    await expect
+      .poll(async () =>
+        Number(
+          await page.getByLabel("Position X (%)", { exact: true }).inputValue(),
+        ),
+      )
+      .toBeGreaterThan(canvasSourcePositionX);
+    const undoCanvasDuplicate = page.getByRole("button", {
+      name: "Undo",
+      exact: true,
+    });
+    await expect(undoCanvasDuplicate).toBeEnabled();
+    await undoCanvasDuplicate.click();
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      canvasClipCount,
+    );
+    await textHitbox.click();
+
+    const positionXBeforeShift = Number(
+      await page.getByLabel("Position X (%)", { exact: true }).inputValue(),
+    );
+    const positionYBeforeShift = Number(
+      await page.getByLabel("Position Y (%)", { exact: true }).inputValue(),
+    );
+    const shiftDragStart = await findCanvasHitPoint(textHitbox);
+    expect(shiftDragStart).toBeTruthy();
+    await page.keyboard.down("Shift");
+    await page.mouse.move(
+      shiftDragStart!.x,
+      shiftDragStart!.y,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      shiftDragStart!.x + 10,
+      shiftDragStart!.y + 4,
+    );
+    await page.mouse.move(
+      shiftDragStart!.x + 15,
+      shiftDragStart!.y + 24,
+    );
+    await expect
+      .poll(async () =>
+        Number(
+          await page.getByLabel("Position Y (%)", { exact: true }).inputValue(),
+        ),
+      )
+      .toBe(positionYBeforeShift);
+    await page.mouse.move(
+      shiftDragStart!.x + 36,
+      shiftDragStart!.y + 25,
+      { steps: 2 },
+    );
+    await page.mouse.up();
+    await page.keyboard.up("Shift");
+    await expect
+      .poll(async () =>
+        Number(
+          await page.getByLabel("Position X (%)", { exact: true }).inputValue(),
+        ),
+      )
+      .toBeGreaterThan(positionXBeforeShift);
+    await expect(
+      page.getByLabel("Position Y (%)", { exact: true }),
+    ).toHaveValue(String(positionYBeforeShift));
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+
+    const fontSizeBeforeCanvasResize = Number(
+      await page.getByLabel("Font size", { exact: true }).inputValue(),
+    );
+    const previewFontSizeBeforeCanvasResize = await textPreview.evaluate(
+      (element) => getComputedStyle(element).fontSize,
+    );
+    const textResizeHandle = await page
+      .getByRole("button", { name: "Resize selection right bottom" })
+      .boundingBox();
+    expect(textResizeHandle).toBeTruthy();
+    await page.mouse.move(
+      textResizeHandle!.x + textResizeHandle!.width / 2,
+      textResizeHandle!.y + textResizeHandle!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      textResizeHandle!.x + textResizeHandle!.width / 2 + 30,
+      textResizeHandle!.y + textResizeHandle!.height / 2 + 16,
+      { steps: 4 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () =>
+        Number(
+          await page.getByLabel("Font size", { exact: true }).inputValue(),
+        ),
+      )
+      .toBeGreaterThan(fontSizeBeforeCanvasResize);
+    await expect
+      .poll(async () =>
+        textPreview.evaluate((element) => getComputedStyle(element).fontSize),
+      )
+      .not.toBe(previewFontSizeBeforeCanvasResize);
+    const enlargedFontSize = Number(
+      await page.getByLabel("Font size", { exact: true }).inputValue(),
+    );
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(page.getByLabel("Font size", { exact: true })).toHaveValue(
+      String(fontSizeBeforeCanvasResize),
+    );
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(page.getByLabel("Font size", { exact: true })).toHaveValue(
+      String(enlargedFontSize),
+    );
+    await page.getByLabel("Anchor", { exact: true }).selectOption("center");
+    await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
     await page.getByLabel("Position X (%)", { exact: true }).fill("68");
     await page.getByLabel("Position Y (%)", { exact: true }).fill("24");
+    await page.getByLabel("Text box width (%)", { exact: true }).fill("80");
+    await page.getByLabel("Text box height (%)", { exact: true }).fill("20");
+    await page.getByLabel("Font size", { exact: true }).fill("84");
     await expect(inspectorText).toHaveValue("AI editable title");
     await page
       .getByRole("button", { name: "Save project", exact: true })
@@ -2434,7 +3363,6 @@ try {
       standaloneSaved.clip.from + standaloneSaved.clip.durationInFrames,
     ).toBeGreaterThan(75);
 
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await page.getByRole("button", { name: "Add PNG", exact: true }).click();
     const imageAsset = page
       .getByRole("listitem")
@@ -2445,6 +3373,33 @@ try {
     const imageAssetText = await imageAsset.locator("small").innerText();
     const imageId = imageAssetText.split("·").at(-1)?.trim();
     expect(imageId).toMatch(/^image-[a-f0-9-]{36}$/);
+    const imageThumbnail = imageAsset.locator("img");
+    await expect(imageThumbnail).toBeVisible();
+    await expect
+      .poll(() =>
+        imageThumbnail.evaluate(
+          (image: HTMLImageElement) => image.naturalWidth,
+        ),
+      )
+      .toBeGreaterThan(0);
+    const thumbnailResponse = await fetch(
+      new URL(`/api/media/${thirdId}/assets/${imageId}/thumbnail`, servers.url),
+    );
+    expect(thumbnailResponse.status).toBe(200);
+    expect(thumbnailResponse.headers.get("content-type")).toContain(
+      "image/png",
+    );
+    expect(Buffer.from(await thumbnailResponse.arrayBuffer())).toEqual(
+      await readFile(imageFixturePath),
+    );
+    const audioThumbnailResponse = await fetch(
+      new URL(
+        `/api/media/${id}/assets/${registeredMedia.assets[0].id}/thumbnail`,
+        servers.url,
+      ),
+    );
+    expect(audioThumbnailResponse.status).toBe(422);
+
     await imageAsset
       .getByRole("button", { name: /Add .* to Timeline/ })
       .click();
@@ -2497,6 +3452,41 @@ try {
       x: imageBounds!.x + imageBounds!.width / 2,
       y: imageBounds!.y + imageBounds!.height / 2,
     };
+
+    // Verify actual Image Canvas dragging at a size with a usable interior
+    // hit area, then restore the saved test project before later geometry
+    // checks for the compact image bounds.
+    await imageInspectorX.fill("50");
+    await imageInspectorY.fill("50");
+    await imageInspectorWidth.fill("70");
+    await imageInspectorHeight.fill("60");
+    const imageDragStart = await findCanvasHitPoint(imageHitbox);
+    expect(imageDragStart).toBeTruthy();
+    await page.mouse.move(imageDragStart!.x, imageDragStart!.y);
+    await page.mouse.down();
+    await page.mouse.move(imageDragStart!.x + 48, imageDragStart!.y + 12, {
+      steps: 4,
+    });
+    await page.mouse.up();
+    await expect
+      .poll(async () => Number(await imageInspectorX.inputValue()))
+      .toBeGreaterThan(50);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(imageInspectorX).toHaveValue("50");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect
+      .poll(async () => Number(await imageInspectorX.inputValue()))
+      .toBeGreaterThan(50);
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(imageInspectorX).toHaveValue("15");
+    await expect(imageInspectorY).toHaveValue("70");
+    await expect(imageInspectorWidth).toHaveValue("24");
+    await expect(imageInspectorHeight).toHaveValue("20");
+    await expect(
+      page.getByRole("button", { name: "Undo", exact: true }),
+    ).toBeDisabled();
 
     // Canceling a live pointer gesture must restore its starting document and
     // remove the gesture's provisional undo checkpoint.
@@ -2577,27 +3567,173 @@ try {
 
     await page.getByLabel("Anchor", { exact: true }).selectOption("center");
     await page.getByLabel("Rotation (°)", { exact: true }).fill("0");
-    const centeredImageBounds = await imageHitbox.boundingBox();
-    expect(centeredImageBounds).toBeTruthy();
-    const centeredImage = {
-      x: centeredImageBounds!.x + centeredImageBounds!.width / 2,
-      y: centeredImageBounds!.y + centeredImageBounds!.height / 2,
-    };
-    await page.mouse.move(centeredImage.x, centeredImage.y);
-    await page.mouse.down();
-    await page.mouse.move(centeredImage.x + 48, centeredImage.y + 12, {
-      steps: 4,
+    await page.getByLabel("Position X (%)", { exact: true }).fill("50");
+    await page.getByLabel("Position Y (%)", { exact: true }).fill("50");
+    await imageInspectorWidth.fill("80");
+    await imageInspectorHeight.fill("80");
+    await page.getByLabel("Image fit", { exact: true }).selectOption("contain");
+    const containedImageBox = await imagePreview.boundingBox();
+    expect(containedImageBox).toBeTruthy();
+    const containedImageRatio = await imagePreview.evaluate((element) => {
+      const image = element as HTMLImageElement;
+      return image.naturalWidth / image.naturalHeight;
     });
+    const containedWidth =
+      containedImageBox!.width / containedImageBox!.height > containedImageRatio
+        ? containedImageBox!.height * containedImageRatio
+        : containedImageBox!.width;
+    const containedHeight =
+      containedImageBox!.width / containedImageBox!.height > containedImageRatio
+        ? containedImageBox!.height
+        : containedImageBox!.width / containedImageRatio;
+    const containedImagePixels = {
+      x: containedImageBox!.x + (containedImageBox!.width - containedWidth) / 2,
+      y:
+        containedImageBox!.y +
+        (containedImageBox!.height - containedHeight) / 2,
+      width: containedWidth,
+      height: containedHeight,
+    };
+    const visibleImageSelection = await page
+      .getByTestId("canvas-selection-bounds")
+      .boundingBox();
+    expect(visibleImageSelection).toBeTruthy();
+    expect(
+      Math.abs(visibleImageSelection!.x - containedImagePixels.x),
+    ).toBeLessThan(3);
+    expect(
+      Math.abs(visibleImageSelection!.y - containedImagePixels.y),
+    ).toBeLessThan(3);
+    expect(
+      Math.abs(visibleImageSelection!.width - containedImagePixels.width),
+    ).toBeLessThan(3);
+    expect(
+      Math.abs(visibleImageSelection!.height - containedImagePixels.height),
+    ).toBeLessThan(3);
+    const containWidthBeforeResize = Number(
+      await imageInspectorWidth.inputValue(),
+    );
+    const containHeightBeforeResize = Number(
+      await imageInspectorHeight.inputValue(),
+    );
+    const containRightHandle = page.getByRole("button", {
+      name: "Resize selection right center",
+    });
+    const containRightHandleBox = await containRightHandle.boundingBox();
+    expect(containRightHandleBox).toBeTruthy();
+    await page.keyboard.down("Shift");
+    await page.mouse.move(
+      containRightHandleBox!.x + containRightHandleBox!.width / 2,
+      containRightHandleBox!.y + containRightHandleBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      containRightHandleBox!.x + containRightHandleBox!.width / 2 + 20,
+      containRightHandleBox!.y + containRightHandleBox!.height / 2,
+      { steps: 3 },
+    );
+    await page.mouse.up();
+    await page.keyboard.up("Shift");
+    await expect
+      .poll(async () => Number(await imageInspectorWidth.inputValue()))
+      .toBeGreaterThan(containWidthBeforeResize);
+    await expect
+      .poll(async () => Number(await imageInspectorHeight.inputValue()))
+      .toBeGreaterThan(containHeightBeforeResize);
+    const containResizedWidth = Number(await imageInspectorWidth.inputValue());
+    const containResizedHeight = Number(
+      await imageInspectorHeight.inputValue(),
+    );
+    expect(
+      Math.abs(
+        containResizedWidth / containResizedHeight -
+          containWidthBeforeResize / containHeightBeforeResize,
+      ),
+    ).toBeLessThan(0.02);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(imageInspectorWidth).toHaveValue(
+      String(containWidthBeforeResize),
+    );
+    await expect(imageInspectorHeight).toHaveValue(
+      String(containHeightBeforeResize),
+    );
+    await page.getByLabel("Image fit", { exact: true }).selectOption("fill");
+    await imageInspectorWidth.fill("24");
+    await imageInspectorHeight.fill("20");
+
+    const imageWidthBeforeSideResize = Number(
+      await imageInspectorWidth.inputValue(),
+    );
+    const imageHeightBeforeSideResize = Number(
+      await imageInspectorHeight.inputValue(),
+    );
+    const rightImageHandle = page.getByRole("button", {
+      name: "Resize selection right center",
+    });
+    const rightImageHandleBox = await rightImageHandle.boundingBox();
+    expect(rightImageHandleBox).toBeTruthy();
+    await page.mouse.move(
+      rightImageHandleBox!.x + rightImageHandleBox!.width / 2,
+      rightImageHandleBox!.y + rightImageHandleBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      rightImageHandleBox!.x + rightImageHandleBox!.width / 2 + 26,
+      rightImageHandleBox!.y + rightImageHandleBox!.height / 2,
+      { steps: 3 },
+    );
     await page.mouse.up();
     await expect
-      .poll(async () => Number(await imageInspectorX.inputValue()))
-      .toBeGreaterThan(15);
+      .poll(async () => Number(await imageInspectorWidth.inputValue()))
+      .toBeGreaterThan(imageWidthBeforeSideResize);
+    await expect(imageInspectorHeight).toHaveValue(
+      String(imageHeightBeforeSideResize),
+    );
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect(imageInspectorX).toHaveValue("15");
-    await page.getByRole("button", { name: "Redo", exact: true }).click();
+
+    const beforeProportionalResize = {
+      width: Number(await imageInspectorWidth.inputValue()),
+      height: Number(await imageInspectorHeight.inputValue()),
+    };
+    const proportionalHandle = page.getByRole("button", {
+      name: "Resize selection right bottom",
+    });
+    const proportionalHandleBox = await proportionalHandle.boundingBox();
+    expect(proportionalHandleBox).toBeTruthy();
+    await page.keyboard.down("Shift");
+    await page.mouse.move(
+      proportionalHandleBox!.x + proportionalHandleBox!.width / 2,
+      proportionalHandleBox!.y + proportionalHandleBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      proportionalHandleBox!.x + proportionalHandleBox!.width / 2 + 24,
+      proportionalHandleBox!.y + proportionalHandleBox!.height / 2 + 18,
+      { steps: 3 },
+    );
+    await page.mouse.up();
+    await page.keyboard.up("Shift");
+    await expect
+      .poll(async () => Number(await imageInspectorWidth.inputValue()))
+      .toBeGreaterThan(beforeProportionalResize.width);
+    await expect
+      .poll(async () => Number(await imageInspectorHeight.inputValue()))
+      .toBeGreaterThan(beforeProportionalResize.height);
+    const proportionalWidth = Number(await imageInspectorWidth.inputValue());
+    const proportionalHeight = Number(await imageInspectorHeight.inputValue());
+    expect(
+      Math.abs(
+        proportionalWidth / proportionalHeight -
+          beforeProportionalResize.width / beforeProportionalResize.height,
+      ),
+    ).toBeLessThan(0.02);
     await expect
       .poll(async () => Number(await imageInspectorX.inputValue()))
-      .toBeGreaterThan(15);
+      .toBeGreaterThan(50);
+    await expect
+      .poll(async () => Number(await imageInspectorY.inputValue()))
+      .toBeGreaterThan(50);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
 
     // Keep the rendered Image separate from the green Text so both outputs
     // can be verified in the same exported frame.
@@ -2652,10 +3788,11 @@ try {
       "data-preview-generation",
       initialPreviewGeneration ?? "",
     );
-    await expect(imagePreview).toBeVisible();
     const pausePlayback = page.getByRole("button", { name: "Pause" });
     if (await pausePlayback.isVisible()) await pausePlayback.click();
+    // The image starts just after the initial 2-second playhead frame.
     await setFrameFromUiTime(page, "Playhead time (seconds)", 2.5 * 30);
+    await expect(imagePreview).toBeVisible();
     await expect(page.getByTestId("frame-readout")).toContainText("75 /");
     await expect(imageInspectorX).toHaveValue("35");
     await expect(imageInspectorY).toHaveValue("42");
@@ -2684,7 +3821,407 @@ try {
     savedImage = await readImageClip();
     expect(savedImage.clip.props).toMatchObject({ x: 15, y: 70 });
 
+    // Registered MP4 media becomes a canonical, independently editable Video
+    // clip, using the same Canvas transform and Timeline range controls.
+    await page.getByRole("button", { name: "Add Video", exact: true }).click();
+    const videoAsset = page
+      .getByRole("listitem")
+      .filter({ hasText: "flox-smoke" })
+      .filter({ hasText: "VIDEO" });
+    await expect(
+      videoAsset.getByText("Available", { exact: true }),
+    ).toBeVisible();
+    const videoAssetText = await videoAsset.locator("small").innerText();
+    const videoAssetId = videoAssetText.split("·").at(-1)?.trim();
+    expect(videoAssetId).toMatch(/^video-[a-f0-9-]{36}$/);
+    const videoProbeResponse = await fetch(
+      new URL(
+        `/api/media/${thirdId}/assets/${videoAssetId}/video`,
+        servers.url,
+      ),
+    );
+    expect(videoProbeResponse.status).toBe(200);
+    expect(await videoProbeResponse.json()).toMatchObject({
+      assetId: videoAssetId,
+      width: 64,
+      height: 64,
+      hasAudio: true,
+    });
+    const videoStreamResponse = await fetch(
+      new URL(
+        `/api/media/${thirdId}/assets/${videoAssetId}/stream`,
+        servers.previewOrigin,
+      ),
+      { headers: { Range: "bytes=0-11" } },
+    );
+    expect(videoStreamResponse.status).toBe(206);
+    expect(videoStreamResponse.headers.get("content-type")).toContain(
+      "video/mp4",
+    );
+    expect(
+      Buffer.from(await videoStreamResponse.arrayBuffer()).toString(
+        "ascii",
+        4,
+        8,
+      ),
+    ).toBe("ftyp");
+
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 180);
+    await expect(page.getByTestId("frame-readout")).toContainText("180 /");
+    await videoAsset
+      .getByRole("button", { name: /Add .* to Timeline/ })
+      .click();
+    const videoClip = page.locator(
+      '.timeline-clip[data-clip-id^="video-"]:not([data-clip-id^="video-audio-"])',
+    );
+    await expect(videoClip).toBeVisible();
+    const videoClipId = await videoClip.getAttribute("data-clip-id");
+    expect(videoClipId).toBeTruthy();
+    await videoClip.click();
+    const narrowVideoClip = await inspectNarrowTimelineClip(videoClip);
+    expect(narrowVideoClip.clipWidth).toBe(22);
+    expect(narrowVideoClip.contentWidth).toBeGreaterThan(0);
+    expect(narrowVideoClip.contentPadding).toBeLessThanOrEqual(2);
+    expect(narrowVideoClip.handleFill).toBe("rgba(0, 0, 0, 0)");
+    expect(narrowVideoClip.handleInteriorWidth).toBeLessThan(
+      narrowVideoClip.clipWidth,
+    );
+    expect(narrowVideoClip.label).not.toBe("");
+    const videoPreview = page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator(`video[data-video-asset-id="${videoAssetId}"]`);
+    await expect(videoPreview).toBeVisible();
+    await page.getByRole("button", { name: "Center on Canvas" }).click();
+    await expect(page.getByLabel("Position X (%)")).toHaveValue("50");
+    await expect(page.getByLabel("Position Y (%)")).toHaveValue("50");
+    await page.getByRole("button", { name: "Fill Canvas" }).click();
+    await expect(page.getByLabel("Width (%)")).toHaveValue("100");
+    await expect(page.getByLabel("Height (%)")).toHaveValue("100");
+    await expect(page.getByLabel("Video fit")).toHaveValue("cover");
+    await page.getByRole("button", { name: "Fit inside Canvas" }).click();
+    await expect(page.getByLabel("Video fit")).toHaveValue("contain");
+    const containedVideoHandles = await page
+      .getByTestId("canvas-selection-bounds")
+      .boundingBox();
+    expect(containedVideoHandles).toBeTruthy();
+    expect(
+      Math.abs(
+        containedVideoHandles!.width / containedVideoHandles!.height - 1,
+      ),
+    ).toBeLessThan(0.05);
+    const videoPositionX = page.getByLabel("Position X (%)", { exact: true });
+    await videoPositionX.fill("62");
+    await expect
+      .poll(() =>
+        videoPreview.evaluate(
+          (element) => (element as HTMLVideoElement).style.left,
+        ),
+      )
+      .toBe("62%");
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(videoPositionX).toHaveValue("50");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect(videoPositionX).toHaveValue("62");
+    await expect(page.getByLabel("Video fit", { exact: true })).toHaveValue(
+      "contain",
+    );
+
+    // Moving the left trim advances the source in-point; the right edge remains
+    // stable, and the source timing is saved in the same Timeline clip.
+    const videoEndBeforeLeftTrim = await page
+      .getByLabel("Clip end time (seconds)")
+      .inputValue();
+    await page.getByLabel("Clip start time (seconds)").fill("6.5");
+    await expect(page.getByLabel("Clip end time (seconds)")).toHaveValue(
+      videoEndBeforeLeftTrim,
+    );
+    const trimmedVideoRange = await readClipFrameRange(videoClip);
+    const trimmedVideoDurationInFrames =
+      trimmedVideoRange[1] - trimmedVideoRange[0];
+    const videoFps = Number(
+      await page
+        .getByLabel("Clip start time (seconds)")
+        .getAttribute("data-fps"),
+    );
+    await expect(page.getByLabel("Source start time (seconds)")).toHaveValue(
+      "0.5",
+    );
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 202);
+    await expect
+      .poll(() =>
+        videoPreview.evaluate(
+          (element) => (element as HTMLVideoElement).readyState,
+        ),
+      )
+      .toBeGreaterThanOrEqual(2);
+    await expect
+      .poll(() =>
+        videoPreview.evaluate(
+          (element) => (element as HTMLVideoElement).currentTime,
+        ),
+      )
+      .toBeGreaterThan(0.5);
+
+    // Moving a video to another visible visual track must preserve the clip's
+    // renderer source, and the drop target must be visible before release.
+    await page
+      .locator(".timeline-actions")
+      .getByRole("button", { name: "Add visual track", exact: true })
+      .click();
+    const videoSourceTrackId = await videoClip.evaluate(
+      (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
+    );
+    const videoSourceRow = page.locator(
+      `.track-row[data-track-row="${videoSourceTrackId}"]`,
+    );
+    await videoSourceRow.scrollIntoViewIfNeeded();
+    const videoTargetTrackId = await page
+      .locator(".track-row.is-visual-track")
+      .evaluateAll(
+        (rows, sourceTrackId) => {
+          const viewport = document
+            .querySelector<HTMLElement>(".timeline-scroll")!
+            .getBoundingClientRect();
+          return rows
+            .find((row) => {
+              const bounds = row.getBoundingClientRect();
+              return (
+                row.getAttribute("data-track-row") !== sourceTrackId &&
+                bounds.top >= viewport.top &&
+                bounds.bottom <= viewport.bottom
+              );
+            })
+            ?.getAttribute("data-track-row");
+        },
+        videoSourceTrackId,
+      );
+    expect(videoTargetTrackId).toBeTruthy();
+    const videoTargetRow = page.locator(
+      `.track-row[data-track-row="${videoTargetTrackId}"]`,
+    );
+    const videoMoveTarget = await videoClip.evaluate((clip) => {
+      const sourceTrack =
+        clip.closest<HTMLElement>(".track-lane")?.dataset.track;
+      const row = Array.from(
+        document.querySelectorAll<HTMLElement>(".track-row.is-visual-track"),
+      ).find((candidate) => candidate.dataset.trackRow !== sourceTrack)!;
+      const lane = row.querySelector<HTMLElement>(".track-lane")!;
+      const clipRect = clip.getBoundingClientRect();
+      const laneRect = lane.getBoundingClientRect();
+      return {
+        trackId: lane.dataset.track,
+        x: Math.max(
+          laneRect.left + 12,
+          Math.min(clipRect.left + clipRect.width / 2, laneRect.right - 12),
+        ),
+        sourceY: clipRect.top + clipRect.height / 2,
+        targetY: laneRect.top + laneRect.height / 2,
+      };
+    });
+    expect(videoMoveTarget.trackId).toBeTruthy();
+    const videoRangeBeforeTrackMove = await readClipFrameRange(videoClip);
+    await page.mouse.move(videoMoveTarget.x, videoMoveTarget.sourceY);
+    await page.mouse.down();
+    await page.mouse.move(videoMoveTarget.x, videoMoveTarget.targetY, {
+      steps: 4,
+    });
+    await expect(page.locator(".timeline-drag-ghost")).toContainText("Move to");
+    await expect(
+      page.locator(`.track-row[data-track-row="${videoMoveTarget.trackId}"]`),
+    ).toHaveAttribute("data-drop-target", "true");
+    await page.mouse.up();
+    await expect
+      .poll(() =>
+        videoClip.evaluate(
+          (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
+        ),
+      )
+      .toBe(videoMoveTarget.trackId);
+    await expect
+      .poll(() => readClipFrameRange(videoClip))
+      .toEqual(videoRangeBeforeTrackMove);
+    await expect(videoPreview).toBeVisible();
+    const movedVideoPlayhead = await page
+      .getByTestId("frame-readout")
+      .innerText();
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Pause", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByTestId("frame-readout")).not.toHaveText(
+      movedVideoPlayhead,
+    );
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
+
+    // A Chromium decoder failure during playback is recoverable runtime state;
+    // it must not replace the mounted preview with the project-load error page.
+    await page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator("body")
+      .evaluate(() =>
+        window.dispatchEvent(
+          new PromiseRejectionEvent("unhandledrejection", {
+            promise: Promise.resolve(),
+            reason: new Error(
+              "MediaPlaybackError: The browser threw an error while playing the video; Code 2 PIPELINE_ERROR_READ: FFmpegDemuxer seek failed.",
+            ),
+          }),
+        ),
+      );
+    await expect(
+      page.frameLocator('[data-panel-id="editor"] iframe').getByRole("alert"),
+    ).toContainText("Video playback stopped while seeking or decoding.");
+    await expect(videoPreview).toBeVisible();
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 202);
+    await expect(
+      page.frameLocator('[data-panel-id="editor"] iframe').getByRole("alert"),
+    ).toHaveCount(0);
+    await expect(videoPreview).toBeVisible();
+
+    await page
+      .getByLabel("Transcription source", { exact: true })
+      .selectOption(`video:${videoClipId}`);
+    page.once("dialog", (dialog) => dialog.accept());
+    await page
+      .getByRole("button", { name: "Generate Subtitles", exact: true })
+      .click();
+    await expect(page.getByText(/1 unverified subtitle added/)).toBeVisible();
+    expect(extractedVideoAudio.start).toBe(0.5);
+    expect(extractedVideoAudio.duration).toBeCloseTo(
+      trimmedVideoDurationInFrames / videoFps,
+      10,
+    );
+    expect(extractedVideoAudio.size).toBeGreaterThan(44);
+    const generatedVideoSubtitle = page
+      .locator(".timeline-clip.subtitle-clip")
+      .first();
+    await expect(generatedVideoSubtitle).toContainText("Video audio caption");
+    await generatedVideoSubtitle.click();
+    const narrowSubtitleClip = await inspectNarrowTimelineClip(
+      generatedVideoSubtitle,
+    );
+    expect(narrowSubtitleClip.contentWidth).toBeGreaterThan(0);
+    expect(narrowSubtitleClip.contentPadding).toBeLessThanOrEqual(2);
+    expect(narrowSubtitleClip.handleFill).toBe("rgba(0, 0, 0, 0)");
+    expect(narrowSubtitleClip.handleInteriorWidth).toBeLessThan(
+      narrowSubtitleClip.clipWidth,
+    );
+    expect(narrowSubtitleClip.label).toContain("Video audio caption");
+    expect(await readClipFrameRange(generatedVideoSubtitle)).toEqual([
+      trimmedVideoRange[0] + Math.round(0.2 * videoFps),
+      trimmedVideoRange[0] + Math.round(0.7 * videoFps),
+    ]);
+    await expect(
+      page
+        .frameLocator('[data-panel-id="editor"] iframe')
+        .getByText("Video audio caption", { exact: true }),
+    ).toBeVisible();
+
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    const videoTimelinePath = path.join(textProjectPath, "edit-timeline.json");
+    const savedVideoDocument = JSON.parse(
+      await readFile(videoTimelinePath, "utf8"),
+    );
+    const savedVideoClip = savedVideoDocument.clips.find(
+      (clip: { id: string }) => clip.id === videoClipId,
+    );
+    const savedVideoSubtitle = savedVideoDocument.clips.find(
+      (clip: { componentId: string; content: { text?: string } }) =>
+        clip.componentId === "subtitles" &&
+        clip.content.text === "Video audio caption",
+    );
+    expect(savedVideoSubtitle).toMatchObject({
+      from: trimmedVideoRange[0] + Math.round(0.2 * videoFps),
+      durationInFrames:
+        Math.round(0.7 * videoFps) - Math.round(0.2 * videoFps),
+    });
+    const savedVideoWord = savedVideoSubtitle.content.words[0];
+    expect(savedVideoWord.start).toBeCloseTo(0.05, 10);
+    expect(savedVideoWord.end).toBeCloseTo(0.4, 10);
+    expect(savedVideoClip).toMatchObject({
+      componentId: "video",
+      content: { assetId: videoAssetId, sourceStartSeconds: 0.5 },
+      props: { x: 62 },
+      from: 195,
+      durationInFrames: trimmedVideoDurationInFrames,
+    });
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await videoClip.click();
+    await expect(videoPositionX).toHaveValue("62");
+    await expect(page.getByLabel("Source start time (seconds)")).toHaveValue(
+      "0.5",
+    );
+
+    await videoClip.click();
+    await page
+      .getByRole("button", { name: "Separate video audio", exact: true })
+      .click();
+    const separatedAudioClip = page.locator(
+      '.timeline-clip[data-clip-id^="video-audio-"]',
+    );
+    await expect(separatedAudioClip).toBeVisible();
+    await expect(
+      page.locator(".track-row.is-audio-track").first().locator(".audio-clip"),
+    ).toHaveCount(1);
+    await videoClip.click();
+    await expect(page.getByLabel("Clip volume")).toHaveValue("0");
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    const separatedVideoDocument = JSON.parse(
+      await readFile(videoTimelinePath, "utf8"),
+    );
+    expect(
+      separatedVideoDocument.clips.find(
+        (clip: { id: string }) => clip.id === videoClipId,
+      ).props.volume,
+    ).toBe(0);
+    expect(
+      separatedVideoDocument.clips.find(
+        (clip: { componentId: string }) => clip.componentId === "video-audio",
+      ),
+    ).toMatchObject({
+      from: 195,
+      durationInFrames: trimmedVideoDurationInFrames,
+      content: {
+        assetId: videoAssetId,
+        sourceVideoClipId: videoClipId,
+        sourceStartSeconds: 0.5,
+        sourceDurationSeconds: expect.any(Number),
+      },
+    });
+
     standaloneTextVideo = await renderProject(root, thirdId, false);
+    const renderedAudio = await execFileAsync(
+      "ffmpeg",
+      [
+        "-hide_banner",
+        "-i",
+        standaloneTextVideo,
+        "-vn",
+        "-af",
+        "volumedetect",
+        "-f",
+        "null",
+        "-",
+      ],
+      { windowsHide: true, timeout: 60_000 },
+    );
+    const measuredMaximum = renderedAudio.stderr.match(
+      /max_volume:\s*(-?\d+(?:\.\d+)?) dB/,
+    );
+    expect(measuredMaximum).toBeTruthy();
+    expect(Number(measuredMaximum?.[1])).toBeGreaterThan(-90);
     const diagnosticFramePath = path.join(
       audioFixtureDirectory,
       "rendered-text-frame.png",
@@ -2750,6 +4287,144 @@ try {
     }
     expect(orangeImagePixels).toBeGreaterThan(1_000);
 
+    const renderedVideoFramePath = path.join(
+      audioFixtureDirectory,
+      "rendered-video-frame.png",
+    );
+    await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-y",
+        "-ss",
+        "6.75",
+        "-i",
+        standaloneTextVideo,
+        "-frames:v",
+        "1",
+        renderedVideoFramePath,
+      ],
+      { windowsHide: true, timeout: 60_000 },
+    );
+    const renderedVideoFrame = await execFileAsync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-i",
+        renderedVideoFramePath,
+        "-frames:v",
+        "1",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "pipe:1",
+      ],
+      {
+        windowsHide: true,
+        timeout: 60_000,
+        maxBuffer: 8 * 1024 * 1024,
+        encoding: "buffer",
+      },
+    );
+    const videoPixels = Buffer.from(renderedVideoFrame.stdout);
+    let blueVideoPixels = 0;
+    for (let index = 0; index + 2 < videoPixels.length; index += 3) {
+      if (
+        videoPixels[index] < 80 &&
+        videoPixels[index + 1] < 100 &&
+        videoPixels[index + 2] > 120
+      )
+        blueVideoPixels += 1;
+    }
+    expect(blueVideoPixels).toBeGreaterThan(10_000);
+
+    const savedImageIdsBeforeDrop = new Set(
+      savedImage.document.clips
+        .filter((clip: { componentId: string }) => clip.componentId === "image")
+        .map((clip: { id: string }) => clip.id),
+    );
+    const mediaDragSource = page.locator(`[data-media-asset-id="${imageId}"]`);
+    const canvasDropTarget = page.locator(".canvas-interaction-layer");
+    const canvasDropPoint = await findCanvasHitPoint(canvasDropTarget);
+    const canvasDropBounds = await canvasDropTarget.boundingBox();
+    expect(canvasDropPoint).toBeTruthy();
+    expect(canvasDropBounds).toBeTruthy();
+    await mediaDragSource.dragTo(page.locator(".canvas-interaction-layer"), {
+      targetPosition: {
+        x: canvasDropPoint!.x - canvasDropBounds!.x,
+        y: canvasDropPoint!.y - canvasDropBounds!.y,
+      },
+    });
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const document = JSON.parse(await readFile(imageTimelinePath, "utf8"));
+        return document.clips.filter(
+          (clip: { id: string; componentId: string }) =>
+            clip.componentId === "image" &&
+            !savedImageIdsBeforeDrop.has(clip.id),
+        ).length;
+      })
+      .toBe(1);
+    let currentImageDocument = JSON.parse(
+      await readFile(imageTimelinePath, "utf8"),
+    );
+    const canvasDroppedImage = currentImageDocument.clips.find(
+      (clip: { id: string; componentId: string }) =>
+        clip.componentId === "image" && !savedImageIdsBeforeDrop.has(clip.id),
+    );
+    expect(canvasDroppedImage.content.assetId).toBe(imageId);
+    expect(canvasDroppedImage.props.x).not.toBe(50);
+
+    const canvasImageId = canvasDroppedImage.id as string;
+    const timelineLane = page.locator('.track-lane[data-track="visuals"]');
+    const timelineLaneBounds = await timelineLane.boundingBox();
+    expect(timelineLaneBounds).toBeTruthy();
+    await mediaDragSource.dragTo(timelineLane, {
+      targetPosition: {
+        x: Math.floor(timelineLaneBounds!.width * 0.8),
+        y: timelineLaneBounds!.height - 2,
+      },
+    });
+    await page
+      .getByRole("button", { name: "Save project", exact: true })
+      .click();
+    await expect(
+      page.getByText("Saved to the project. Renders use these edits."),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const document = JSON.parse(await readFile(imageTimelinePath, "utf8"));
+        return document.clips.filter(
+          (clip: { id: string; componentId: string }) =>
+            clip.componentId === "image" &&
+            !savedImageIdsBeforeDrop.has(clip.id) &&
+            clip.id !== canvasImageId,
+        ).length;
+      })
+      .toBe(1);
+    currentImageDocument = JSON.parse(
+      await readFile(imageTimelinePath, "utf8"),
+    );
+    const timelineDroppedImage = currentImageDocument.clips.find(
+      (clip: { id: string; componentId: string }) =>
+        clip.componentId === "image" &&
+        !savedImageIdsBeforeDrop.has(clip.id) &&
+        clip.id !== canvasImageId,
+    );
+    expect(timelineDroppedImage.content.assetId).toBe(imageId);
+    expect(timelineDroppedImage.id).not.toBe(canvasImageId);
+    expect(timelineDroppedImage.trackId).toBe("visuals");
+    expect(timelineDroppedImage.from).toBeGreaterThan(0);
+
     await selectProject(id);
     await expect(
       page
@@ -2763,15 +4438,14 @@ try {
         .getByText("Caption belongs to project two", { exact: true }),
     ).toBeVisible();
     await selectProject(thirdId);
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 202);
     await expect(
-      page
-        .locator(".timeline-clip")
-        .filter({ hasText: "Caption belongs to project three" }),
+      page.locator(".timeline-clip").filter({ hasText: "Video audio caption" }),
     ).toBeVisible();
     await expect(
       page
         .frameLocator('[data-panel-id="editor"] iframe')
-        .getByText("Caption belongs to project three", { exact: true }),
+        .getByText("Video audio caption", { exact: true }),
     ).toBeVisible();
     for (let cycle = 0; cycle < 3; cycle += 1) {
       await page
@@ -2819,7 +4493,6 @@ try {
     await expect(
       page.getByRole("button", { name: "Detach Timeline", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Media", exact: true }).click();
     await unlink(audioFixturePath);
     const missingAudio = page
       .getByRole("listitem")

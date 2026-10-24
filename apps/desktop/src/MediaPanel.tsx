@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWorkspaceManager } from "./WorkspaceManager";
+import { MEDIA_ASSET_DRAG_TYPE } from "./media-drag";
 
 type MediaAssetView = {
   id: string;
-  type: "audio" | "image";
+  type: "audio" | "image" | "video";
   displayName: string;
   status: "ready" | "missing" | "invalid";
   message?: string;
@@ -26,6 +27,12 @@ export function MediaPanel({
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string>();
+  const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [imageAspectRatios, setImageAspectRatios] = useState<
+    Record<string, number>
+  >({});
+
+  useEffect(() => setImageAspectRatios({}), [projectId]);
 
   const refresh = useCallback(async () => {
     if (!projectId || built) {
@@ -75,7 +82,7 @@ export function MediaPanel({
       if (!response.ok) throw new Error(await response.text());
       await refresh();
       setNotice(
-        `${type === "audio" ? "Audio" : "PNG image"} linked to this project. The original file stays in place.`,
+        `${type === "audio" ? "Audio" : type === "image" ? "PNG image" : "MP4 video"} linked to this project. The original file stays in place.`,
       );
     } catch (cause) {
       await refresh();
@@ -85,15 +92,19 @@ export function MediaPanel({
     }
   }
 
-  function addImageToTimeline(asset: MediaAssetView) {
+  function addAssetToTimeline(asset: MediaAssetView) {
     window.dispatchEvent(
-      new CustomEvent("motion-add-image", {
-        detail: {
-          projectId,
-          assetId: asset.id,
-          displayName: asset.displayName,
+      new CustomEvent(
+        asset.type === "video" ? "motion-add-video" : "motion-add-image",
+        {
+          detail: {
+            projectId,
+            assetId: asset.id,
+            displayName: asset.displayName,
+            aspectRatio: imageAspectRatios[asset.id],
+          },
         },
-      }),
+      ),
     );
     workspace.activatePanel("editor");
   }
@@ -169,18 +180,57 @@ export function MediaPanel({
     }
   }
 
+  function beginAssetDrag(
+    event: React.DragEvent<HTMLLIElement>,
+    asset: MediaAssetView,
+  ) {
+    if (
+      asset.status !== "ready" ||
+      asset.type === "audio" ||
+      !projectId ||
+      built
+    ) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.setData(
+      MEDIA_ASSET_DRAG_TYPE,
+      JSON.stringify({
+        projectId,
+        assetId: asset.id,
+        type: asset.type,
+        displayName: asset.displayName,
+        aspectRatio: imageAspectRatios[asset.id],
+      }),
+    );
+    event.dataTransfer.effectAllowed = "copy";
+  }
+
   return (
-    <section className="media-panel" aria-label="Project media">
+    <section
+      className="media-panel media-panel-sidebar"
+      aria-label="Project media"
+    >
       <header className="media-panel-header">
         <div>
-          <span className="eyebrow">PROJECT MEDIA</span>
-          <h2>Media Library</h2>
-          <p className="muted">
-            Audio and PNG files are referenced in this project. FloxBow does not
-            copy or move them.
-          </p>
+          <span className="eyebrow">PROJECT ASSETS</span>
+          <h3>Media Library</h3>
+          <p className="muted">Linked files stay at their original location.</p>
         </div>
         <div className="media-panel-actions">
+          <button
+            type="button"
+            disabled={!projectId || built}
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("motion-open-asset-organizer", {
+                  detail: { projectId },
+                }),
+              )
+            }
+          >
+            Organize
+          </button>
           <button
             type="button"
             disabled={
@@ -208,6 +258,20 @@ export function MediaPanel({
             onClick={() => void addMedia("image")}
           >
             {adding ? "Choosing file…" : "Add PNG"}
+          </button>
+          <button
+            type="button"
+            disabled={
+              !projectId ||
+              built ||
+              loading ||
+              adding ||
+              Boolean(removing) ||
+              !snapshot
+            }
+            onClick={() => void addMedia("video")}
+          >
+            {adding ? "Choosing file…" : "Add Video"}
           </button>
         </div>
       </header>
@@ -243,59 +307,111 @@ export function MediaPanel({
 
       {snapshot && snapshot.assets.length > 0 && (
         <ul className="media-assets">
-          {snapshot.assets.map((asset) => (
-            <li className={`media-asset media-${asset.status}`} key={asset.id}>
-              <span className="media-asset-icon" aria-hidden="true">
-                {asset.type === "audio" ? "♫" : "▧"}
-              </span>
-              <span className="media-asset-name">
-                <strong>{asset.displayName}</strong>
-                <small>
-                  {asset.type.toUpperCase()} · {asset.id}
-                </small>
-              </span>
-              <span className={`media-asset-status ${asset.status}`}>
-                {asset.status === "ready"
-                  ? "Available"
-                  : asset.status === "missing"
-                    ? "Missing file"
-                    : "Invalid source"}
-              </span>
-              {asset.type === "image" && asset.status === "ready" && (
-                <button
-                  type="button"
-                  onClick={() => addImageToTimeline(asset)}
-                  aria-label={`Add ${asset.displayName} to Timeline`}
-                >
-                  Add to Timeline
-                </button>
-              )}
-              {asset.status !== "ready" && (
-                <span className="media-asset-warning" role="alert">
-                  {asset.status === "missing"
-                    ? "The original file cannot be found. The registry entry is preserved."
-                    : asset.message}
-                </span>
-              )}
-              <button
-                className="media-remove"
-                type="button"
-                disabled={adding || Boolean(removing) || built}
-                onClick={() => void removeAsset(asset)}
+          {snapshot.assets.map((asset) => {
+            const thumbnailUrl = `/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(asset.id)}/thumbnail`;
+            return (
+              <li
+                className={`media-asset media-${asset.status}${selectedAssetId === asset.id ? " is-selected" : ""}`}
+                key={asset.id}
+                draggable={
+                  asset.status === "ready" && asset.type !== "audio" && !built
+                }
+                onDragStart={(event) => beginAssetDrag(event, asset)}
+                onClick={() => setSelectedAssetId(asset.id)}
+                data-media-asset-id={asset.id}
               >
-                {removing === asset.id ? "Removing…" : "Remove from Project"}
-              </button>
-              {asset.type === "audio" && (
                 <button
+                  className="media-asset-select"
                   type="button"
-                  disabled={asset.status !== "ready" || built}
-                  onClick={() => void useAsSoundtrack(asset)}
+                  aria-label={`Select ${asset.displayName}`}
+                  aria-pressed={selectedAssetId === asset.id}
+                  onClick={() => setSelectedAssetId(asset.id)}
+                  title={asset.displayName}
                 >
-                  Use as soundtrack
+                  <span className="media-asset-preview" aria-hidden="true">
+                    {asset.type === "image" && asset.status === "ready" ? (
+                      <img
+                        src={thumbnailUrl}
+                        alt=""
+                        loading="lazy"
+                        onLoad={(event) => {
+                          const image = event.currentTarget;
+                          if (image.naturalWidth && image.naturalHeight)
+                            setImageAspectRatios((current) => ({
+                              ...current,
+                              [asset.id]:
+                                image.naturalWidth / image.naturalHeight,
+                            }));
+                        }}
+                        onError={(event) => {
+                          event.currentTarget.hidden = true;
+                        }}
+                      />
+                    ) : (
+                      <span>
+                        {asset.type === "audio"
+                          ? "♫"
+                          : asset.type === "video"
+                            ? "▶"
+                            : "▧"}
+                      </span>
+                    )}
+                  </span>
+                  <span className="media-asset-name">
+                    <strong>{asset.displayName}</strong>
+                    <small>
+                      {asset.type.toUpperCase()} · {asset.id}
+                    </small>
+                  </span>
                 </button>
-              )}
-            </li>
-          ))}
+                <span className={`media-asset-status ${asset.status}`}>
+                  {asset.status === "ready"
+                    ? "Available"
+                    : asset.status === "missing"
+                      ? "Missing file"
+                      : "Invalid"}
+                </span>
+                {asset.status !== "ready" && (
+                  <span className="media-asset-warning" role="alert">
+                    {asset.status === "missing"
+                      ? "Original file not found. Registry entry preserved."
+                      : asset.message}
+                  </span>
+                )}
+                <div className="media-asset-actions">
+                  {(asset.type === "image" || asset.type === "video") &&
+                    asset.status === "ready" && (
+                      <button
+                        type="button"
+                        onClick={() => addAssetToTimeline(asset)}
+                        aria-label={`Add ${asset.displayName} to Timeline`}
+                      >
+                        Add
+                      </button>
+                    )}
+                  {asset.type === "audio" && (
+                    <button
+                      type="button"
+                      disabled={asset.status !== "ready" || built}
+                      aria-label="Use as soundtrack"
+                      onClick={() => void useAsSoundtrack(asset)}
+                    >
+                      Soundtrack
+                    </button>
+                  )}
+                  <button
+                    className="media-remove"
+                    type="button"
+                    disabled={adding || Boolean(removing) || built}
+                    onClick={() => void removeAsset(asset)}
+                    aria-label="Remove from Project"
+                  >
+                    {removing === asset.id ? "…" : "×"}
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

@@ -68,7 +68,7 @@ These are **agreed product outcomes**, not shipped features. Implementation need
 
 ### Deferred enhancements
 
-Audio waveforms and multiple-track mixing, saved custom Timeline views/pinned rows, broader video/image registry support, automatic external-AI orchestration, generic extension-slot registries, and release automation are future design/implementation options, **not** available behavior.
+Audio waveforms and multi-track mixing, saved custom Timeline views/pinned rows, automatic external-AI orchestration, generic extension-slot registries, interpolated character animation and release automation remain future design or implementation options. PNG/MP4 registration, independent Image/Video clips, Canvas transforms, separate embedded Video audio, and preview/MP4 playback are implemented in the live editor; see the linked current guides for their limits.
 
 ### Status correction
 
@@ -93,3 +93,11 @@ The Core API Contract V1 audit must classify each core responsibility as **imple
 | Visibility and filtering       | Hide/lock/mute/solo behavior distinct from Timeline-only group/filter projections                                                |
 
 **Regression example:** two audio clips on different tracks and a Subtitles module transcribing the _selected_ source; standalone image/video/text still work without any module activation. Whisper original and external Codex revision are independently editable and visible. One shared end-to-end fixture must cover save/reload and MP4. Cross-platform development uses fast local targeted tests plus full CI at integration boundaries.
+
+## Core Editor local implementation handoff — 2026-10-24
+
+Implementation has resumed on local `dev`. The committed local checkpoint adds Timeline scene groups and safe scene ripple editing. The current working changes add the Media Library Visual Asset Organizer, reusable image groups, one shared Canvas/Timeline Character clip with scene-local pose-event switching, and named Scene Moments that reference existing pose events. These remain extensions to Timeline v1 and its canonical `edit-timeline.json`; they do not introduce a second timeline or copy media files.
+
+The live Timeline v1 editor now supports optional scenes, safe scene-aware ripple resize, named Scene Moments, registered-image groups in the Visual Asset Organizer, and a standalone Character clip whose discrete pose changes use the shared Canvas transform contract. These remain in the existing canonical `edit-timeline.json`; groups reference registered asset IDs and Timeline placements keep independent clip IDs. The full smoke run also verified the fixed frame-seek acknowledgment, visible PNG/video layers, track movement, video-audio separation, subtitle generation from video timing, save/reload and MP4 audio/video output.
+
+Final validation on this working increment: `npm test` passes 121 tests; `npm run typecheck`, `npm run validate`, and `npm run build` pass; Electron `npm run test:smoke` passes in development mode; and `npm run test:scene-acceptance` renders a temporary four-scene MP4 with PNG layers, Text, Video, Character and Audio streams. The build reports existing Zod annotation and large-bundle warnings. The acceptance project uses generated test media and is cleaned up. Local `dev` still contains commits not present on protected `origin/dev`; direct push is rejected by branch protection, so publish the reviewed checkpoint through a PR. Remaining gaps include waveforms and multi-track mixing, interpolated character animation, and external AI orchestration. Do not describe these as shipped.

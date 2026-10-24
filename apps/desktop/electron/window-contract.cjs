@@ -80,13 +80,24 @@ function isJsonValue(value, depth = 0) {
 
 function isTimelineDocument(value) {
   if (
-    !hasExactKeys(value, [
-      "version",
-      "fps",
-      "durationInFrames",
-      "tracks",
-      "clips",
-    ])
+    !isRecord(value) ||
+    !["version", "fps", "durationInFrames", "tracks", "clips"].every((key) =>
+      Object.hasOwn(value, key),
+    ) ||
+    Object.keys(value).some(
+      (key) =>
+        ![
+          "version",
+          "fps",
+          "durationInFrames",
+          "trackOrder",
+          "tracks",
+          "clips",
+        ].includes(key),
+    ) ||
+    (value.trackOrder !== undefined &&
+      value.trackOrder !== "legacy" &&
+      value.trackOrder !== "top-down")
   )
     return false;
   if (
@@ -111,13 +122,23 @@ function isTimelineDocument(value) {
   const tracks = new Set();
   for (const track of value.tracks) {
     if (
-      !hasExactKeys(track, ["id", "name"]) ||
+      !isRecord(track) ||
+      !Object.hasOwn(track, "id") ||
+      !Object.hasOwn(track, "name") ||
+      Object.keys(track).some(
+        (key) => !["id", "name", "kind", "visible", "locked"].includes(key),
+      ) ||
       typeof track.id !== "string" ||
       !/^[a-zA-Z0-9_-]{1,100}$/.test(track.id) ||
       typeof track.name !== "string" ||
       track.name.length < 1 ||
       track.name.length > 100 ||
-      tracks.has(track.id)
+      tracks.has(track.id) ||
+      (track.kind !== undefined &&
+        track.kind !== "visual" &&
+        track.kind !== "audio") ||
+      (track.visible !== undefined && typeof track.visible !== "boolean") ||
+      (track.locked !== undefined && typeof track.locked !== "boolean")
     )
       return false;
     tracks.add(track.id);
@@ -320,30 +341,37 @@ function isTimelineCommand(value) {
   if (command.type === "beginClipGesture")
     return (
       (hasExactKeys(command, ["type", "gestureId", "clipId"]) ||
-        hasExactKeys(command, [
-          "type",
-          "gestureId",
-          "clipId",
-          "duplicateId",
-        ])) &&
+        hasExactKeys(command, ["type", "gestureId", "clipId", "duplicateId"]) ||
+        hasExactKeys(command, ["type", "gestureId", "clipId", "groupMove"])) &&
       typeof command.gestureId === "string" &&
       instanceIdPattern.test(command.gestureId) &&
       typeof command.clipId === "string" &&
       command.clipId.length <= 100 &&
+      (command.groupMove === undefined || command.groupMove === true) &&
+      !(command.groupMove && command.duplicateId) &&
       (command.duplicateId === undefined ||
         (typeof command.duplicateId === "string" &&
           /^[a-zA-Z0-9_-]{1,100}$/.test(command.duplicateId)))
     );
   if (command.type === "updateClipGesture")
     return (
-      hasExactKeys(command, [
+      (hasExactKeys(command, [
         "type",
         "gestureId",
         "clipId",
         "from",
         "durationInFrames",
         "trim",
-      ]) &&
+      ]) ||
+        hasExactKeys(command, [
+          "type",
+          "gestureId",
+          "clipId",
+          "from",
+          "durationInFrames",
+          "trim",
+          "ripple",
+        ])) &&
       typeof command.gestureId === "string" &&
       instanceIdPattern.test(command.gestureId) &&
       typeof command.clipId === "string" &&
@@ -352,7 +380,8 @@ function isTimelineCommand(value) {
       command.from >= 0 &&
       Number.isInteger(command.durationInFrames) &&
       command.durationInFrames > 0 &&
-      typeof command.trim === "boolean"
+      typeof command.trim === "boolean" &&
+      (command.ripple === undefined || typeof command.ripple === "boolean")
     );
   if (command.type === "endClipGesture")
     return (

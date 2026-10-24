@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, stat } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  readdir,
+  rm,
+  stat,
+} from "node:fs/promises";
 import path from "node:path";
 import { manifestSchema, discover, safeFile } from "@motion/project-loader";
 import {
@@ -124,31 +132,47 @@ test("timeline rejects reversed intervals, duplicate IDs and invalid repeats", (
 
 test("capability registry imports, docs, examples and references resolve", async () => {
   const registry = parseCapabilityRegistry(
-    JSON.parse(await readFile("packages/animation-library/registry.json", "utf8")),
+    JSON.parse(
+      await readFile("packages/animation-library/registry.json", "utf8"),
+    ),
   );
   const packageRecords = await Promise.all(
     (await readdir("packages", { withFileTypes: true }))
       .filter((entry) => entry.isDirectory())
       .map(async (entry) => {
         const directory = path.join("packages", entry.name);
-        const metadata = JSON.parse(await readFile(path.join(directory, "package.json"), "utf8"));
+        const metadata = JSON.parse(
+          await readFile(path.join(directory, "package.json"), "utf8"),
+        );
         return { directory, metadata };
       }),
   );
   for (const capability of registry.capabilities) {
-    const owner = packageRecords.find(({ metadata }) => metadata.name === capability.api.importPath.split("/").slice(0, 2).join("/"));
+    const owner = packageRecords.find(
+      ({ metadata }) =>
+        metadata.name ===
+        capability.api.importPath.split("/").slice(0, 2).join("/"),
+    );
     assert.ok(owner, `Missing package for ${capability.api.importPath}`);
     const subpath = capability.api.importPath.slice(owner.metadata.name.length);
     const exportKey = subpath ? `.${subpath}` : ".";
-    const target = typeof owner.metadata.exports === "string"
-      ? owner.metadata.exports
-      : owner.metadata.exports?.[exportKey];
-    assert.equal(typeof target, "string", `Unexported path ${capability.api.importPath}`);
+    const target =
+      typeof owner.metadata.exports === "string"
+        ? owner.metadata.exports
+        : owner.metadata.exports?.[exportKey];
+    assert.equal(
+      typeof target,
+      "string",
+      `Unexported path ${capability.api.importPath}`,
+    );
     await readFile(path.join(owner.directory, target.slice(2)));
     await readFile(capability.documentation);
   }
   for (const example of registry.examples) {
-    assert.ok(!example.path.startsWith("projects/"), "Examples must not be user projects");
+    assert.ok(
+      !example.path.startsWith("projects/"),
+      "Examples must not be user projects",
+    );
     await readFile(example.path);
   }
 });
@@ -161,12 +185,30 @@ test("Create Project scaffold creates a blank, valid editable project", async ()
     const manifest = await createProject(projects, "neutral-video");
     assert.equal(manifest.id, "neutral-video");
     assert.equal(manifest.name, "Neutral Video");
+    const composition = await readFile(
+      path.join(projects, manifest.id, "Composition.tsx"),
+      "utf8",
+    );
+    assert.match(composition, /<TimelineComposition/);
+    assert.doesNotMatch(
+      composition,
+      /imageSources=\{imageSources\}|videoSources=\{videoSources\}/,
+    );
     const timeline = parseEditTimeline(
-      JSON.parse(await readFile(path.join(projects, manifest.id, manifest.editTimeline), "utf8")),
+      JSON.parse(
+        await readFile(
+          path.join(projects, manifest.id, manifest.editTimeline),
+          "utf8",
+        ),
+      ),
       manifest,
     );
     assert.equal(timeline.clips.length, 0);
-    assert.deepEqual(timeline.tracks.map((track) => track.name), ["Visuals", "Captions"]);
+    assert.deepEqual(
+      timeline.tracks.map((track) => track.name),
+      ["Captions", "Visuals"],
+    );
+    assert.equal(timeline.trackOrder, "top-down");
     await assert.rejects(createProject(projects, "../escape"));
   } finally {
     await rm(projects, { recursive: true, force: true });
@@ -176,18 +218,31 @@ test("Create Project scaffold creates a blank, valid editable project", async ()
 test("three scaffolded projects are independently discoverable and editable", async () => {
   const tempRoot = path.resolve(".test-tmp");
   await mkdir(tempRoot, { recursive: true });
-  const projects = await mkdtemp(path.join(tempRoot, "motion-isolated-projects-"));
+  const projects = await mkdtemp(
+    path.join(tempRoot, "motion-isolated-projects-"),
+  );
   try {
     const ids = ["isolation-alpha", "isolation-bravo", "isolation-charlie"];
-    const manifests = await Promise.all(ids.map(async (id) => manifestSchema.parse(await createProject(projects, id))));
+    const manifests = await Promise.all(
+      ids.map(async (id) =>
+        manifestSchema.parse(await createProject(projects, id)),
+      ),
+    );
     for (const manifest of manifests) {
       const directory = path.join(projects, manifest.id);
-      for (const file of ["project.json", "Composition.tsx", "edit-timeline.json"])
+      for (const file of [
+        "project.json",
+        "Composition.tsx",
+        "edit-timeline.json",
+      ])
         await stat(path.join(directory, file));
       for (const folder of ["assets", "scenes", "timing"])
         assert.ok((await stat(path.join(directory, folder))).isDirectory());
     }
-    assert.deepEqual((await discover(projects)).map((p) => p.id), ids);
+    assert.deepEqual(
+      (await discover(projects)).map((p) => p.id),
+      ids,
+    );
 
     const firstDirectory = path.join(projects, ids[0]);
     const secondDirectory = path.join(projects, ids[1]);
@@ -206,10 +261,22 @@ test("three scaffolded projects are independently discoverable and editable", as
       content: { text: "Alpha content", status: "unverified" },
       props: {},
     });
-    await saveEditor(firstDirectory, firstManifest, changed, firstBefore.revision);
+    await saveEditor(
+      firstDirectory,
+      firstManifest,
+      changed,
+      firstBefore.revision,
+    );
 
-    assert.equal((await readEditor(firstDirectory, firstManifest)).timeline.clips[0].content.text, "Alpha content");
-    assert.deepEqual((await readEditor(secondDirectory, secondManifest)).timeline, secondBefore.timeline);
+    assert.equal(
+      (await readEditor(firstDirectory, firstManifest)).timeline.clips[0]
+        .content.text,
+      "Alpha content",
+    );
+    assert.deepEqual(
+      (await readEditor(secondDirectory, secondManifest)).timeline,
+      secondBefore.timeline,
+    );
     assert.equal((await discover(projects)).length, 3);
   } finally {
     await rm(projects, { recursive: true, force: true });

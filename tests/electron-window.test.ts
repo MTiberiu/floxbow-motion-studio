@@ -261,6 +261,33 @@ test("Timeline snapshots use a strict 1 MiB schema while control messages remain
   const valid = timelineSnapshot(instanceId);
   assert.equal(isTimelineSnapshot(valid), true);
   assert.equal(isWithinTimelineSnapshotLimit(valid), true);
+  const layered = timelineSnapshot(instanceId, {
+    document: {
+      ...testTimeline,
+      trackOrder: "top-down",
+      tracks: [
+        { id: "titles", name: "Titles", kind: "visual", locked: true },
+        {
+          id: "background",
+          name: "Background",
+          kind: "visual",
+          visible: false,
+        },
+        { id: "audio", name: "Audio", kind: "audio" },
+      ],
+    },
+  });
+  assert.equal(isTimelineSnapshot(layered), true);
+  assert.equal(
+    isTimelineSnapshot({
+      ...layered,
+      document: {
+        ...layered.document,
+        tracks: [{ id: "audio", name: "Audio", kind: "audio", owner: "bad" }],
+      },
+    }),
+    false,
+  );
   assert.equal(isTimelineSnapshot({ ...valid, extra: true }), false);
   assert.equal(isTimelineSnapshot({ ...valid, frame: 180 }), false);
   assert.equal(
@@ -317,6 +344,36 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
     true,
   );
   assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "updateClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        from: 60,
+        durationInFrames: 90,
+        trim: true,
+        ripple: true,
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "updateClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        from: 60,
+        durationInFrames: 90,
+        trim: true,
+        ripple: "yes",
+      },
+    }),
+    false,
+  );
+  assert.equal(
     isTimelineCommand({ ...command, command: { type: "delete", extra: true } }),
     false,
   );
@@ -331,6 +388,30 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
       },
     }),
     true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "beginClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        groupMove: true,
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "beginClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        groupMove: false,
+      },
+    }),
+    false,
   );
   assert.equal(
     isTimelineCommand({

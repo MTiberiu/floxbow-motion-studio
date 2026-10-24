@@ -1,43 +1,60 @@
 # Active Developer Handoff
 
-Updated: 2026-10-23. This note records active local work so another developer or AI agent can resume without treating unfinished work as shipped.
+Updated: 2026-10-24. This file records verified local progress and the next safe development increment.
 
 ## Checkout and scope
 
-- Current checkout is the existing PR #38 branch `codex/core-editor-image-canvas`, based on `dev` at `77ba581`. Its review HEAD before the current geometry corrections is `617dccf`.
-- The Text, Canvas, Image, and seconds-based editor slice is already committed and pushed to the PR branch. Focused PR #38 review corrections are currently uncommitted on that branch. Do not reset or discard them.
-- The current Core Editor slice adds human-readable seconds while preserving integer frames, the first-class standalone Image clip and Media Library registration, plus shared Canvas selection/transforms for Text, Image, and subtitles.
-- No user video project or personal media is part of this work. Electron smoke uses generated project IDs and temporary audio/image fixtures; it removes its projects and temporary files in `finally`.
+- The local checkout is on `dev` at `66c0e0c` with the Canvas media visibility and Timeline drop-target follow-up in progress. The current development increment is on PR #39's branch; do not merge until the updated full CI is green.
+- `499cc93` contains the left Media Library and PNG placement increment. The current local code also adds ordinary MP4 video clips.
+- The existing `projects/Test` project remains present and untouched. No source media, `main`, or the independently developed Kinetic module has been changed.
+- Smoke tests create synthetic projects and media, then clean them up.
 
-## Architecture boundary
+## Implemented and verified
 
-- **Text Core** defines text content, typography, animation properties, validation, and rendering.
-- **Canvas Core** defines shared selection and geometric manipulation for any visual element that declares the Canvas contract. It owns no Text-specific behavior.
-- Timeline v1 and project JSON remain canonical. A registered image asset has a stable asset ID; each Timeline placement has a separate clip ID and may reference the same asset.
-- Module-owned visuals such as subtitles use the shared Canvas contract through declared metadata. Do not add separate per-module selection/transform systems.
-- The Media Library redesign requested by the user is future work: keep media discoverable in a left-side library with image/video/audio thumbnails; later support dragging audio to a Timeline track and placing images by dragging to Canvas, creating the corresponding clip/layer. It is not part of the current implementation slice.
-- The user reaffirmed that Media Library belongs in the left panel. Keep thumbnails and drag-to-Timeline/Canvas placement out of PR #38 as the review explicitly requested; schedule them as the next focused UX task after PR #38 review is resolved.
+- The project Media Library lives in the left project browser. It lists registered project media, provides image thumbnails and type/status indicators, supports native import, selection and removal, and keeps registered asset IDs separate from each placement's Timeline clip ID.
+- PNG assets can be added at the playhead, dragged onto Canvas to set their position, or dropped onto the visual Timeline track to set their start time. Reusing an asset creates another clip without copying the source.
+- MP4 can now be imported through the trusted native picker, registered with a stable video asset ID, previewed and rendered from the registered media route. Video clips receive independent clip IDs and support Timeline placement, trim, seek, volume, fit, and shared Canvas transforms through canonical Timeline properties. A left trim advances the video source in-point; trims beyond the probed source duration are rejected.
+- Preview and MP4 rendering provide registered Image/Video sources through a scoped `TimelineMediaSourcesProvider`. This keeps older project compositions that do not forward `imageSources` or `videoSources` working; the generated scaffold exercises that compatibility path. The host resolves source paths; renderer-facing data contains project-local asset references and safe media URLs, not host filesystem paths.
+- EditorSession remains the only document and save owner, preview remains in the primary editor, and the shared Canvas contract remains the geometry interface for visual elements. Text Core, Image and Video keep their own content/render behavior while Canvas Core handles declared spatial operations.
+- Canvas handles now keep a usable on-screen hit target at every Canvas zoom level. A single-selection frame follows the rotated object; PNG contain-mode frames follow the visible image area using safe, project-scoped thumbnail dimensions. Eight resize handles have direction-specific cursors. Image/video width and height can extend to 500% of the composition. Images using `fill` resize freely by default, including intentional distortion; hold Shift during resize to preserve proportions around the opposite edge or corner. `contain` images automatically preserve the source ratio so dragging a side handle visibly resizes the image. Text and subtitle corner handles preserve their box ratio and scale font size, while side handles adjust only the text layout box. Image clips imported with known dimensions start with a matching fit box; existing clips remain valid.
+- Canvas overlays were transforming correctly while rendered Text, Subtitles, Image, and Video silently lost their CSS transform: their `translate()` used invalid space-separated arguments, so browsers dropped the whole declaration. The renderer anchors now use valid comma-separated arguments; canonical geometry, Canvas handles, preview, and MP4 share the same transform values. Text's Inspector Alignment remains independent: choose `center` to center glyphs inside the selected box; `right` intentionally aligns them to its right edge.
+- Space toggles the active EditorSession playback transport throughout the primary editor window and in the detached Timeline. Repeated keydown is ignored; text inputs, selects, textareas and editable text retain normal space typing. Space no longer switches Canvas into pan mode; middle mouse remains available for Canvas panning. Starting playback at or beyond the final content frame restarts at frame zero.
+- Timeline review now stays collapsed until opened by the user. It reports only intervals with no visual clips across any track, so ordinary subtitle spacing is suppressed by a covering background or other visual clip. Warnings identify adjacent clips, count active non-dismissed intervals and can be dismissed; changing underlying timing causes recalculation.
+- A single Canvas selection now draws its transform frame and handles on the same rotated element geometry. Resize pointer movement is converted into the element's local axes, keeping the opposite corner fixed; multi-selection keeps its group bounds behavior.
+- Canvas selection bounds for `contain` Video now use width/height from the existing safe host video-metadata route, matching the visible source instead of the full composition box. The Inspector exposes Center on Canvas, Fit inside Canvas (`contain`) and Fill Canvas (`cover`) actions for Image and Video clips. Canvas movement snaps transformed bounds to the composition edges or center within 10 rendered pixels and displays alignment guides; Shift axis-lock preserves snapping on the free axis.
+- Ctrl/Cmd-drag on Canvas duplicates the selected visual clip or selected group and moves the copy in one undoable gesture; Alt remains an alternate gesture. Timeline supports the same duplicate gesture, group movement from an already selected clip, and preserves group selection until the user clicks empty space or an unselected item. Shift-drag on Canvas locks movement to the dominant axis for the gesture, and Shift-resize keeps proportions. Resize calculations clamp to declared field limits to avoid invalid updates cancelling a gesture.
+- The Timeline ruler stays visible while scrolling vertically through many tracks in both docked and detached views.
+- Timeline duration resize handles appear only on the primary selected clip, with a wider hit target and subtle hover feedback. This avoids ambiguous edge drags between adjacent clips; Canvas resize handles retain a small visual grip with a larger hit area.
+- The selected Media Registry soundtrack remains one full-duration clip fixed at frame zero. It can move between unlocked Audio tracks or be deleted, but it cannot move in time or be trimmed. Audio separated from an MP4 is a distinct `video-audio` clip that can move, trim, or delete independently. General imported multi-audio placement, mixing controls, automation, and waveform editing remain unimplemented.
+- Timeline Fit uses the current project duration and measured viewport width, including after duration changes. Zoom-out can reach a fit of long supported projects. Timeline v1 tracks now support visual/audio role metadata, top-down visual stacking after an explicit compatibility conversion, create/rename/reorder, cross-track clip moves, visibility and edit locks. Hidden visual tracks do not render; locked tracks continue to render but reject edits.
+- New projects expose 16:9, 9:16, 1:1 and 21:9 Canvas presets. The chosen dimensions are stored in the existing project manifest settings and do not rewrite Timeline clips.
+- Whisper can transcribe the embedded audio of a selected supported MP4 clip. The host extracts only that clip's source range to a temporary audio file; returned cue times are offset by the clip's Timeline start and source in-point. Source paths remain host-side and temporary audio is cleaned up.
+- Playback seek acknowledgments now retain the requested frame while Remotion catches up, avoiding an older synchronous frame report moving the authoritative playhead back.
+- Moving a visual clip between visual tracks changes only its `trackId`, preserving its media asset, clip identity, timing and transforms. During a drag, a label follows the pointer and an unlocked visual destination is highlighted; dropping onto a hidden track warns that the clip will remain absent from preview/export. Regression coverage now includes moving a video clip between visual tracks.
+- A same-frame preview seek no longer arms a pending seek acknowledgment. This prevents later Remotion frame updates from being ignored when no new seek event is emitted for an already-current frame.
+- The primary Canvas toolbar now has an application-level preview volume control. It sends a bounded 0–1 master-volume message to the one Remotion Player, affecting soundtrack and embedded video audio together; the preference is kept in shell localStorage, not the project JSON or MP4 export.
+- Timeline track header now offers separate Add visual track and Add audio track actions. Empty audio rows can be reordered within the audio group, and the fixed frame-zero soundtrack can be moved vertically between unlocked audio rows without changing its source, duration, or playback timing. Visual clips can be dropped into explicit top/bottom insertion strips to create a visual row.
+- The fixed soundtrack can now be moved between audio rows through either drag or the Inspector's Audio track selector, and can be deleted with a single undoable edit. Its timing remains fixed at frame zero and spans the complete source.
+- Video clips with an audio stream now offer **Separate video audio**. This creates a Timeline v1 `video-audio` clip that shares the registered MP4 asset ID, copies the source in-point and Timeline range, and mutes the original Video clip. The new audio clip uses the same Remotion Player and MP4 render path, can be moved/trimmed/deleted independently, and advances its MP4 source offset when its left edge is trimmed. MP4s without audio are rejected with a clear message.
+- The Timeline ruler now labels human-readable minutes/seconds, uses 10-second major marks with subtler 5-second marks when space permits, and widens major intervals on long fitted timelines. The ruler has a stronger color and border contrast from the track rows.
 
-## Progress and verification
+## Compatibility and open limitations
 
-- Local commits already present: `aaace5c` (standalone Text foundation) and `df26cac` (shared Canvas transform contract).
-- The local Core Editor commits implement seconds-based editor controls, standalone Image registration/clip properties/rendering, shared Canvas interactions, docs, and regression tests.
-- `npm test`: 70/70 passed.
-- `npm run typecheck`, `npm run validate`, `npm run build`, Prettier check, and `git diff --check` passed. Validation found no user projects in the workspace.
-- Development and built Electron smoke tests passed. They covered the editable Text/Image path, preview and MP4 rendering, detached Timeline synchronization, save/reload and isolated project media registries.
-- Development and built Electron editor tests passed. Electron needed approved launch permissions in this environment; the sandbox-only launch failed before test execution.
-- PR #38 geometry correction tests: `tests/canvas-core.test.ts` passes 7/7; `npm test` passes 72/72. Typecheck, project validation, Prettier, whitespace checks, and production build pass.
-- Development Electron smoke passed, including aspect-aware multi-selection rotation, rotated resize, and pointer-cancel rollback with no leftover Undo checkpoint. Built Electron smoke and built editor integration test also pass.
-- The smoke investigation found the Canvas hitbox's `translate()` string was rejected by the browser; using valid comma-separated arguments restores the declared anchor transform. The group-rotation smoke also resets the intentionally changed element position before later persistence assertions.
-- The successful build emitted existing non-fatal dependency annotation and large-chunk warnings. No test failures remain in this slice.
-- Temporary test projects were removed. `projects/` contains only `.gitkeep`; no personal project or media files were changed.
-- Do not claim physical dual-monitor verification; that remains a user hardware check.
+- Timeline v1 and existing project JSON remain canonical. Video source registration is in the existing project media registry; placements reference the asset ID and retain an independent clip ID.
+- The new video path accepts MP4 files with a valid MP4 container and probes duration/dimensions using the installed FFprobe. Other video containers/codecs and transcoding are not supported.
+- Canvas interaction overlays remain editor-only; the composition renderer consumes canonical geometry and media timing for MP4 output.
+- The requested acceptance project with a composed scene of many independent PNGs, Text, ordinary Video and Audio has not been assembled end-to-end. Multiple PNG placements and video clips are supported individually; the general independent-audio workflow remains a gap.
+- Track metadata is an extension of Timeline v1 and legacy track arrays keep their previous render order until the user performs an explicit reorder. Audio tracks cannot be converted into visual tracks, and the existing selected soundtrack remains fixed at frame zero. Embedded video audio stays attached until the user invokes **Separate video audio**; there is no automatic detach. Waveform display, volume automation and general imported multi-audio placement are not implemented.
+- Canvas format changes are limited to the listed presets in the editor; arbitrary custom dimensions remain readable but cannot currently be entered through a custom-size control.
+- Physical listening and hardware-specific playback checks still require user verification. Automated tests verify decoder/playback state and rendered media, not the user's speakers or headphones.
 
-## Next actions
+## Verification for the current local increment
 
-1. Run full local validation for the PR #38 corrections, commit them on this existing branch, push the branch, and verify GitHub Actions for the new HEAD. Do not merge without review.
-2. After PR #38 is resolved, scope a separate Media Library left-panel task covering file thumbnails and drag-to-Timeline/Canvas placement. Do not add more module systems or general plugin infrastructure.
+- Latest complete unit run: 108/108 passed. Typecheck, validation and build passed; build retains the known Zod annotation and large-bundle warnings.
+- Local `npm run test:smoke` cannot launch Electron in this environment (`Electron.launch`: `Process failed to launch!`). At PR #39 HEAD `66c0e0c`, GitHub smoke reached the audio-track drag and failed because the expected clip was not in the second Audio row. The follow-up records the highlighted drop target and commits the tracked target instead of relying only on a final pointer hit-test. Updated CI must verify this path and the scaffolded Image/Video Canvas preview assertions.
+- The smoke fixture uses generated project/media data. The existing `projects/Test` project, other source media, `main`, and Kinetic remain untouched.
+- The synthetic smoke fixtures create and clean up their own projects and media. Existing `projects/Test`, other source media, `main`, and Kinetic remain untouched.
 
-## Continuation rule
+## Next logical increment
 
-Update this note at the end of a substantial implementation or validation milestone. Record verified facts, current local state, remaining checks, and the next action; do not copy chat history or mark planned work as implemented.
+Wait for full CI on the updated PR #39 HEAD, confirm Image and Video remain visible in the smoke preview, and merge only after the product regression and audio-track movement check pass. Do not start another implementation increment until this checkpoint is resolved.

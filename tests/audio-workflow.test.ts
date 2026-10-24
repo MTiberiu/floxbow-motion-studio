@@ -152,7 +152,7 @@ test("audio duration probing reports malformed or undecodable sources clearly", 
   }
 });
 
-test("soundtrack timing, selected source, track and full duration stay fixed", () => {
+test("soundtrack timing and source stay fixed while allowing audio-row moves and deletion", () => {
   const soundtrack = {
     id: "soundtrack-fixed",
     trackId: "audio",
@@ -202,6 +202,10 @@ test("soundtrack timing, selected source, track and full duration stay fixed", (
       clips: [{ ...soundtrack, content: { assetId: "another-audio" } }],
     }),
     false,
+  );
+  assert.equal(
+    soundtrackTimingUnchanged(current, { ...current, clips: [] }),
+    true,
   );
 });
 

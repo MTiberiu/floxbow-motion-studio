@@ -1,5 +1,17 @@
-import { type ComponentType } from "react";
-import { AbsoluteFill, Img, Sequence, useCurrentFrame } from "remotion";
+import {
+  createContext,
+  type ComponentType,
+  type ReactNode,
+  useContext,
+} from "react";
+import {
+  AbsoluteFill,
+  Img,
+  OffthreadVideo,
+  Sequence,
+  useCurrentFrame,
+  useVideoConfig,
+} from "remotion";
 import { z } from "zod";
 import { SoundtrackAudio } from "@motion/audio";
 import {
@@ -9,19 +21,51 @@ import {
   type TimelineClip,
   type ComponentInfo,
   type EditableField,
+  type VisualAssetGroup,
+  visualTracksInRenderOrder,
 } from "./timeline";
 export type EditableComponent = ComponentInfo & {
   component: ComponentType<{
     clip: TimelineClip;
     frame?: number;
     imageSources?: Readonly<Record<string, string>>;
+    videoSources?: Readonly<Record<string, string>>;
+    assetGroups?: readonly VisualAssetGroup[];
+    sceneLocalStartFrame?: number;
   }>;
 };
 export type EditableVideoProps = {
   timeline?: EditTimeline;
   audioSources?: Readonly<Record<string, string>>;
   imageSources?: Readonly<Record<string, string>>;
+  videoSources?: Readonly<Record<string, string>>;
 };
+
+type TimelineMediaSources = {
+  imageSources?: Readonly<Record<string, string>>;
+  videoSources?: Readonly<Record<string, string>>;
+};
+
+const timelineMediaSourcesContext = createContext<TimelineMediaSources>({});
+
+/** Supplies registered media to TimelineComposition, including older project compositions. */
+export function TimelineMediaSourcesProvider({
+  children,
+  imageSources,
+  videoSources,
+}: TimelineMediaSources & { children?: ReactNode }) {
+  return (
+    <timelineMediaSourcesContext.Provider
+      value={{ imageSources, videoSources }}
+    >
+      {children}
+    </timelineMediaSourcesContext.Provider>
+  );
+}
+
+function useTimelineMediaSources() {
+  return useContext(timelineMediaSourcesContext);
+}
 
 export const standaloneTextPropsSchema = z
   .object({
@@ -85,14 +129,15 @@ export const standaloneImageClipSchema = z
           .string()
           .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
           .max(120),
+        aspectRatio: z.number().finite().min(0.01).max(100).optional(),
       })
       .passthrough(),
     props: z
       .object({
         x: z.number().finite().min(0).max(100).default(50),
         y: z.number().finite().min(0).max(100).default(50),
-        width: z.number().finite().min(1).max(100).default(80),
-        height: z.number().finite().min(1).max(100).default(80),
+        width: z.number().finite().min(1).max(500).default(80),
+        height: z.number().finite().min(1).max(500).default(80),
         rotation: z.number().finite().min(-3600).max(3600).default(0),
         anchor: z
           .enum([
@@ -110,6 +155,158 @@ export const standaloneImageClipSchema = z
         opacity: z.number().finite().min(0).max(1).default(1),
         fit: z.enum(["contain", "cover", "fill"]).default("contain"),
       })
+      .passthrough(),
+  })
+  .passthrough();
+
+export const standaloneCharacterClipSchema = z
+  .object({
+    componentId: z.literal("character"),
+    content: z
+      .object({
+        groupId: z
+          .string()
+          .regex(/^[a-zA-Z0-9_-]+$/)
+          .max(100),
+        poseEvents: z
+          .array(
+            z.object({
+              id: z
+                .string()
+                .regex(/^[a-zA-Z0-9_-]+$/)
+                .max(100),
+              atFrame: z.number().int().nonnegative().max(216_000),
+              memberId: z
+                .string()
+                .regex(/^[a-zA-Z0-9_-]+$/)
+                .max(100),
+            }),
+          )
+          .max(2000)
+          .default([]),
+      })
+      .passthrough(),
+    props: z
+      .object({
+        x: z.number().finite().min(0).max(100).default(50),
+        y: z.number().finite().min(0).max(100).default(50),
+        width: z.number().finite().min(1).max(500).default(40),
+        height: z.number().finite().min(1).max(500).default(70),
+        rotation: z.number().finite().min(-3600).max(3600).default(0),
+        anchor: z
+          .enum([
+            "top-left",
+            "top-center",
+            "top-right",
+            "middle-left",
+            "center",
+            "middle-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+          ])
+          .default("center"),
+        opacity: z.number().finite().min(0).max(1).default(1),
+        fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+/** Resolves a character state using the clip's scene-local frame evidence. */
+export function resolveCharacterPose(
+  group: VisualAssetGroup,
+  events: readonly { atFrame: number; memberId: string }[],
+  sceneLocalStartFrame: number,
+  clipFrame: number,
+) {
+  const localFrame = sceneLocalStartFrame + clipFrame;
+  const event = events
+    .filter((candidate) => candidate.atFrame <= localFrame)
+    .reduce<(typeof events)[number] | undefined>(
+      (latest, candidate) =>
+        !latest || candidate.atFrame > latest.atFrame ? candidate : latest,
+      undefined,
+    );
+  return (
+    group.members.find((candidate) => candidate.id === event?.memberId) ??
+    group.members.find((candidate) => candidate.role === "pose") ??
+    group.members[0]
+  );
+}
+
+export const standaloneVideoClipSchema = z
+  .object({
+    componentId: z.literal("video"),
+    content: z
+      .object({
+        assetId: z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .max(120),
+        sourceStartSeconds: z.number().finite().min(0).default(0),
+        sourceDurationSeconds: z.number().finite().positive(),
+      })
+      .passthrough(),
+    props: z
+      .object({
+        x: z.number().finite().min(0).max(100).default(50),
+        y: z.number().finite().min(0).max(100).default(50),
+        width: z.number().finite().min(1).max(500).default(80),
+        height: z.number().finite().min(1).max(500).default(80),
+        rotation: z.number().finite().min(-3600).max(3600).default(0),
+        anchor: z
+          .enum([
+            "top-left",
+            "top-center",
+            "top-right",
+            "middle-left",
+            "center",
+            "middle-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+          ])
+          .default("center"),
+        opacity: z.number().finite().min(0).max(1).default(1),
+        fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+        volume: z.number().finite().min(0).max(1).default(1),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+/** Audio detached from a Video clip; still references the same registered MP4. */
+export const standaloneVideoAudioClipSchema = z
+  .object({
+    id: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .max(100),
+    trackId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .max(100),
+    componentId: z.literal("video-audio"),
+    label: z.string().max(200),
+    from: z.number().int().nonnegative(),
+    durationInFrames: z.number().int().positive(),
+    content: z
+      .object({
+        assetId: z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .max(120),
+        sourceVideoClipId: z
+          .string()
+          .regex(/^[a-zA-Z0-9_-]+$/)
+          .max(100),
+        sourceStartSeconds: z.number().finite().min(0),
+        sourceDurationSeconds: z.number().finite().positive(),
+      })
+      .passthrough(),
+    props: z
+      .object({ volume: z.number().finite().min(0).max(1).default(1) })
       .passthrough(),
   })
   .passthrough();
@@ -338,15 +535,15 @@ function StandaloneText({
       ? 1 - progress(clip.durationInFrames - frame, scaleOutFrames)
       : 0;
   const anchorStyles: Record<string, { translate: string; origin: string }> = {
-    "top-left": { translate: "0 0", origin: "top left" },
-    "top-center": { translate: "-50% 0", origin: "top center" },
-    "top-right": { translate: "-100% 0", origin: "top right" },
-    "middle-left": { translate: "0 -50%", origin: "center left" },
-    center: { translate: "-50% -50%", origin: "center" },
-    "middle-right": { translate: "-100% -50%", origin: "center right" },
-    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
-    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
-    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
   };
   const anchorStyle = anchorStyles[anchor];
   const slideOffset = 48 * (1 - slideIn);
@@ -411,16 +608,25 @@ function FrameAwareComponent({
   component: Component,
   clip,
   imageSources,
+  videoSources,
+  assetGroups,
+  sceneLocalStartFrame,
 }: {
   component: EditableComponent["component"];
   clip: TimelineClip;
   imageSources?: Readonly<Record<string, string>>;
+  videoSources?: Readonly<Record<string, string>>;
+  assetGroups?: readonly VisualAssetGroup[];
+  sceneLocalStartFrame?: number;
 }) {
   return (
     <Component
       clip={clip}
       frame={useCurrentFrame()}
       imageSources={imageSources}
+      videoSources={videoSources}
+      assetGroups={assetGroups}
+      sceneLocalStartFrame={sceneLocalStartFrame}
     />
   );
 }
@@ -442,7 +648,8 @@ export const standaloneTextModule: EditableComponent = {
       anchor: "anchor",
     },
     operations: { move: true, resize: true, rotate: true },
-    resizeMode: "free",
+    resizeMode: "preserve-aspect",
+    resizeScaleFields: ["fontSize"],
   },
   component: StandaloneText,
 };
@@ -475,7 +682,7 @@ const imageFields: EditableField[] = [
     type: "number",
     default: 80,
     min: 1,
-    max: 100,
+    max: 500,
     step: 1,
   },
   {
@@ -485,7 +692,7 @@ const imageFields: EditableField[] = [
     type: "number",
     default: 80,
     min: 1,
-    max: 100,
+    max: 500,
     step: 1,
   },
   {
@@ -543,22 +750,24 @@ function StandaloneImage({
   clip: TimelineClip;
   imageSources?: Readonly<Record<string, string>>;
 }) {
+  const inheritedSources = useTimelineMediaSources().imageSources;
+  const sources = imageSources ?? inheritedSources;
   const image = standaloneImageClipSchema.parse(clip);
-  const source = imageSources?.[image.content.assetId];
-  if (!source && imageSources === undefined) return null;
+  const source = sources?.[image.content.assetId];
+  if (!source && sources === undefined) return null;
   if (!source)
     throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
   const { x, y, width, height, rotation, anchor, opacity, fit } = image.props;
   const positions: Record<string, { translate: string; origin: string }> = {
-    "top-left": { translate: "0 0", origin: "top left" },
-    "top-center": { translate: "-50% 0", origin: "top center" },
-    "top-right": { translate: "-100% 0", origin: "top right" },
-    "middle-left": { translate: "0 -50%", origin: "center left" },
-    center: { translate: "-50% -50%", origin: "center" },
-    "middle-right": { translate: "-100% -50%", origin: "center right" },
-    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
-    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
-    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
   };
   const position = positions[anchor];
   return (
@@ -599,9 +808,225 @@ export const standaloneImageModule: EditableComponent = {
       anchor: "anchor",
     },
     operations: { move: true, resize: true, rotate: true },
+    // Image resize mode is free; Shift can constrain the shared Canvas gesture.
     resizeMode: "free",
   },
   component: StandaloneImage,
+};
+
+const characterFields: EditableField[] = [...imageFields];
+
+function StandaloneCharacter({
+  clip,
+  frame = 0,
+  imageSources,
+  assetGroups = [],
+  sceneLocalStartFrame = 0,
+}: {
+  clip: TimelineClip;
+  frame?: number;
+  imageSources?: Readonly<Record<string, string>>;
+  assetGroups?: readonly VisualAssetGroup[];
+  sceneLocalStartFrame?: number;
+}) {
+  const inheritedSources = useTimelineMediaSources().imageSources;
+  const sources = imageSources ?? inheritedSources;
+  const character = standaloneCharacterClipSchema.parse(clip);
+  const group = assetGroups.find(
+    (candidate) => candidate.id === character.content.groupId,
+  );
+  if (!group)
+    throw new Error(
+      `Character group ${character.content.groupId} is unavailable. Repair its assetGroups entry in edit-timeline.json.`,
+    );
+  const member = resolveCharacterPose(
+    group,
+    character.content.poseEvents,
+    sceneLocalStartFrame,
+    frame,
+  );
+  if (!member)
+    throw new Error(`Character group ${group.name} contains no images.`);
+  const source = sources?.[member.assetId];
+  if (!source && sources === undefined) return null;
+  if (!source)
+    throw new Error(
+      `Character image asset ${member.assetId} is unavailable. Relink it in the Media Library.`,
+    );
+  const { x, y, width, height, rotation, anchor, opacity, fit } =
+    character.props;
+  const positions: Record<string, { translate: string; origin: string }> = {
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
+  };
+  const position = positions[anchor];
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <Img
+        data-character-group-id={group.id}
+        data-character-member-id={member.id}
+        data-character-asset-id={member.assetId}
+        src={source}
+        style={{
+          position: "absolute",
+          left: `${x + member.offsetX}%`,
+          top: `${y + member.offsetY}%`,
+          width: `${width}%`,
+          height: `${height}%`,
+          transform: `translate(${position.translate}) rotate(${rotation}deg)`,
+          transformOrigin: position.origin,
+          opacity,
+          objectFit: fit,
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+/** A logical character is one Canvas/Timeline object backed by an asset group. */
+export const standaloneCharacterModule: EditableComponent = {
+  id: "character",
+  name: "Character",
+  fields: characterFields,
+  timelineBehavior: "core-character",
+  canvas: {
+    owner: "core.character",
+    coordinateSpace: "composition-percent",
+    transform: {
+      x: "x",
+      y: "y",
+      width: "width",
+      height: "height",
+      rotation: "rotation",
+      anchor: "anchor",
+    },
+    operations: { move: true, resize: true, rotate: true },
+    resizeMode: "preserve-aspect",
+  },
+  component: StandaloneCharacter,
+};
+
+const videoFields: EditableField[] = [
+  ...imageFields.filter((field) => field.key !== "fit"),
+  {
+    key: "fit",
+    target: "props",
+    label: "Video fit",
+    type: "select",
+    default: "contain",
+    options: ["contain", "cover", "fill"],
+  },
+  {
+    key: "volume",
+    target: "props",
+    label: "Clip volume",
+    type: "number",
+    default: 1,
+    min: 0,
+    max: 1,
+    step: 0.01,
+  },
+  {
+    key: "sourceStartSeconds",
+    target: "content",
+    label: "Source start time (seconds)",
+    type: "number",
+    default: 0,
+    min: 0,
+    max: 86_400,
+    step: 0.001,
+  },
+];
+
+function StandaloneVideo({
+  clip,
+  videoSources,
+}: {
+  clip: TimelineClip;
+  videoSources?: Readonly<Record<string, string>>;
+}) {
+  const inheritedSources = useTimelineMediaSources().videoSources;
+  const sources = videoSources ?? inheritedSources;
+  const video = standaloneVideoClipSchema.parse(clip);
+  const source = sources?.[video.content.assetId];
+  if (!source && sources === undefined) return null;
+  if (!source)
+    throw new Error(`Video asset ${video.content.assetId} is unavailable.`);
+  const { fps } = useVideoConfig();
+  if (
+    video.content.sourceStartSeconds + clip.durationInFrames / fps >
+    video.content.sourceDurationSeconds + 1 / fps
+  )
+    throw new Error(
+      `Video clip ${clip.id} exceeds the duration of its MP4 source.`,
+    );
+  const { x, y, width, height, rotation, anchor, opacity, fit, volume } =
+    video.props;
+  const positions: Record<string, { translate: string; origin: string }> = {
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
+  };
+  const position = positions[anchor];
+  const sourceStart = Math.round(video.content.sourceStartSeconds * fps);
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <OffthreadVideo
+        data-video-asset-id={video.content.assetId}
+        src={source}
+        startFrom={sourceStart}
+        endAt={sourceStart + clip.durationInFrames}
+        volume={volume}
+        style={{
+          position: "absolute",
+          left: `${x}%`,
+          top: `${y}%`,
+          width: `${width}%`,
+          height: `${height}%`,
+          transform: `translate(${position.translate}) rotate(${rotation}deg)`,
+          transformOrigin: position.origin,
+          opacity,
+          objectFit: fit,
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+/** Core MP4 clips use registered media IDs and the shared Canvas transform contract. */
+export const standaloneVideoModule: EditableComponent = {
+  id: "video",
+  name: "Video",
+  fields: videoFields,
+  timelineBehavior: "core-video",
+  canvas: {
+    owner: "core.video",
+    coordinateSpace: "composition-percent",
+    transform: {
+      x: "x",
+      y: "y",
+      width: "width",
+      height: "height",
+      rotation: "rotation",
+      anchor: "anchor",
+    },
+    operations: { move: true, resize: true, rotate: true },
+    resizeMode: "free",
+  },
+  component: StandaloneVideo,
 };
 /** Strip executable renderer code before metadata crosses the isolated preview bridge. */
 export function serializableComponentInfo(
@@ -614,47 +1039,71 @@ export function TimelineComposition({
   timeline,
   components,
   imageSources,
+  videoSources,
 }: {
   timeline: EditTimeline;
   components: EditableComponent[];
   imageSources?: Readonly<Record<string, string>>;
+  videoSources?: Readonly<Record<string, string>>;
 }) {
   const t = parseEditTimeline(timeline);
   const registeredComponents = [
     standaloneTextModule,
     standaloneImageModule,
+    standaloneCharacterModule,
+    standaloneVideoModule,
     ...components.filter(
-      (component) => component.id !== "text" && component.id !== "image",
+      (component) =>
+        component.id !== "text" &&
+        component.id !== "image" &&
+        component.id !== "character" &&
+        component.id !== "video",
     ),
   ];
   return (
     <AbsoluteFill style={{ background: "#000000" }}>
-      {t.tracks.flatMap((track) =>
-        t.clips
-          .filter((c) => c.trackId === track.id)
-          .map((clip) => {
-            if (clip.componentId === "soundtrack") return null;
-            const definition = registeredComponents.find(
-              (c) => c.id === clip.componentId,
-            );
-            if (!definition)
-              throw new Error(`Unknown component ${clip.componentId}`);
-            const Element = definition.component;
-            return (
-              <Sequence
-                key={clip.id}
-                from={clip.from}
-                durationInFrames={clip.durationInFrames}
-                name={clip.label}
-              >
-                <FrameAwareComponent
-                  component={Element}
-                  clip={clip}
-                  imageSources={imageSources}
-                />
-              </Sequence>
-            );
-          }),
+      {visualTracksInRenderOrder(t).flatMap((track) =>
+        track.visible === false
+          ? []
+          : t.clips
+              .filter((c) => c.trackId === track.id)
+              .map((clip) => {
+                if (
+                  clip.componentId === "soundtrack" ||
+                  clip.componentId === "video-audio"
+                )
+                  return null;
+                const definition = registeredComponents.find(
+                  (c) => c.id === clip.componentId,
+                );
+                if (!definition)
+                  throw new Error(`Unknown component ${clip.componentId}`);
+                const Element = definition.component;
+                return (
+                  <Sequence
+                    key={clip.id}
+                    from={clip.from}
+                    durationInFrames={clip.durationInFrames}
+                    name={clip.label}
+                  >
+                    <FrameAwareComponent
+                      component={Element}
+                      clip={clip}
+                      imageSources={imageSources}
+                      videoSources={videoSources}
+                      assetGroups={t.assetGroups}
+                      sceneLocalStartFrame={
+                        clip.sceneId
+                          ? clip.from -
+                            (t.scenes?.find(
+                              (scene) => scene.id === clip.sceneId,
+                            )?.from ?? clip.from)
+                          : 0
+                      }
+                    />
+                  </Sequence>
+                );
+              }),
       )}
     </AbsoluteFill>
   );
@@ -690,6 +1139,59 @@ export function TimelineSoundtrackAudio({
               name={clip.label}
             >
               <SoundtrackAudio src={src} />
+            </Sequence>
+          );
+        })}
+    </>
+  );
+}
+
+/** Render detached MP4 audio through the same Remotion Player/render transport. */
+export function TimelineVideoAudio({
+  timeline,
+  videoSources = {},
+}: {
+  timeline?: EditTimeline;
+  videoSources?: Readonly<Record<string, string>>;
+}) {
+  if (!timeline) return null;
+  const document = parseEditTimeline(timeline);
+  return (
+    <>
+      {document.clips
+        .filter((clip) => clip.componentId === "video-audio")
+        .map((rawClip) => {
+          const clip = standaloneVideoAudioClipSchema.parse(rawClip);
+          const source = videoSources[clip.content.assetId];
+          if (!source)
+            throw new Error(
+              `Video audio asset ${clip.content.assetId} is unavailable. Relink it in Project Media.`,
+            );
+          const sourceStart = Math.round(
+            clip.content.sourceStartSeconds * document.fps,
+          );
+          const end = sourceStart + clip.durationInFrames;
+          if (
+            clip.content.sourceStartSeconds +
+              clip.durationInFrames / document.fps >
+            clip.content.sourceDurationSeconds + 1 / document.fps
+          )
+            throw new Error(
+              `Video audio clip ${clip.id} exceeds its registered MP4 source duration.`,
+            );
+          return (
+            <Sequence
+              key={clip.id}
+              from={clip.from}
+              durationInFrames={clip.durationInFrames}
+              name={clip.label}
+            >
+              <SoundtrackAudio
+                src={source}
+                startFrom={sourceStart}
+                endAt={end}
+                volume={clip.props.volume}
+              />
             </Sequence>
           );
         })}
