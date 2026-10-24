@@ -3701,15 +3701,11 @@ try {
     await page.getByRole("button", { name: "Undo", exact: true }).click();
 
     const imageXBeforeMove = Number(await imageInspectorX.inputValue());
-    const centeredImageBounds = await imageHitbox.boundingBox();
-    expect(centeredImageBounds).toBeTruthy();
-    const centeredImage = {
-      x: centeredImageBounds!.x + centeredImageBounds!.width / 2,
-      y: centeredImageBounds!.y + centeredImageBounds!.height / 2,
-    };
-    await page.mouse.move(centeredImage.x, centeredImage.y);
+    const imageDragStart = await findCanvasHitPoint(imageHitbox);
+    expect(imageDragStart).toBeTruthy();
+    await page.mouse.move(imageDragStart!.x, imageDragStart!.y);
     await page.mouse.down();
-    await page.mouse.move(centeredImage.x + 48, centeredImage.y + 12, {
+    await page.mouse.move(imageDragStart!.x + 48, imageDragStart!.y + 12, {
       steps: 4,
     });
     await page.mouse.up();
