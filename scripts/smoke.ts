@@ -907,7 +907,7 @@ try {
     const expectedMasterVolume =
       Math.round((originalMasterVolume + volumeStep) * 100) / 100;
     await masterVolume.focus();
-    await page.keyboard.press(volumeStep < 0 ? "ArrowLeft" : "ArrowRight");
+    await page.keyboard.press(volumeStep < 0 ? "ArrowDown" : "ArrowUp");
     await expect(masterVolume).toHaveValue(String(expectedMasterVolume));
     await expect
       .poll(() =>
@@ -916,7 +916,7 @@ try {
           .getAttribute("data-preview-master-volume"),
       )
       .toBe(String(expectedMasterVolume));
-    await page.keyboard.press(volumeStep < 0 ? "ArrowRight" : "ArrowLeft");
+    await page.keyboard.press(volumeStep < 0 ? "ArrowUp" : "ArrowDown");
 
     await page.getByRole("button", { name: "Add audio track" }).click();
     const audioRows = page.locator(".track-row.is-audio-track");
