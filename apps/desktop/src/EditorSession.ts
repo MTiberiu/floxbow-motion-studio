@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
+import { shouldIgnoreEditorPreviewFrame } from "./editor-seek-sync";
 import {
   componentInfosSchema,
   parseEditTimeline,
@@ -97,6 +98,7 @@ export function useEditorSession({
   const frameRef = useRef(
     Math.min(manifest.fps * 2, manifest.durationInFrames - 1),
   );
+  const pendingPreviewSeekFrame = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [previewGeneration, setPreviewGeneration] = useState(0);
   const wasActive = useRef(active);
@@ -265,6 +267,8 @@ export function useEditorSession({
         Math.min(duration - 1, Math.round(requestedFrame)),
       );
       setFrame(value);
+      pendingPreviewSeekFrame.current =
+        value === frameRef.current ? null : value;
       frameRef.current = value;
       sendPreview("seek", { frame: value });
       advanceStateVersion();
@@ -362,6 +366,8 @@ export function useEditorSession({
           setComponents(componentInfosSchema.parse(event.data.components));
           if (documentRef.current)
             sendPreview("document", { timeline: documentRef.current });
+          pendingPreviewSeekFrame.current =
+            frameRef.current === 0 ? null : frameRef.current;
           sendPreview("seek", { frame: frameRef.current });
           if (resumePlaybackAfterHide.current) {
             sendPreview("play");
@@ -381,9 +387,18 @@ export function useEditorSession({
         event.data.frame <
           (documentRef.current?.durationInFrames ?? manifest.durationInFrames)
       ) {
+        const isPlaying = event.data.playing === true;
+        if (
+          shouldIgnoreEditorPreviewFrame(
+            event.data.frame,
+            pendingPreviewSeekFrame.current,
+            isPlaying,
+          )
+        )
+          return;
+        if (isPlaying) pendingPreviewSeekFrame.current = null;
         setFrame(event.data.frame);
         frameRef.current = event.data.frame;
-        const isPlaying = event.data.playing === true;
         setPlaying(isPlaying);
       }
       if (event.data.type === "error") setError(String(event.data.message));

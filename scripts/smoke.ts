@@ -2873,7 +2873,7 @@ try {
     );
     await page.mouse.down();
     await page.mouse.move(
-      textBounds!.x + textBounds!.width / 2 + 36,
+      textBounds!.x + textBounds!.width / 2 - 36,
       textBounds!.y + textBounds!.height / 2 + 10,
       { steps: 3 },
     );
@@ -2882,7 +2882,7 @@ try {
       .poll(async () =>
         Number(await page.getByLabel("Position X (%)").inputValue()),
       )
-      .toBeGreaterThan(68);
+      .toBeLessThan(68);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
     await expect(page.getByLabel("Position X (%)")).toHaveValue("68");
     await page.getByRole("button", { name: "Redo", exact: true }).click();
@@ -2890,7 +2890,7 @@ try {
       .poll(async () =>
         Number(await page.getByLabel("Position X (%)").inputValue()),
       )
-      .toBeGreaterThan(68);
+      .toBeLessThan(68);
     await page.getByLabel("Position X (%)").fill("68");
     await page.getByLabel("Position Y (%)").fill("24");
     const subtitleClipId = await page
