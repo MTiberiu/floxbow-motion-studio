@@ -4019,9 +4019,10 @@ try {
       };
     });
     expect(videoMoveTarget.trackId).toBeTruthy();
+    const videoRangeBeforeTrackMove = await readClipFrameRange(videoClip);
     await page.mouse.move(videoMoveTarget.x, videoMoveTarget.sourceY);
     await page.mouse.down();
-    await page.mouse.move(videoMoveTarget.x + 2, videoMoveTarget.targetY, {
+    await page.mouse.move(videoMoveTarget.x, videoMoveTarget.targetY, {
       steps: 4,
     });
     await expect(page.locator(".timeline-drag-ghost")).toContainText("Move to");
@@ -4036,6 +4037,9 @@ try {
         ),
       )
       .toBe(videoMoveTarget.trackId);
+    await expect
+      .poll(() => readClipFrameRange(videoClip))
+      .toEqual(videoRangeBeforeTrackMove);
     await expect(videoPreview).toBeVisible();
     const movedVideoPlayhead = await page
       .getByTestId("frame-readout")
@@ -4104,7 +4108,8 @@ try {
     );
     expect(narrowSubtitleClip.label).toContain("Video audio caption");
     expect(await readClipFrameRange(generatedVideoSubtitle)).toEqual([
-      201, 216,
+      trimmedVideoRange[0] + Math.round(0.2 * videoFps),
+      trimmedVideoRange[0] + Math.round(0.7 * videoFps),
     ]);
     await expect(
       page
@@ -4131,8 +4136,9 @@ try {
         clip.content.text === "Video audio caption",
     );
     expect(savedVideoSubtitle).toMatchObject({
-      from: 201,
-      durationInFrames: 15,
+      from: trimmedVideoRange[0] + Math.round(0.2 * videoFps),
+      durationInFrames:
+        Math.round(0.7 * videoFps) - Math.round(0.2 * videoFps),
     });
     const savedVideoWord = savedVideoSubtitle.content.words[0];
     expect(savedVideoWord.start).toBeCloseTo(0.05, 10);
