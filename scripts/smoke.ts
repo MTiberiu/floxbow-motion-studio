@@ -1325,6 +1325,10 @@ try {
       page.getByLabel("Clip end time (seconds)", { exact: true }),
     ).toHaveValue(initialClipEnd);
     await setFrameFromUiTime(page, "Playhead time (seconds)", 90);
+    await page
+      .getByRole("button", { name: "Use as soundtrack", exact: true })
+      .click();
+    await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(1);
     const soundtrackTrackId = await page
       .locator(".audio-clip")
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
