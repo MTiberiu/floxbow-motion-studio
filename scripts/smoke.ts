@@ -4347,8 +4347,16 @@ try {
         .map((clip: { id: string }) => clip.id),
     );
     const mediaDragSource = page.locator(`[data-media-asset-id="${imageId}"]`);
+    const canvasDropTarget = page.locator(".canvas-interaction-layer");
+    const canvasDropPoint = await findCanvasHitPoint(canvasDropTarget);
+    const canvasDropBounds = await canvasDropTarget.boundingBox();
+    expect(canvasDropPoint).toBeTruthy();
+    expect(canvasDropBounds).toBeTruthy();
     await mediaDragSource.dragTo(page.locator(".canvas-interaction-layer"), {
-      targetPosition: { x: 420, y: 260 },
+      targetPosition: {
+        x: canvasDropPoint!.x - canvasDropBounds!.x,
+        y: canvasDropPoint!.y - canvasDropBounds!.y,
+      },
     });
     await page
       .getByRole("button", { name: "Save project", exact: true })
