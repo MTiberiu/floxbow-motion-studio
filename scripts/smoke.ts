@@ -672,9 +672,16 @@ try {
     await expect(
       page.getByText("Unsaved changes", { exact: true }),
     ).toBeVisible();
+    const selectedTimelineSave = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/edit/${id}`) &&
+        response.request().method() === "PUT" &&
+        response.ok(),
+    );
     await page
       .getByRole("button", { name: "Save project", exact: true })
       .click();
+    await selectedTimelineSave;
     await expect(
       page.getByText("Saved to the project. Renders use these edits."),
     ).toBeVisible();
@@ -1007,12 +1014,23 @@ try {
     await dockedSoundtrack.click();
     await page.getByRole("button", { name: "Delete audio" }).click();
     await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(0);
+    const deletedAudioRequest = page.waitForRequest(
+      (request) =>
+        request.url().endsWith(`/api/edit/${id}`) &&
+        request.method() === "PUT",
+    );
     await page
       .getByRole("button", { name: "Save project", exact: true })
       .click();
-    await expect(
-      page.getByText("Saved to the project. Renders use these edits."),
-    ).toBeVisible();
+    const saveRequest = await deletedAudioRequest;
+    const submittedTimeline = saveRequest.postDataJSON().timeline;
+    expect(
+      submittedTimeline.clips.some(
+        (clip: { componentId: string }) => clip.componentId === "soundtrack",
+      ),
+    ).toBe(false);
+    const deletedAudioResponse = await saveRequest.response();
+    expect(deletedAudioResponse?.ok()).toBe(true);
     const deletedAudioProject = JSON.parse(
       await readFile(path.join(projectPath, "edit-timeline.json"), "utf8"),
     );
@@ -1340,6 +1358,13 @@ try {
     await page.locator(".timeline-clip.subtitle-clip").first().click();
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
     const preview = page.frameLocator('[data-panel-id="editor"] iframe');
+    await expect
+      .poll(async () =>
+        preview
+          .locator("[data-preview-master-volume]")
+          .evaluate((element) => element.getBoundingClientRect().height),
+      )
+      .toBeGreaterThan(0);
     await expect(
       preview.getByText("Human edited caption", { exact: true }),
     ).toBeVisible();

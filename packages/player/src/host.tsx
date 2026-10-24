@@ -291,7 +291,10 @@ function PreviewHost({
     player.current?.setVolume(masterVolume);
   }, [masterVolume]);
   return (
-    <div data-preview-master-volume={masterVolume}>
+    <div
+      data-preview-master-volume={masterVolume}
+      style={{ width: "100%", height: "100%" }}
+    >
       {error && <pre role="alert">{error}</pre>}
       <StudioPlayer
         composition={module.default}
