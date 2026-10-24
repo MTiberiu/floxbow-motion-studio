@@ -3453,6 +3453,41 @@ try {
       y: imageBounds!.y + imageBounds!.height / 2,
     };
 
+    // Verify actual Image Canvas dragging at a size with a usable interior
+    // hit area, then restore the saved test project before later geometry
+    // checks for the compact image bounds.
+    await imageInspectorX.fill("50");
+    await imageInspectorY.fill("50");
+    await imageInspectorWidth.fill("70");
+    await imageInspectorHeight.fill("60");
+    const imageDragStart = await findCanvasHitPoint(imageHitbox);
+    expect(imageDragStart).toBeTruthy();
+    await page.mouse.move(imageDragStart!.x, imageDragStart!.y);
+    await page.mouse.down();
+    await page.mouse.move(imageDragStart!.x + 48, imageDragStart!.y + 12, {
+      steps: 4,
+    });
+    await page.mouse.up();
+    await expect
+      .poll(async () => Number(await imageInspectorX.inputValue()))
+      .toBeGreaterThan(50);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect(imageInspectorX).toHaveValue("50");
+    await page.getByRole("button", { name: "Redo", exact: true }).click();
+    await expect
+      .poll(async () => Number(await imageInspectorX.inputValue()))
+      .toBeGreaterThan(50);
+    await page
+      .getByRole("button", { name: "Reload from disk", exact: true })
+      .click();
+    await expect(imageInspectorX).toHaveValue("15");
+    await expect(imageInspectorY).toHaveValue("70");
+    await expect(imageInspectorWidth).toHaveValue("24");
+    await expect(imageInspectorHeight).toHaveValue("20");
+    await expect(
+      page.getByRole("button", { name: "Undo", exact: true }),
+    ).toBeDisabled();
+
     // Canceling a live pointer gesture must restore its starting document and
     // remove the gesture's provisional undo checkpoint.
     await page.evaluate(() => {
@@ -3699,25 +3734,6 @@ try {
       .poll(async () => Number(await imageInspectorY.inputValue()))
       .toBeGreaterThan(50);
     await page.getByRole("button", { name: "Undo", exact: true }).click();
-
-    const imageXBeforeMove = Number(await imageInspectorX.inputValue());
-    const imageDragStart = await findCanvasHitPoint(imageHitbox);
-    expect(imageDragStart).toBeTruthy();
-    await page.mouse.move(imageDragStart!.x, imageDragStart!.y);
-    await page.mouse.down();
-    await page.mouse.move(imageDragStart!.x + 48, imageDragStart!.y + 12, {
-      steps: 4,
-    });
-    await page.mouse.up();
-    await expect
-      .poll(async () => Number(await imageInspectorX.inputValue()))
-      .toBeGreaterThan(15);
-    await page.getByRole("button", { name: "Undo", exact: true }).click();
-    await expect(imageInspectorX).toHaveValue(String(imageXBeforeMove));
-    await page.getByRole("button", { name: "Redo", exact: true }).click();
-    await expect
-      .poll(async () => Number(await imageInspectorX.inputValue()))
-      .toBeGreaterThan(imageXBeforeMove);
 
     // Keep the rendered Image separate from the green Text so both outputs
     // can be verified in the same exported frame.
