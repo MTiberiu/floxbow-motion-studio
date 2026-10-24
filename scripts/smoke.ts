@@ -2872,32 +2872,34 @@ try {
       .getByTestId("canvas-interaction-layer")
       .boundingBox();
     expect(canvasBounds).toBeTruthy();
-    const dragOverlapWidth =
-      Math.min(
-        textBounds!.x + textBounds!.width,
-        canvasBounds!.x + canvasBounds!.width,
-      ) - Math.max(textBounds!.x, canvasBounds!.x);
-    const dragOverlapHeight =
-      Math.min(
-        textBounds!.y + textBounds!.height,
-        canvasBounds!.y + canvasBounds!.height,
-      ) - Math.max(textBounds!.y, canvasBounds!.y);
-    expect(dragOverlapWidth).toBeGreaterThan(0);
-    expect(dragOverlapHeight).toBeGreaterThan(0);
-    const dragStartX =
-      Math.max(textBounds!.x, canvasBounds!.x) +
-      dragOverlapWidth / 2;
-    const dragStartY =
-      Math.max(textBounds!.y, canvasBounds!.y) +
-      dragOverlapHeight / 2;
+    const dragStart = await textHitbox.evaluate((hitbox) => {
+      const bounds = hitbox.getBoundingClientRect();
+      const canvas = hitbox.parentElement!.getBoundingClientRect();
+      const left = Math.max(bounds.left, canvas.left);
+      const right = Math.min(bounds.right, canvas.right);
+      const top = Math.max(bounds.top, canvas.top);
+      const bottom = Math.min(bounds.bottom, canvas.bottom);
+      const stepX = Math.max(2, (right - left) / 50);
+      const stepY = Math.max(2, (bottom - top) / 50);
+      for (let y = top + stepY / 2; y < bottom; y += stepY) {
+        for (let x = left + stepX / 2; x < right; x += stepX) {
+          const target = document.elementFromPoint(x, y);
+          if (target === hitbox || (target && hitbox.contains(target))) {
+            return { x, y };
+          }
+        }
+      }
+      return undefined;
+    });
+    expect(dragStart).toBeTruthy();
     await page.mouse.move(
-      dragStartX,
-      dragStartY,
+      dragStart!.x,
+      dragStart!.y,
     );
     await page.mouse.down();
     await page.mouse.move(
-      dragStartX - 36,
-      dragStartY + 10,
+      dragStart!.x - 36,
+      dragStart!.y + 10,
       { steps: 3 },
     );
     await page.mouse.up();
