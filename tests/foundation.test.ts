@@ -189,7 +189,11 @@ test("Create Project scaffold creates a blank, valid editable project", async ()
       path.join(projects, manifest.id, "Composition.tsx"),
       "utf8",
     );
-    assert.match(composition, /videoSources=\{videoSources\}/);
+    assert.match(composition, /<TimelineComposition/);
+    assert.doesNotMatch(
+      composition,
+      /imageSources=\{imageSources\}|videoSources=\{videoSources\}/,
+    );
     const timeline = parseEditTimeline(
       JSON.parse(
         await readFile(

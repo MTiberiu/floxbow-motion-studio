@@ -36,7 +36,7 @@ The media asset ID identifies the source file. The clip ID identifies one Timeli
 
 Image uses the same Canvas selection, move, resize, rotate, modifier/marquee multi-selection, Timeline selection, Inspector, undo/redo, and save behavior as other components that opt into the visual contract. Edits write to the Image clip's canonical `props`. The live preview and MP4 renderer consume those same values through `TimelineComposition`.
 
-The project scaffold automatically includes the core Image renderer. It receives only registered media IDs mapped to safe same-origin stream URLs in preview, or short-lived host streaming URLs during rendering. Host filesystem paths stay in trusted Node code. Missing or invalid PNG sources produce visible media errors and block rendering with a clear message.
+The project scaffold automatically includes the core Image renderer. The editor and MP4 renderer supply registered media through a scoped React context, so existing project compositions that do not forward `imageSources` still display Image clips. Explicit `imageSources` props continue to work. The renderer receives safe same-origin stream URLs in preview or short-lived host streaming URLs during rendering. Host filesystem paths stay in trusted Node code. Missing or invalid PNG sources produce visible media errors and block rendering with a clear message.
 
 ## External-agent edit example
 

@@ -753,6 +753,7 @@ try {
       secondAudioBox!.y + secondAudioBox!.height / 2,
       { steps: 5 },
     );
+    await expect(secondAudioRow).toHaveAttribute("data-drop-target", "true");
     await page.mouse.up();
     await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
     await dockedSoundtrack.click();

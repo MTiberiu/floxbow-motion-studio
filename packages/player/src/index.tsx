@@ -2,6 +2,7 @@ import { Component, type ComponentType, type ReactNode, type Ref } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   TimelineSoundtrackAudio,
+  TimelineMediaSourcesProvider,
   TimelineVideoAudio,
   type EditableVideoProps,
 } from "@motion/sdk/editor";
@@ -86,13 +87,18 @@ function AudioAwareComposition({
   );
   return (
     <>
-      <Video
-        {...props}
-        timeline={timeline}
-        audioSources={sourceMap}
+      <TimelineMediaSourcesProvider
         imageSources={timeline ? imageSourceMap : imageSources}
         videoSources={timeline ? videoSourceMap : videoSources}
-      />
+      >
+        <Video
+          {...props}
+          timeline={timeline}
+          audioSources={sourceMap}
+          imageSources={timeline ? imageSourceMap : imageSources}
+          videoSources={timeline ? videoSourceMap : videoSources}
+        />
+      </TimelineMediaSourcesProvider>
       <TimelineSoundtrackAudio timeline={timeline} audioSources={sourceMap} />
       <TimelineVideoAudio timeline={timeline} videoSources={videoSourceMap} />
     </>

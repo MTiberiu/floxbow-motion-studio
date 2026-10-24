@@ -140,3 +140,4 @@ test("Image waits for the live media map during preview initialization", () => {
     /Image asset image-forest is unavailable/,
   );
 });
+

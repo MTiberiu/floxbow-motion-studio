@@ -48,6 +48,7 @@ type Drag = {
   gestureId: string;
   active: boolean;
   trackOnly?: boolean;
+  dropTrackId?: string;
   duplicateId?: string;
   groupClipIds?: readonly string[];
 };
@@ -447,6 +448,7 @@ export function TimelineView({
           );
         }),
       );
+      current.dropTrackId = validTarget ? trackId : undefined;
       setTrackDropPreview({
         x: clientX,
         y: clientY,
@@ -558,7 +560,7 @@ export function TimelineView({
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
         row?.querySelector<HTMLElement>(".track-lane");
-      const targetTrackId = lane?.dataset.track;
+      const targetTrackId = current.dropTrackId ?? lane?.dataset.track;
       const target = document.tracks.find(
         (track) => track.id === targetTrackId,
       );
@@ -596,7 +598,7 @@ export function TimelineView({
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
         row?.querySelector<HTMLElement>(".track-lane");
-      let targetTrackId = lane?.dataset.track;
+      let targetTrackId = current.dropTrackId ?? lane?.dataset.track;
       const insertZone = hit?.closest<HTMLElement>(".track-insert-zone");
       let newTrackPosition: "top" | "bottom" | undefined =
         insertZone?.dataset.trackInsert === "top"

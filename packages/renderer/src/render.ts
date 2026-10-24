@@ -285,13 +285,14 @@ export async function renderProject(root: string, id: string, still = false) {
       "import React from 'react';",
       "import {registerRoot,Composition} from 'remotion';",
       "import {TimelineSoundtrackAudio} from '@motion/sdk/editor';",
+      "import {TimelineMediaSourcesProvider} from '@motion/sdk/editor';",
       "import {TimelineVideoAudio} from '@motion/sdk/editor';",
       `import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};`,
       `const audioSources=${JSON.stringify(audioServer.sources)};`,
       `const imageSources=${JSON.stringify(audioServer.sources)};`,
       `const videoSources=${JSON.stringify(audioServer.sources)};`,
       `const timeline=${JSON.stringify(timeline)};`,
-      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources} videoSources={videoSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/><TimelineVideoAudio timeline={props.timeline??timeline} videoSources={videoSources}/></>;",
+      "const Rendered=(props)=><><TimelineMediaSourcesProvider imageSources={imageSources} videoSources={videoSources}><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources} videoSources={videoSources}/></TimelineMediaSourcesProvider><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/><TimelineVideoAudio timeline={props.timeline??timeline} videoSources={videoSources}/></>;",
       `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources,videoSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
     ].join("\n");
     await writeFile(entry, entrySource);

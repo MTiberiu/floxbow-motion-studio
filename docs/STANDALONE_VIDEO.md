@@ -37,7 +37,7 @@ The supported contract is validated by `standaloneVideoClipSchema` from `@motion
 
 ## Canvas, preview, and render
 
-Video opts into the same Core Canvas selection/move/resize/rotate contract as Text and Image. Its transform fields remain on the canonical clip `props`; handles are editor overlays and do not enter preview or exported MP4. Preview and MP4 rendering resolve the stable asset ID through the trusted host and stream the registered file. The preview uses the existing Remotion Player transport, and render uses the same source in-point, Timeline timing, transforms, and clip volume.
+Video opts into the same Core Canvas selection/move/resize/rotate contract as Text and Image. Its transform fields remain on the canonical clip `props`; handles are editor overlays and do not enter preview or exported MP4. Preview and MP4 rendering resolve the stable asset ID through the trusted host and stream the registered file. A scoped React context supplies those sources to the core Video renderer, including in existing project compositions that do not forward `videoSources`; explicit `videoSources` props remain supported. The preview uses the existing Remotion Player transport, and render uses the same source in-point, Timeline timing, transforms, and clip volume.
 
 If the MP4 includes audio, select the Video clip and choose **Separate video audio** in Inspector. FloxBow adds an independent `video-audio` clip to an unlocked Audio track, copies the video Timeline range and source in-point, and sets the original Video clip's `props.volume` to `0`. Both clips keep independent clip IDs and reference the same `content.assetId`; no media is copied. The detached audio contract is:
 

@@ -1,4 +1,9 @@
-import { type ComponentType } from "react";
+import {
+  createContext,
+  type ComponentType,
+  type ReactNode,
+  useContext,
+} from "react";
 import {
   AbsoluteFill,
   Img,
@@ -32,6 +37,32 @@ export type EditableVideoProps = {
   imageSources?: Readonly<Record<string, string>>;
   videoSources?: Readonly<Record<string, string>>;
 };
+
+type TimelineMediaSources = {
+  imageSources?: Readonly<Record<string, string>>;
+  videoSources?: Readonly<Record<string, string>>;
+};
+
+const timelineMediaSourcesContext = createContext<TimelineMediaSources>({});
+
+/** Supplies registered media to TimelineComposition, including older project compositions. */
+export function TimelineMediaSourcesProvider({
+  children,
+  imageSources,
+  videoSources,
+}: TimelineMediaSources & { children?: ReactNode }) {
+  return (
+    <timelineMediaSourcesContext.Provider
+      value={{ imageSources, videoSources }}
+    >
+      {children}
+    </timelineMediaSourcesContext.Provider>
+  );
+}
+
+function useTimelineMediaSources() {
+  return useContext(timelineMediaSourcesContext);
+}
 
 export const standaloneTextPropsSchema = z
   .object({
@@ -634,9 +665,11 @@ function StandaloneImage({
   clip: TimelineClip;
   imageSources?: Readonly<Record<string, string>>;
 }) {
+  const inheritedSources = useTimelineMediaSources().imageSources;
+  const sources = imageSources ?? inheritedSources;
   const image = standaloneImageClipSchema.parse(clip);
-  const source = imageSources?.[image.content.assetId];
-  if (!source && imageSources === undefined) return null;
+  const source = sources?.[image.content.assetId];
+  if (!source && sources === undefined) return null;
   if (!source)
     throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
   const { x, y, width, height, rotation, anchor, opacity, fit } = image.props;
@@ -735,9 +768,11 @@ function StandaloneVideo({
   clip: TimelineClip;
   videoSources?: Readonly<Record<string, string>>;
 }) {
+  const inheritedSources = useTimelineMediaSources().videoSources;
+  const sources = videoSources ?? inheritedSources;
   const video = standaloneVideoClipSchema.parse(clip);
-  const source = videoSources?.[video.content.assetId];
-  if (!source && videoSources === undefined) return null;
+  const source = sources?.[video.content.assetId];
+  if (!source && sources === undefined) return null;
   if (!source)
     throw new Error(`Video asset ${video.content.assetId} is unavailable.`);
   const { fps } = useVideoConfig();
