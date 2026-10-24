@@ -6,6 +6,8 @@ The two original demos now declare project-owned clips. No new animation framewo
 
 `npm run create:project -- my-video` creates an editable six-second subtitle project. For existing projects, add `"editTimeline": "edit-timeline.json"` to the manifest. The file is JSON validated by `@motion/sdk/timeline`; its FPS and duration must exactly match the manifest.
 
+Optional scene grouping uses `scenes` and `clip.sceneId` in this same Timeline v1 file. See the [scene editing contract and current workflow](SCENE_EDITING.md); projects that omit these fields remain compatible.
+
 ```json
 {
   "version": 1,

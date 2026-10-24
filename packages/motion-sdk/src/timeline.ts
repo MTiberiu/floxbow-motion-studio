@@ -6,12 +6,20 @@ const id = z
 export const clipSchema = z.object({
   id,
   trackId: id,
+  /** Optional structural scene membership; legacy clips remain project-global. */
+  sceneId: id.optional(),
   componentId: id,
   label: z.string().max(200),
   from: z.number().int().nonnegative(),
   durationInFrames: z.number().int().positive(),
   content: z.record(z.string(), z.json()).default({}),
   props: z.record(z.string(), z.json()).default({}),
+});
+export const timelineSceneSchema = z.object({
+  id,
+  name: z.string().min(1).max(100),
+  from: z.number().int().nonnegative(),
+  durationInFrames: z.number().int().positive(),
 });
 export const timelineTrackSchema = z.object({
   id,
@@ -28,14 +36,36 @@ export const editTimelineSchema = z
     durationInFrames: z.number().int().min(1).max(216000),
     /** Missing means legacy array-order stacking. New editor actions use top-down visual rows. */
     trackOrder: z.enum(["legacy", "top-down"]).optional(),
+    /** Optional scene row metadata; absent on existing Timeline v1 projects. */
+    scenes: z.array(timelineSceneSchema).max(256).optional(),
     tracks: z.array(timelineTrackSchema).min(1).max(32),
     clips: z.array(clipSchema).max(3000),
   })
   .superRefine((t, ctx) => {
     const tracks = new Set(t.tracks.map((t) => t.id));
     const clips = new Set(t.clips.map((c) => c.id));
+    const scenes = new Set((t.scenes ?? []).map((scene) => scene.id));
     if (tracks.size !== t.tracks.length || clips.size !== t.clips.length)
       ctx.addIssue({ code: "custom", message: "Duplicate track or clip IDs" });
+    if (scenes.size !== (t.scenes ?? []).length)
+      ctx.addIssue({ code: "custom", message: "Duplicate scene IDs" });
+    let previousSceneEnd = 0;
+    for (const [index, scene] of (t.scenes ?? []).entries()) {
+      const end = scene.from + scene.durationInFrames;
+      if (end > t.durationInFrames)
+        ctx.addIssue({
+          code: "custom",
+          path: ["scenes", index],
+          message: `Scene ${scene.id} exceeds project duration`,
+        });
+      if (index > 0 && scene.from < previousSceneEnd)
+        ctx.addIssue({
+          code: "custom",
+          path: ["scenes", index, "from"],
+          message: "Scenes must be ordered and cannot overlap",
+        });
+      previousSceneEnd = end;
+    }
     for (const c of t.clips) {
       if (!tracks.has(c.trackId))
         ctx.addIssue({
@@ -47,11 +77,30 @@ export const editTimelineSchema = z
           code: "custom",
           message: `Clip ${c.id} exceeds project duration`,
         });
+      if (c.sceneId) {
+        const scene = (t.scenes ?? []).find((item) => item.id === c.sceneId);
+        if (!scene)
+          ctx.addIssue({
+            code: "custom",
+            path: ["clips", c.id, "sceneId"],
+            message: `Unknown scene: ${c.sceneId}`,
+          });
+        else if (
+          c.from < scene.from ||
+          c.from + c.durationInFrames > scene.from + scene.durationInFrames
+        )
+          ctx.addIssue({
+            code: "custom",
+            path: ["clips", c.id],
+            message: `Clip ${c.id} exceeds scene ${scene.id} boundaries`,
+          });
+      }
     }
   });
 export type EditTimeline = z.infer<typeof editTimelineSchema>;
 export type TimelineClip = z.infer<typeof clipSchema>;
 export type TimelineTrack = z.infer<typeof timelineTrackSchema>;
+export type TimelineScene = z.infer<typeof timelineSceneSchema>;
 
 export function isAudioTimelineTrack(
   timeline: Pick<EditTimeline, "tracks" | "clips">,

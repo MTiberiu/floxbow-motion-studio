@@ -17,6 +17,11 @@ import {
   moveTimelineClipsToTrack,
   reorderTimelineTrack,
 } from "./timeline-track-utils";
+import {
+  createTimelineScene,
+  renameTimelineScene,
+  resizeTimelineScene,
+} from "./timeline-scenes";
 import { createTimelineRulerMarks } from "./timeline-ruler";
 import type {
   ComponentInfo,
@@ -173,6 +178,7 @@ export function TimelineView({
   const [dragging, setDragging] = useState(false);
   const [trackDropPreview, setTrackDropPreview] = useState<TrackDropPreview>();
   const [marquee, setMarquee] = useState<TimelineMarquee>();
+  const [selectedSceneId, setSelectedSceneId] = useState("");
   const operationRef = useRef(onTimelineOperation);
   operationRef.current = onTimelineOperation;
 
@@ -821,6 +827,44 @@ export function TimelineView({
     setMarquee(undefined);
   }
 
+  function addScene() {
+    if (!document) return;
+    const name = window
+      .prompt("Scene name", `Scene ${(document.scenes?.length ?? 0) + 1}`)
+      ?.trim();
+    if (!name) return;
+    const selected = document.clips.filter((clip) =>
+      selectedClipIds.includes(clip.id),
+    );
+    let from = frame;
+    let durationInFrames = manifest.fps * 5;
+    if (selected.length) {
+      from = Math.min(...selected.map((clip) => clip.from));
+      durationInFrames =
+        Math.max(...selected.map((clip) => clip.from + clip.durationInFrames)) -
+        from;
+    } else {
+      from = Math.max(
+        from,
+        ...(document.scenes ?? []).map(
+          (scene) => scene.from + scene.durationInFrames,
+        ),
+      );
+    }
+    const id = `scene-${crypto.randomUUID()}`;
+    try {
+      const next = createTimelineScene(
+        document,
+        { id, name, from, durationInFrames },
+        selected.map((clip) => clip.id),
+      );
+      onEdit(next);
+      setSelectedSceneId(id);
+    } catch (error) {
+      window.alert(String(error));
+    }
+  }
+
   return document ? (
     <div
       className="timeline-dock"
@@ -1051,6 +1095,95 @@ export function TimelineView({
               />
             </div>
           </div>
+          <div className="scene-row" data-scene-row>
+            <div className="track-label scene-label">
+              <span>SCENES</span>
+              <button type="button" onClick={addScene}>
+                + Scene
+              </button>
+            </div>
+            <div className="scene-lane">
+              {(document.scenes ?? []).map((scene) => (
+                <div
+                  className={`scene-item ${selectedSceneId === scene.id ? "is-selected" : ""}`}
+                  key={scene.id}
+                  data-scene-id={scene.id}
+                  data-from-frame={scene.from}
+                  data-duration-frames={scene.durationInFrames}
+                  style={{
+                    left: `${(scene.from / displayDurationInFrames) * 100}%`,
+                    width: `${(scene.durationInFrames / displayDurationInFrames) * 100}%`,
+                  }}
+                  onClick={() => setSelectedSceneId(scene.id)}
+                >
+                  <strong>{scene.name}</strong>
+                  <small>
+                    {formatFrameTime(scene.from, document.fps)}–
+                    {formatFrameTime(
+                      scene.from + scene.durationInFrames,
+                      document.fps,
+                    )}
+                  </small>
+                  <button
+                    type="button"
+                    aria-label={`Rename ${scene.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const name = window.prompt("Scene name", scene.name);
+                      if (!name?.trim()) return;
+                      onEdit((current) =>
+                        renameTimelineScene(current, scene.id, name),
+                      );
+                    }}
+                  >
+                    …
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Shorten ${scene.name} by one second`}
+                    title="Shorten scene by one second"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      try {
+                        onEdit((current) =>
+                          resizeTimelineScene(
+                            current,
+                            scene.id,
+                            scene.durationInFrames - current.fps,
+                          ),
+                        );
+                      } catch (error) {
+                        window.alert(String(error));
+                      }
+                    }}
+                  >
+                    −1s
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Extend ${scene.name} by one second`}
+                    title="Extend scene by one second and move following scenes"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      try {
+                        onEdit((current) =>
+                          resizeTimelineScene(
+                            current,
+                            scene.id,
+                            scene.durationInFrames + current.fps,
+                          ),
+                        );
+                      } catch (error) {
+                        window.alert(String(error));
+                      }
+                    }}
+                  >
+                    +1s
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
           <div
             className={`track-insert-zone ${trackDropPreview?.newTrackPosition === "top" ? "is-drop-target" : ""}`}
             data-track-insert="top"
@@ -1217,6 +1350,7 @@ export function TimelineView({
                         }
                         aria-pressed={selectedClipIds.includes(clip.id)}
                         data-clip-id={clip.id}
+                        data-scene-id={clip.sceneId}
                         data-from-frame={clip.from}
                         data-end-frame={clip.from + clip.durationInFrames}
                         data-range-locked={soundtrackClip ? "true" : undefined}
@@ -1225,7 +1359,7 @@ export function TimelineView({
                             ? "Soundtrack timing is fixed at frame zero; it cannot be moved or trimmed."
                             : undefined
                         }
-                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${audioClip ? "audio-clip" : ""} ${selectedClipIds.includes(clip.id) ? "is-selected" : ""} ${trackLocked ? "is-track-locked" : ""} ${track.visible === false ? "is-track-hidden" : ""}`}
+                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${audioClip ? "audio-clip" : ""} ${selectedClipIds.includes(clip.id) ? "is-selected" : ""} ${clip.sceneId === selectedSceneId ? "is-in-selected-scene" : ""} ${trackLocked ? "is-track-locked" : ""} ${track.visible === false ? "is-track-hidden" : ""}`}
                         style={{
                           left: `${(clip.from / displayDurationInFrames) * 100}%`,
                           width: `${(clip.durationInFrames / displayDurationInFrames) * 100}%`,
