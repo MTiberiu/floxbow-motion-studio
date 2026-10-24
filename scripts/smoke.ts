@@ -1337,6 +1337,7 @@ try {
       .first()
       .evaluate((element) => element.parentElement?.getAttribute("data-track"));
     expect(generatedCaptionTrackId).not.toBe(soundtrackTrackId);
+    await page.locator(".timeline-clip.subtitle-clip").first().click();
     await page.getByLabel("Text", { exact: true }).fill("Human edited caption");
     const preview = page.frameLocator('[data-panel-id="editor"] iframe');
     await expect(
