@@ -757,10 +757,14 @@ try {
     await page.mouse.up();
     await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
     await dockedSoundtrack.click();
-    await page.getByLabel("Audio track").selectOption({ label: "Audio" });
+    await page.locator('select[aria-label="Audio track"]').selectOption({
+      label: "Audio",
+    });
     await expect(audioRows.first().locator(".audio-clip")).toHaveCount(1);
     await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(0);
-    await page.getByLabel("Audio track").selectOption({ label: "Audio 2" });
+    await page.locator('select[aria-label="Audio track"]').selectOption({
+      label: "Audio 2",
+    });
     await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
     await page.getByRole("button", { name: "Play", exact: true }).click();
     await expect
