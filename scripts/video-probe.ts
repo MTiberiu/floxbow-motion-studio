@@ -7,6 +7,7 @@ export type VideoMetadata = {
   durationInSeconds: number;
   width: number;
   height: number;
+  hasAudio: boolean;
 };
 
 /** Read safe playback metadata with ffprobe while keeping the source path host-side. */
@@ -17,8 +18,6 @@ export async function probeVideo(filePath: string): Promise<VideoMetadata> {
       [
         "-v",
         "error",
-        "-select_streams",
-        "v:0",
         "-show_entries",
         "format=duration:stream=codec_type,width,height",
         "-of",
@@ -32,7 +31,8 @@ export async function probeVideo(filePath: string): Promise<VideoMetadata> {
       streams?: { codec_type?: string; width?: number; height?: number }[];
     };
     const durationInSeconds = Number(result.format?.duration);
-    const stream = result.streams?.[0];
+    const streams = result.streams ?? [];
+    const stream = streams.find((item) => item.codec_type === "video");
     if (
       !Number.isFinite(durationInSeconds) ||
       durationInSeconds <= 0 ||
@@ -47,6 +47,7 @@ export async function probeVideo(filePath: string): Promise<VideoMetadata> {
       durationInSeconds,
       width: stream.width!,
       height: stream.height!,
+      hasAudio: streams.some((item) => item.codec_type === "audio"),
     };
   } catch (error) {
     if (error instanceof Error && error.message.includes("usable video stream"))

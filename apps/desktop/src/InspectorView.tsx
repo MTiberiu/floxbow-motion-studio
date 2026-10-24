@@ -13,18 +13,24 @@ import {
 } from "@motion/sdk/timeline";
 import { subtitleWordTimingMatchesText } from "@motion/lyrics-sync/subtitles";
 import type { ChangeEvent } from "react";
+import { isAudioTimelineClip, isAudioTrack } from "./timeline-track-utils";
 
 export type InspectorViewProps = {
   manifest: ProjectManifest;
   document?: EditTimeline;
   clip?: TimelineClip;
   definition?: ComponentInfo;
-  onEdit: (next: EditTimeline) => void;
+  onEdit: (
+    next: EditTimeline | ((current: EditTimeline) => EditTimeline),
+  ) => void;
   onChangeProperty: (field: EditableField, value: unknown) => void;
   onChangeRange: (start: number, end: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onSeparateVideoAudio?: () => void;
   canChangeRange?: boolean;
+  canChangeTrack?: boolean;
+  canEditProperties?: boolean;
   canDuplicate?: boolean;
   canDelete?: boolean;
   selectedCount?: number;
@@ -40,7 +46,10 @@ export function InspectorView({
   onChangeRange,
   onDuplicate,
   onDelete,
+  onSeparateVideoAudio,
   canChangeRange = true,
+  canChangeTrack = canChangeRange,
+  canEditProperties = true,
   canDuplicate = true,
   canDelete = true,
   selectedCount = 1,
@@ -72,27 +81,36 @@ export function InspectorView({
             </small>
             <small>{clip.id}</small>
             <label>
-              Track
+              {isAudioTimelineClip(clip) ? "Audio track" : "Track"}
               <select
-                aria-label="Clip track"
-                disabled={!canChangeRange}
+                aria-label={
+                  isAudioTimelineClip(clip) ? "Audio track" : "Clip track"
+                }
+                disabled={!canChangeTrack}
                 value={clip.trackId}
                 onChange={(event) =>
-                  onEdit({
-                    ...document,
-                    clips: document.clips.map((candidate) =>
+                  onEdit((current) => ({
+                    ...current,
+                    clips: current.clips.map((candidate) =>
                       candidate.id === clip.id
                         ? { ...candidate, trackId: event.target.value }
                         : candidate,
                     ),
-                  })
+                  }))
                 }
               >
-                {document.tracks.map((track) => (
-                  <option key={track.id} value={track.id}>
-                    {track.name}
-                  </option>
-                ))}
+                {document.tracks
+                  .filter((track) =>
+                    isAudioTimelineClip(clip)
+                      ? isAudioTrack(document, track)
+                      : !isAudioTrack(document, track),
+                  )
+                  .filter((track) => !track.locked || track.id === clip.trackId)
+                  .map((track) => (
+                    <option key={track.id} value={track.id}>
+                      {track.name}
+                    </option>
+                  ))}
               </select>
             </label>
             <div className="range-fields">
@@ -153,6 +171,7 @@ export function InspectorView({
                 field={field}
                 value={fieldValue(clip, field)}
                 onChange={(value) => onChangeProperty(field, value)}
+                disabled={!canEditProperties}
               />
             ))}
             {!definition?.fields.length && (
@@ -179,12 +198,110 @@ export function InspectorView({
                 )}
               </p>
             )}
+            {(clip.componentId === "image" || clip.componentId === "video") && (
+              <div
+                className="canvas-placement-tools"
+                aria-label="Canvas placement"
+              >
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={() =>
+                    onEdit((current) => ({
+                      ...current,
+                      clips: current.clips.map((candidate) =>
+                        candidate.id === clip.id
+                          ? {
+                              ...candidate,
+                              props: {
+                                ...candidate.props,
+                                x: 50,
+                                y: 50,
+                                anchor: "center",
+                              },
+                            }
+                          : candidate,
+                      ),
+                    }))
+                  }
+                >
+                  Center on Canvas
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={() =>
+                    onEdit((current) => ({
+                      ...current,
+                      clips: current.clips.map((candidate) =>
+                        candidate.id === clip.id
+                          ? {
+                              ...candidate,
+                              props: {
+                                ...candidate.props,
+                                x: 50,
+                                y: 50,
+                                width: 100,
+                                height: 100,
+                                anchor: "center",
+                                fit: "contain",
+                              },
+                            }
+                          : candidate,
+                      ),
+                    }))
+                  }
+                >
+                  Fit inside Canvas
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={() =>
+                    onEdit((current) => ({
+                      ...current,
+                      clips: current.clips.map((candidate) =>
+                        candidate.id === clip.id
+                          ? {
+                              ...candidate,
+                              props: {
+                                ...candidate.props,
+                                x: 50,
+                                y: 50,
+                                width: 100,
+                                height: 100,
+                                anchor: "center",
+                                fit: "cover",
+                              },
+                            }
+                          : candidate,
+                      ),
+                    }))
+                  }
+                >
+                  Fill Canvas
+                </button>
+              </div>
+            )}
+            {clip.componentId === "video" && onSeparateVideoAudio && (
+              <div className="tools">
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={onSeparateVideoAudio}
+                >
+                  Separate video audio
+                </button>
+              </div>
+            )}
             <div className="tools">
               <button onClick={onDuplicate} disabled={!canDuplicate}>
                 Duplicate clip
               </button>
               <button onClick={onDelete} disabled={!canDelete}>
-                Delete clip
+                {clip.componentId === "soundtrack"
+                  ? "Delete audio"
+                  : "Delete clip"}
               </button>
             </div>
           </>
@@ -221,10 +338,12 @@ function PropertyControl({
   field,
   value,
   onChange,
+  disabled = false,
 }: {
   field: EditableField;
   value: unknown;
   onChange: (value: unknown) => void;
+  disabled?: boolean;
 }) {
   const label = field.label;
   if (field.type === "boolean")
@@ -233,6 +352,7 @@ function PropertyControl({
         <input
           aria-label={label}
           type="checkbox"
+          disabled={disabled}
           checked={value === true}
           onChange={(event) => onChange(event.target.checked)}
         />
@@ -245,12 +365,14 @@ function PropertyControl({
       {field.type === "text" ? (
         <textarea
           aria-label={label}
+          disabled={disabled}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
         />
       ) : field.type === "select" ? (
         <select
           aria-label={label}
+          disabled={disabled}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
         >
@@ -261,6 +383,7 @@ function PropertyControl({
       ) : (
         <input
           aria-label={label}
+          disabled={disabled}
           type={field.type === "color" ? "color" : "number"}
           value={String(value)}
           min={field.min}

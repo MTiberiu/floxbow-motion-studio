@@ -59,6 +59,8 @@ export function DetachedTimelineWindow({
     new Map<string, (result: TimelineCommandResult) => void>(),
   );
   const queuedCommands = useRef(0);
+  const pendingGestureUpdate = useRef<TimelineCommand | null>(null);
+  const gestureUpdateFlush = useRef<Promise<void> | null>(null);
   const snapshotWaiters = useRef(new Map<string, SnapshotWaiter>());
   const snapshotRequestTimeout = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -337,10 +339,37 @@ export function DetachedTimelineWindow({
         }
       } finally {
         queuedCommands.current = Math.max(0, queuedCommands.current - 1);
-        setBusy(queuedCommands.current > 0);
+        setBusy(
+          queuedCommands.current > 0 || activeGestures.current.size > 0,
+        );
       }
     });
     commandQueue.current = operation.catch(() => undefined);
+    return operation;
+  }
+
+  function flushGestureUpdates(): Promise<void> {
+    if (gestureUpdateFlush.current) return gestureUpdateFlush.current;
+    const operation = (async () => {
+      while (pendingGestureUpdate.current) {
+        const latestUpdate = pendingGestureUpdate.current;
+        pendingGestureUpdate.current = null;
+        await dispatch(latestUpdate);
+      }
+    })();
+    gestureUpdateFlush.current = operation;
+    void operation.finally(() => {
+      if (gestureUpdateFlush.current === operation) {
+        gestureUpdateFlush.current = null;
+        if (pendingGestureUpdate.current) void flushGestureUpdates();
+      }
+    });
+    return operation;
+  }
+
+  function queueGestureUpdate(command: TimelineCommand) {
+    pendingGestureUpdate.current = command;
+    void flushGestureUpdates();
   }
 
   const manifest = useMemo(
@@ -565,6 +594,7 @@ export function DetachedTimelineWindow({
         document={document}
         components={components}
         selectedClipIds={snapshot.selectedClipIds}
+        selectedClipId={snapshot.selectedClipId}
         frame={snapshot.frame}
         playing={snapshot.playing}
         onEdit={(next, checkpoint = true) =>
@@ -597,13 +627,14 @@ export function DetachedTimelineWindow({
         onSeek={(frame) => dispatch({ type: "seek", frame: Math.round(frame) })}
         onPause={() => dispatch({ type: "pause" })}
         onPlay={() => dispatch({ type: "play" })}
-        onBeginClipGesture={(gestureId, clipId, duplicateId) => {
+        onBeginClipGesture={(gestureId, clipId, duplicateId, groupMove) => {
           activeGestures.current.add(gestureId);
           dispatch({
             type: "beginClipGesture",
             gestureId,
             clipId,
             ...(duplicateId ? { duplicateId } : {}),
+            ...(groupMove ? { groupMove: true } : {}),
           });
         }}
         onTimelineOperation={(operation) => dispatch({ type: operation })}
@@ -615,7 +646,7 @@ export function DetachedTimelineWindow({
           trim,
         ) => {
           if (!activeGestures.current.has(gestureId)) return;
-          dispatch({
+          queueGestureUpdate({
             type: "updateClipGesture",
             gestureId,
             clipId,
@@ -624,9 +655,11 @@ export function DetachedTimelineWindow({
             trim,
           });
         }}
-        onEndClipGesture={(gestureId) =>
-          dispatch({ type: "endClipGesture", gestureId })
-        }
+        onEndClipGesture={(gestureId) => {
+          return flushGestureUpdates().then(() =>
+            dispatch({ type: "endClipGesture", gestureId }),
+          );
+        }}
         onResizeStart={() => undefined}
         onResizeMove={() => undefined}
         onResizeEnd={() => undefined}

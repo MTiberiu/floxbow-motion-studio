@@ -7,9 +7,11 @@ import {
   canvasVisualCenterInViewport,
   canvasAnchorPositionForCenter,
   getCanvasVisualElement,
+  getCanvasVisualElements,
 } from "@motion/sdk/canvas";
 import {
   standaloneTextModule,
+  standaloneImageModule,
   serializableComponentInfo,
 } from "@motion/sdk/editor";
 import { subtitleModule } from "@motion/lyrics-sync/component";
@@ -86,6 +88,25 @@ test("Canvas resolves current canonical geometry and writes edits to declared JS
   assert.equal(clip.props.y, 30);
 });
 
+test("track visibility and lock apply to shared Canvas elements", () => {
+  const hidden = parseEditTimeline({
+    ...timeline,
+    tracks: [{ id: "visuals", name: "Visuals", kind: "visual", visible: false }],
+  });
+  const locked = parseEditTimeline({
+    ...timeline,
+    tracks: [{ id: "visuals", name: "Visuals", kind: "visual", locked: true }],
+  });
+  assert.deepEqual(
+    getCanvasVisualElements(hidden, [definition], 0),
+    [],
+  );
+  assert.equal(
+    getCanvasVisualElements(locked, [definition], 0)[0]?.locked,
+    true,
+  );
+});
+
 test("Canvas transform API enforces declared operations and field validation", () => {
   const fixed = componentInfoSchema.parse({
     ...definition,
@@ -135,6 +156,54 @@ test("shared resize metadata scales text size together with its geometry", () =>
   assert.equal(next.props.height, 15);
   assert.equal(next.props.fontSize, 108);
   assert.equal(clip.props.fontSize, 72);
+});
+
+test("single-axis text resizing changes its layout box without changing font size", () => {
+  const clip = {
+    ...timeline.clips[0],
+    props: { ...timeline.clips[0].props, fontSize: 72 },
+  };
+  const next = applyCanvasTransform(clip, definition, {
+    x: 40,
+    y: 30,
+    width: 35,
+    height: 10,
+    rotation: 0,
+    anchor: "center",
+  });
+  assert.equal(next.props.width, 35);
+  assert.equal(next.props.height, 10);
+  assert.equal(next.props.fontSize, 72);
+});
+
+test("Image Canvas contract allows intentional distortion by default", () => {
+  const imageDefinition = serializableComponentInfo(standaloneImageModule);
+  const image = {
+    ...timeline.clips[0],
+    id: "image-a",
+    componentId: "image",
+    content: { assetId: "asset-a" },
+    props: {
+      x: 50,
+      y: 50,
+      width: 40,
+      height: 20,
+      rotation: 0,
+      anchor: "center",
+      fit: "fill",
+    },
+  };
+  assert.equal(imageDefinition.canvas?.resizeMode, "free");
+  const next = applyCanvasTransform(image, imageDefinition, {
+    x: 50,
+    y: 50,
+    width: 55,
+    height: 20,
+    rotation: 0,
+    anchor: "center",
+  });
+  assert.equal(next.props.width, 55);
+  assert.equal(next.props.height, 20);
 });
 
 test("Canvas computes rotated bounds in composition percent space", () => {
@@ -215,7 +284,7 @@ test("Canvas core rejects resize changes that violate a declared aspect ratio", 
         x: 40,
         y: 30,
         width: 30,
-        height: 10,
+        height: 20,
         rotation: 0,
         anchor: "center",
       }),

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  standaloneVideoAudioClipSchema,
   standaloneVideoClipSchema,
   standaloneVideoModule,
   serializableComponentInfo,
@@ -92,4 +93,31 @@ test("Video transform edits remain canonical Timeline v1 clip properties", () =>
     height: 50,
     rotation: -12,
   });
+});
+
+test("detached video audio keeps a separate clip ID and the registered video asset reference", () => {
+  const audioClip = standaloneVideoAudioClipSchema.parse({
+    id: "video-audio-instance",
+    trackId: "audio",
+    componentId: "video-audio",
+    label: "Audio · Intro.mp4",
+    from: 120,
+    durationInFrames: 60,
+    content: {
+      assetId: "video-intro",
+      sourceVideoClipId: "video-intro-instance",
+      sourceStartSeconds: 0.25,
+      sourceDurationSeconds: 8,
+    },
+    props: { volume: 0.75 },
+  });
+  assert.equal(audioClip.from, videoClip.from);
+  assert.equal(audioClip.durationInFrames, videoClip.durationInFrames);
+  assert.equal(audioClip.content.assetId, videoClip.content.assetId);
+  assert.throws(() =>
+    standaloneVideoAudioClipSchema.parse({
+      ...audioClip,
+      content: { ...audioClip.content, assetId: "../../outside" },
+    }),
+  );
 });

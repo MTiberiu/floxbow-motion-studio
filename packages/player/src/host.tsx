@@ -16,6 +16,8 @@ import {
   type EditTimeline,
 } from "@motion/sdk/timeline";
 import { timelinePlaybackEnd } from "@motion/sdk/timeline-analysis";
+import { pendingSeekTarget } from "./seek-sync";
+import { isValidMasterVolume } from "./master-volume";
 import { StudioPlayer } from "./index";
 type VideoModule = {
   default: ComponentType<EditableVideoProps>;
@@ -29,19 +31,24 @@ function PreviewHost({
   manifest: ProjectManifest;
 }) {
   const player = useRef<PlayerRef>(null);
+  const pendingSeekFrame = useRef<number | null>(null);
   const [timeline, setTimeline] = useState<EditTimeline>();
   const timelineRef = useRef(timeline);
   timelineRef.current = timeline;
   const [error, setError] = useState("");
+  const [masterVolume, setMasterVolume] = useState(1);
   const playbackCheck = useRef<ReturnType<typeof setTimeout> | null>(null);
   const configuredPlaybackEnd = useRef(manifest.durationInFrames);
   const activePlaybackEnd = useRef(manifest.durationInFrames);
+  const endedAtPlaybackBoundary = useRef(false);
+  const playbackWasActive = useRef(false);
   const sourcesFor = (document: EditTimeline, componentId: string) =>
     Object.fromEntries(
       document.clips
         .filter(
           (c) =>
-            c.componentId === componentId &&
+            (c.componentId === componentId ||
+              (componentId === "video" && c.componentId === "video-audio")) &&
             typeof c.content.assetId === "string" &&
             /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(c.content.assetId),
         )
@@ -106,24 +113,39 @@ function PreviewHost({
     const onFrame: CallbackListener<"frameupdate"> = () => {
       const currentPlayer = player.current;
       const currentFrame = currentPlayer?.getCurrentFrame() ?? 0;
+      if (pendingSeekFrame.current !== null) {
+        if (currentFrame !== pendingSeekFrame.current) return;
+        pendingSeekFrame.current = null;
+      }
       if (
-        currentPlayer?.isPlaying() &&
+        playbackWasActive.current &&
         currentFrame + 1 >= activePlaybackEnd.current
       ) {
-        currentPlayer.pause();
+        endedAtPlaybackBoundary.current = true;
+        playbackWasActive.current = false;
+        if (currentPlayer?.isPlaying()) currentPlayer.pause();
         report();
         return;
       }
       report();
     };
     const onPlay = () => {
+      if (endedAtPlaybackBoundary.current) {
+        player.current?.seekTo(0);
+        activePlaybackEnd.current = configuredPlaybackEnd.current;
+        endedAtPlaybackBoundary.current = false;
+      }
+      playbackWasActive.current = true;
+      report();
+    };
+    const onPause = () => {
       const currentFrame = player.current?.getCurrentFrame() ?? 0;
-      const duration =
-        timelineRef.current?.durationInFrames ?? manifest.durationInFrames;
-      activePlaybackEnd.current =
-        currentFrame >= configuredPlaybackEnd.current
-          ? duration
-          : configuredPlaybackEnd.current;
+      if (
+        playbackWasActive.current &&
+        currentFrame + 1 >= activePlaybackEnd.current
+      )
+        endedAtPlaybackBoundary.current = true;
+      playbackWasActive.current = false;
       report();
     };
     const clearPlaybackCheck = () => {
@@ -153,6 +175,7 @@ function PreviewHost({
             timelineRef.current = next;
             configuredPlaybackEnd.current = timelinePlaybackEnd(next);
             activePlaybackEnd.current = configuredPlaybackEnd.current;
+            endedAtPlaybackBoundary.current = false;
             setTimeline(next);
             setError("");
             break;
@@ -171,6 +194,13 @@ function PreviewHost({
             const currentFrame = player.current?.getCurrentFrame() ?? 0;
             activePlaybackEnd.current =
               currentFrame >= e.data.endFrame ? duration : e.data.endFrame;
+            endedAtPlaybackBoundary.current = false;
+            break;
+          }
+          case "master-volume": {
+            if (!isValidMasterVolume(e.data.volume))
+              throw new Error("Preview volume must be between 0 and 1.");
+            setMasterVolume(e.data.volume);
             break;
           }
           case "seek":
@@ -179,13 +209,23 @@ function PreviewHost({
                 timelineRef.current?.durationInFrames ??
                 manifest.durationInFrames;
               const frame = Math.max(0, Math.min(duration - 1, e.data.frame));
-              if (player.current?.isPlaying())
-                activePlaybackEnd.current =
-                  frame >= configuredPlaybackEnd.current
-                    ? duration
-                    : configuredPlaybackEnd.current;
+              activePlaybackEnd.current =
+                frame >= configuredPlaybackEnd.current
+                  ? duration
+                  : configuredPlaybackEnd.current;
+              endedAtPlaybackBoundary.current = false;
+              pendingSeekFrame.current = pendingSeekTarget(
+                player.current?.getCurrentFrame() ?? frame,
+                frame,
+              );
               player.current?.seekTo(frame);
-              report();
+              // Remotion may still report the previous frame synchronously
+              // after seekTo(). Acknowledge the requested frame and ignore
+              // old frameupdate callbacks until the player reaches it.
+              send("frame", {
+                frame,
+                playing: player.current?.isPlaying() ?? false,
+              });
             }
             break;
           case "play":
@@ -194,7 +234,9 @@ function PreviewHost({
             player.current?.play();
             if (
               timelineRef.current?.clips.some(
-                (clip) => clip.componentId === "soundtrack",
+                (clip) =>
+                  clip.componentId === "soundtrack" ||
+                  clip.componentId === "video-audio",
               )
             )
               playbackCheck.current = setTimeout(() => {
@@ -230,7 +272,7 @@ function PreviewHost({
     const p = player.current;
     p?.addEventListener("frameupdate", onFrame);
     p?.addEventListener("play", onPlay);
-    p?.addEventListener("pause", report);
+    p?.addEventListener("pause", onPause);
     p?.addEventListener("seeked", report);
     ready();
     report();
@@ -241,12 +283,15 @@ function PreviewHost({
       document.removeEventListener("error", mediaError, true);
       p?.removeEventListener("frameupdate", onFrame);
       p?.removeEventListener("play", onPlay);
-      p?.removeEventListener("pause", report);
+      p?.removeEventListener("pause", onPause);
       p?.removeEventListener("seeked", report);
     };
   }, [parentOrigin, module, manifest]);
+  useEffect(() => {
+    player.current?.setVolume(masterVolume);
+  }, [masterVolume]);
   return (
-    <>
+    <div data-preview-master-volume={masterVolume}>
       {error && <pre role="alert">{error}</pre>}
       <StudioPlayer
         composition={module.default}
@@ -256,9 +301,10 @@ function PreviewHost({
             timeline?.durationInFrames ?? manifest.durationInFrames,
         }}
         playerRef={player}
+        masterVolume={masterVolume}
         inputProps={{ timeline, audioSources, imageSources, videoSources }}
       />
-    </>
+    </div>
   );
 }
 export function mountPreview(module: VideoModule, manifest: ProjectManifest) {

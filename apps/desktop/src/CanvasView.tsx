@@ -8,7 +8,7 @@ import {
   secondsToFrame,
 } from "@motion/sdk/timeline";
 import { CanvasInteractionLayer } from "./CanvasInteractionLayer";
-import type { CanvasTransform } from "@motion/sdk/canvas";
+import type { CanvasTransform, CanvasVisualElement } from "@motion/sdk/canvas";
 import type { MediaAssetDragData } from "./media-drag";
 
 export type CanvasViewProps = {
@@ -24,12 +24,17 @@ export type CanvasViewProps = {
   onSeek: (frame: number) => void;
   onPlay: () => void;
   onPause: () => void;
+  masterVolume: number;
+  onMasterVolumeChange: (volume: number) => void;
   timeline?: EditTimeline;
   components: readonly ComponentInfo[];
   selectedClipIds: readonly string[];
   onSelectClips: (ids: readonly string[]) => void;
   onCanvasGestureStart: () => void;
   onCanvasTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
+  onCanvasDuplicate: (
+    clipIds: readonly string[],
+  ) => ReadonlyMap<string, CanvasVisualElement>;
   onCanvasGestureEnd: () => void;
   onCanvasGestureCancel: () => void;
   onDropMedia?: (
@@ -51,12 +56,15 @@ export function CanvasView({
   onSeek,
   onPlay,
   onPause,
+  masterVolume,
+  onMasterVolumeChange,
   timeline,
   components,
   selectedClipIds,
   onSelectClips,
   onCanvasGestureStart,
   onCanvasTransform,
+  onCanvasDuplicate,
   onCanvasGestureEnd,
   onCanvasGestureCancel,
   onDropMedia,
@@ -181,6 +189,21 @@ export function CanvasView({
           Reset view
         </button>
         <span>{Math.round(currentScale * 100)}%</span>
+        <label className="preview-volume-control">
+          Preview volume
+          <input
+            aria-label="Application preview volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={masterVolume}
+            onChange={(event) =>
+              onMasterVolumeChange(Number(event.target.value))
+            }
+          />
+          <output>{Math.round(masterVolume * 100)}%</output>
+        </label>
         <button
           onClick={() => setFullscreen(true)}
           title="Fullscreen video preview"
@@ -232,6 +255,7 @@ export function CanvasView({
             }
           />
           <CanvasInteractionLayer
+            projectId={manifest.id}
             timeline={timeline}
             components={components}
             frame={frame}
@@ -239,6 +263,7 @@ export function CanvasView({
             onSelect={onSelectClips}
             onGestureStart={onCanvasGestureStart}
             onTransform={onCanvasTransform}
+            onDuplicate={onCanvasDuplicate}
             onGestureEnd={onCanvasGestureEnd}
             onGestureCancel={onCanvasGestureCancel}
             onDropMedia={onDropMedia}

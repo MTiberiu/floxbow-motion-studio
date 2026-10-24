@@ -28,6 +28,11 @@ export function MediaPanel({
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string>();
   const [selectedAssetId, setSelectedAssetId] = useState("");
+  const [imageAspectRatios, setImageAspectRatios] = useState<
+    Record<string, number>
+  >({});
+
+  useEffect(() => setImageAspectRatios({}), [projectId]);
 
   const refresh = useCallback(async () => {
     if (!projectId || built) {
@@ -96,6 +101,7 @@ export function MediaPanel({
             projectId,
             assetId: asset.id,
             displayName: asset.displayName,
+            aspectRatio: imageAspectRatios[asset.id],
           },
         },
       ),
@@ -194,6 +200,7 @@ export function MediaPanel({
         assetId: asset.id,
         type: asset.type,
         displayName: asset.displayName,
+        aspectRatio: imageAspectRatios[asset.id],
       }),
     );
     event.dataTransfer.effectAllowed = "copy";
@@ -314,6 +321,15 @@ export function MediaPanel({
                         src={thumbnailUrl}
                         alt=""
                         loading="lazy"
+                        onLoad={(event) => {
+                          const image = event.currentTarget;
+                          if (image.naturalWidth && image.naturalHeight)
+                            setImageAspectRatios((current) => ({
+                              ...current,
+                              [asset.id]:
+                                image.naturalWidth / image.naturalHeight,
+                            }));
+                        }}
                         onError={(event) => {
                           event.currentTarget.hidden = true;
                         }}

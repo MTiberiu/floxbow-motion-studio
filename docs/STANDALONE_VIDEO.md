@@ -39,8 +39,30 @@ The supported contract is validated by `standaloneVideoClipSchema` from `@motion
 
 Video opts into the same Core Canvas selection/move/resize/rotate contract as Text and Image. Its transform fields remain on the canonical clip `props`; handles are editor overlays and do not enter preview or exported MP4. Preview and MP4 rendering resolve the stable asset ID through the trusted host and stream the registered file. The preview uses the existing Remotion Player transport, and render uses the same source in-point, Timeline timing, transforms, and clip volume.
 
+If the MP4 includes audio, select the Video clip and choose **Separate video audio** in Inspector. FloxBow adds an independent `video-audio` clip to an unlocked Audio track, copies the video Timeline range and source in-point, and sets the original Video clip's `props.volume` to `0`. Both clips keep independent clip IDs and reference the same `content.assetId`; no media is copied. The detached audio contract is:
+
+```json
+{
+  "id": "video-audio-intro-instance",
+  "trackId": "audio",
+  "componentId": "video-audio",
+  "label": "Audio · Intro.mp4",
+  "from": 180,
+  "durationInFrames": 60,
+  "content": {
+    "assetId": "video-intro",
+    "sourceVideoClipId": "video-intro-instance",
+    "sourceStartSeconds": 0,
+    "sourceDurationSeconds": 8
+  },
+  "props": { "volume": 1 }
+}
+```
+
+The audio clip plays the registered MP4's audio stream in the same Remotion Player and export composition. It may be moved, trimmed, or deleted independently; trimming its left edge advances `sourceStartSeconds`. Deleting it leaves the Video clip muted. If the MP4 has no audio stream, FloxBow reports that and does not create an empty clip. The application preview-volume slider still controls all preview sounds together; it does not change project or export levels.
+
 ## External-agent edits and limits
 
 An agent may change canonical `from`, `durationInFrames`, `sourceStartSeconds`, or supported `props` in `edit-timeline.json`. It must preserve the clip and asset IDs, ensure the clip range stays within project duration and the MP4 source duration, validate the whole Timeline, and use the project's existing safe external-edit/revision workflow. If local edits are dirty, FloxBow protects the draft and requires explicit reload/reconciliation.
 
-This first video slice supports registered MP4 only. Independent audio-only clips, audio trimming/mixing, waveform editing, crop controls, transitions, and multi-source video formats are not implemented. Embedded MP4 audio is controlled by the clip's `volume`; the existing separate soundtrack remains a fixed full-duration clip at frame zero. Do not move or trim that soundtrack. FFmpeg and `ffprobe` must be available to register, inspect, or render video assets.
+This first video slice supports registered MP4 only. Independent user-imported audio clips, audio mixing controls, waveform editing, crop controls, transitions, and multi-source video formats are not implemented. Embedded MP4 audio stays with the Video clip until the user separates it. The existing soundtrack remains a fixed full-duration clip at frame zero; it can be moved between Audio rows or deleted, but cannot be shifted in time or trimmed. FFmpeg and `ffprobe` must be available to register, inspect, separate, or render video assets.

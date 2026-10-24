@@ -52,6 +52,7 @@ export type TimelineCommand =
       gestureId: string;
       clipId: string;
       duplicateId?: string;
+      groupMove?: boolean;
     }>
   | Readonly<{
       type: "updateClipGesture";

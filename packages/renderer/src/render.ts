@@ -15,6 +15,7 @@ import {
   standaloneImageClipSchema,
   standaloneTextClipSchema,
   standaloneVideoClipSchema,
+  standaloneVideoAudioClipSchema,
 } from "@motion/sdk/editor";
 import { readMediaRegistry } from "../../../scripts/media-store";
 import { streamRegisteredMedia } from "../../../scripts/media-stream";
@@ -93,6 +94,8 @@ export async function renderProject(root: string, id: string, still = false) {
       if (clip.componentId === "text") standaloneTextClipSchema.parse(clip);
       if (clip.componentId === "image") standaloneImageClipSchema.parse(clip);
       if (clip.componentId === "video") standaloneVideoClipSchema.parse(clip);
+      if (clip.componentId === "video-audio")
+        standaloneVideoAudioClipSchema.parse(clip);
     }
     if (
       timeline.fps !== m.fps ||
@@ -137,7 +140,10 @@ export async function renderProject(root: string, id: string, still = false) {
   const videoIds = [
     ...new Set(
       (timeline?.clips ?? [])
-        .filter((clip) => clip.componentId === "video")
+        .filter(
+          (clip) =>
+            clip.componentId === "video" || clip.componentId === "video-audio",
+        )
         .map((clip) => {
           const assetId = clip.content.assetId;
           if (
@@ -223,7 +229,9 @@ export async function renderProject(root: string, id: string, still = false) {
       const actual = await probeVideo(media.path);
       for (const clip of timeline!.clips.filter(
         (item) =>
-          item.componentId === "video" && item.content.assetId === assetId,
+          (item.componentId === "video" ||
+            item.componentId === "video-audio") &&
+          item.content.assetId === assetId,
       )) {
         const sourceStart = Number(clip.content.sourceStartSeconds ?? 0);
         const declaredDuration = Number(clip.content.sourceDurationSeconds);
@@ -251,13 +259,13 @@ export async function renderProject(root: string, id: string, still = false) {
     const gaps = findLargeTimelineGaps(timeline);
     if (gaps.length) {
       console.warn(
-        `Timeline export warning: ${gaps.length} empty interval${gaps.length === 1 ? "" : "s"} of at least 5 seconds. Project duration and export are unchanged.`,
+        `Timeline export warning: ${gaps.length} empty visual interval${gaps.length === 1 ? "" : "s"} across all visual tracks, each at least 5 seconds. Project duration and export are unchanged.`,
       );
       for (const gap of gaps) {
         const start = (gap.from / timeline.fps).toFixed(2);
         const end = (gap.end / timeline.fps).toFixed(2);
         console.warn(
-          `  Track ${gap.trackId}: ${start}s–${end}s; between ${gap.previousClipId ?? "project start"} and ${gap.nextClipId ?? "project end"}`,
+          `  Visual composition: ${start}s–${end}s; between ${gap.previousClipId ?? "project start"} and ${gap.nextClipId ?? "project end"}`,
         );
       }
     }
@@ -277,12 +285,13 @@ export async function renderProject(root: string, id: string, still = false) {
       "import React from 'react';",
       "import {registerRoot,Composition} from 'remotion';",
       "import {TimelineSoundtrackAudio} from '@motion/sdk/editor';",
+      "import {TimelineVideoAudio} from '@motion/sdk/editor';",
       `import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};`,
       `const audioSources=${JSON.stringify(audioServer.sources)};`,
       `const imageSources=${JSON.stringify(audioServer.sources)};`,
       `const videoSources=${JSON.stringify(audioServer.sources)};`,
       `const timeline=${JSON.stringify(timeline)};`,
-      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources} videoSources={videoSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
+      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources} videoSources={videoSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/><TimelineVideoAudio timeline={props.timeline??timeline} videoSources={videoSources}/></>;",
       `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources,videoSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
     ].join("\n");
     await writeFile(entry, entrySource);

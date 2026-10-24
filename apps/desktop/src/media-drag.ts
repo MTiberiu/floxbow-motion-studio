@@ -5,6 +5,7 @@ export type MediaAssetDragData = Readonly<{
   assetId: string;
   type: "audio" | "image" | "video";
   displayName: string;
+  aspectRatio?: number;
 }>;
 
 export function parseMediaAssetDragData(
@@ -21,7 +22,8 @@ export function parseMediaAssetDragData(
           key !== "projectId" &&
           key !== "assetId" &&
           key !== "type" &&
-          key !== "displayName",
+          key !== "displayName" &&
+          key !== "aspectRatio",
       ) ||
       typeof candidate.projectId !== "string" ||
       !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(candidate.projectId) ||
@@ -31,7 +33,12 @@ export function parseMediaAssetDragData(
         candidate.type !== "image" &&
         candidate.type !== "video") ||
       typeof candidate.displayName !== "string" ||
-      candidate.displayName.length > 200
+      candidate.displayName.length > 200 ||
+      (candidate.aspectRatio !== undefined &&
+        (typeof candidate.aspectRatio !== "number" ||
+          !Number.isFinite(candidate.aspectRatio) ||
+          candidate.aspectRatio < 0.01 ||
+          candidate.aspectRatio > 100))
     )
       return undefined;
     return {
@@ -39,6 +46,9 @@ export function parseMediaAssetDragData(
       assetId: candidate.assetId,
       type: candidate.type,
       displayName: candidate.displayName,
+      ...(typeof candidate.aspectRatio === "number"
+        ? { aspectRatio: candidate.aspectRatio }
+        : {}),
     };
   } catch {
     return undefined;

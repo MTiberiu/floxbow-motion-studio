@@ -54,6 +54,17 @@ test("standalone Image declares editable properties and the shared Canvas transf
       content: { assetId: "../../secret.png" },
     }),
   );
+  assert.equal(
+    definition.fields.find((field) => field.key === "width")?.max,
+    500,
+  );
+  assert.equal(
+    standaloneImageClipSchema.parse({
+      ...imageClip,
+      props: { ...imageClip.props, width: 140, height: 120 },
+    }).props.width,
+    140,
+  );
 });
 
 test("Image selection and transforms use shared canonical Timeline v1 properties", () => {
@@ -93,6 +104,12 @@ test("Image selection and transforms use shared canonical Timeline v1 properties
   });
   assert.equal(saved.clips[0].from, 180);
   assert.equal(saved.clips[0].durationInFrames, 90);
+  const oversized = applyCanvasTransform(document.clips[0], definition, {
+    ...visual.transform,
+    width: 140,
+    height: 120,
+  });
+  assert.equal(standaloneImageClipSchema.parse(oversized).props.width, 140);
 });
 
 test("Image waits for the live media map during preview initialization", () => {

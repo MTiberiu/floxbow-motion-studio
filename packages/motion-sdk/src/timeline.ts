@@ -13,15 +13,22 @@ export const clipSchema = z.object({
   content: z.record(z.string(), z.json()).default({}),
   props: z.record(z.string(), z.json()).default({}),
 });
+export const timelineTrackSchema = z.object({
+  id,
+  name: z.string().min(1).max(100),
+  /** Omitted on legacy v1 projects; soundtrack tracks are inferred by clip ID. */
+  kind: z.enum(["visual", "audio"]).optional(),
+  visible: z.boolean().optional(),
+  locked: z.boolean().optional(),
+});
 export const editTimelineSchema = z
   .object({
     version: z.literal(1),
     fps: z.number().int().min(1).max(120),
     durationInFrames: z.number().int().min(1).max(216000),
-    tracks: z
-      .array(z.object({ id, name: z.string().min(1).max(100) }))
-      .min(1)
-      .max(32),
+    /** Missing means legacy array-order stacking. New editor actions use top-down visual rows. */
+    trackOrder: z.enum(["legacy", "top-down"]).optional(),
+    tracks: z.array(timelineTrackSchema).min(1).max(32),
     clips: z.array(clipSchema).max(3000),
   })
   .superRefine((t, ctx) => {
@@ -44,6 +51,30 @@ export const editTimelineSchema = z
   });
 export type EditTimeline = z.infer<typeof editTimelineSchema>;
 export type TimelineClip = z.infer<typeof clipSchema>;
+export type TimelineTrack = z.infer<typeof timelineTrackSchema>;
+
+export function isAudioTimelineTrack(
+  timeline: Pick<EditTimeline, "tracks" | "clips">,
+  track: TimelineTrack,
+) {
+  return (
+    track.kind === "audio" ||
+    (track.kind === undefined &&
+      (track.id === "audio" ||
+        timeline.clips.some(
+          (clip) =>
+            clip.trackId === track.id && clip.componentId === "soundtrack",
+        )))
+  );
+}
+
+/** Visual draw order: legacy is unchanged; top-down projects draw bottom rows first. */
+export function visualTracksInRenderOrder(timeline: EditTimeline) {
+  const tracks = timeline.tracks.filter(
+    (track) => !isAudioTimelineTrack(timeline, track),
+  );
+  return timeline.trackOrder === "top-down" ? tracks.slice().reverse() : tracks;
+}
 export const fieldSchema = z.object({
   key: id,
   label: z.string().max(100),

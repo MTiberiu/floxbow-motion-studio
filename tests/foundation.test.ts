@@ -202,8 +202,9 @@ test("Create Project scaffold creates a blank, valid editable project", async ()
     assert.equal(timeline.clips.length, 0);
     assert.deepEqual(
       timeline.tracks.map((track) => track.name),
-      ["Visuals", "Captions"],
+      ["Captions", "Visuals"],
     );
+    assert.equal(timeline.trackOrder, "top-down");
     await assert.rejects(createProject(projects, "../escape"));
   } finally {
     await rm(projects, { recursive: true, force: true });

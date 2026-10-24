@@ -2,6 +2,7 @@ import { Component, type ComponentType, type ReactNode, type Ref } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import {
   TimelineSoundtrackAudio,
+  TimelineVideoAudio,
   type EditableVideoProps,
 } from "@motion/sdk/editor";
 import type { ProjectManifest } from "@motion/project-loader/schema";
@@ -70,7 +71,8 @@ function AudioAwareComposition({
     (timeline?.clips ?? [])
       .filter(
         (clip) =>
-          clip.componentId === "video" &&
+          (clip.componentId === "video" ||
+            clip.componentId === "video-audio") &&
           typeof clip.content.assetId === "string",
       )
       .map((clip) => {
@@ -92,6 +94,7 @@ function AudioAwareComposition({
         videoSources={timeline ? videoSourceMap : videoSources}
       />
       <TimelineSoundtrackAudio timeline={timeline} audioSources={sourceMap} />
+      <TimelineVideoAudio timeline={timeline} videoSources={videoSourceMap} />
     </>
   );
 }
@@ -100,11 +103,13 @@ export function StudioPlayer({
   manifest,
   playerRef,
   inputProps,
+  masterVolume = 1,
 }: {
   composition: ComponentType<EditableVideoProps>;
   manifest: ProjectManifest;
   playerRef?: Ref<PlayerRef>;
   inputProps?: EditableVideoProps;
+  masterVolume?: number;
 }) {
   return (
     <Boundary>
@@ -122,6 +127,8 @@ export function StudioPlayer({
         compositionHeight={manifest.height}
         fps={manifest.fps}
         controls
+        showVolumeControls={false}
+        initialVolume={masterVolume}
         loop={false}
         style={{ width: "100%", height: "100%" }}
         errorFallback={({ error }) => (

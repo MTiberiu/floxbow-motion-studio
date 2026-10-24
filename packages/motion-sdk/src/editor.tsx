@@ -16,6 +16,7 @@ import {
   type TimelineClip,
   type ComponentInfo,
   type EditableField,
+  visualTracksInRenderOrder,
 } from "./timeline";
 export type EditableComponent = ComponentInfo & {
   component: ComponentType<{
@@ -94,14 +95,15 @@ export const standaloneImageClipSchema = z
           .string()
           .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
           .max(120),
+        aspectRatio: z.number().finite().min(0.01).max(100).optional(),
       })
       .passthrough(),
     props: z
       .object({
         x: z.number().finite().min(0).max(100).default(50),
         y: z.number().finite().min(0).max(100).default(50),
-        width: z.number().finite().min(1).max(100).default(80),
-        height: z.number().finite().min(1).max(100).default(80),
+        width: z.number().finite().min(1).max(500).default(80),
+        height: z.number().finite().min(1).max(500).default(80),
         rotation: z.number().finite().min(-3600).max(3600).default(0),
         anchor: z
           .enum([
@@ -140,8 +142,8 @@ export const standaloneVideoClipSchema = z
       .object({
         x: z.number().finite().min(0).max(100).default(50),
         y: z.number().finite().min(0).max(100).default(50),
-        width: z.number().finite().min(1).max(100).default(80),
-        height: z.number().finite().min(1).max(100).default(80),
+        width: z.number().finite().min(1).max(500).default(80),
+        height: z.number().finite().min(1).max(500).default(80),
         rotation: z.number().finite().min(-3600).max(3600).default(0),
         anchor: z
           .enum([
@@ -160,6 +162,41 @@ export const standaloneVideoClipSchema = z
         fit: z.enum(["contain", "cover", "fill"]).default("contain"),
         volume: z.number().finite().min(0).max(1).default(1),
       })
+      .passthrough(),
+  })
+  .passthrough();
+
+/** Audio detached from a Video clip; still references the same registered MP4. */
+export const standaloneVideoAudioClipSchema = z
+  .object({
+    id: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .max(100),
+    trackId: z
+      .string()
+      .regex(/^[a-zA-Z0-9_-]+$/)
+      .max(100),
+    componentId: z.literal("video-audio"),
+    label: z.string().max(200),
+    from: z.number().int().nonnegative(),
+    durationInFrames: z.number().int().positive(),
+    content: z
+      .object({
+        assetId: z
+          .string()
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+          .max(120),
+        sourceVideoClipId: z
+          .string()
+          .regex(/^[a-zA-Z0-9_-]+$/)
+          .max(100),
+        sourceStartSeconds: z.number().finite().min(0),
+        sourceDurationSeconds: z.number().finite().positive(),
+      })
+      .passthrough(),
+    props: z
+      .object({ volume: z.number().finite().min(0).max(1).default(1) })
       .passthrough(),
   })
   .passthrough();
@@ -388,15 +425,15 @@ function StandaloneText({
       ? 1 - progress(clip.durationInFrames - frame, scaleOutFrames)
       : 0;
   const anchorStyles: Record<string, { translate: string; origin: string }> = {
-    "top-left": { translate: "0 0", origin: "top left" },
-    "top-center": { translate: "-50% 0", origin: "top center" },
-    "top-right": { translate: "-100% 0", origin: "top right" },
-    "middle-left": { translate: "0 -50%", origin: "center left" },
-    center: { translate: "-50% -50%", origin: "center" },
-    "middle-right": { translate: "-100% -50%", origin: "center right" },
-    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
-    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
-    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
   };
   const anchorStyle = anchorStyles[anchor];
   const slideOffset = 48 * (1 - slideIn);
@@ -529,7 +566,7 @@ const imageFields: EditableField[] = [
     type: "number",
     default: 80,
     min: 1,
-    max: 100,
+    max: 500,
     step: 1,
   },
   {
@@ -539,7 +576,7 @@ const imageFields: EditableField[] = [
     type: "number",
     default: 80,
     min: 1,
-    max: 100,
+    max: 500,
     step: 1,
   },
   {
@@ -604,15 +641,15 @@ function StandaloneImage({
     throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
   const { x, y, width, height, rotation, anchor, opacity, fit } = image.props;
   const positions: Record<string, { translate: string; origin: string }> = {
-    "top-left": { translate: "0 0", origin: "top left" },
-    "top-center": { translate: "-50% 0", origin: "top center" },
-    "top-right": { translate: "-100% 0", origin: "top right" },
-    "middle-left": { translate: "0 -50%", origin: "center left" },
-    center: { translate: "-50% -50%", origin: "center" },
-    "middle-right": { translate: "-100% -50%", origin: "center right" },
-    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
-    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
-    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
   };
   const position = positions[anchor];
   return (
@@ -653,6 +690,7 @@ export const standaloneImageModule: EditableComponent = {
       anchor: "anchor",
     },
     operations: { move: true, resize: true, rotate: true },
+    // Image resize mode is free; Shift can constrain the shared Canvas gesture.
     resizeMode: "free",
   },
   component: StandaloneImage,
@@ -713,15 +751,15 @@ function StandaloneVideo({
   const { x, y, width, height, rotation, anchor, opacity, fit, volume } =
     video.props;
   const positions: Record<string, { translate: string; origin: string }> = {
-    "top-left": { translate: "0 0", origin: "top left" },
-    "top-center": { translate: "-50% 0", origin: "top center" },
-    "top-right": { translate: "-100% 0", origin: "top right" },
-    "middle-left": { translate: "0 -50%", origin: "center left" },
-    center: { translate: "-50% -50%", origin: "center" },
-    "middle-right": { translate: "-100% -50%", origin: "center right" },
-    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
-    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
-    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
   };
   const position = positions[anchor];
   const sourceStart = Math.round(video.content.sourceStartSeconds * fps);
@@ -803,33 +841,39 @@ export function TimelineComposition({
   ];
   return (
     <AbsoluteFill style={{ background: "#000000" }}>
-      {t.tracks.flatMap((track) =>
-        t.clips
-          .filter((c) => c.trackId === track.id)
-          .map((clip) => {
-            if (clip.componentId === "soundtrack") return null;
-            const definition = registeredComponents.find(
-              (c) => c.id === clip.componentId,
-            );
-            if (!definition)
-              throw new Error(`Unknown component ${clip.componentId}`);
-            const Element = definition.component;
-            return (
-              <Sequence
-                key={clip.id}
-                from={clip.from}
-                durationInFrames={clip.durationInFrames}
-                name={clip.label}
-              >
-                <FrameAwareComponent
-                  component={Element}
-                  clip={clip}
-                  imageSources={imageSources}
-                  videoSources={videoSources}
-                />
-              </Sequence>
-            );
-          }),
+      {visualTracksInRenderOrder(t).flatMap((track) =>
+        track.visible === false
+          ? []
+          : t.clips
+              .filter((c) => c.trackId === track.id)
+              .map((clip) => {
+                if (
+                  clip.componentId === "soundtrack" ||
+                  clip.componentId === "video-audio"
+                )
+                  return null;
+                const definition = registeredComponents.find(
+                  (c) => c.id === clip.componentId,
+                );
+                if (!definition)
+                  throw new Error(`Unknown component ${clip.componentId}`);
+                const Element = definition.component;
+                return (
+                  <Sequence
+                    key={clip.id}
+                    from={clip.from}
+                    durationInFrames={clip.durationInFrames}
+                    name={clip.label}
+                  >
+                    <FrameAwareComponent
+                      component={Element}
+                      clip={clip}
+                      imageSources={imageSources}
+                      videoSources={videoSources}
+                    />
+                  </Sequence>
+                );
+              }),
       )}
     </AbsoluteFill>
   );
@@ -865,6 +909,59 @@ export function TimelineSoundtrackAudio({
               name={clip.label}
             >
               <SoundtrackAudio src={src} />
+            </Sequence>
+          );
+        })}
+    </>
+  );
+}
+
+/** Render detached MP4 audio through the same Remotion Player/render transport. */
+export function TimelineVideoAudio({
+  timeline,
+  videoSources = {},
+}: {
+  timeline?: EditTimeline;
+  videoSources?: Readonly<Record<string, string>>;
+}) {
+  if (!timeline) return null;
+  const document = parseEditTimeline(timeline);
+  return (
+    <>
+      {document.clips
+        .filter((clip) => clip.componentId === "video-audio")
+        .map((rawClip) => {
+          const clip = standaloneVideoAudioClipSchema.parse(rawClip);
+          const source = videoSources[clip.content.assetId];
+          if (!source)
+            throw new Error(
+              `Video audio asset ${clip.content.assetId} is unavailable. Relink it in Project Media.`,
+            );
+          const sourceStart = Math.round(
+            clip.content.sourceStartSeconds * document.fps,
+          );
+          const end = sourceStart + clip.durationInFrames;
+          if (
+            clip.content.sourceStartSeconds +
+              clip.durationInFrames / document.fps >
+            clip.content.sourceDurationSeconds + 1 / document.fps
+          )
+            throw new Error(
+              `Video audio clip ${clip.id} exceeds its registered MP4 source duration.`,
+            );
+          return (
+            <Sequence
+              key={clip.id}
+              from={clip.from}
+              durationInFrames={clip.durationInFrames}
+              name={clip.label}
+            >
+              <SoundtrackAudio
+                src={source}
+                startFrom={sourceStart}
+                endAt={end}
+                volume={clip.props.volume}
+              />
             </Sequence>
           );
         })}

@@ -67,7 +67,7 @@ test("shared clip copy preserves identity data and extends duration without copy
   assert.equal(next.clips.length, document.clips.length + 1);
 });
 
-test("soundtrack operation constraints reject editing operations", () => {
+test("soundtrack remains fixed for timing edits but can be deleted", () => {
   const soundtrack = document.clips.find(
     (clip) => clip.componentId === "soundtrack",
   )!;
@@ -77,43 +77,31 @@ test("soundtrack operation constraints reject editing operations", () => {
     "cut",
     "paste",
     "duplicate",
-    "delete",
   ] as const)
     assert.equal(canPerformTimelineOperation(soundtrack, operation, []), false);
+  assert.equal(canPerformTimelineOperation(soundtrack, "delete", []), true);
   assert.throws(
     () => addTimelineClipCopy(document, soundtrack, "song-copy", 30, []),
     /does not allow/,
   );
-  assert.throws(
-    () => removeTimelineClip(document, soundtrack, []),
-    /cannot be deleted/,
+  const deleted = removeTimelineClip(document, soundtrack, []);
+  assert.equal(
+    deleted.clips.some((clip) => clip.id === soundtrack.id),
+    false,
   );
 });
 
-test("large gap analysis reports visual/audio timeline intervals without changing duration", () => {
+test("large gap analysis reports globally empty visual intervals without changing duration", () => {
   assert.equal(lastTimelineClipEnd(document), 270);
   const gaps = findLargeTimelineGaps(document);
-  assert.equal(gaps.length, 2);
-  assert.deepEqual(
-    gaps.find((gap) => gap.trackId === "visual"),
-    {
-      trackId: "visual",
-      from: 30,
-      end: 240,
-      previousClipId: "title",
-      nextClipId: "end-card",
-    },
-  );
-  assert.deepEqual(
-    gaps.find((gap) => gap.trackId === "audio"),
-    {
-      trackId: "audio",
-      from: 30,
-      end: 300,
-      previousClipId: "song",
-      nextClipId: null,
-    },
-  );
+  assert.equal(gaps.length, 1);
+  assert.deepEqual(gaps[0], {
+    trackId: "visual-composition",
+    from: 30,
+    end: 240,
+    previousClipId: "title",
+    nextClipId: "end-card",
+  });
   assert.equal(document.durationInFrames, 300);
 });
 
@@ -130,16 +118,27 @@ test("preview playback end can avoid blank tail without changing export duration
 
 test("editor gap warnings locate visual clips and ignore soundtrack-only gaps", () => {
   const warnings = timelineGapWarnings(document);
-  assert.equal(warnings.length, 1);
   assert.deepEqual(warnings[0], {
-    trackId: "visual",
-    trackName: "Visual",
+    trackId: "visual-composition",
+    trackName: "all visual tracks",
     from: 30,
     end: 240,
     previousClipId: "title",
     nextClipId: "end-card",
     kind: "between",
   });
+  assert.deepEqual(warnings[1], {
+    trackId: "visual-composition",
+    trackName: "all visual tracks",
+    from: 270,
+    end: 300,
+    previousClipId: "end-card",
+    nextClipId: null,
+    kind: "tail",
+  });
+  assert.ok(
+    warnings.every((warning) => warning.trackId === "visual-composition"),
+  );
 
   const late = parseEditTimeline({
     ...document,
@@ -147,4 +146,115 @@ test("editor gap warnings locate visual clips and ignore soundtrack-only gaps", 
   });
   assert.equal(timelineGapWarnings(late)[0]?.kind, "late");
   assert.equal(timelineGapWarnings(late)[0]?.nextClipId, "end-card");
+});
+
+test("editor review reports subtitle gaps down to a single frame", () => {
+  const subtitles = parseEditTimeline({
+    ...document,
+    durationInFrames: 180,
+    clips: [
+      {
+        ...document.clips[0],
+        id: "subtitle-a",
+        componentId: "subtitles",
+        label: "First lyric",
+        from: 0,
+        durationInFrames: 30,
+      },
+      {
+        ...document.clips[0],
+        id: "subtitle-b",
+        componentId: "subtitles",
+        label: "Second lyric",
+        from: 31,
+        durationInFrames: 30,
+      },
+    ],
+  });
+  const warnings = timelineGapWarnings(subtitles);
+  const subtitleGap = warnings.find(
+    (warning) => warning.previousClipId === "subtitle-a",
+  );
+  assert.ok(subtitleGap);
+  assert.equal(subtitleGap.from, 30);
+  assert.equal(subtitleGap.end, 31);
+  assert.equal(subtitleGap.nextClipId, "subtitle-b");
+});
+
+test("a background clip on another track suppresses normal subtitle spacing warnings", () => {
+  const subtitlesWithBackground = parseEditTimeline({
+    ...document,
+    durationInFrames: 180,
+    tracks: [...document.tracks, { id: "background", name: "Background" }],
+    clips: [
+      {
+        ...document.clips[0],
+        id: "subtitle-a",
+        componentId: "subtitles",
+        label: "First lyric",
+        from: 0,
+        durationInFrames: 30,
+      },
+      {
+        ...document.clips[0],
+        id: "subtitle-b",
+        componentId: "subtitles",
+        label: "Second lyric",
+        from: 60,
+        durationInFrames: 30,
+      },
+      {
+        ...document.clips[0],
+        id: "background-full",
+        trackId: "background",
+        componentId: "image",
+        label: "Black background",
+        from: 0,
+        durationInFrames: 180,
+      },
+    ],
+  });
+
+  assert.deepEqual(timelineGapWarnings(subtitlesWithBackground), []);
+});
+
+test("an image covering the full interval between captions prevents a false gap warning", () => {
+  const timeline = parseEditTimeline({
+    ...document,
+    durationInFrames: 180,
+    tracks: [...document.tracks, { id: "background", name: "Background" }],
+    clips: [
+      {
+        ...document.clips[0],
+        id: "caption-before",
+        componentId: "subtitles",
+        from: 0,
+        durationInFrames: 30,
+      },
+      {
+        ...document.clips[0],
+        id: "caption-after",
+        componentId: "subtitles",
+        from: 60,
+        durationInFrames: 30,
+      },
+      {
+        ...document.clips[0],
+        id: "image-under-captions",
+        trackId: "background",
+        componentId: "image",
+        from: 0,
+        durationInFrames: 90,
+      },
+    ],
+  });
+
+  assert.equal(
+    timelineGapWarnings(timeline).some(
+      (warning) =>
+        warning.previousClipId === "caption-before" &&
+        warning.nextClipId === "caption-after",
+    ),
+    false,
+  );
 });

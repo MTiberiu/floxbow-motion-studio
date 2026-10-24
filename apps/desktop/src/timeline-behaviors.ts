@@ -32,9 +32,32 @@ export const videoTimelineBehavior: TimelineBehavior = {
     return { content: { ...content, sourceStartSeconds: start } };
   },
 };
+export const videoAudioTimelineBehavior: TimelineBehavior = {
+  id: "core-video-audio",
+  resizeContent(content, oldRange, nextRange, fps) {
+    const actualStart = Number(content.sourceStartSeconds);
+    const sourceDuration = Number(content.sourceDurationSeconds);
+    const sourceStart = actualStart + (nextRange.from - oldRange.from) / fps;
+    const sourceEnd = sourceStart + nextRange.durationInFrames / fps;
+    if (
+      !Number.isFinite(sourceDuration) ||
+      !Number.isFinite(sourceStart) ||
+      sourceStart < 0 ||
+      sourceEnd > sourceDuration + 1 / fps
+    )
+      throw new Error(
+        "The detached Video audio trim exceeds the registered MP4 source duration.",
+      );
+    return {
+      ...content,
+      sourceStartSeconds: Math.round(sourceStart * 1000) / 1000,
+    };
+  },
+};
 const trustedBehaviors = new Map<string, TimelineBehavior>([
   ["generic-visual", genericBehavior],
   [videoTimelineBehavior.id, videoTimelineBehavior],
+  [videoAudioTimelineBehavior.id, videoAudioTimelineBehavior],
   [subtitleTimelineBehavior.id, subtitleTimelineBehavior],
 ]);
 
@@ -48,5 +71,6 @@ export function resolveTimelineBehavior(
     return trustedBehaviors.get(info.timelineBehavior) ?? genericBehavior;
   // Compatibility for existing projects/modules that predate behavior metadata.
   if (componentId === "subtitles") return subtitleTimelineBehavior;
+  if (componentId === "video-audio") return videoAudioTimelineBehavior;
   return genericBehavior;
 }

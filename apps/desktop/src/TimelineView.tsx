@@ -8,8 +8,16 @@ import {
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
   changeClipRangeWithDurationExtension,
+  createAudioTimelineTrack,
+  createVisualTimelineTrack,
+  isAudioTrack,
+  isAudioTimelineClip,
   MAX_TIMELINE_DURATION_FRAMES,
+  moveSoundtrackToAudioTrack,
+  moveTimelineClipsToTrack,
+  reorderTimelineTrack,
 } from "./timeline-track-utils";
+import { createTimelineRulerMarks } from "./timeline-ruler";
 import type {
   ComponentInfo,
   EditTimeline,
@@ -31,13 +39,17 @@ type Drag = {
   sourceClipId: string;
   mode: "move" | "left" | "right";
   x: number;
+  y: number;
   pixels: number;
   scrollLeft: number;
   displayDurationInFrames: number;
   lastX: number;
+  lastY: number;
   gestureId: string;
   active: boolean;
+  trackOnly?: boolean;
   duplicateId?: string;
+  groupClipIds?: readonly string[];
 };
 type TimelineMarquee = {
   pointerId: number;
@@ -48,9 +60,25 @@ type TimelineMarquee = {
   additive: boolean;
   active: boolean;
 };
+type TrackDropPreview = {
+  x: number;
+  y: number;
+  label: string;
+  trackId?: string;
+  newTrackPosition?: "top" | "bottom";
+};
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
 type ZoomAnchor = { fraction: number; width: number; scrollLeft: number };
+
+export function timelineCanvasWidthForZoom(
+  viewportWidth: number,
+  zoom: number,
+) {
+  const width = Math.max(0, Math.ceil(viewportWidth));
+  const scale = Math.max(1, Math.min(8, zoom));
+  return Math.max(width, Math.ceil(120 + Math.max(0, width - 120) * scale));
+}
 
 export type TimelineViewProps = {
   manifest: Pick<ProjectManifest, "id" | "fps" | "durationInFrames"> & {
@@ -59,6 +87,7 @@ export type TimelineViewProps = {
   document?: EditTimeline;
   components: readonly ComponentInfo[];
   selectedClipIds: readonly string[];
+  selectedClipId?: string;
   frame: number;
   playing?: boolean;
   onEdit: (
@@ -74,6 +103,7 @@ export type TimelineViewProps = {
     gestureId: string,
     clipId: string,
     duplicateId?: string,
+    groupMove?: boolean,
   ) => void;
   onTimelineOperation?: (
     operation:
@@ -87,7 +117,7 @@ export type TimelineViewProps = {
     durationInFrames: number,
     trim: boolean,
   ) => void;
-  onEndClipGesture: (gestureId: string) => void;
+  onEndClipGesture: (gestureId: string) => void | Promise<void>;
   onResizeStart: (event: PointerEvent<HTMLButtonElement>) => void;
   onResizeMove: (event: PointerEvent<HTMLButtonElement>) => void;
   onResizeEnd: () => void;
@@ -106,6 +136,7 @@ export function TimelineView({
   document,
   components,
   selectedClipIds,
+  selectedClipId = selectedClipIds[0] ?? "",
   frame,
   playing = false,
   onEdit,
@@ -139,6 +170,7 @@ export function TimelineView({
   const [zoom, setZoom] = useState(1);
   const [viewportWidth, setViewportWidth] = useState(900);
   const [dragging, setDragging] = useState(false);
+  const [trackDropPreview, setTrackDropPreview] = useState<TrackDropPreview>();
   const [marquee, setMarquee] = useState<TimelineMarquee>();
   const operationRef = useRef(onTimelineOperation);
   operationRef.current = onTimelineOperation;
@@ -186,27 +218,17 @@ export function TimelineView({
       ),
     ),
   );
-  const initialScale = useRef({
-    projectId: manifest.id,
-    frames: displayDurationInFrames,
-  });
-  if (initialScale.current.projectId !== manifest.id) {
-    initialScale.current = {
-      projectId: manifest.id,
-      frames: displayDurationInFrames,
-    };
-  }
   const zoomBaseWidth = Math.max(
     viewportWidth,
     scroll.current?.clientWidth ?? 0,
   );
-  const canvasWidth = Math.max(
-    zoomBaseWidth,
-    120 +
-      (Math.max(0, zoomBaseWidth - 120) * zoom * displayDurationInFrames) /
-        initialScale.current.frames,
-  );
+  const canvasWidth = timelineCanvasWidthForZoom(zoomBaseWidth, zoom);
   const hasDocument = Boolean(document);
+  const rulerMarks = createTimelineRulerMarks(
+    displayDurationInFrames,
+    document?.fps ?? manifest.fps,
+    canvasWidth,
+  );
 
   function allowMediaDrop(event: React.DragEvent<HTMLDivElement>) {
     if (!event.dataTransfer.types.includes(MEDIA_ASSET_DRAG_TYPE)) return;
@@ -314,36 +336,56 @@ export function TimelineView({
   function begin(event: PointerEvent, clip: TimelineClip, mode: Drag["mode"]) {
     if (!document || !ruler.current) return;
     event.stopPropagation();
-    onSelectClip(clip.id, event.shiftKey || event.ctrlKey || event.metaKey);
+    const wasSelected = selectedClipIds.includes(clip.id);
+    const duplicate =
+      clip.componentId !== "soundtrack" &&
+      mode === "move" &&
+      (event.ctrlKey || event.metaKey || event.altKey);
+    if (!wasSelected || duplicate)
+      onSelectClip(
+        clip.id,
+        !duplicate && (event.shiftKey || event.ctrlKey || event.metaKey),
+      );
+    const additiveSelection =
+      !duplicate && (event.shiftKey || event.ctrlKey || event.metaKey);
+    const groupClipIds =
+      mode === "move" &&
+      clip.componentId !== "soundtrack" &&
+      !duplicate &&
+      (wasSelected || additiveSelection)
+        ? [...new Set([...selectedClipIds, clip.id])]
+        : [clip.id];
     const gestureId = crypto.randomUUID();
     drag.current = {
       clip: structuredClone(clip),
       sourceClipId: clip.id,
       mode,
       x: event.clientX,
+      y: event.clientY,
       lastX: event.clientX,
+      lastY: event.clientY,
       pixels: ruler.current.getBoundingClientRect().width,
       scrollLeft: scroll.current?.scrollLeft ?? 0,
       displayDurationInFrames,
       gestureId,
       active: false,
-      duplicateId:
-        mode === "move" && (event.ctrlKey || event.metaKey)
-          ? `clip-${crypto.randomUUID()}`
-          : undefined,
+      trackOnly: clip.componentId === "soundtrack",
+      groupClipIds,
+      duplicateId: duplicate ? `clip-${crypto.randomUUID()}` : undefined,
     };
     setDragging(true);
   }
 
-  function updateDrag(clientX: number) {
+  function updateDrag(clientX: number, clientY = drag.current?.lastY ?? 0) {
     const current = drag.current;
     if (!current) return;
     current.lastX = clientX;
+    current.lastY = clientY;
     const deltaX =
       clientX -
       current.x +
       ((scroll.current?.scrollLeft ?? current.scrollLeft) - current.scrollLeft);
-    if (!current.active && Math.abs(deltaX) < 4) return;
+    if (!current.active && Math.hypot(deltaX, clientY - current.y) < 4) return;
     if (!current.active) {
       current.active = true;
       onPause();
@@ -355,13 +397,65 @@ export function TimelineView({
           label: `${source.label} (copy)`,
         };
       }
-      onBeginClipGesture(
-        current.gestureId,
-        current.sourceClipId,
-        current.duplicateId,
-      );
+      if (!current.trackOnly)
+        onBeginClipGesture(
+          current.gestureId,
+          current.sourceClipId,
+          current.duplicateId,
+          !current.duplicateId && (current.groupClipIds?.length ?? 0) > 1,
+        );
       setDragging(true);
     }
+    if (current.mode === "move" && document) {
+      const movingIds = current.duplicateId
+        ? [current.duplicateId]
+        : (current.groupClipIds ?? [current.sourceClipId]);
+      const hit = window.document.elementFromPoint(clientX, clientY);
+      const row = hit?.closest<HTMLElement>(".track-row");
+      const insertZone = hit?.closest<HTMLElement>(".track-insert-zone");
+      const lane =
+        hit?.closest<HTMLElement>(".track-lane") ??
+        row?.querySelector<HTMLElement>(".track-lane");
+      const trackId = lane?.dataset.track;
+      const newTrackPosition = current.trackOnly
+        ? undefined
+        : insertZone?.dataset.trackInsert === "top"
+          ? "top"
+          : insertZone?.dataset.trackInsert === "bottom"
+            ? "bottom"
+            : undefined;
+      const target = document.tracks.find((track) => track.id === trackId);
+      const movingClips = movingIds.map((id) =>
+        id === current.duplicateId
+          ? current.clip
+          : document.clips.find((clip) => clip.id === id),
+      );
+      const validTarget = Boolean(
+        target &&
+        !target.locked &&
+        movingClips.every((clip) => {
+          if (!clip) return false;
+          const source = document.tracks.find(
+            (track) => track.id === clip.trackId,
+          );
+          const audioClip = isAudioTimelineClip(clip);
+          return Boolean(
+            source &&
+            isAudioTrack(document, source) === isAudioTrack(document, target) &&
+            !source.locked &&
+            audioClip === isAudioTrack(document, target),
+          );
+        }),
+      );
+      setTrackDropPreview({
+        x: clientX,
+        y: clientY,
+        label: current.clip.label,
+        trackId: validTarget ? trackId : undefined,
+        newTrackPosition,
+      });
+    }
+    if (current.trackOnly) return;
     const scrollDelta =
       (scroll.current?.scrollLeft ?? current.scrollLeft) - current.scrollLeft;
     const delta = Math.round(
@@ -371,13 +465,20 @@ export function TimelineView({
     let start = current.clip.from;
     let end = start + current.clip.durationInFrames;
     if (current.mode === "move") {
-      start = Math.max(
-        0,
-        Math.min(
-          MAX_TIMELINE_DURATION_FRAMES - current.clip.durationInFrames,
-          start + delta,
-        ),
+      const selected = new Set(current.groupClipIds ?? [current.clip.id]);
+      const grouped = (document?.clips ?? []).filter((clip) =>
+        selected.has(clip.id),
       );
+      const movementGroup = grouped.length ? grouped : [current.clip];
+      const earliest = Math.min(...movementGroup.map((clip) => clip.from));
+      const latest = Math.max(
+        ...movementGroup.map((clip) => clip.from + clip.durationInFrames),
+      );
+      const safeDelta = Math.max(
+        -earliest,
+        Math.min(MAX_TIMELINE_DURATION_FRAMES - latest, delta),
+      );
+      start = current.clip.from + safeDelta;
       end = start + current.clip.durationInFrames;
     } else if (current.mode === "left") {
       start = Math.max(0, Math.min(end - 1, start + delta));
@@ -421,15 +522,21 @@ export function TimelineView({
     const handleMouseMove = (event: MouseEvent) => {
       if (!drag.current) return;
       if (drag.current.active) scrollTowardPointer(event.clientX);
-      updateDrag(event.clientX);
+      updateDrag(event.clientX, event.clientY);
     };
-    const handleMouseUp = () => finish();
+    const handleMouseUp = (event: MouseEvent) => {
+      if (drag.current) {
+        drag.current.lastX = event.clientX;
+        drag.current.lastY = event.clientY;
+      }
+      finish();
+    };
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("mouseup", handleMouseUp, true);
     const tick = () => {
       const current = drag.current;
       if (current?.active && scrollTowardPointer(current.lastX))
-        updateDrag(current.lastX);
+        updateDrag(current.lastX, current.lastY);
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
@@ -441,9 +548,125 @@ export function TimelineView({
   }, [dragging]);
 
   function finish() {
-    if (drag.current?.active) onEndClipGesture(drag.current.gestureId);
+    const current = drag.current;
+    if (current?.active && current.trackOnly && scroll.current && document) {
+      const hit = window.document.elementFromPoint(
+        current.lastX,
+        current.lastY,
+      );
+      const row = hit?.closest<HTMLElement>(".track-row");
+      const lane =
+        hit?.closest<HTMLElement>(".track-lane") ??
+        row?.querySelector<HTMLElement>(".track-lane");
+      const targetTrackId = lane?.dataset.track;
+      const target = document.tracks.find(
+        (track) => track.id === targetTrackId,
+      );
+      const source = document.tracks.find(
+        (track) => track.id === current.clip.trackId,
+      );
+      if (
+        target &&
+        source &&
+        target.id !== source.id &&
+        isAudioTrack(document, target) &&
+        !target.locked &&
+        !source.locked
+      ) {
+        onEdit((latest) =>
+          moveSoundtrackToAudioTrack(latest, current.sourceClipId, target.id),
+        );
+      }
+      drag.current = undefined;
+      setDragging(false);
+      setTrackDropPreview(undefined);
+      return;
+    }
+    if (
+      current?.active &&
+      current.mode === "move" &&
+      scroll.current &&
+      document
+    ) {
+      const hit = window.document.elementFromPoint(
+        current.lastX,
+        current.lastY,
+      );
+      const row = hit?.closest<HTMLElement>(".track-row");
+      const lane =
+        hit?.closest<HTMLElement>(".track-lane") ??
+        row?.querySelector<HTMLElement>(".track-lane");
+      let targetTrackId = lane?.dataset.track;
+      const insertZone = hit?.closest<HTMLElement>(".track-insert-zone");
+      let newTrackPosition: "top" | "bottom" | undefined =
+        insertZone?.dataset.trackInsert === "top"
+          ? "top"
+          : insertZone?.dataset.trackInsert === "bottom"
+            ? "bottom"
+            : undefined;
+      if (!targetTrackId) {
+        const visualRows = Array.from(
+          scroll.current.querySelectorAll<HTMLElement>(
+            ".track-row.is-visual-track",
+          ),
+        );
+        const first = visualRows[0]?.getBoundingClientRect();
+        const last = visualRows.at(-1)?.getBoundingClientRect();
+        if (first && current.lastY < first.top) newTrackPosition = "top";
+        else if (last && current.lastY > last.bottom)
+          newTrackPosition = "bottom";
+      }
+      const movingIds = current.duplicateId
+        ? [current.duplicateId]
+        : (current.groupClipIds ?? [current.sourceClipId]);
+      const shouldChangeTrack =
+        Boolean(newTrackPosition) ||
+        Boolean(
+          targetTrackId &&
+          movingIds.some(
+            (id) =>
+              document.clips.find((clip) => clip.id === id)?.trackId !==
+              targetTrackId,
+          ),
+        );
+      const commitTrackChange = () => {
+        if (!shouldChangeTrack) return;
+        onEdit((latest) => {
+          let next = latest;
+          if (newTrackPosition) {
+            const name = `Visual ${latest.tracks.filter((track) => !isAudioTrack(latest, track)).length + 1}`;
+            const newTrackId = `visual-${crypto.randomUUID()}`;
+            next = createVisualTimelineTrack(
+              latest,
+              newTrackId,
+              name,
+              newTrackPosition,
+            );
+            targetTrackId = newTrackId;
+          }
+          if (!targetTrackId) return latest;
+          const destination = next.tracks.find(
+            (track) => track.id === targetTrackId,
+          );
+          if (!destination || destination.locked) return latest;
+          const clips = movingIds
+            .map((id) => latest.clips.find((clip) => clip.id === id))
+            .filter((clip): clip is TimelineClip => Boolean(clip));
+          if (
+            !clips.length ||
+            clips.some((clip) => clip.trackId === targetTrackId)
+          )
+            return latest;
+          return moveTimelineClipsToTrack(next, movingIds, targetTrackId);
+        }, false);
+      };
+      const ended = onEndClipGesture(current.gestureId);
+      if (shouldChangeTrack)
+        void Promise.resolve(ended).then(commitTrackChange);
+    } else if (current?.active) onEndClipGesture(current.gestureId);
     drag.current = undefined;
     setDragging(false);
+    setTrackDropPreview(undefined);
   }
 
   function scrub(event: PointerEvent<HTMLDivElement>) {
@@ -557,23 +780,29 @@ export function TimelineView({
           {playing ? "Pause" : "Play"}
         </button>
         <button
+          type="button"
           onClick={() =>
-            onEdit((current) => ({
-              ...current,
-              tracks: [
-                ...current.tracks,
-                {
-                  id: `track-${crypto.randomUUID()}`,
-                  name: `Track ${current.tracks.length + 1}`,
-                },
-              ],
-            }))
+            onEdit((current) =>
+              createVisualTimelineTrack(
+                current,
+                `visual-${crypto.randomUUID()}`,
+                `Visual ${current.tracks.filter((track) => !isAudioTrack(current, track)).length + 1}`,
+              ),
+            )
           }
         >
-          Add track
+          Add visual track
         </button>
         <div className="timeline-zoom-controls">
           <span>Zoom</span>
+          <button
+            type="button"
+            aria-label="Fit Timeline"
+            disabled={zoom === 1}
+            onClick={() => changeZoom(1)}
+          >
+            Fit
+          </button>
           <button
             type="button"
             aria-label="Zoom Timeline out"
@@ -644,13 +873,52 @@ export function TimelineView({
       >
         <div
           className="timeline-canvas"
+          data-timeline-zoom={zoom}
+          data-timeline-duration-in-frames={displayDurationInFrames}
+          data-timeline-viewport-width={zoomBaseWidth}
           style={{
             minWidth: zoomBaseWidth,
             width: `${canvasWidth}px`,
           }}
         >
           <div className="ruler-row">
-            <div className="track-label">TRACKS</div>
+            <div className="track-label track-header">
+              <span>TRACKS</span>
+              <div>
+                <button
+                  type="button"
+                  aria-label="Add visual track"
+                  title="Add visual track"
+                  onClick={() =>
+                    onEdit((current) =>
+                      createVisualTimelineTrack(
+                        current,
+                        `visual-${crypto.randomUUID()}`,
+                        `Visual ${current.tracks.filter((track) => !isAudioTrack(current, track)).length + 1}`,
+                      ),
+                    )
+                  }
+                >
+                  + V
+                </button>
+                <button
+                  type="button"
+                  aria-label="Add audio track"
+                  title="Add audio track"
+                  onClick={() =>
+                    onEdit((current) =>
+                      createAudioTimelineTrack(
+                        current,
+                        `audio-${crypto.randomUUID()}`,
+                        `Audio ${current.tracks.filter((track) => isAudioTrack(current, track)).length + 1}`,
+                      ),
+                    )
+                  }
+                >
+                  + A
+                </button>
+              </div>
+            </div>
             <div
               className="time-ruler"
               ref={ruler}
@@ -679,14 +947,15 @@ export function TimelineView({
                 if (event.buttons === 1) scrub(event);
               }}
             >
-              {Array.from({ length: 11 }, (_, index) => (
-                <span key={index} style={{ left: `${index * 10}%` }}>
-                  {(
-                    ((displayDurationInFrames / document.fps) * index) /
-                    10
-                  ).toFixed(1)}
-                  s
-                </span>
+              {rulerMarks.map((mark) => (
+                <div
+                  key={mark.frame}
+                  className={`time-ruler-tick ${mark.major ? "is-major" : "is-minor"} ${mark.position === 0 ? "is-start" : ""} ${mark.position > 99.9 ? "is-end" : ""}`}
+                  style={{ left: `${mark.position}%` }}
+                  aria-hidden="true"
+                >
+                  {mark.label && <span>{mark.label}</span>}
+                </div>
               ))}
               <div
                 className="playhead-line"
@@ -702,9 +971,144 @@ export function TimelineView({
               />
             </div>
           </div>
+          <div
+            className={`track-insert-zone ${trackDropPreview?.newTrackPosition === "top" ? "is-drop-target" : ""}`}
+            data-track-insert="top"
+            aria-label="Drop a visual clip here to create a track above"
+          >
+            <span />
+            <span>Drop here to create a visual track above</span>
+          </div>
           {document.tracks.map((track) => (
-            <div className="track-row" key={track.id}>
-              <div className="track-label">{track.name}</div>
+            <div
+              className={`track-row ${track.kind === "audio" || isAudioTrack(document, track) ? "is-audio-track" : "is-visual-track"} ${track.visible === false ? "is-hidden-track" : ""} ${track.locked ? "is-locked-track" : ""} ${trackDropPreview?.trackId === track.id ? "is-drop-target" : ""}`}
+              key={track.id}
+              data-track-row={track.id}
+              data-drop-target={
+                trackDropPreview?.trackId === track.id ? "true" : undefined
+              }
+            >
+              <div
+                className="track-label track-label-controls"
+                title={track.name}
+              >
+                <span className="track-name">{track.name}</span>
+                <div className="track-tools">
+                  <button
+                    type="button"
+                    aria-label={`Move ${track.name} up`}
+                    title="Move track up"
+                    disabled={
+                      isAudioTrack(document, track)
+                        ? document.tracks
+                            .filter((item) => isAudioTrack(document, item))
+                            .findIndex((item) => item.id === track.id) === 0
+                        : document.tracks
+                            .filter((item) => !isAudioTrack(document, item))
+                            .findIndex((item) => item.id === track.id) === 0
+                    }
+                    onClick={() =>
+                      onEdit((current) =>
+                        reorderTimelineTrack(current, track.id, -1),
+                      )
+                    }
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Move ${track.name} down`}
+                    title="Move track down"
+                    disabled={
+                      isAudioTrack(document, track)
+                        ? document.tracks
+                            .filter((item) => isAudioTrack(document, item))
+                            .findIndex((item) => item.id === track.id) ===
+                          document.tracks.filter((item) =>
+                            isAudioTrack(document, item),
+                          ).length -
+                            1
+                        : document.tracks
+                            .filter((item) => !isAudioTrack(document, item))
+                            .findIndex((item) => item.id === track.id) ===
+                          document.tracks.filter(
+                            (item) => !isAudioTrack(document, item),
+                          ).length -
+                            1
+                    }
+                    onClick={() =>
+                      onEdit((current) =>
+                        reorderTimelineTrack(current, track.id, 1),
+                      )
+                    }
+                  >
+                    ↓
+                  </button>
+                  {!isAudioTrack(document, track) && (
+                    <button
+                      type="button"
+                      aria-label={`${track.visible === false ? "Show" : "Hide"} ${track.name}`}
+                      title={
+                        track.visible === false ? "Show track" : "Hide track"
+                      }
+                      onClick={() =>
+                        onEdit((current) => ({
+                          ...current,
+                          tracks: current.tracks.map((item) =>
+                            item.id === track.id
+                              ? {
+                                  ...item,
+                                  kind: "visual",
+                                  visible: item.visible === false,
+                                }
+                              : item,
+                          ),
+                        }))
+                      }
+                    >
+                      {track.visible === false ? "◉" : "◌"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`${track.locked ? "Unlock" : "Lock"} ${track.name}`}
+                    title={track.locked ? "Unlock track" : "Lock track"}
+                    onClick={() =>
+                      onEdit((current) => ({
+                        ...current,
+                        tracks: current.tracks.map((item) =>
+                          item.id === track.id
+                            ? { ...item, locked: !item.locked }
+                            : item,
+                        ),
+                      }))
+                    }
+                  >
+                    {track.locked ? "🔒" : "🔓"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Rename ${track.name}`}
+                    title="Rename track"
+                    onClick={() => {
+                      const name = window
+                        .prompt("Track name", track.name)
+                        ?.trim();
+                      if (!name || name === track.name) return;
+                      onEdit((current) => ({
+                        ...current,
+                        tracks: current.tracks.map((item) =>
+                          item.id === track.id
+                            ? { ...item, name: name.slice(0, 100) }
+                            : item,
+                        ),
+                      }));
+                    }}
+                  >
+                    …
+                  </button>
+                </div>
+              </div>
               <div
                 className="track-lane"
                 data-track={track.id}
@@ -716,7 +1120,9 @@ export function TimelineView({
                 {document.clips
                   .filter((clip) => clip.trackId === track.id)
                   .map((clip) => {
+                    const audioClip = isAudioTimelineClip(clip);
                     const soundtrackClip = clip.componentId === "soundtrack";
+                    const trackLocked = track.locked === true;
                     return (
                       <div
                         key={clip.id}
@@ -725,7 +1131,9 @@ export function TimelineView({
                         aria-label={
                           soundtrackClip
                             ? `Audio clip ${clip.id}; fixed at frame zero`
-                            : `Clip ${clip.id}`
+                            : clip.componentId === "video-audio"
+                              ? `Video audio clip ${clip.id}`
+                              : `Clip ${clip.id}`
                         }
                         aria-pressed={selectedClipIds.includes(clip.id)}
                         data-clip-id={clip.id}
@@ -737,13 +1145,13 @@ export function TimelineView({
                             ? "Soundtrack timing is fixed at frame zero; it cannot be moved or trimmed."
                             : undefined
                         }
-                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${soundtrackClip ? "audio-clip" : ""} ${selectedClipIds.includes(clip.id) ? "is-selected" : ""}`}
+                        className={`timeline-clip ${clip.componentId === "subtitles" ? "subtitle-clip" : ""} ${audioClip ? "audio-clip" : ""} ${selectedClipIds.includes(clip.id) ? "is-selected" : ""} ${trackLocked ? "is-track-locked" : ""} ${track.visible === false ? "is-track-hidden" : ""}`}
                         style={{
                           left: `${(clip.from / displayDurationInFrames) * 100}%`,
                           width: `${(clip.durationInFrames / displayDurationInFrames) * 100}%`,
                         }}
                         onPointerDown={(event) => {
-                          if (!soundtrackClip) begin(event, clip, "move");
+                          if (!trackLocked) begin(event, clip, "move");
                           else {
                             event.stopPropagation();
                             onSelectClip(
@@ -791,15 +1199,17 @@ export function TimelineView({
                           }
                         }}
                       >
-                        {!soundtrackClip && (
-                          <button
-                            className="resize-handle left"
-                            aria-label={`Resize start ${clip.id}`}
-                            onPointerDown={(event) =>
-                              begin(event, clip, "left")
-                            }
-                          />
-                        )}
+                        {!soundtrackClip &&
+                          !trackLocked &&
+                          selectedClipId === clip.id && (
+                            <button
+                              className="resize-handle left"
+                              aria-label={`Resize start ${clip.id}`}
+                              onPointerDown={(event) =>
+                                begin(event, clip, "left")
+                              }
+                            />
+                          )}
                         <span className="clip-title">
                           {String(clip.content.text ?? clip.label)}
                         </span>
@@ -810,15 +1220,17 @@ export function TimelineView({
                             document.fps,
                           )}
                         </small>
-                        {!soundtrackClip && (
-                          <button
-                            className="resize-handle right"
-                            aria-label={`Resize end ${clip.id}`}
-                            onPointerDown={(event) =>
-                              begin(event, clip, "right")
-                            }
-                          />
-                        )}
+                        {!soundtrackClip &&
+                          !trackLocked &&
+                          selectedClipId === clip.id && (
+                            <button
+                              className="resize-handle right"
+                              aria-label={`Resize end ${clip.id}`}
+                              onPointerDown={(event) =>
+                                begin(event, clip, "right")
+                              }
+                            />
+                          )}
                       </div>
                     );
                   })}
@@ -831,8 +1243,39 @@ export function TimelineView({
               </div>
             </div>
           ))}
+          <div
+            className={`track-insert-zone ${trackDropPreview?.newTrackPosition === "bottom" ? "is-drop-target" : ""}`}
+            data-track-insert="bottom"
+            aria-label="Drop a visual clip here to create a track below"
+          >
+            <span />
+            <span>Drop here to create a visual track below</span>
+          </div>
         </div>
       </div>
+      {trackDropPreview && dragging && (
+        <div
+          className="timeline-drag-ghost"
+          style={{
+            left: trackDropPreview.x + 14,
+            top: trackDropPreview.y + 14,
+          }}
+          aria-hidden="true"
+        >
+          <strong>{trackDropPreview.label}</strong>
+          <span>
+            {trackDropPreview.newTrackPosition
+              ? `Create a visual track ${trackDropPreview.newTrackPosition === "top" ? "above" : "below"}`
+              : trackDropPreview.trackId
+                ? document?.tracks.find(
+                    (track) => track.id === trackDropPreview.trackId,
+                  )?.visible === false
+                  ? `Hidden track: ${document.tracks.find((track) => track.id === trackDropPreview.trackId)?.name}; clip will not appear in preview`
+                  : `Move to ${document?.tracks.find((track) => track.id === trackDropPreview.trackId)?.name ?? "track"}`
+                : "Choose an unlocked visual track"}
+          </span>
+        </div>
+      )}
       <div className="timeline-footer">
         <label className="button">
           Import subtitles / timeline
