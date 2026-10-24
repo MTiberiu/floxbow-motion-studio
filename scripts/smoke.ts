@@ -3928,9 +3928,12 @@ try {
 
     // Moving the left trim advances the source in-point; the right edge remains
     // stable, and the source timing is saved in the same Timeline clip.
+    const videoEndBeforeLeftTrim = await page
+      .getByLabel("Clip end time (seconds)")
+      .inputValue();
     await page.getByLabel("Clip start time (seconds)").fill("6.5");
     await expect(page.getByLabel("Clip end time (seconds)")).toHaveValue(
-      "8.133",
+      videoEndBeforeLeftTrim,
     );
     await expect(page.getByLabel("Source start time (seconds)")).toHaveValue(
       "0.5",
