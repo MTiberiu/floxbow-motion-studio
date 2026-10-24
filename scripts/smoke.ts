@@ -84,9 +84,41 @@ async function readClipFrameRange(clip: Locator) {
   );
 }
 
+async function inspectNarrowTimelineClip(clip: Locator) {
+  return clip.evaluate((element) => {
+    const originalWidth = element.style.width;
+    element.style.width = "22px";
+    const body = element.querySelector<HTMLElement>(".clip-body")!;
+    const handle = element.querySelector<HTMLElement>(".resize-handle")!;
+    const result = {
+      clipWidth: element.getBoundingClientRect().width,
+      contentWidth: body.getBoundingClientRect().width,
+      contentPadding: Number.parseFloat(getComputedStyle(body).paddingLeft),
+      handleFill: getComputedStyle(handle).backgroundColor,
+      handleInteriorWidth: Math.max(
+        0,
+        Math.min(
+          handle.getBoundingClientRect().right,
+          element.getBoundingClientRect().right,
+        ) - element.getBoundingClientRect().left,
+      ),
+      label: body.textContent?.trim() ?? "",
+    };
+    element.style.width = originalWidth;
+    return result;
+  });
+}
+
 async function verifyTimelineZoom(page: Page) {
   const zoom = page.getByLabel("Timeline zoom", { exact: true });
   const scroll = page.locator(".timeline-scroll");
+  const waitForLayout = () =>
+    page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
   await zoom.selectOption("1");
   const buttonAnchorX = await page.locator(".time-ruler").evaluate((ruler) => {
     const rect = ruler.getBoundingClientRect();
@@ -102,16 +134,34 @@ async function verifyTimelineZoom(page: Page) {
   const frameAtAnchor = (x: number) =>
     page.locator(".time-ruler").evaluate((ruler, x) => {
       const rect = ruler.getBoundingClientRect();
-      const duration = Number(ruler.getAttribute("aria-valuemax")) + 1;
+      const duration = Number(ruler.getAttribute("data-range-frames"));
       return ((x - rect.left) / rect.width) * duration;
     }, x);
+  const anchorGeometry = (x: number) =>
+    page.locator(".time-ruler").evaluate((ruler, x) => {
+      const rect = ruler.getBoundingClientRect();
+      const viewport = ruler
+        .closest(".timeline-scroll")!
+        .getBoundingClientRect();
+      return {
+        rulerLeft: rect.left,
+        rulerWidth: rect.width,
+        viewportLeft: viewport.left,
+        viewportWidth: viewport.width,
+        scrollLeft: ruler.closest<HTMLElement>(".timeline-scroll")!.scrollLeft,
+        pointOffset: x - rect.left,
+      };
+    }, x);
+  const buttonGeometryBefore = await anchorGeometry(buttonAnchorX);
   const beforeButtonZoom = await frameAtAnchor(buttonAnchorX);
   await page.getByRole("button", { name: "Zoom Timeline in" }).click();
   await expect(zoom).toHaveValue("1.25");
+  await waitForLayout();
   const afterButtonZoom = await frameAtAnchor(buttonAnchorX);
+  const buttonGeometryAfter = await anchorGeometry(buttonAnchorX);
   expect(
     Math.abs(afterButtonZoom - beforeButtonZoom),
-    `button zoom anchor ${beforeButtonZoom} -> ${afterButtonZoom}`,
+    `button zoom anchor ${beforeButtonZoom} -> ${afterButtonZoom}; ${JSON.stringify({ buttonGeometryBefore, buttonGeometryAfter })}`,
   ).toBeLessThan(1);
   await expect
     .poll(() =>
@@ -136,12 +186,113 @@ async function verifyTimelineZoom(page: Page) {
     );
   }, wheelAnchorX);
   await expect(zoom).toHaveValue("1.5");
+  await waitForLayout();
   const afterWheelZoom = await frameAtAnchor(wheelAnchorX);
   expect(
     Math.abs(afterWheelZoom - beforeWheelZoom),
     `wheel zoom anchor ${beforeWheelZoom} -> ${afterWheelZoom}`,
   ).toBeLessThan(1);
   await zoom.selectOption("1");
+}
+
+async function verifyTimelinePlayheadLeftBoundary(page: Page) {
+  const zoom = page.getByLabel("Timeline zoom", { exact: true });
+  const scroll = page.locator(".timeline-scroll");
+  const ruler = page.locator(".time-ruler");
+  const originalZoom = await zoom.inputValue();
+  const originalFrame = Number(await ruler.getAttribute("aria-valuenow"));
+  const originalScrollLeft = await scroll.evaluate(
+    (element) => element.scrollLeft,
+  );
+  await zoom.selectOption("4");
+  await expect
+    .poll(() =>
+      scroll.evaluate((element) => element.scrollWidth > element.clientWidth),
+    )
+    .toBe(true);
+
+  const geometry = await scroll.evaluate((element) => {
+    const label = element.querySelector<HTMLElement>(
+      ".ruler-row .track-label",
+    )!;
+    return {
+      left: element.getBoundingClientRect().left + element.clientLeft,
+      labelWidth: label.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    };
+  });
+  expect(geometry.scrollWidth).toBeGreaterThan(geometry.clientWidth + 100);
+  await scroll.evaluate((element) => {
+    element.scrollLeft = Math.min(
+      600,
+      element.scrollWidth - element.clientWidth,
+    );
+  });
+  const before = await scroll.evaluate((element) => element.scrollLeft);
+  const startX = geometry.left + geometry.labelWidth + 80;
+  const rulerBox = await ruler.boundingBox();
+  if (!rulerBox) throw new Error("Timeline ruler is not visible");
+  const startY = rulerBox.y + rulerBox.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  const rulerEdgeX = geometry.left + geometry.labelWidth + 1;
+  await page.mouse.move(rulerEdgeX, startY);
+  const frameAtRulerEdge = await ruler.evaluate((element, x) => {
+    const rect = element.getBoundingClientRect();
+    const duration = Number(element.getAttribute("data-range-frames"));
+    const maxFrame = Number(element.getAttribute("aria-valuemax"));
+    return Math.min(
+      maxFrame,
+      Math.round(((x - rect.left) / rect.width) * duration),
+    );
+  }, rulerEdgeX);
+  await expect
+    .poll(() => ruler.getAttribute("aria-valuenow"))
+    .toBe(String(frameAtRulerEdge));
+  await page.mouse.move(geometry.left + geometry.labelWidth / 2, startY, {
+    steps: 1,
+  });
+  await page.mouse.up();
+  const after = await scroll.evaluate((element) => element.scrollLeft);
+  const frameAfterLeftDrag = Number(await ruler.getAttribute("aria-valuenow"));
+  expect(
+    after,
+    "dragging over the track controls should scroll left",
+  ).toBeLessThan(before);
+  expect(
+    frameAfterLeftDrag,
+    "the playhead should not enter the track controls",
+  ).toBe(frameAtRulerEdge);
+
+  await scroll.evaluate((element) => {
+    element.scrollLeft = 0;
+  });
+  const visibleRulerBox = await ruler.boundingBox();
+  if (!visibleRulerBox)
+    throw new Error("Timeline ruler is not visible at scroll origin");
+  await page.mouse.move(visibleRulerBox.x + 150, startY);
+  await page.mouse.down();
+  await page.mouse.move(geometry.left + geometry.labelWidth / 2, startY, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  await expect(ruler).toHaveAttribute("aria-valuenow", "0");
+  await zoom.selectOption(originalZoom);
+  await scroll.evaluate((element, value) => {
+    element.scrollLeft = value;
+  }, originalScrollLeft);
+  const restoreBox = await ruler.boundingBox();
+  if (!restoreBox)
+    throw new Error("Timeline ruler is not visible after restoring zoom");
+  const restoreRangeFrames = Number(
+    await ruler.getAttribute("data-range-frames"),
+  );
+  const restoreX =
+    restoreBox.x +
+    (originalFrame / Math.max(1, restoreRangeFrames)) * restoreBox.width;
+  await page.mouse.click(restoreX, restoreBox.y + restoreBox.height / 2);
+  await expect(ruler).toHaveAttribute("aria-valuenow", String(originalFrame));
 }
 
 const built = process.argv.includes("--built");
@@ -1016,8 +1167,7 @@ try {
     await expect(page.locator(".timeline-clip.audio-clip")).toHaveCount(0);
     const deletedAudioRequest = page.waitForRequest(
       (request) =>
-        request.url().endsWith(`/api/edit/${id}`) &&
-        request.method() === "PUT",
+        request.url().endsWith(`/api/edit/${id}`) && request.method() === "PUT",
     );
     await page
       .getByRole("button", { name: "Save project", exact: true })
@@ -1135,9 +1285,7 @@ try {
       2,
     );
 
-    await page
-      .getByRole("button", { name: "Add Audio", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Add Audio", exact: true }).click();
     await Promise.race([
       secondPickerStarted,
       new Promise<never>((_, reject) =>
@@ -1258,6 +1406,7 @@ try {
       .getByLabel("Playback ends", { exact: true })
       .selectOption("content");
     await expect(page.locator(".timeline-review summary")).toBeVisible();
+    await verifyTimelinePlayheadLeftBoundary(page);
     await verifyTimelineZoom(page);
     await page.getByRole("button", { name: "Add subtitle" }).click();
     await expect(
@@ -1960,14 +2109,17 @@ try {
       "Timeline playhead time (seconds)",
       90,
     );
-    await detachedPage!
-      .getByRole("button", { name: "Add visual track", exact: true })
-      .evaluate((button) => {
-        (button as HTMLButtonElement).click();
-        (button as HTMLButtonElement).click();
-      });
+    for (let index = 0; index < 2; index++) {
+      await detachedPage!
+        .locator(".timeline-actions")
+        .getByRole("button", { name: "Add visual track", exact: true })
+        .click();
+      await expect(
+        detachedPage!.locator(".detached-timeline-window"),
+      ).not.toHaveAttribute("data-command-busy", "true");
+    }
     await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
-      "5 tracks",
+      "6 tracks",
     );
     const verticalMove = await detachedPage!
       .locator(`.timeline-clip[data-clip-id="${detachedClipId}"]`)
@@ -2077,12 +2229,18 @@ try {
       })
       .click();
     await expect(page.getByLabel("Text", { exact: true })).toBeEnabled();
-    await detachedPage!
-      .getByRole("button", { name: "Add visual track", exact: true })
-      .evaluate((button) => {
-        for (let index = 0; index < 10; index++)
-          (button as HTMLButtonElement).click();
-      });
+    for (let index = 0; index < 10; index++) {
+      await detachedPage!
+        .locator(".timeline-actions")
+        .getByRole("button", { name: "Add visual track", exact: true })
+        .click();
+      await expect(
+        detachedPage!.locator(".detached-timeline-window"),
+      ).not.toHaveAttribute("data-command-busy", "true");
+    }
+    await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+      "16 tracks",
+    );
     const detachedTimelineScroll = detachedPage!.locator(".timeline-scroll");
     await detachedTimelineScroll.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
@@ -2101,14 +2259,22 @@ try {
       stickyRuler.scrollTop - 1,
     );
     expect(stickyRuler.rowTop).toBeLessThan(stickyRuler.scrollBottom);
-    for (let index = 0; index < 10; index++)
+    for (let index = 0; index < 10; index++) {
       await detachedPage!
         .getByRole("button", { name: "Undo", exact: true })
         .click();
+      await expect(
+        detachedPage!.locator(".detached-timeline-window"),
+      ).not.toHaveAttribute("data-command-busy", "true");
+      await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
+        `${15 - index} tracks`,
+      );
+    }
     await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
-      "5 tracks",
+      "6 tracks",
     );
     await detachedPage!
+      .locator(".timeline-actions")
       .getByRole("button", { name: "Add visual track", exact: true })
       .focus();
     await detachedPage!.keyboard.press("Space");
@@ -2120,7 +2286,7 @@ try {
       detachedPage!.getByRole("button", { name: /Play/ }),
     ).toBeVisible();
     await expect(detachedPage!.locator(".timeline-actions h3")).toContainText(
-      "5 tracks",
+      "6 tracks",
     );
     await detachedPage!
       .getByRole("button", { name: "Add subtitle", exact: true })
@@ -2338,6 +2504,7 @@ try {
       "Captions",
       "Visuals",
       "Audio",
+      "Audio 2",
     ]);
     expect(
       saved.clips.find(
@@ -3665,6 +3832,15 @@ try {
     const videoClipId = await videoClip.getAttribute("data-clip-id");
     expect(videoClipId).toBeTruthy();
     await videoClip.click();
+    const narrowVideoClip = await inspectNarrowTimelineClip(videoClip);
+    expect(narrowVideoClip.clipWidth).toBe(22);
+    expect(narrowVideoClip.contentWidth).toBeGreaterThan(0);
+    expect(narrowVideoClip.contentPadding).toBeLessThanOrEqual(2);
+    expect(narrowVideoClip.handleFill).toBe("rgba(0, 0, 0, 0)");
+    expect(narrowVideoClip.handleInteriorWidth).toBeLessThan(
+      narrowVideoClip.clipWidth,
+    );
+    expect(narrowVideoClip.label).not.toBe("");
     const videoPreview = page
       .frameLocator('[data-panel-id="editor"] iframe')
       .locator(`video[data-video-asset-id="${videoAssetId}"]`);
@@ -3732,6 +3908,7 @@ try {
     // Moving a video to another visible visual track must preserve the clip's
     // renderer source, and the drop target must be visible before release.
     await page
+      .locator(".timeline-actions")
       .getByRole("button", { name: "Add visual track", exact: true })
       .click();
     const videoMoveTarget = await videoClip.evaluate((clip) => {
@@ -3784,6 +3961,31 @@ try {
     );
     await page.getByRole("button", { name: "Pause", exact: true }).click();
 
+    // A Chromium decoder failure during playback is recoverable runtime state;
+    // it must not replace the mounted preview with the project-load error page.
+    await page
+      .frameLocator('[data-panel-id="editor"] iframe')
+      .locator("body")
+      .evaluate(() =>
+        window.dispatchEvent(
+          new PromiseRejectionEvent("unhandledrejection", {
+            promise: Promise.resolve(),
+            reason: new Error(
+              "MediaPlaybackError: The browser threw an error while playing the video; Code 2 PIPELINE_ERROR_READ: FFmpegDemuxer seek failed.",
+            ),
+          }),
+        ),
+      );
+    await expect(
+      page.frameLocator('[data-panel-id="editor"] iframe').getByRole("alert"),
+    ).toContainText("Video playback stopped while seeking or decoding.");
+    await expect(videoPreview).toBeVisible();
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 202);
+    await expect(
+      page.frameLocator('[data-panel-id="editor"] iframe').getByRole("alert"),
+    ).toHaveCount(0);
+    await expect(videoPreview).toBeVisible();
+
     await page
       .getByLabel("Transcription source", { exact: true })
       .selectOption(`video:${videoClipId}`);
@@ -3799,6 +4001,17 @@ try {
       .locator(".timeline-clip.subtitle-clip")
       .first();
     await expect(generatedVideoSubtitle).toContainText("Video audio caption");
+    await generatedVideoSubtitle.click();
+    const narrowSubtitleClip = await inspectNarrowTimelineClip(
+      generatedVideoSubtitle,
+    );
+    expect(narrowSubtitleClip.contentWidth).toBeGreaterThan(0);
+    expect(narrowSubtitleClip.contentPadding).toBeLessThanOrEqual(2);
+    expect(narrowSubtitleClip.handleFill).toBe("rgba(0, 0, 0, 0)");
+    expect(narrowSubtitleClip.handleInteriorWidth).toBeLessThan(
+      narrowSubtitleClip.clipWidth,
+    );
+    expect(narrowSubtitleClip.label).toContain("Video audio caption");
     expect(await readClipFrameRange(generatedVideoSubtitle)).toEqual([
       201, 216,
     ]);

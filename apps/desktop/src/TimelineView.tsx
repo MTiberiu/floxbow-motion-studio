@@ -70,7 +70,7 @@ type TrackDropPreview = {
 };
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
-type ZoomAnchor = { fraction: number; width: number; scrollLeft: number };
+type ZoomAnchor = { fraction: number; clientX: number };
 
 export function timelineCanvasWidthForZoom(
   viewportWidth: number,
@@ -219,10 +219,7 @@ export function TimelineView({
       ),
     ),
   );
-  const zoomBaseWidth = Math.max(
-    viewportWidth,
-    scroll.current?.clientWidth ?? 0,
-  );
+  const zoomBaseWidth = scroll.current?.clientWidth || viewportWidth;
   const canvasWidth = timelineCanvasWidthForZoom(zoomBaseWidth, zoom);
   const hasDocument = Boolean(document);
   const rulerMarks = createTimelineRulerMarks(
@@ -292,8 +289,7 @@ export function TimelineView({
       );
       zoomAnchor.current = {
         fraction: rect.width ? (anchorX - rect.left) / rect.width : 0,
-        width: rect.width,
-        scrollLeft: scrollElement.scrollLeft,
+        clientX: anchorX,
       };
     }
     zoomRef.current = nextZoom;
@@ -305,10 +301,36 @@ export function TimelineView({
     const scrollElement = scroll.current;
     const rulerElement = ruler.current;
     if (!anchor || !scrollElement || !rulerElement) return;
-    const width = rulerElement.getBoundingClientRect().width;
-    scrollElement.scrollLeft =
-      anchor.scrollLeft + anchor.fraction * (width - anchor.width);
-    zoomAnchor.current = undefined;
+    const preserveAnchor = () => {
+      const rect = rulerElement.getBoundingClientRect();
+      const anchorClientX = rect.left + anchor.fraction * rect.width;
+      scrollElement.scrollLeft += anchorClientX - anchor.clientX;
+    };
+    preserveAnchor();
+    let lastWidth = rulerElement.getBoundingClientRect().width;
+    let stableFrames = 0;
+    let frame = 0;
+    const resizeObserver = new ResizeObserver(() => {
+      stableFrames = 0;
+      preserveAnchor();
+    });
+    resizeObserver.observe(rulerElement);
+    const clearWhenLayoutSettles = () => {
+      const width = rulerElement.getBoundingClientRect().width;
+      stableFrames = Math.abs(width - lastWidth) < 0.5 ? stableFrames + 1 : 0;
+      lastWidth = width;
+      if (stableFrames >= 2) {
+        resizeObserver.disconnect();
+        if (zoomAnchor.current === anchor) zoomAnchor.current = undefined;
+        return;
+      }
+      frame = window.requestAnimationFrame(clearWhenLayoutSettles);
+    };
+    frame = window.requestAnimationFrame(clearWhenLayoutSettles);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
+    };
   }, [zoom, viewportWidth]);
 
   useEffect(() => {
@@ -571,11 +593,12 @@ export function TimelineView({
       );
       const row =
         hit?.closest<HTMLElement>(".track-row") ??
-        Array.from(scroll.current.querySelectorAll<HTMLElement>(".track-row"))
-          .find((candidate) => {
-            const bounds = candidate.getBoundingClientRect();
-            return current.lastY >= bounds.top && current.lastY <= bounds.bottom;
-          });
+        Array.from(
+          scroll.current.querySelectorAll<HTMLElement>(".track-row"),
+        ).find((candidate) => {
+          const bounds = candidate.getBoundingClientRect();
+          return current.lastY >= bounds.top && current.lastY <= bounds.bottom;
+        });
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
         row?.querySelector<HTMLElement>(".track-lane");
@@ -615,11 +638,12 @@ export function TimelineView({
       );
       const row =
         hit?.closest<HTMLElement>(".track-row") ??
-        Array.from(scroll.current.querySelectorAll<HTMLElement>(".track-row"))
-          .find((candidate) => {
-            const bounds = candidate.getBoundingClientRect();
-            return current.lastY >= bounds.top && current.lastY <= bounds.bottom;
-          });
+        Array.from(
+          scroll.current.querySelectorAll<HTMLElement>(".track-row"),
+        ).find((candidate) => {
+          const bounds = candidate.getBoundingClientRect();
+          return current.lastY >= bounds.top && current.lastY <= bounds.bottom;
+        });
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
         row?.querySelector<HTMLElement>(".track-lane");
@@ -697,10 +721,39 @@ export function TimelineView({
   }
 
   function scrub(event: PointerEvent<HTMLDivElement>) {
-    if (!ruler.current) return;
-    const rect = ruler.current.getBoundingClientRect();
+    const rulerElement = ruler.current;
+    const scrollElement = scroll.current;
+    if (!rulerElement || !scrollElement) return;
+    const viewport = scrollElement.getBoundingClientRect();
+    const stickyTrackWidth =
+      rulerElement
+        .closest(".ruler-row")
+        ?.querySelector<HTMLElement>(".track-label")
+        ?.getBoundingClientRect().width ?? 120;
+    const contentLeft =
+      viewport.left + scrollElement.clientLeft + stickyTrackWidth;
+    if (event.clientX < contentLeft) {
+      if (scrollElement.scrollLeft > 0) {
+        const nextScrollLeft = Math.max(
+          0,
+          scrollElement.scrollLeft -
+            Math.max(1, (contentLeft - event.clientX) * 0.6),
+        );
+        scrollElement.scrollLeft = nextScrollLeft;
+        if (nextScrollLeft === 0) onSeek(0);
+      } else onSeek(0);
+      return;
+    }
+    const rect = rulerElement.getBoundingClientRect();
+    const fraction = Math.max(
+      0,
+      Math.min(1, (event.clientX - rect.left) / rect.width),
+    );
     onSeek(
-      ((event.clientX - rect.left) / rect.width) * displayDurationInFrames,
+      Math.min(
+        manifest.durationInFrames - 1,
+        Math.round(fraction * displayDurationInFrames),
+      ),
     );
   }
 
@@ -1237,16 +1290,18 @@ export function TimelineView({
                               }
                             />
                           )}
-                        <span className="clip-title">
-                          {String(clip.content.text ?? clip.label)}
+                        <span className="clip-body">
+                          <span className="clip-title">
+                            {String(clip.content.text ?? clip.label)}
+                          </span>
+                          <small>
+                            {formatFrameTime(clip.from, document.fps)}–
+                            {formatFrameTime(
+                              clip.from + clip.durationInFrames,
+                              document.fps,
+                            )}
+                          </small>
                         </span>
-                        <small>
-                          {formatFrameTime(clip.from, document.fps)}–
-                          {formatFrameTime(
-                            clip.from + clip.durationInFrames,
-                            document.fps,
-                          )}
-                        </small>
                         {!soundtrackClip &&
                           !trackLocked &&
                           selectedClipId === clip.id && (

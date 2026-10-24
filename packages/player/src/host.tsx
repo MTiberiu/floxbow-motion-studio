@@ -89,6 +89,14 @@ function PreviewHost({
         send("error", { message });
       }
     };
+    const runtimeMediaError = (event: Event) => {
+      const message = (event as CustomEvent<{ message?: unknown }>).detail
+        ?.message;
+      if (typeof message !== "string") return;
+      const detail = `Video playback stopped while seeking or decoding. Try seeking to another position and press Play, or reload the preview.\n\n${message}`;
+      setError(detail);
+      send("error", { message: detail });
+    };
     const ready = () => {
       const components = componentInfosSchema.parse(
         [
@@ -205,6 +213,7 @@ function PreviewHost({
           }
           case "seek":
             if (Number.isInteger(e.data.frame)) {
+              setError("");
               const duration =
                 timelineRef.current?.durationInFrames ??
                 manifest.durationInFrames;
@@ -229,6 +238,7 @@ function PreviewHost({
             }
             break;
           case "play":
+            setError("");
             clearPlaybackCheck();
             onPlay();
             player.current?.play();
@@ -267,6 +277,7 @@ function PreviewHost({
     };
     const refreshMetadata = () => ready();
     window.addEventListener("message", receive);
+    window.addEventListener("motion-preview-media-error", runtimeMediaError);
     window.addEventListener("project-module-updated", refreshMetadata);
     document.addEventListener("error", mediaError, true);
     const p = player.current;
@@ -279,6 +290,10 @@ function PreviewHost({
     return () => {
       clearPlaybackCheck();
       window.removeEventListener("message", receive);
+      window.removeEventListener(
+        "motion-preview-media-error",
+        runtimeMediaError,
+      );
       window.removeEventListener("project-module-updated", refreshMetadata);
       document.removeEventListener("error", mediaError, true);
       p?.removeEventListener("frameupdate", onFrame);
