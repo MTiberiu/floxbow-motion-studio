@@ -25,16 +25,20 @@ async function run(command: string, args: string[]) {
 
 /** Show a host-native picker. The browser cannot provide or choose the stored path. */
 export async function pickMediaFile(
-  type: "audio" | "image",
+  type: "audio" | "image" | "video",
 ): Promise<string | undefined> {
   const title =
     type === "audio"
       ? "Select audio for FloxBow Motion Studio"
-      : "Select PNG image for FloxBow Motion Studio";
+      : type === "image"
+        ? "Select PNG image for FloxBow Motion Studio"
+        : "Select MP4 video for FloxBow Motion Studio";
   const filter =
     type === "audio"
       ? "Audio files (*.mp3;*.wav)|*.mp3;*.wav"
-      : "PNG images (*.png)|*.png";
+      : type === "image"
+        ? "PNG images (*.png)|*.png"
+        : "MP4 video (*.mp4)|*.mp4";
   if (process.platform === "win32") {
     const script = [
       "Add-Type -AssemblyName System.Windows.Forms",
@@ -57,7 +61,12 @@ export async function pickMediaFile(
   }
 
   if (process.platform === "darwin") {
-    const fileTypes = type === "audio" ? '{"mp3", "wav"}' : '{"png"}';
+    const fileTypes =
+      type === "audio"
+        ? '{"mp3", "wav"}'
+        : type === "image"
+          ? '{"png"}'
+          : '{"mp4"}';
     const script = `POSIX path of (choose file with prompt "${title}" of type ${fileTypes})`;
     const selected = await run("osascript", ["-e", script]);
     return selected || undefined;
@@ -69,7 +78,9 @@ export async function pickMediaFile(
       `--title=${title}`,
       type === "audio"
         ? "--file-filter=Audio files | *.mp3 *.wav"
-        : "--file-filter=PNG images | *.png",
+        : type === "image"
+          ? "--file-filter=PNG images | *.png"
+          : "--file-filter=MP4 video | *.mp4",
     ]);
     return selected || undefined;
   }

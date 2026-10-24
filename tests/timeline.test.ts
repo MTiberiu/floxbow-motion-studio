@@ -28,7 +28,10 @@ import {
 } from "@motion/lyrics-sync/subtitles";
 import { manifestSchema } from "@motion/project-loader/schema";
 import { readEditor, saveEditor } from "../scripts/editor-store";
-import { resolveTimelineBehavior } from "../apps/desktop/src/timeline-behaviors";
+import {
+  resolveTimelineBehavior,
+  videoTimelineBehavior,
+} from "../apps/desktop/src/timeline-behaviors";
 import { subtitleModule, Subtitles } from "@motion/lyrics-sync/component";
 
 test("human-readable Timeline time converts through FPS without changing frame precision", () => {
@@ -117,6 +120,61 @@ test("timeline moves on frame boundaries and trimming keeps spoken word position
   );
   assert.throws(() =>
     parseEditTimeline({ ...t, clips: [t.clips[0], t.clips[0]] }),
+  );
+});
+
+test("video left trims advance source time while right trims preserve it and reject overflow", () => {
+  const video = {
+    id: "video-one",
+    trackId: "visuals",
+    componentId: "video",
+    label: "Intro",
+    from: 60,
+    durationInFrames: 90,
+    content: {
+      assetId: "video-intro",
+      sourceStartSeconds: 0,
+      sourceDurationSeconds: 10,
+    },
+    props: {},
+  };
+  const timeline = parseEditTimeline({
+    version: 1,
+    fps: 30,
+    durationInFrames: 360,
+    tracks: [{ id: "visuals", name: "Visuals" }],
+    clips: [video],
+  });
+  const leftTrim = changeClipRange(
+    timeline,
+    video.id,
+    75,
+    150,
+    true,
+    videoTimelineBehavior,
+  ).clips[0];
+  assert.equal(leftTrim.from, 75);
+  assert.equal(leftTrim.durationInFrames, 75);
+  assert.equal(leftTrim.content.sourceStartSeconds, 0.5);
+  const rightTrim = changeClipRange(
+    timeline,
+    video.id,
+    60,
+    120,
+    true,
+    videoTimelineBehavior,
+  ).clips[0];
+  assert.equal(rightTrim.content.sourceStartSeconds, 0);
+  assert.equal(rightTrim.durationInFrames, 60);
+  assert.throws(
+    () =>
+      videoTimelineBehavior.resizeContent!(
+        { ...video.content, sourceDurationSeconds: 4 },
+        { from: 60, durationInFrames: 90 },
+        { from: 150, durationInFrames: 60 },
+        30,
+      ),
+    /registered MP4 source duration/,
   );
 });
 

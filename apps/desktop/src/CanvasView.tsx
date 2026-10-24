@@ -8,7 +8,8 @@ import {
   secondsToFrame,
 } from "@motion/sdk/timeline";
 import { CanvasInteractionLayer } from "./CanvasInteractionLayer";
-import type { CanvasTransform } from "@motion/sdk/canvas";
+import type { CanvasTransform, CanvasVisualElement } from "@motion/sdk/canvas";
+import type { MediaAssetDragData } from "./media-drag";
 
 export type CanvasViewProps = {
   manifest: ProjectManifest;
@@ -24,14 +25,23 @@ export type CanvasViewProps = {
   onSeek: (frame: number) => void;
   onPlay: () => void;
   onPause: () => void;
+  masterVolume: number;
+  onMasterVolumeChange: (volume: number) => void;
   timeline?: EditTimeline;
   components: readonly ComponentInfo[];
   selectedClipIds: readonly string[];
   onSelectClips: (ids: readonly string[]) => void;
   onCanvasGestureStart: () => void;
   onCanvasTransform: (changes: ReadonlyMap<string, CanvasTransform>) => void;
+  onCanvasDuplicate: (
+    clipIds: readonly string[],
+  ) => ReadonlyMap<string, CanvasVisualElement>;
   onCanvasGestureEnd: () => void;
   onCanvasGestureCancel: () => void;
+  onDropMedia?: (
+    data: MediaAssetDragData,
+    position: { x: number; y: number },
+  ) => void;
 };
 
 export function CanvasView({
@@ -48,24 +58,26 @@ export function CanvasView({
   onSeek,
   onPlay,
   onPause,
+  masterVolume,
+  onMasterVolumeChange,
   timeline,
   components,
   selectedClipIds,
   onSelectClips,
   onCanvasGestureStart,
   onCanvasTransform,
+  onCanvasDuplicate,
   onCanvasGestureEnd,
   onCanvasGestureCancel,
+  onDropMedia,
 }: CanvasViewProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const panDrag = useRef<
     { x: number; y: number; panX: number; panY: number } | undefined
   >(undefined);
-  const spaceHeldRef = useRef(false);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState<number | null>(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [spaceHeld, setSpaceHeld] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
@@ -88,35 +100,6 @@ export function CanvasView({
     window.addEventListener("keydown", exit);
     return () => window.removeEventListener("keydown", exit);
   }, [fullscreen]);
-
-  useEffect(() => {
-    const down = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        event.code === "Space" &&
-        target &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) &&
-        !target.isContentEditable
-      ) {
-        event.preventDefault();
-        spaceHeldRef.current = true;
-        setSpaceHeld(true);
-      }
-    };
-    const up = (event: KeyboardEvent) => {
-      if (event.code === "Space") {
-        spaceHeldRef.current = false;
-        setSpaceHeld(false);
-        panDrag.current = undefined;
-      }
-    };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-    };
-  }, []);
 
   const fitScale = Math.min(
     (viewportSize.width - 32) / manifest.width,
@@ -162,7 +145,7 @@ export function CanvasView({
   }
 
   function onPanStart(event: PointerEvent<HTMLDivElement>) {
-    if (event.button === 1 || (spaceHeldRef.current && event.button === 0)) {
+    if (event.button === 1) {
       event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
       panDrag.current = {
@@ -208,6 +191,21 @@ export function CanvasView({
           Reset view
         </button>
         <span>{Math.round(currentScale * 100)}%</span>
+        <label className="preview-volume-control">
+          Preview volume
+          <input
+            aria-label="Application preview volume"
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={masterVolume}
+            onChange={(event) =>
+              onMasterVolumeChange(Number(event.target.value))
+            }
+          />
+          <output>{Math.round(masterVolume * 100)}%</output>
+        </label>
         <button
           onClick={() => setFullscreen(true)}
           title="Fullscreen video preview"
@@ -231,12 +229,15 @@ export function CanvasView({
         <div
           className="canvas-surface"
           ref={surfaceRef}
-          style={{
-            width: manifest.width,
-            height: manifest.height,
-            translate: `${pan.x}px ${pan.y}px`,
-            transform: `translate(-50%,-50%) scale(${currentScale})`,
-          }}
+          style={
+            {
+              width: manifest.width,
+              height: manifest.height,
+              translate: `${pan.x}px ${pan.y}px`,
+              transform: `translate(-50%,-50%) scale(${currentScale})`,
+              "--canvas-inverse-scale": 1 / currentScale,
+            } as React.CSSProperties
+          }
           onPointerDown={onPanStart}
           onPointerMove={onPanMove}
           onPointerUp={onPanEnd}
@@ -257,6 +258,7 @@ export function CanvasView({
             }
           />
           <CanvasInteractionLayer
+            projectId={manifest.id}
             timeline={timeline}
             components={components}
             frame={frame}
@@ -264,9 +266,10 @@ export function CanvasView({
             onSelect={onSelectClips}
             onGestureStart={onCanvasGestureStart}
             onTransform={onCanvasTransform}
+            onDuplicate={onCanvasDuplicate}
             onGestureEnd={onCanvasGestureEnd}
             onGestureCancel={onCanvasGestureCancel}
-            spaceHeld={spaceHeld}
+            onDropMedia={onDropMedia}
           />
         </div>
         <div

@@ -1,6 +1,6 @@
 # Standalone Image clip
 
-Image assets are registered once in the project's `media.json`; Timeline clips reference the stable asset ID and have independent clip IDs and timing. Use **Media → Add PNG**, then **Add to Timeline** on the linked asset. The original image stays at its source path. The Image clip is part of Timeline v1 and uses the shared [Core Canvas interaction contract](CANVAS_CORE.md).
+Image assets are registered once in the project's `media.json`; Timeline clips reference the stable asset ID and have independent clip IDs and timing. Use **Media Library → Add PNG**, then **Add** on the linked asset to place it at the playhead. You can also drag a registered image onto Canvas to place it there, or onto a visual Timeline track to set its start time. The original image stays at its source path. The Image clip is part of Timeline v1 and uses the shared [Core Canvas interaction contract](CANVAS_CORE.md).
 
 ## Canonical JSON
 
@@ -36,7 +36,7 @@ The media asset ID identifies the source file. The clip ID identifies one Timeli
 
 Image uses the same Canvas selection, move, resize, rotate, modifier/marquee multi-selection, Timeline selection, Inspector, undo/redo, and save behavior as other components that opt into the visual contract. Edits write to the Image clip's canonical `props`. The live preview and MP4 renderer consume those same values through `TimelineComposition`.
 
-The project scaffold automatically includes the core Image renderer. It receives only registered media IDs mapped to safe same-origin stream URLs in preview, or short-lived host streaming URLs during rendering. Host filesystem paths stay in trusted Node code. Missing or invalid PNG sources produce visible media errors and block rendering with a clear message.
+The project scaffold automatically includes the core Image renderer. The editor and MP4 renderer supply registered media through a scoped React context, so existing project compositions that do not forward `imageSources` still display Image clips. Explicit `imageSources` props continue to work. The renderer receives safe same-origin stream URLs in preview or short-lived host streaming URLs during rendering. Host filesystem paths stay in trusted Node code. Missing or invalid PNG sources produce visible media errors and block rendering with a clear message.
 
 ## External-agent edit example
 
@@ -55,3 +55,5 @@ editTimelineSchema.parse(timeline);
 ```
 
 The host separately validates the asset reference against `media.json`. Do not invent a host path, change media registrations, or modify shared application code as part of an ordinary video edit. Image crop editing, masks, image sequences, animated image properties, and source packaging are not implemented.
+
+New Canvas placements retain the source aspect ratio in optional `content.aspectRatio` metadata when the Media Library thumbnail has loaded. This gives the selection frame the visible geometry for older `contain` clips too; the thumbnail URL exposes no host filesystem path. New placements fit their initial box to the image and use `fill`, so the selection frame and visible pixels agree. Choose `Image fit: contain` to preserve proportions inside a differently shaped box or `fill` for intentional distortion. Image dimensions may exceed 100% of the composition, up to 500%, so the user can enlarge an image past the Canvas edge. Images using `fill` resize freely by default; hold Shift while dragging any resize handle to preserve proportions while keeping the opposite edge or corner anchored. `contain` preserves source proportions in the rendered pixels; because it keeps pixels inside its box, a free nonuniform box resize can leave whitespace or constrain visible growth. Ctrl/Cmd-drag on Canvas duplicates and moves the selected image clip; Alt-drag remains an alternate gesture. Shift-drag on Canvas locks movement to the dominant horizontal or vertical direction.

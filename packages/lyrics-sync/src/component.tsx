@@ -191,15 +191,15 @@ function SubtitleText({
     string,
     { translate: string; origin: string }
   > = {
-    "top-left": { translate: "0 0", origin: "top left" },
-    "top-center": { translate: "-50% 0", origin: "top center" },
-    "top-right": { translate: "-100% 0", origin: "top right" },
-    "middle-left": { translate: "0 -50%", origin: "center left" },
-    center: { translate: "-50% -50%", origin: "center" },
-    "middle-right": { translate: "-100% -50%", origin: "center right" },
-    "bottom-left": { translate: "0 -100%", origin: "bottom left" },
-    "bottom-center": { translate: "-50% -100%", origin: "bottom center" },
-    "bottom-right": { translate: "-100% -100%", origin: "bottom right" },
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
   };
   const anchor = anchorTransforms[String(p.anchor)] ?? anchorTransforms.center;
   return (
@@ -269,7 +269,8 @@ export const subtitleModule: EditableComponent = {
       anchor: "anchor",
     },
     operations: { move: true, resize: true, rotate: true },
-    resizeMode: "free",
+    resizeMode: "preserve-aspect",
+    resizeScaleFields: ["fontSize"],
     visibilityField: "presentation",
     visibleValues: ["caption", "both"],
   },

@@ -38,13 +38,12 @@ import savedTimeline from "./edit-timeline.json";
 
 export const editorComponents = [subtitleModule, standaloneImageModule];
 
-export default function Video({ timeline, audioSources, imageSources }: EditableVideoProps) {
+export default function Video({ timeline, audioSources }: EditableVideoProps) {
   return (
     <Canvas background="#000000" style={{ padding: 0 }}>
       <TimelineComposition
         timeline={timeline ?? parseEditTimeline(savedTimeline)}
         components={editorComponents}
-        imageSources={imageSources}
       />
     </Canvas>
   );
@@ -58,9 +57,10 @@ export default function Video({ timeline, audioSources, imageSources }: Editable
           version: 1,
           fps: 30,
           durationInFrames: 180,
+          trackOrder: "top-down",
           tracks: [
-            { id: "visuals", name: "Visuals" },
-            { id: "captions", name: "Captions" },
+            { id: "captions", name: "Captions", kind: "visual" },
+            { id: "visuals", name: "Visuals", kind: "visual" },
           ],
           clips: [],
         },
@@ -82,7 +82,7 @@ export default function Video({ timeline, audioSources, imageSources }: Editable
     );
     await writeFile(
       path.join(target, "README.md"),
-      `# ${manifest.name}\n\nA new, empty six-second motion project. The composition registers the reusable subtitle clip module and includes Visuals and Captions tracks. Add content from the editor or write project-owned React scenes.\n\nRead [Create a video](../../docs/CREATE_VIDEO.md), [the SDK guide](../../docs/MOTION_SDK.md), and [the editable timeline contract](../../docs/TIMELINE_EDITOR.md). Project-local media belongs in assets/.\n`,
+      `# ${manifest.name}\n\nA new, empty six-second motion project. The composition registers the reusable subtitle clip module and includes a top-down Visuals and Captions track stack. Add content from the editor or write project-owned React scenes.\n\nRead [Create a video](../../docs/CREATE_VIDEO.md), [the SDK guide](../../docs/MOTION_SDK.md), and [the editable timeline contract](../../docs/TIMELINE_EDITOR.md). Project-local media belongs in assets/.\n`,
     );
     return manifest;
   } catch (error) {

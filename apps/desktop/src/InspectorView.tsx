@@ -13,18 +13,24 @@ import {
 } from "@motion/sdk/timeline";
 import { subtitleWordTimingMatchesText } from "@motion/lyrics-sync/subtitles";
 import type { ChangeEvent } from "react";
+import { isAudioTimelineClip, isAudioTrack } from "./timeline-track-utils";
 
 export type InspectorViewProps = {
   manifest: ProjectManifest;
   document?: EditTimeline;
   clip?: TimelineClip;
   definition?: ComponentInfo;
-  onEdit: (next: EditTimeline) => void;
+  onEdit: (
+    next: EditTimeline | ((current: EditTimeline) => EditTimeline),
+  ) => void;
   onChangeProperty: (field: EditableField, value: unknown) => void;
   onChangeRange: (start: number, end: number) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onSeparateVideoAudio?: () => void;
   canChangeRange?: boolean;
+  canChangeTrack?: boolean;
+  canEditProperties?: boolean;
   canDuplicate?: boolean;
   canDelete?: boolean;
   selectedCount?: number;
@@ -40,11 +46,37 @@ export function InspectorView({
   onChangeRange,
   onDuplicate,
   onDelete,
+  onSeparateVideoAudio,
   canChangeRange = true,
+  canChangeTrack = canChangeRange,
+  canEditProperties = true,
   canDuplicate = true,
   canDelete = true,
   selectedCount = 1,
 }: InspectorViewProps) {
+  const characterScene =
+    clip?.sceneId && document?.scenes
+      ? document.scenes.find((scene) => scene.id === clip.sceneId)
+      : undefined;
+  const characterSceneStart =
+    clip && characterScene ? clip.from - characterScene.from : 0;
+  const characterMaxFrame = characterScene
+    ? characterScene.durationInFrames
+    : (clip?.durationInFrames ?? 0);
+  const characterGroup =
+    clip?.componentId === "character"
+      ? document?.assetGroups?.find(
+          (group) => group.id === clip.content.groupId,
+        )
+      : undefined;
+  const characterPoseEvents =
+    clip?.componentId === "character" && Array.isArray(clip.content.poseEvents)
+      ? (clip.content.poseEvents as Array<{
+          id: string;
+          atFrame: number;
+          memberId: string;
+        }>)
+      : [];
   return (
     <section
       className="properties"
@@ -71,28 +103,278 @@ export function InspectorView({
                 "metadata pending"}
             </small>
             <small>{clip.id}</small>
+            {clip.componentId === "character" && document && (
+              <section
+                className="character-inspector"
+                aria-label="Character poses"
+              >
+                <label>
+                  Character group
+                  <select
+                    aria-label="Character group"
+                    disabled={!canEditProperties}
+                    value={String(clip.content.groupId ?? "")}
+                    onChange={(event) => {
+                      const group = document.assetGroups?.find(
+                        (candidate) => candidate.id === event.target.value,
+                      );
+                      const firstPose = group?.members.find(
+                        (member) => member.role === "pose",
+                      );
+                      if (!group || !firstPose) return;
+                      onEdit((current) => ({
+                        ...current,
+                        clips: current.clips.map((candidate) =>
+                          candidate.id === clip.id
+                            ? {
+                                ...candidate,
+                                content: {
+                                  ...candidate.content,
+                                  groupId: group.id,
+                                  poseEvents: [
+                                    {
+                                      id: `pose-${crypto.randomUUID()}`,
+                                      atFrame: characterSceneStart,
+                                      memberId: firstPose.id,
+                                    },
+                                  ],
+                                },
+                              }
+                            : candidate,
+                        ),
+                      }));
+                    }}
+                  >
+                    {(document.assetGroups ?? [])
+                      .filter(
+                        (group) =>
+                          group.category === "characters" &&
+                          group.members.some(
+                            (member) => member.role === "pose",
+                          ),
+                      )
+                      .map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                {characterGroup && (
+                  <div className="character-pose-events">
+                    <strong>Pose changes</strong>
+                    {characterPoseEvents.map((poseEvent) => (
+                      <div className="character-pose-event" key={poseEvent.id}>
+                        <label>
+                          Scene time (seconds)
+                          <input
+                            aria-label={`Pose time ${poseEvent.id} (seconds)`}
+                            type="number"
+                            min={characterSceneStart / manifest.fps}
+                            max={(characterMaxFrame - 1) / manifest.fps}
+                            step={1 / manifest.fps}
+                            disabled={!canEditProperties}
+                            value={(poseEvent.atFrame / manifest.fps).toFixed(
+                              3,
+                            )}
+                            onChange={(event) => {
+                              const atFrame = Math.max(
+                                characterSceneStart,
+                                Math.min(
+                                  characterMaxFrame - 1,
+                                  secondsToFrame(
+                                    Number(event.target.value),
+                                    manifest.fps,
+                                  ),
+                                ),
+                              );
+                              onEdit((current) => ({
+                                ...current,
+                                clips: current.clips.map((candidate) => {
+                                  if (candidate.id !== clip.id)
+                                    return candidate;
+                                  const events = (
+                                    Array.isArray(candidate.content.poseEvents)
+                                      ? candidate.content.poseEvents
+                                      : []
+                                  ) as typeof characterPoseEvents;
+                                  return {
+                                    ...candidate,
+                                    content: {
+                                      ...candidate.content,
+                                      poseEvents: events
+                                        .map((item) =>
+                                          item.id === poseEvent.id
+                                            ? { ...item, atFrame }
+                                            : item,
+                                        )
+                                        .sort(
+                                          (left, right) =>
+                                            left.atFrame - right.atFrame,
+                                        ),
+                                    },
+                                  };
+                                }),
+                              }));
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Pose image
+                          <select
+                            aria-label={`Pose image ${poseEvent.id}`}
+                            disabled={!canEditProperties}
+                            value={poseEvent.memberId}
+                            onChange={(event) =>
+                              onEdit((current) => ({
+                                ...current,
+                                clips: current.clips.map((candidate) => {
+                                  if (candidate.id !== clip.id)
+                                    return candidate;
+                                  const events = (
+                                    Array.isArray(candidate.content.poseEvents)
+                                      ? candidate.content.poseEvents
+                                      : []
+                                  ) as typeof characterPoseEvents;
+                                  return {
+                                    ...candidate,
+                                    content: {
+                                      ...candidate.content,
+                                      poseEvents: events.map((item) =>
+                                        item.id === poseEvent.id
+                                          ? {
+                                              ...item,
+                                              memberId: event.target.value,
+                                            }
+                                          : item,
+                                      ),
+                                    },
+                                  };
+                                }),
+                              }))
+                            }
+                          >
+                            {characterGroup.members
+                              .filter((member) => member.role === "pose")
+                              .map((member) => (
+                                <option key={member.id} value={member.id}>
+                                  {member.label}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          aria-label={`Remove pose change ${poseEvent.id}`}
+                          disabled={
+                            !canEditProperties ||
+                            characterPoseEvents.length <= 1
+                          }
+                          onClick={() =>
+                            onEdit((current) => ({
+                              ...current,
+                              clips: current.clips.map((candidate) =>
+                                candidate.id === clip.id
+                                  ? {
+                                      ...candidate,
+                                      content: {
+                                        ...candidate.content,
+                                        poseEvents: characterPoseEvents.filter(
+                                          (item) => item.id !== poseEvent.id,
+                                        ),
+                                      },
+                                    }
+                                  : candidate,
+                              ),
+                            }))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={
+                        !canEditProperties ||
+                        characterPoseEvents.at(-1)?.atFrame ===
+                          characterMaxFrame - 1
+                      }
+                      onClick={() => {
+                        const nextFrame = Math.max(
+                          characterSceneStart,
+                          (characterPoseEvents.at(-1)?.atFrame ??
+                            characterSceneStart - 1) + 1,
+                        );
+                        const poseMember = characterGroup.members.find(
+                          (member) => member.role === "pose",
+                        );
+                        if (!poseMember || nextFrame >= characterMaxFrame)
+                          return;
+                        onEdit((current) => ({
+                          ...current,
+                          clips: current.clips.map((candidate) =>
+                            candidate.id === clip.id
+                              ? {
+                                  ...candidate,
+                                  content: {
+                                    ...candidate.content,
+                                    poseEvents: [
+                                      ...(Array.isArray(
+                                        candidate.content.poseEvents,
+                                      )
+                                        ? candidate.content.poseEvents
+                                        : []),
+                                      {
+                                        id: `pose-${crypto.randomUUID()}`,
+                                        atFrame: nextFrame,
+                                        memberId: poseMember.id,
+                                      },
+                                    ],
+                                  },
+                                }
+                              : candidate,
+                          ),
+                        }));
+                      }}
+                    >
+                      Add pose change
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
             <label>
-              Track
+              {isAudioTimelineClip(clip) ? "Audio track" : "Track"}
               <select
-                aria-label="Clip track"
-                disabled={!canChangeRange}
+                aria-label={
+                  isAudioTimelineClip(clip) ? "Audio track" : "Clip track"
+                }
+                disabled={!canChangeTrack}
                 value={clip.trackId}
                 onChange={(event) =>
-                  onEdit({
-                    ...document,
-                    clips: document.clips.map((candidate) =>
+                  onEdit((current) => ({
+                    ...current,
+                    clips: current.clips.map((candidate) =>
                       candidate.id === clip.id
                         ? { ...candidate, trackId: event.target.value }
                         : candidate,
                     ),
-                  })
+                  }))
                 }
               >
-                {document.tracks.map((track) => (
-                  <option key={track.id} value={track.id}>
-                    {track.name}
-                  </option>
-                ))}
+                {document.tracks
+                  .filter((track) =>
+                    isAudioTimelineClip(clip)
+                      ? isAudioTrack(document, track)
+                      : !isAudioTrack(document, track),
+                  )
+                  .filter((track) => !track.locked || track.id === clip.trackId)
+                  .map((track) => (
+                    <option key={track.id} value={track.id}>
+                      {track.name}
+                    </option>
+                  ))}
               </select>
             </label>
             <div className="range-fields">
@@ -153,6 +435,7 @@ export function InspectorView({
                 field={field}
                 value={fieldValue(clip, field)}
                 onChange={(value) => onChangeProperty(field, value)}
+                disabled={!canEditProperties}
               />
             ))}
             {!definition?.fields.length && (
@@ -179,12 +462,110 @@ export function InspectorView({
                 )}
               </p>
             )}
+            {(clip.componentId === "image" || clip.componentId === "video") && (
+              <div
+                className="canvas-placement-tools"
+                aria-label="Canvas placement"
+              >
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={() =>
+                    onEdit((current) => ({
+                      ...current,
+                      clips: current.clips.map((candidate) =>
+                        candidate.id === clip.id
+                          ? {
+                              ...candidate,
+                              props: {
+                                ...candidate.props,
+                                x: 50,
+                                y: 50,
+                                anchor: "center",
+                              },
+                            }
+                          : candidate,
+                      ),
+                    }))
+                  }
+                >
+                  Center on Canvas
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={() =>
+                    onEdit((current) => ({
+                      ...current,
+                      clips: current.clips.map((candidate) =>
+                        candidate.id === clip.id
+                          ? {
+                              ...candidate,
+                              props: {
+                                ...candidate.props,
+                                x: 50,
+                                y: 50,
+                                width: 100,
+                                height: 100,
+                                anchor: "center",
+                                fit: "contain",
+                              },
+                            }
+                          : candidate,
+                      ),
+                    }))
+                  }
+                >
+                  Fit inside Canvas
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={() =>
+                    onEdit((current) => ({
+                      ...current,
+                      clips: current.clips.map((candidate) =>
+                        candidate.id === clip.id
+                          ? {
+                              ...candidate,
+                              props: {
+                                ...candidate.props,
+                                x: 50,
+                                y: 50,
+                                width: 100,
+                                height: 100,
+                                anchor: "center",
+                                fit: "cover",
+                              },
+                            }
+                          : candidate,
+                      ),
+                    }))
+                  }
+                >
+                  Fill Canvas
+                </button>
+              </div>
+            )}
+            {clip.componentId === "video" && onSeparateVideoAudio && (
+              <div className="tools">
+                <button
+                  type="button"
+                  disabled={!canEditProperties}
+                  onClick={onSeparateVideoAudio}
+                >
+                  Separate video audio
+                </button>
+              </div>
+            )}
             <div className="tools">
               <button onClick={onDuplicate} disabled={!canDuplicate}>
                 Duplicate clip
               </button>
               <button onClick={onDelete} disabled={!canDelete}>
-                Delete clip
+                {clip.componentId === "soundtrack"
+                  ? "Delete audio"
+                  : "Delete clip"}
               </button>
             </div>
           </>
@@ -221,10 +602,12 @@ function PropertyControl({
   field,
   value,
   onChange,
+  disabled = false,
 }: {
   field: EditableField;
   value: unknown;
   onChange: (value: unknown) => void;
+  disabled?: boolean;
 }) {
   const label = field.label;
   if (field.type === "boolean")
@@ -233,6 +616,7 @@ function PropertyControl({
         <input
           aria-label={label}
           type="checkbox"
+          disabled={disabled}
           checked={value === true}
           onChange={(event) => onChange(event.target.checked)}
         />
@@ -245,12 +629,14 @@ function PropertyControl({
       {field.type === "text" ? (
         <textarea
           aria-label={label}
+          disabled={disabled}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
         />
       ) : field.type === "select" ? (
         <select
           aria-label={label}
+          disabled={disabled}
           value={String(value)}
           onChange={(event) => onChange(event.target.value)}
         >
@@ -261,6 +647,7 @@ function PropertyControl({
       ) : (
         <input
           aria-label={label}
+          disabled={disabled}
           type={field.type === "color" ? "color" : "number"}
           value={String(value)}
           min={field.min}

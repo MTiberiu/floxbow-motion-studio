@@ -85,6 +85,53 @@ test("media registry validates versioned audio entries, absolute platform paths,
   );
   assert.throws(() => mediaRegistrySchema.parse({ version: 2, assets: [] }));
   assert.throws(() => mediaAssetSchema.parse({ ...windows, extra: true }));
+  const video = mediaAssetSchema.parse({
+    id: "video-intro",
+    type: "video",
+    displayName: "Intro",
+    source: { kind: "external-file", path: "C:\\Video\\intro.mp4" },
+  });
+  assert.equal(video.type, "video");
+});
+
+test("host resolver recognizes registered MP4 assets while rejecting invalid headers", async () => {
+  const directory = await tempDirectory("floxbow-video-resolver-");
+  try {
+    const mp4 = path.join(directory, "sample.mp4");
+    const corrupt = path.join(directory, "broken.mp4");
+    const header = Buffer.alloc(16);
+    header.writeUInt32BE(16, 0);
+    header.write("ftyp", 4, "ascii");
+    header.write("isom", 8, "ascii");
+    await writeFile(mp4, header);
+    await writeFile(corrupt, Buffer.from("not a video"));
+    const registry = mediaRegistrySchema.parse({
+      version: 1,
+      assets: [
+        {
+          id: "valid-video",
+          type: "video",
+          displayName: "Valid header",
+          source: { kind: "external-file", path: mp4 },
+        },
+        {
+          id: "invalid-video",
+          type: "video",
+          displayName: "Invalid header",
+          source: { kind: "external-file", path: corrupt },
+        },
+      ],
+    });
+    const valid = await resolveMedia(directory, registry, "valid-video");
+    assert.equal(valid.status, "ready");
+    if (valid.status === "ready") assert.equal(valid.type, "video");
+    const invalid = await resolveMedia(directory, registry, "invalid-video");
+    assert.equal(invalid.status, "invalid");
+    if (invalid.status === "invalid")
+      assert.match(invalid.message, /MP4 video header/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("host resolver accepts valid MP3/WAV, reports missing and invalid sources, and never resolves an unregistered ID", async () => {

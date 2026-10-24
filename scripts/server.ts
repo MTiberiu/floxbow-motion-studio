@@ -1,15 +1,8 @@
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import http from "node:http";
-import {
-  mkdir,
-  readFile,
-  realpath,
-  rename,
-  stat,
-  writeFile,
-} from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import { readEditor, saveEditor } from "./editor-store";
@@ -22,11 +15,17 @@ import {
 } from "./media-store";
 import { pickMediaFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
-import { streamRegisteredMedia } from "./media-stream";
+import { streamRegisteredImage, streamRegisteredMedia } from "./media-stream";
 import { probeAudioDuration } from "./audio-probe";
+import { probeVideo } from "./video-probe";
 import { resolveMedia } from "@motion/project-loader/media";
 import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
 import { transcribeAudioWithWhisper } from "./whisper-service";
+import { transcribeVideoClipAudio } from "./video-transcription";
+import {
+  readProjectSettings,
+  saveProjectCanvasSize,
+} from "./project-settings";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
 const mime: Record<string, string> = {
@@ -47,9 +46,17 @@ const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 export type ServerOptions = {
   audioFilePicker?: () => Promise<string | undefined>;
-  mediaFilePicker?: (type: "audio" | "image") => Promise<string | undefined>;
+  mediaFilePicker?: (
+    type: "audio" | "image" | "video",
+  ) => Promise<string | undefined>;
   /** Test seam for deterministic local-worker responses; production uses the existing Python adapter. */
   transcribeAudio?: (audioPath: string) => Promise<unknown>;
+  /** Test seam for video audio extraction; production uses FFmpeg and the same Whisper worker. */
+  transcribeVideoAudio?: (
+    videoPath: string,
+    sourceStartSeconds: number,
+    durationSeconds: number,
+  ) => Promise<unknown>;
 };
 export async function startServers(
   built = false,
@@ -359,6 +366,84 @@ export async function startServers(
           );
           return;
         }
+        const projectSettingsRoute =
+          /^\/api\/projects\/([a-z0-9-]+)\/settings$/.exec(pathname);
+        if (isShell && projectSettingsRoute) {
+          const [, id] = projectSettingsRoute;
+          const project = (await getProjects()).find(
+            (candidate: { id: string; manifest?: unknown }) =>
+              candidate.id === id && candidate.manifest,
+          );
+          if (!project) {
+            res.writeHead(404).end("Unknown project");
+            return;
+          }
+          if (req.method === "GET") {
+            const settings = await readProjectSettings(
+              path.join(projectsDir, id),
+            );
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(settings));
+            return;
+          }
+          if (req.method !== "PUT") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (
+            req.headers.origin !== shellOrigin ||
+            !req.headers["content-type"]?.startsWith("application/json")
+          ) {
+            res.writeHead(403).end("Only the studio shell can change Canvas settings");
+            return;
+          }
+          let body = "";
+          for await (const chunk of req) {
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 2_048)
+              throw new Error("Canvas settings request too large");
+          }
+          const input = JSON.parse(body);
+          if (
+            !input ||
+            typeof input !== "object" ||
+            Array.isArray(input) ||
+            Object.keys(input).some(
+              (key) => !["revision", "width", "height"].includes(key),
+            ) ||
+            typeof input.revision !== "string" ||
+            typeof input.width !== "number" ||
+            typeof input.height !== "number"
+          )
+            throw new Error("Canvas settings request is invalid.");
+          let saved;
+          try {
+            saved = await saveProjectCanvasSize(
+              path.join(projectsDir, id),
+              input.revision,
+              input.width,
+              input.height,
+            );
+          } catch (error) {
+            if (error instanceof Error && error.message.startsWith("CONFLICT:")) {
+              res.writeHead(409, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ message: error.message }));
+              return;
+            }
+            if (
+              error instanceof Error &&
+              error.message.startsWith("Canvas dimensions")
+            ) {
+              res.writeHead(400, { "Content-Type": "application/json" });
+              res.end(JSON.stringify({ message: error.message }));
+              return;
+            }
+            throw error;
+          }
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(saved));
+          return;
+        }
         if (isShell && pathname.startsWith("/api/edit/")) {
           const id = pathname.slice("/api/edit/".length);
           const p = (await getProjects()).find(
@@ -435,9 +520,11 @@ export async function startServers(
                 "Content-Type":
                   resolved.type === "image"
                     ? "image/png"
-                    : path.extname(resolved.path).toLowerCase() === ".mp3"
-                      ? "audio/mpeg"
-                      : "audio/wav",
+                    : resolved.type === "video"
+                      ? "video/mp4"
+                      : path.extname(resolved.path).toLowerCase() === ".mp3"
+                        ? "audio/mpeg"
+                        : "audio/wav",
                 "Content-Length": info.size,
                 "Accept-Ranges": "bytes",
                 "Cache-Control": "no-store",
@@ -465,6 +552,12 @@ export async function startServers(
             route.length === 4 &&
             route[1] === "assets" &&
             route[3] === "transcription";
+          const imageThumbnail =
+            route.length === 4 &&
+            route[1] === "assets" &&
+            route[3] === "thumbnail";
+          const videoProbe =
+            route.length === 4 && route[1] === "assets" && route[3] === "video";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
@@ -476,7 +569,9 @@ export async function startServers(
             route.length !== 1 &&
             !removingAsset &&
             !soundtrackProbe &&
-            !transcription
+            !transcription &&
+            !imageThumbnail &&
+            !videoProbe
           ) {
             res.writeHead(404).end("Unknown media operation");
             return;
@@ -523,11 +618,23 @@ export async function startServers(
             const input = JSON.parse(body) as {
               fps?: unknown;
               durationInFrames?: unknown;
+              sourceClipId?: unknown;
+              timelineStartFrame?: unknown;
+              sourceStartSeconds?: unknown;
+              sourceDurationSeconds?: unknown;
             };
             if (
               !input ||
               Object.keys(input).some(
-                (key) => key !== "fps" && key !== "durationInFrames",
+                (key) =>
+                  ![
+                    "fps",
+                    "durationInFrames",
+                    "sourceClipId",
+                    "timelineStartFrame",
+                    "sourceStartSeconds",
+                    "sourceDurationSeconds",
+                  ].includes(key),
               ) ||
               typeof input.fps !== "number" ||
               !Number.isInteger(input.fps) ||
@@ -561,24 +668,93 @@ export async function startServers(
                 );
               return;
             }
-            if (resolved.type !== "audio") {
+            const videoSource = resolved.type === "video";
+            if (
+              resolved.type !== "audio" &&
+              (!videoSource ||
+                typeof input.sourceClipId !== "string" ||
+                !/^[A-Za-z0-9_-]{1,120}$/.test(input.sourceClipId) ||
+                !Number.isInteger(input.timelineStartFrame) ||
+                (input.timelineStartFrame as number) < 0 ||
+                (input.timelineStartFrame as number) >=
+                  (input.durationInFrames as number) ||
+                typeof input.sourceStartSeconds !== "number" ||
+                !Number.isFinite(input.sourceStartSeconds) ||
+                input.sourceStartSeconds < 0 ||
+                typeof input.sourceDurationSeconds !== "number" ||
+                !Number.isFinite(input.sourceDurationSeconds) ||
+                input.sourceDurationSeconds <= 0 ||
+                input.sourceDurationSeconds > 86_400 ||
+                (input.timelineStartFrame as number) +
+                  Math.round(
+                    input.sourceDurationSeconds * (input.fps as number),
+                  ) >
+                  (input.durationInFrames as number))
+            ) {
               res.writeHead(422, { "Content-Type": "application/json" });
               res.end(
                 JSON.stringify({
-                  message: "Whisper transcription requires an audio asset.",
+                  message:
+                    "Choose an audio asset or a Timeline video clip with valid embedded-audio timing.",
                 }),
               );
               return;
             }
             try {
-              const raw = await (
-                options.transcribeAudio ?? transcribeAudioWithWhisper
-              )(resolved.path);
+              const timelineStartSeconds = videoSource
+                ? (input.timelineStartFrame as number) /
+                  (input.fps as number)
+                : 0;
+              if (videoSource) {
+                const video = await probeVideo(resolved.path);
+                const sourceEnd =
+                  (input.sourceStartSeconds as number) +
+                  (input.sourceDurationSeconds as number);
+                if (sourceEnd > video.durationInSeconds + 1 / (input.fps as number))
+                  throw new Error(
+                    "The selected video clip timing exceeds the registered video duration.",
+                  );
+              }
+              const availableDuration =
+                (input.durationInFrames as number) /
+                  (input.fps as number) -
+                timelineStartSeconds;
+              const raw = videoSource
+                ? await (options.transcribeVideoAudio
+                    ? options.transcribeVideoAudio(
+                        resolved.path,
+                        input.sourceStartSeconds as number,
+                        input.sourceDurationSeconds as number,
+                      )
+                    : transcribeVideoClipAudio(
+                        resolved.path,
+                        input.sourceStartSeconds as number,
+                        input.sourceDurationSeconds as number,
+                        undefined,
+                        options.transcribeAudio,
+                      ))
+                : await (options.transcribeAudio ??
+                    transcribeAudioWithWhisper)(resolved.path);
               const result = whisperResultToSubtitleTiming(
                 raw,
-                input.durationInFrames / input.fps,
+                Math.min(
+                  availableDuration,
+                  videoSource
+                    ? input.sourceDurationSeconds as number
+                    : availableDuration,
+                ),
               );
-              const response = JSON.stringify(result);
+              const timing = videoSource
+                ? {
+                    ...result.timing,
+                    segments: result.timing.segments.map((segment) => ({
+                      ...segment,
+                      start: segment.start + timelineStartSeconds,
+                      end: segment.end + timelineStartSeconds,
+                    })),
+                  }
+                : result.timing;
+              const response = JSON.stringify({ ...result, timing });
               if (Buffer.byteLength(response) > 1_000_000)
                 throw new Error(
                   "The Whisper result is too large to transfer safely. Try a shorter audio file.",
@@ -598,6 +774,14 @@ export async function startServers(
             }
             return;
           }
+          if (imageThumbnail && req.method !== "GET") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (videoProbe && req.method !== "GET") {
+            res.writeHead(405).end();
+            return;
+          }
           if (built) {
             res
               .writeHead(409)
@@ -607,6 +791,63 @@ export async function startServers(
             return;
           }
           const projectRoot = path.join(projectsDir, id);
+          if (imageThumbnail) {
+            await streamRegisteredImage(
+              projectRoot,
+              decodeURIComponent(route[2]),
+              res,
+            );
+            return;
+          }
+          if (videoProbe) {
+            const videoAssetId = decodeURIComponent(route[2]);
+            const registry = await readMediaRegistry(projectRoot);
+            const resolved = await resolveMedia(
+              projectRoot,
+              registry.registry,
+              videoAssetId,
+            );
+            if (resolved.status !== "ready") {
+              res.writeHead(resolved.status === "missing" ? 404 : 422, {
+                "Content-Type": "application/json",
+              });
+              res.end(
+                JSON.stringify({
+                  message:
+                    resolved.status === "missing"
+                      ? "The selected video file is missing."
+                      : resolved.message,
+                }),
+              );
+              return;
+            }
+            if (resolved.type !== "video") {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message: "The requested media asset is not a video.",
+                }),
+              );
+              return;
+            }
+            try {
+              const metadata = await probeVideo(resolved.path);
+              res.setHeader("Content-Type", "application/json");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(JSON.stringify({ assetId: videoAssetId, ...metadata }));
+            } catch (error) {
+              res.writeHead(422, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message:
+                    error instanceof Error
+                      ? error.message
+                      : "The selected MP4 video could not be decoded.",
+                }),
+              );
+            }
+            return;
+          }
           if (soundtrackProbe) {
             if (req.method !== "GET") {
               res.writeHead(405).end();
@@ -752,7 +993,7 @@ export async function startServers(
             req.headers.origin !== shellOrigin ||
             !req.headers["content-type"]?.startsWith("application/json")
           ) {
-            res.writeHead(403).end("Only the studio shell can register audio");
+            res.writeHead(403).end("Only the studio shell can register media");
             return;
           }
           let body = "";
@@ -772,7 +1013,8 @@ export async function startServers(
             typeof input.revision !== "string" ||
             (input.type !== undefined &&
               input.type !== "audio" &&
-              input.type !== "image")
+              input.type !== "image" &&
+              input.type !== "video")
           )
             throw new Error(
               "A media registry revision and supported media type are required; file paths are not accepted",

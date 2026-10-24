@@ -5,6 +5,7 @@ import {
   type EditTimeline,
   type EditableField,
   type TimelineClip,
+  visualTracksInRenderOrder,
 } from "./timeline";
 
 export type CanvasAnchor =
@@ -217,7 +218,8 @@ export function getCanvasVisualElements(
     components.map((component) => [component.id, component]),
   );
   const result: CanvasVisualElement[] = [];
-  for (const track of timeline.tracks) {
+  for (const track of visualTracksInRenderOrder(timeline)) {
+    if (track.visible === false) continue;
     for (const clip of timeline.clips) {
       if (
         clip.trackId !== track.id ||
@@ -226,7 +228,8 @@ export function getCanvasVisualElements(
       )
         continue;
       const element = getCanvasVisualElement(clip, byId.get(clip.componentId));
-      if (element) result.push(element);
+      if (element)
+        result.push({ ...element, locked: element.locked || track.locked === true });
     }
   }
   return result;
@@ -259,8 +262,8 @@ export function applyCanvasTransform(
     throw new Error("This visual element is locked and cannot be transformed.");
   if (
     visual.resizeMode === "preserve-aspect" &&
-    (nextTransform.width !== before.width ||
-      nextTransform.height !== before.height)
+    nextTransform.width !== before.width &&
+    nextTransform.height !== before.height
   ) {
     const beforeRatio = before.width / before.height;
     const nextRatio = nextTransform.width / nextTransform.height;
@@ -282,6 +285,26 @@ export function applyCanvasTransform(
     const field = fieldFor(definition, key);
     const validated = validateField(field, value);
     next[field.target][field.key] = validated;
+  }
+  if (
+    contract.resizeScaleFields?.length &&
+    nextTransform.width !== before.width &&
+    nextTransform.height !== before.height
+  ) {
+    const scale = Math.max(
+      nextTransform.width / before.width,
+      nextTransform.height / before.height,
+    );
+    for (const key of contract.resizeScaleFields) {
+      const field = fieldFor(definition, key);
+      const current = fieldValue(clip, field);
+      if (typeof current !== "number")
+        throw new Error(`Canvas resize scale field ${key} must be numeric.`);
+      next[field.target][field.key] = validateField(
+        field,
+        Math.round(current * scale),
+      );
+    }
   }
   return next;
 }

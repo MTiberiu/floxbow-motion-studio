@@ -14,11 +14,15 @@ import { editTimelineSchema } from "@motion/sdk/timeline";
 import {
   standaloneImageClipSchema,
   standaloneTextClipSchema,
+  standaloneVideoClipSchema,
+  standaloneVideoAudioClipSchema,
+  standaloneCharacterClipSchema,
 } from "@motion/sdk/editor";
 import { readMediaRegistry } from "../../../scripts/media-store";
 import { streamRegisteredMedia } from "../../../scripts/media-stream";
 import { resolveMedia } from "@motion/project-loader/media";
 import { probeAudioDuration } from "../../../scripts/audio-probe";
+import { probeVideo } from "../../../scripts/video-probe";
 import {
   findLargeTimelineGaps,
   lastTimelineClipEnd,
@@ -90,6 +94,11 @@ export async function renderProject(root: string, id: string, still = false) {
     for (const clip of timeline.clips) {
       if (clip.componentId === "text") standaloneTextClipSchema.parse(clip);
       if (clip.componentId === "image") standaloneImageClipSchema.parse(clip);
+      if (clip.componentId === "video") standaloneVideoClipSchema.parse(clip);
+      if (clip.componentId === "video-audio")
+        standaloneVideoAudioClipSchema.parse(clip);
+      if (clip.componentId === "character")
+        standaloneCharacterClipSchema.parse(clip);
     }
     if (
       timeline.fps !== m.fps ||
@@ -116,9 +125,14 @@ export async function renderProject(root: string, id: string, still = false) {
         }),
     ),
   ];
+  const characterGroupIds = new Set(
+    (timeline?.clips ?? [])
+      .filter((clip) => clip.componentId === "character")
+      .map((clip) => String(clip.content.groupId ?? "")),
+  );
   const imageIds = [
-    ...new Set(
-      (timeline?.clips ?? [])
+    ...new Set([
+      ...(timeline?.clips ?? [])
         .filter((clip) => clip.componentId === "image")
         .map((clip) => {
           const assetId = clip.content.assetId;
@@ -129,9 +143,30 @@ export async function renderProject(root: string, id: string, still = false) {
             throw new Error("An Image Timeline clip has an invalid media ID.");
           return assetId;
         }),
+      ...(timeline?.assetGroups ?? [])
+        .filter((group) => characterGroupIds.has(group.id))
+        .flatMap((group) => group.members.map((member) => member.assetId)),
+    ]),
+  ];
+  const videoIds = [
+    ...new Set(
+      (timeline?.clips ?? [])
+        .filter(
+          (clip) =>
+            clip.componentId === "video" || clip.componentId === "video-audio",
+        )
+        .map((clip) => {
+          const assetId = clip.content.assetId;
+          if (
+            typeof assetId !== "string" ||
+            !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(assetId)
+          )
+            throw new Error("A Video Timeline clip has an invalid media ID.");
+          return assetId;
+        }),
     ),
   ];
-  const mediaIds = [...new Set([...soundtrackIds, ...imageIds])];
+  const mediaIds = [...new Set([...soundtrackIds, ...imageIds, ...videoIds])];
   if (mediaIds.length) {
     const registry = await readMediaRegistry(path.join(root, "projects", id));
     for (const assetId of imageIds) {
@@ -186,6 +221,46 @@ export async function renderProject(root: string, id: string, still = false) {
       }
     }
   }
+  if (videoIds.length) {
+    const registry = await readMediaRegistry(path.join(root, "projects", id));
+    for (const assetId of videoIds) {
+      const media = await resolveMedia(
+        path.join(root, "projects", id),
+        registry.registry,
+        assetId,
+      );
+      if (media.status !== "ready" || media.type !== "video")
+        throw new Error(
+          media.status === "missing"
+            ? "A Video clip file is missing. Relink it in the Media Library before rendering."
+            : media.status === "ready"
+              ? "A Video clip must reference a registered MP4 asset."
+              : media.message,
+        );
+      const actual = await probeVideo(media.path);
+      for (const clip of timeline!.clips.filter(
+        (item) =>
+          (item.componentId === "video" ||
+            item.componentId === "video-audio") &&
+          item.content.assetId === assetId,
+      )) {
+        const sourceStart = Number(clip.content.sourceStartSeconds ?? 0);
+        const declaredDuration = Number(clip.content.sourceDurationSeconds);
+        const clipDuration = clip.durationInFrames / timeline!.fps;
+        const tolerance = 1 / timeline!.fps;
+        if (
+          !Number.isFinite(sourceStart) ||
+          !Number.isFinite(declaredDuration) ||
+          sourceStart < 0 ||
+          Math.abs(declaredDuration - actual.durationInSeconds) > tolerance ||
+          sourceStart + clipDuration > actual.durationInSeconds + tolerance
+        )
+          throw new Error(
+            `Video clip ${clip.id} exceeds the probed duration of its MP4 source. Correct its source start or Timeline range.`,
+          );
+      }
+    }
+  }
   if (timeline) {
     const contentEnd = lastTimelineClipEnd(timeline);
     if (contentEnd < timeline.durationInFrames)
@@ -195,13 +270,13 @@ export async function renderProject(root: string, id: string, still = false) {
     const gaps = findLargeTimelineGaps(timeline);
     if (gaps.length) {
       console.warn(
-        `Timeline export warning: ${gaps.length} empty interval${gaps.length === 1 ? "" : "s"} of at least 5 seconds. Project duration and export are unchanged.`,
+        `Timeline export warning: ${gaps.length} empty visual interval${gaps.length === 1 ? "" : "s"} across all visual tracks, each at least 5 seconds. Project duration and export are unchanged.`,
       );
       for (const gap of gaps) {
         const start = (gap.from / timeline.fps).toFixed(2);
         const end = (gap.end / timeline.fps).toFixed(2);
         console.warn(
-          `  Track ${gap.trackId}: ${start}s–${end}s; between ${gap.previousClipId ?? "project start"} and ${gap.nextClipId ?? "project end"}`,
+          `  Visual composition: ${start}s–${end}s; between ${gap.previousClipId ?? "project start"} and ${gap.nextClipId ?? "project end"}`,
         );
       }
     }
@@ -221,12 +296,15 @@ export async function renderProject(root: string, id: string, still = false) {
       "import React from 'react';",
       "import {registerRoot,Composition} from 'remotion';",
       "import {TimelineSoundtrackAudio} from '@motion/sdk/editor';",
+      "import {TimelineMediaSourcesProvider} from '@motion/sdk/editor';",
+      "import {TimelineVideoAudio} from '@motion/sdk/editor';",
       `import Video from ${JSON.stringify(path.join(root, "projects", id, m.entry).replaceAll("\\", "/"))};`,
       `const audioSources=${JSON.stringify(audioServer.sources)};`,
       `const imageSources=${JSON.stringify(audioServer.sources)};`,
+      `const videoSources=${JSON.stringify(audioServer.sources)};`,
       `const timeline=${JSON.stringify(timeline)};`,
-      "const Rendered=(props)=><><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources}/><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/></>;",
-      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
+      "const Rendered=(props)=><><TimelineMediaSourcesProvider imageSources={imageSources} videoSources={videoSources}><Video {...props} timeline={props.timeline??timeline} audioSources={audioSources} imageSources={imageSources} videoSources={videoSources}/></TimelineMediaSourcesProvider><TimelineSoundtrackAudio timeline={props.timeline??timeline} audioSources={audioSources}/><TimelineVideoAudio timeline={props.timeline??timeline} videoSources={videoSources}/></>;",
+      `registerRoot(()=> <Composition id="Video" component={Rendered} defaultProps={{timeline,audioSources,imageSources,videoSources}} width={${m.width}} height={${m.height}} fps={${m.fps}} durationInFrames={${m.durationInFrames}}/>);`,
     ].join("\n");
     await writeFile(entry, entrySource);
     const serveUrl = await bundle({

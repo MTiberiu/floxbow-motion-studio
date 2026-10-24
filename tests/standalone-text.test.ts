@@ -142,7 +142,7 @@ test("legacy Timeline v1 remains valid and standalone text renders its saved pro
   assert.match(markup, /text-align:right/);
   assert.match(markup, /width:80%/);
   assert.match(markup, /height:20%/);
-  assert.match(markup, /rotate\(0deg\)/);
+  assert.match(markup, /transform:translate\(-50%, -50%\) rotate\(0deg\)/);
 });
 
 test("standalone Text animations render deterministically from clip-local frames", () => {

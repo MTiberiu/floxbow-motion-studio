@@ -9,6 +9,7 @@ import {
 import { parseEditTimeline, type EditTimeline } from "@motion/sdk/timeline";
 import { subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
 import { standaloneTextClipSchema } from "@motion/sdk/editor";
+import { withProjectWriteLock } from "./project-write-lock";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export async function renameWithTransientWindowsRetry(
   source: string,
@@ -47,18 +48,13 @@ export async function readEditor(projectRoot: string, m: ProjectManifest) {
     revision: hash(text),
   };
 }
-const locks = new Map<string, Promise<unknown>>();
 export async function saveEditor(
   projectRoot: string,
   m: ProjectManifest,
   timeline: unknown,
   revision: string,
 ) {
-  const key = path.resolve(projectRoot);
-  const previous = locks.get(key) ?? Promise.resolve();
-  const job = previous
-    .catch(() => {})
-    .then(async () => {
+  return withProjectWriteLock(projectRoot, async () => {
       if (
         timeline &&
         typeof timeline === "object" &&
@@ -145,11 +141,5 @@ export async function saveEditor(
         await unlink(manifestTemporary).catch(() => {});
       }
       return { timeline: t, revision: hash(timelineText) };
-    });
-  locks.set(key, job);
-  try {
-    return await job;
-  } finally {
-    if (locks.get(key) === job) locks.delete(key);
-  }
+  });
 }
