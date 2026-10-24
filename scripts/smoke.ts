@@ -3071,24 +3071,42 @@ try {
     await page.getByLabel("Position Y (%)", { exact: true }).fill("50");
     await page.getByLabel("Text box width (%)", { exact: true }).fill("40");
     await page.getByLabel("Text box height (%)", { exact: true }).fill("20");
-    await textHitbox.click();
+    await expect(textHitbox).toHaveAttribute("aria-pressed", "true");
     const canvasClipCount = await page
       .locator(".timeline-clip:not(.audio-clip)")
       .count();
     const canvasSourcePositionX = Number(
       await page.getByLabel("Position X (%)", { exact: true }).inputValue(),
     );
-    const duplicateDragBox = await textHitbox.boundingBox();
-    expect(duplicateDragBox).toBeTruthy();
+    const duplicateDragStart = await textHitbox.evaluate((hitbox) => {
+      const bounds = hitbox.getBoundingClientRect();
+      const canvas = hitbox.parentElement!.getBoundingClientRect();
+      const left = Math.max(bounds.left, canvas.left);
+      const right = Math.min(bounds.right, canvas.right);
+      const top = Math.max(bounds.top, canvas.top);
+      const bottom = Math.min(bounds.bottom, canvas.bottom);
+      const stepX = Math.max(2, (right - left) / 50);
+      const stepY = Math.max(2, (bottom - top) / 50);
+      for (let y = top + stepY / 2; y < bottom; y += stepY) {
+        for (let x = left + stepX / 2; x < right; x += stepX) {
+          const target = document.elementFromPoint(x, y);
+          if (target === hitbox || (target && hitbox.contains(target))) {
+            return { x, y };
+          }
+        }
+      }
+      return undefined;
+    });
+    expect(duplicateDragStart).toBeTruthy();
     await page.keyboard.down("Control");
     await page.mouse.move(
-      duplicateDragBox!.x + duplicateDragBox!.width / 2,
-      duplicateDragBox!.y + duplicateDragBox!.height / 2,
+      duplicateDragStart!.x,
+      duplicateDragStart!.y,
     );
     await page.mouse.down();
     await page.mouse.move(
-      duplicateDragBox!.x + duplicateDragBox!.width / 2 + 42,
-      duplicateDragBox!.y + duplicateDragBox!.height / 2 + 8,
+      duplicateDragStart!.x + 42,
+      duplicateDragStart!.y + 8,
       { steps: 4 },
     );
     await page.mouse.up();
