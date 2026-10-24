@@ -95,8 +95,8 @@ async function findCanvasHitPoint(hitbox: Locator) {
     const right = Math.min(bounds.right, canvas.right);
     const top = Math.max(bounds.top, canvas.top);
     const bottom = Math.min(bounds.bottom, canvas.bottom);
-    const stepX = Math.max(2, (right - left) / 50);
-    const stepY = Math.max(2, (bottom - top) / 50);
+    const stepX = Math.max(0.5, (right - left) / 100);
+    const stepY = Math.max(0.5, (bottom - top) / 100);
     for (let y = top + stepY / 2; y < bottom; y += stepY) {
       for (let x = left + stepX / 2; x < right; x += stepX) {
         const target = document.elementFromPoint(x, y);
