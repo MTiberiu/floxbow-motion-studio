@@ -301,10 +301,10 @@ export function TimelineEditor({
           "Canvas is outside the visible preview area. Choose Fit and retry.",
         );
       const capture = await window.floxBowWindows.captureCanvas({
-        x: Math.round(left),
-        y: Math.round(top),
-        width: Math.round(right - left),
-        height: Math.round(bottom - top),
+        x: Math.floor(left),
+        y: Math.floor(top),
+        width: Math.ceil(right) - Math.floor(left),
+        height: Math.ceil(bottom) - Math.floor(top),
       });
       const selectedClip = doc.clips.find((item) => item.id === selected);
       const trackNames = new Map(

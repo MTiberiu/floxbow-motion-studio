@@ -265,12 +265,19 @@ function createWindowHost({
     if (!primaryWindow || primaryWindow.isDestroyed())
       throw new Error("The primary editor window is unavailable");
     const [contentWidth, contentHeight] = primaryWindow.getContentSize();
-    if (
-      rect.x + rect.width > contentWidth ||
-      rect.y + rect.height > contentHeight
-    )
+    const left = Math.max(0, rect.x);
+    const top = Math.max(0, rect.y);
+    const right = Math.min(contentWidth, rect.x + rect.width);
+    const bottom = Math.min(contentHeight, rect.y + rect.height);
+    if (right <= left || bottom <= top)
       throw new Error("Canvas capture rectangle is outside the editor window");
-    const image = await primaryWindow.webContents.capturePage(rect);
+    const captureRect = {
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    };
+    const image = await primaryWindow.webContents.capturePage(captureRect);
     const png = image.toPNG();
     if (png.byteLength > 8_000_000)
       throw new Error("Canvas capture exceeds the 8 MiB limit");

@@ -195,13 +195,15 @@ function createHarness() {
 test("visual context IPC captures bounded Canvas pixels and limits access to the primary window", async () => {
   const { invoke, primary, clipboardWrites, windows } = createHarness();
   const rect = { x: 10, y: 20, width: 320, height: 180 };
+  const capturedRects: unknown[] = [];
   Object.assign(primary, { getContentSize: () => [800, 600] });
   Object.assign(primary.webContents, {
     capturePage: async (requestedRect: unknown) => {
-      assert.deepEqual(requestedRect, rect);
+      capturedRects.push(requestedRect);
+      const capture = requestedRect as typeof rect;
       return {
         toPNG: () => Buffer.from("canvas-png"),
-        getSize: () => ({ width: rect.width, height: rect.height }),
+        getSize: () => ({ width: capture.width, height: capture.height }),
       };
     },
   });
@@ -217,9 +219,16 @@ test("visual context IPC captures bounded Canvas pixels and limits access to the
   );
   assert.equal(captured.width, rect.width);
   assert.equal(captured.height, rect.height);
+  const clipped = (await invoke(CHANNELS.captureCanvas, primary, {
+    ...rect,
+    x: 600,
+  })) as { width: number; height: number };
+  assert.deepEqual(capturedRects[1], { x: 600, y: 20, width: 200, height: 180 });
+  assert.equal(clipped.width, 200);
+  assert.equal(clipped.height, 180);
   await assert.rejects(
     Promise.resolve(
-      invoke(CHANNELS.captureCanvas, primary, { ...rect, x: 600 }),
+      invoke(CHANNELS.captureCanvas, primary, { ...rect, x: 800 }),
     ),
     /outside the editor window/,
   );
