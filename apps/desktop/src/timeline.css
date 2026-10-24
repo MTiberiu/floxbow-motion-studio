@@ -106,6 +106,7 @@
 .editor-notice {
   position: absolute;
   z-index: 15;
+  pointer-events: none;
   top: 44px;
   left: 8px;
   max-width: min(640px, calc(100% - var(--inspector-width, 300px) - 28px));
