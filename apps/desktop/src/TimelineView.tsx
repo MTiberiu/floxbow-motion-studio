@@ -412,7 +412,14 @@ export function TimelineView({
         ? [current.duplicateId]
         : (current.groupClipIds ?? [current.sourceClipId]);
       const hit = window.document.elementFromPoint(clientX, clientY);
-      const row = hit?.closest<HTMLElement>(".track-row");
+      const row =
+        hit?.closest<HTMLElement>(".track-row") ??
+        Array.from(
+          scroll.current?.querySelectorAll<HTMLElement>(".track-row") ?? [],
+        ).find((candidate) => {
+          const bounds = candidate.getBoundingClientRect();
+          return clientY >= bounds.top && clientY <= bounds.bottom;
+        });
       const insertZone = hit?.closest<HTMLElement>(".track-insert-zone");
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
@@ -562,7 +569,13 @@ export function TimelineView({
         current.lastX,
         current.lastY,
       );
-      const row = hit?.closest<HTMLElement>(".track-row");
+      const row =
+        hit?.closest<HTMLElement>(".track-row") ??
+        Array.from(scroll.current.querySelectorAll<HTMLElement>(".track-row"))
+          .find((candidate) => {
+            const bounds = candidate.getBoundingClientRect();
+            return current.lastY >= bounds.top && current.lastY <= bounds.bottom;
+          });
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
         row?.querySelector<HTMLElement>(".track-lane");
@@ -600,7 +613,13 @@ export function TimelineView({
         current.lastX,
         current.lastY,
       );
-      const row = hit?.closest<HTMLElement>(".track-row");
+      const row =
+        hit?.closest<HTMLElement>(".track-row") ??
+        Array.from(scroll.current.querySelectorAll<HTMLElement>(".track-row"))
+          .find((candidate) => {
+            const bounds = candidate.getBoundingClientRect();
+            return current.lastY >= bounds.top && current.lastY <= bounds.bottom;
+          });
       const lane =
         hit?.closest<HTMLElement>(".track-lane") ??
         row?.querySelector<HTMLElement>(".track-lane");
