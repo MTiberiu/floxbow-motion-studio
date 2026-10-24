@@ -614,8 +614,12 @@ try {
     await expect(
       page.getByRole("region", { name: "Project media" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Add Audio" })).toBeEnabled();
-    await page.getByRole("button", { name: "Add Audio" }).click();
+    const addAudioButton = page.getByRole("button", {
+      name: "Add Audio",
+      exact: true,
+    });
+    await expect(addAudioButton).toBeEnabled();
+    await addAudioButton.click();
     await expect(
       page.getByText("flox-smoke-audio", { exact: true }),
     ).toBeVisible();
