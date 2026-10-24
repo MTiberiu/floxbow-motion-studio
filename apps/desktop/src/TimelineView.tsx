@@ -518,7 +518,7 @@ export function TimelineView({
     return element.scrollLeft !== before;
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!dragging) return;
     let frameId = 0;
     const handleMouseMove = (event: MouseEvent) => {
