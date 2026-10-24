@@ -2842,6 +2842,7 @@ try {
       .locator(`[data-standalone-text-id="${textClipId}"]`);
     const previewFrame = page.locator('[data-panel-id="editor"] iframe');
     await inspectorText.fill("AI editable title");
+    await expect(inspectorText).toHaveValue("AI editable title");
     await expect(textPreview).toHaveText("AI editable title");
     await inspectorText.focus();
     await page.keyboard.press("Space");
