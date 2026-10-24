@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.invoke("flox:visual-inspection:capture-canvas", rect),
     copyVisualContext: (text) =>
       ipcRenderer.invoke("flox:visual-inspection:copy-context", text),
+    copyStoryboardContext: (text) =>
+      ipcRenderer.invoke("flox:storyboard:copy-context", text),
     openPanel: (request) =>
       ipcRenderer.invoke("flox:window:open-panel", request),
     closePanel: (request) =>

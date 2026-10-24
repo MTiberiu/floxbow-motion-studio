@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./media": "./src/media.ts"
+    "./media": "./src/media.ts",
+    "./storyboard": "./src/storyboard.ts",
+    "./storyboard-svg": "./src/storyboard-svg.ts"
   }
 }

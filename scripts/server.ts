@@ -6,6 +6,7 @@ import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/prom
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import { readEditor, saveEditor } from "./editor-store";
+import { readStoryboard, saveStoryboard, storyboardTiming } from "./storyboard-store";
 import {
   publicMediaAvailability,
   readMediaRegistry,
@@ -140,6 +141,30 @@ export async function startServers(
           isShell ? shellCsp(previewOrigin) : previewCsp,
         );
         res.setHeader("Cache-Control", "no-store");
+        const storyboardRoute = isShell && /^\/api\/storyboard\/([a-z0-9-]+)(?:\/(timing|media)\/??([a-z0-9-]+)?)?$/.exec(pathname);
+        if (storyboardRoute) {
+          const [, id, action, assetId] = storyboardRoute;
+          const project = (await getProjects()).find((p: { id: string }) => p.id === id);
+          if (!project?.manifest) throw new Error("Unknown storyboard project");
+          await safeFile(projectsDir, `${id}/project.json`);
+          const projectRoot = path.join(projectsDir, id);
+          if (req.method === "GET") {
+            if (action === "media" && assetId) { await streamRegisteredMedia(projectRoot, assetId, req.headers.range, res); return; }
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(action === "timing" ? await storyboardTiming(projectRoot, project.manifest) : await readStoryboard(projectRoot, id)));
+            return;
+          }
+          if (req.method !== "PUT" || action) { res.writeHead(405).end(); return; }
+          if (built) { res.writeHead(409).end("Storyboard editing requires the live development workspace."); return; }
+          if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) { res.writeHead(403).end("Only the studio shell can save storyboards"); return; }
+          let body = "";
+          for await (const chunk of req) { body += chunk.toString(); if (Buffer.byteLength(body) > 8_000_000) throw new Error("Storyboard request exceeds 8 MB"); }
+          const input = JSON.parse(body);
+          if (!input || typeof input.revision !== "string" || Object.keys(input).some(k => !["document", "revision"].includes(k))) throw new Error("Invalid storyboard save request");
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(await saveStoryboard(projectRoot, id, input.document, input.revision)));
+          return;
+        }
         const inspectionRoute =
           isShell && /^\/api\/visual-inspection\/([a-z0-9-]+)$/.exec(pathname);
         if (inspectionRoute) {

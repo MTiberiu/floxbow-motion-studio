@@ -130,6 +130,7 @@ export const CHANNELS: Readonly<{
   timelineCommandResult: "flox:timeline:command-result";
   captureCanvas: "flox:visual-inspection:capture-canvas";
   copyVisualContext: "flox:visual-inspection:copy-context";
+  copyStoryboardContext: "flox:storyboard:copy-context";
 }>;
 export const MAX_IPC_MESSAGE_BYTES: 4096;
 export const MAX_TIMELINE_SNAPSHOT_BYTES: 1048576;

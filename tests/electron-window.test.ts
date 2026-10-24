@@ -338,6 +338,16 @@ test("panel open contract is strict, bounded and rejects malformed identifiers",
   );
 });
 
+test("storyboard clipboard is bounded and primary-shell-only", () => {
+  const { invoke, primary, clipboardWrites, windows } = createHarness();
+  assert.equal(invoke(CHANNELS.copyStoryboardContext, primary, "story".repeat(5000)), true);
+  assert.equal(clipboardWrites[0].length, 25000);
+  assert.throws(() => invoke(CHANNELS.copyStoryboardContext, primary, "x".repeat(8_000_001)), /Invalid storyboard clipboard/);
+  assert.throws(() => invoke(CHANNELS.copyStoryboardContext, primary, "text", "extra"), /Invalid storyboard clipboard/);
+  invoke(CHANNELS.openPanel, primary, request);
+  assert.throws(() => invoke(CHANNELS.copyStoryboardContext, windows[1], "child"), /not permitted for this window role/);
+});
+
 test("Timeline snapshots use a strict 1 MiB schema while control messages remain 4 KiB", () => {
   const instanceId = request.sessionId;
   assert.equal(MAX_TIMELINE_SNAPSHOT_BYTES, 1024 * 1024);

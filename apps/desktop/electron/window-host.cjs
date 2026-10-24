@@ -295,6 +295,13 @@ function createWindowHost({
     clipboard.writeText(value);
     return true;
   });
+  ipcMain.handle(CHANNELS.copyStoryboardContext, (event, value, ...args) => {
+    assertSender(event, "primary");
+    if (args.length !== 0 || typeof value !== "string" || Buffer.byteLength(value, "utf8") > 8_000_000)
+      throw new Error("Invalid storyboard clipboard text (maximum 8 MB)");
+    clipboard.writeText(value);
+    return true;
+  });
 
   ipcMain.handle(CHANNELS.openPanel, (event, request, ...args) => {
     assertSender(event, "primary");

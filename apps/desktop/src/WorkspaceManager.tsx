@@ -8,7 +8,7 @@ import {
 import { DockablePanel } from "./DockablePanel";
 import "./workspace.css";
 
-export type PanelId = "editor" | "lyrics-sync" | "capabilities";
+export type PanelId = "editor" | "lyrics-sync" | "capabilities" | "storyboard";
 export type PanelSize = { width: number; height: number };
 export type PanelRegistration = {
   id: PanelId;
@@ -24,6 +24,7 @@ export type DetachedTimelineIdentity = Readonly<{
 }>;
 
 export const PANEL_REGISTRY: readonly PanelRegistration[] = [
+  { id: "storyboard", title: "Storyboard", minSize: { width: 800, height: 500 }, preferredSize: { width: 1400, height: 900 }, overflow: "content-managed" },
   {
     id: "editor",
     title: "Editor",

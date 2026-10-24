@@ -12,6 +12,7 @@ const CHANNELS = Object.freeze({
   timelineCommandResult: "flox:timeline:command-result",
   captureCanvas: "flox:visual-inspection:capture-canvas",
   copyVisualContext: "flox:visual-inspection:copy-context",
+  copyStoryboardContext: "flox:storyboard:copy-context",
 });
 const PANEL_REGISTRY = Object.freeze({
   timeline: Object.freeze({
