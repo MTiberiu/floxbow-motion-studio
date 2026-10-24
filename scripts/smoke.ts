@@ -316,7 +316,9 @@ try {
   }, firstPanelRequest);
   expect(panelApi.context).toEqual({ role: "primary", panelId: null });
   expect(panelApi.keys).toEqual([
+    "captureCanvas",
     "closePanel",
+    "copyVisualContext",
     "getContext",
     "onPanelClosed",
     "onTimelineCommand",
