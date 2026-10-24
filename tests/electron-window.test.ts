@@ -267,7 +267,12 @@ test("Timeline snapshots use a strict 1 MiB schema while control messages remain
       trackOrder: "top-down",
       tracks: [
         { id: "titles", name: "Titles", kind: "visual", locked: true },
-        { id: "background", name: "Background", kind: "visual", visible: false },
+        {
+          id: "background",
+          name: "Background",
+          kind: "visual",
+          visible: false,
+        },
         { id: "audio", name: "Audio", kind: "audio" },
       ],
     },
@@ -337,6 +342,36 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
   assert.equal(
     isTimelineCommand({ ...command, command: { type: "copy" } }),
     true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "updateClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        from: 60,
+        durationInFrames: 90,
+        trim: true,
+        ripple: true,
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "updateClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        from: 60,
+        durationInFrames: 90,
+        trim: true,
+        ripple: "yes",
+      },
+    }),
+    false,
   );
   assert.equal(
     isTimelineCommand({ ...command, command: { type: "delete", extra: true } }),

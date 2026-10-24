@@ -27,6 +27,7 @@ import {
   type TimelineOperation,
 } from "./timeline-operations";
 import { CanvasView } from "./CanvasView";
+import { changeTimelineClipRangeWithRipple } from "./timeline-ripple";
 import { TimelineView } from "./TimelineView";
 import {
   applyCanvasTransform,
@@ -157,6 +158,12 @@ export function TimelineEditor({
   const [playToProjectEnd, setPlayToProjectEnd] = useState(
     () => localStorage.getItem("motion-preview-playback-end") === "project",
   );
+  const [rippleMode, setRippleMode] = useState(
+    () => localStorage.getItem("motion-timeline-ripple") === "true",
+  );
+  useEffect(() => {
+    localStorage.setItem("motion-timeline-ripple", String(rippleMode));
+  }, [rippleMode]);
   const [masterVolume, setMasterVolume] = useState(() => {
     const storedValue = localStorage.getItem("motion-preview-master-volume");
     if (storedValue === null) return 1;
@@ -1247,12 +1254,13 @@ export function TimelineEditor({
                 );
               }
             } else {
-              next = changeClipRangeWithDurationExtension(
+              next = changeTimelineClipRangeWithRipple(
                 gesture.baseline,
                 command.clipId,
                 command.from,
-                command.from + command.durationInFrames,
+                command.durationInFrames,
                 command.trim,
+                command.ripple === true,
                 resolveTimelineBehavior(clip.componentId, components),
               );
             }
@@ -2038,6 +2046,7 @@ export function TimelineEditor({
     start: number,
     duration: number,
     trim: boolean,
+    ripple = false,
   ) {
     const gesture = clipGesture.current;
     if (
@@ -2087,12 +2096,13 @@ export function TimelineEditor({
           );
         }
       } else {
-        next = changeClipRangeWithDurationExtension(
+        next = changeTimelineClipRangeWithRipple(
           gesture.baseline,
           clipId,
           start,
-          start + duration,
+          duration,
           trim,
+          ripple,
           resolveTimelineBehavior(clipToChange.componentId, components),
         );
       }
@@ -2549,6 +2559,8 @@ export function TimelineEditor({
                 if (operationError) setError(operationError);
               }}
               keyboardShortcutsEnabled={active}
+              rippleMode={rippleMode}
+              onRippleModeChange={setRippleMode}
               onUpdateClipGesture={updateClipGesture}
               onEndClipGesture={endClipGesture}
               onResizeStart={(event) => {

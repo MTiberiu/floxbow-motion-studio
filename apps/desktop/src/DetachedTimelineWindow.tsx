@@ -52,6 +52,7 @@ export function DetachedTimelineWindow({
   const [snapshot, setSnapshot] = useState<TimelineSnapshot | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rippleMode, setRippleMode] = useState(false);
   const latest = useRef<TimelineSnapshot | null>(null);
   latest.current = snapshot;
   const commandQueue = useRef<Promise<void>>(Promise.resolve());
@@ -339,9 +340,7 @@ export function DetachedTimelineWindow({
         }
       } finally {
         queuedCommands.current = Math.max(0, queuedCommands.current - 1);
-        setBusy(
-          queuedCommands.current > 0 || activeGestures.current.size > 0,
-        );
+        setBusy(queuedCommands.current > 0 || activeGestures.current.size > 0);
       }
     });
     commandQueue.current = operation.catch(() => undefined);
@@ -638,12 +637,15 @@ export function DetachedTimelineWindow({
           });
         }}
         onTimelineOperation={(operation) => dispatch({ type: operation })}
+        rippleMode={rippleMode}
+        onRippleModeChange={setRippleMode}
         onUpdateClipGesture={(
           gestureId,
           clipId,
           from,
           durationInFrames,
           trim,
+          ripple,
         ) => {
           if (!activeGestures.current.has(gestureId)) return;
           queueGestureUpdate({
@@ -653,6 +655,7 @@ export function DetachedTimelineWindow({
             from,
             durationInFrames,
             trim,
+            ripple,
           });
         }}
         onEndClipGesture={(gestureId) => {

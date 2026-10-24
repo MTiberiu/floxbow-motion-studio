@@ -61,6 +61,7 @@ export type TimelineCommand =
       from: number;
       durationInFrames: number;
       trim: boolean;
+      ripple?: boolean;
     }>
   | Readonly<{ type: "endClipGesture"; gestureId: string }>;
 

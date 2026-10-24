@@ -81,8 +81,8 @@ function isJsonValue(value, depth = 0) {
 function isTimelineDocument(value) {
   if (
     !isRecord(value) ||
-    !["version", "fps", "durationInFrames", "tracks", "clips"].every(
-      (key) => Object.hasOwn(value, key),
+    !["version", "fps", "durationInFrames", "tracks", "clips"].every((key) =>
+      Object.hasOwn(value, key),
     ) ||
     Object.keys(value).some(
       (key) =>
@@ -355,14 +355,23 @@ function isTimelineCommand(value) {
     );
   if (command.type === "updateClipGesture")
     return (
-      hasExactKeys(command, [
+      (hasExactKeys(command, [
         "type",
         "gestureId",
         "clipId",
         "from",
         "durationInFrames",
         "trim",
-      ]) &&
+      ]) ||
+        hasExactKeys(command, [
+          "type",
+          "gestureId",
+          "clipId",
+          "from",
+          "durationInFrames",
+          "trim",
+          "ripple",
+        ])) &&
       typeof command.gestureId === "string" &&
       instanceIdPattern.test(command.gestureId) &&
       typeof command.clipId === "string" &&
@@ -371,7 +380,8 @@ function isTimelineCommand(value) {
       command.from >= 0 &&
       Number.isInteger(command.durationInFrames) &&
       command.durationInFrames > 0 &&
-      typeof command.trim === "boolean"
+      typeof command.trim === "boolean" &&
+      (command.ripple === undefined || typeof command.ripple === "boolean")
     );
   if (command.type === "endClipGesture")
     return (

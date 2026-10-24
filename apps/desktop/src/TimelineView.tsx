@@ -116,12 +116,15 @@ export type TimelineViewProps = {
       "copy" | "cut" | "paste" | "duplicate" | "delete" | "undo" | "redo",
   ) => void;
   keyboardShortcutsEnabled?: boolean;
+  rippleMode?: boolean;
+  onRippleModeChange?: (enabled: boolean) => void;
   onUpdateClipGesture: (
     gestureId: string,
     clipId: string,
     from: number,
     durationInFrames: number,
     trim: boolean,
+    ripple: boolean,
   ) => void;
   onEndClipGesture: (gestureId: string) => void | Promise<void>;
   onResizeStart: (event: PointerEvent<HTMLButtonElement>) => void;
@@ -154,6 +157,8 @@ export function TimelineView({
   onBeginClipGesture,
   onTimelineOperation,
   keyboardShortcutsEnabled = true,
+  rippleMode = false,
+  onRippleModeChange,
   onUpdateClipGesture,
   onEndClipGesture,
   onResizeStart,
@@ -531,6 +536,7 @@ export function TimelineView({
       start,
       end - start,
       current.mode !== "move",
+      rippleMode,
     );
   }
 
@@ -916,6 +922,14 @@ export function TimelineView({
           }
         >
           Add visual track
+        </button>
+        <button
+          type="button"
+          aria-pressed={rippleMode}
+          title="When resizing a clip, move later content in the same scene"
+          onClick={() => onRippleModeChange?.(!rippleMode)}
+        >
+          Ripple {rippleMode ? "On" : "Off"}
         </button>
         <div className="timeline-zoom-controls">
           <span>Zoom</span>
