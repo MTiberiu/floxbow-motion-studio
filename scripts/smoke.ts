@@ -2867,14 +2867,36 @@ try {
     const textHitbox = page.locator(`[data-canvas-element-id="${textClipId}"]`);
     const textBounds = await textHitbox.boundingBox();
     expect(textBounds).toBeTruthy();
+    const canvasBounds = await page
+      .getByTestId("canvas-interaction-layer")
+      .boundingBox();
+    expect(canvasBounds).toBeTruthy();
+    const dragOverlapWidth =
+      Math.min(
+        textBounds!.x + textBounds!.width,
+        canvasBounds!.x + canvasBounds!.width,
+      ) - Math.max(textBounds!.x, canvasBounds!.x);
+    const dragOverlapHeight =
+      Math.min(
+        textBounds!.y + textBounds!.height,
+        canvasBounds!.y + canvasBounds!.height,
+      ) - Math.max(textBounds!.y, canvasBounds!.y);
+    expect(dragOverlapWidth).toBeGreaterThan(0);
+    expect(dragOverlapHeight).toBeGreaterThan(0);
+    const dragStartX =
+      Math.max(textBounds!.x, canvasBounds!.x) +
+      dragOverlapWidth / 2;
+    const dragStartY =
+      Math.max(textBounds!.y, canvasBounds!.y) +
+      dragOverlapHeight / 2;
     await page.mouse.move(
-      textBounds!.x + textBounds!.width / 2,
-      textBounds!.y + textBounds!.height / 2,
+      dragStartX,
+      dragStartY,
     );
     await page.mouse.down();
     await page.mouse.move(
-      textBounds!.x + textBounds!.width / 2 - 36,
-      textBounds!.y + textBounds!.height / 2 + 10,
+      dragStartX - 36,
+      dragStartY + 10,
       { steps: 3 },
     );
     await page.mouse.up();
