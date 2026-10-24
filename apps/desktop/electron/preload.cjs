@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld(
   "floxBowWindows",
   Object.freeze({
     getContext: () => ipcRenderer.invoke("flox:window:get-context"),
+    captureCanvas: (rect) =>
+      ipcRenderer.invoke("flox:visual-inspection:capture-canvas", rect),
+    copyVisualContext: (text) =>
+      ipcRenderer.invoke("flox:visual-inspection:copy-context", text),
     openPanel: (request) =>
       ipcRenderer.invoke("flox:window:open-panel", request),
     closePanel: (request) =>

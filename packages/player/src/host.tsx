@@ -252,6 +252,120 @@ function PreviewHost({
             setMasterVolume(e.data.volume);
             break;
           }
+          case "inspect-frame": {
+            if (
+              typeof e.data.requestId !== "string" ||
+              e.data.requestId.length > 80
+            )
+              break;
+            requestAnimationFrame(() => {
+              const root = document.querySelector<HTMLElement>(
+                "[data-flox-composition-root='true']",
+              );
+              const bounds = root?.getBoundingClientRect();
+              if (!root || !bounds || bounds.width <= 0 || bounds.height <= 0) {
+                send("inspect-frame-result", {
+                  requestId: e.data.requestId,
+                  error: "Composition bounds are unavailable.",
+                });
+                return;
+              }
+              const currentFrame = Math.round(
+                player.current?.getCurrentFrame() ?? 0,
+              );
+              const scaleX = bounds.width / manifest.width;
+              const scaleY = bounds.height / manifest.height;
+              const nodes = Array.from(
+                root.querySelectorAll<HTMLElement>("[data-flox-visual-id]"),
+              ).flatMap((element, index) => {
+                const rect = element.getBoundingClientRect();
+                const left = Math.max(bounds.left, rect.left);
+                const top = Math.max(bounds.top, rect.top);
+                const right = Math.min(bounds.right, rect.right);
+                const bottom = Math.min(bounds.bottom, rect.bottom);
+                if (right <= left || bottom <= top) return [];
+                let opacity = 1;
+                let visible = true;
+                for (
+                  let current: HTMLElement | null = element;
+                  current && current !== root;
+                  current = current.parentElement
+                ) {
+                  const style = getComputedStyle(current);
+                  opacity *= Number.parseFloat(style.opacity || "1");
+                  if (
+                    style.display === "none" ||
+                    style.visibility === "hidden" ||
+                    opacity <= 0.01
+                  ) {
+                    visible = false;
+                    break;
+                  }
+                }
+                if (!visible) return [];
+                const owner = element.closest<HTMLElement>(
+                  "[data-flox-clip-id]",
+                );
+                const clipId = owner?.dataset.floxClipId;
+                const clip = timelineRef.current?.clips.find(
+                  (item) => item.id === clipId,
+                );
+                const value = (number: number) =>
+                  Math.round(number * 100) / 100;
+                const text = (
+                  element.innerText ||
+                  element.getAttribute("alt") ||
+                  ""
+                )
+                  .trim()
+                  .replace(/\s+/g, " ")
+                  .slice(0, 300);
+                return [
+                  {
+                    id: element.dataset.floxVisualId ?? "",
+                    label:
+                      element.dataset.floxLabel ??
+                      element.getAttribute("aria-label") ??
+                      element.tagName.toLowerCase(),
+                    editability:
+                      element.dataset.floxEditability ?? "unclassified",
+                    editTarget: element.dataset.floxEditTarget ?? null,
+                    clipId: clipId ?? null,
+                    trackId: owner?.dataset.floxTrackId ?? null,
+                    componentId: owner?.dataset.floxComponentId ?? null,
+                    clipLocalFrame:
+                      clip && currentFrame >= clip.from
+                        ? currentFrame - clip.from
+                        : null,
+                    text: text || null,
+                    visible: true,
+                    opacity: value(opacity),
+                    bounds: {
+                      x: value((left - bounds.left) / scaleX),
+                      y: value((top - bounds.top) / scaleY),
+                      width: value((right - left) / scaleX),
+                      height: value((bottom - top) / scaleY),
+                    },
+                    domOrder: index,
+                    boundsKind: "dom-border-box",
+                    zIndex: getComputedStyle(element).zIndex,
+                  },
+                ];
+              });
+              send("inspect-frame-result", {
+                requestId: e.data.requestId,
+                frame: currentFrame,
+                width: manifest.width,
+                height: manifest.height,
+                fps: manifest.fps,
+                durationInFrames:
+                  timelineRef.current?.durationInFrames ??
+                  manifest.durationInFrames,
+                nodes,
+              });
+            });
+            break;
+          }
           case "seek":
             if (Number.isInteger(e.data.frame)) {
               setError("");
@@ -281,7 +395,6 @@ function PreviewHost({
           case "play":
             setError("");
             clearPlaybackCheck();
-            onPlay();
             player.current?.play();
             if (
               timelineRef.current?.clips.some(

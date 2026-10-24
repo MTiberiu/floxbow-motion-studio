@@ -1,7 +1,8 @@
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import http from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import { readEditor, saveEditor } from "./editor-store";
@@ -113,7 +114,8 @@ export async function startServers(
         vite.watcher.on("all", (_event, file) => {
           if (
             file.replaceAll("\\", "/").includes("/projects/") &&
-            !file.endsWith(".tmp")
+            !file.endsWith(".tmp") &&
+            !file.replaceAll("\\", "/").includes("/.floxbow/visual-inspection/")
           ) {
             clearTimeout(timer);
             timer = setTimeout(
@@ -138,6 +140,232 @@ export async function startServers(
           isShell ? shellCsp(previewOrigin) : previewCsp,
         );
         res.setHeader("Cache-Control", "no-store");
+        const inspectionRoute =
+          isShell && /^\/api\/visual-inspection\/([a-z0-9-]+)$/.exec(pathname);
+        if (inspectionRoute) {
+          if (req.method !== "POST") {
+            res.writeHead(405).end();
+            return;
+          }
+          if (
+            req.headers.origin !== shellOrigin ||
+            !req.headers["content-type"]?.startsWith("application/json")
+          ) {
+            res
+              .writeHead(403)
+              .end("Only the studio shell can save inspection context");
+            return;
+          }
+          let body = "";
+          for await (const chunk of req) {
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 12_000_000)
+              throw new Error("Visual inspection package exceeds 12 MiB");
+          }
+          const input = JSON.parse(body) as Record<string, unknown>;
+          const expectedKeys = [
+            "request",
+            "frame",
+            "fps",
+            "durationInFrames",
+            "width",
+            "height",
+            "revision",
+            "stateVersion",
+            "selectedClipId",
+            "selectedClipLabel",
+            "dirty",
+            "nodes",
+            "timelineElements",
+            "imageDataUrl",
+          ];
+          if (
+            !input ||
+            Object.keys(input).length !== expectedKeys.length ||
+            expectedKeys.some((key) => !Object.hasOwn(input, key)) ||
+            typeof input.request !== "string" ||
+            input.request.trim().length < 1 ||
+            input.request.length > 4000 ||
+            typeof input.frame !== "number" ||
+            !Number.isInteger(input.frame) ||
+            typeof input.fps !== "number" ||
+            !Number.isInteger(input.fps) ||
+            typeof input.durationInFrames !== "number" ||
+            !Number.isInteger(input.durationInFrames) ||
+            typeof input.width !== "number" ||
+            !Number.isInteger(input.width) ||
+            typeof input.height !== "number" ||
+            !Number.isInteger(input.height) ||
+            typeof input.stateVersion !== "number" ||
+            !Number.isInteger(input.stateVersion) ||
+            typeof input.revision !== "string" ||
+            input.revision.length > 256 ||
+            typeof input.selectedClipId !== "string" ||
+            input.selectedClipId.length > 160 ||
+            typeof input.selectedClipLabel !== "string" ||
+            input.selectedClipLabel.length > 300 ||
+            typeof input.dirty !== "boolean" ||
+            !Array.isArray(input.nodes) ||
+            input.nodes.length > 500 ||
+            !Array.isArray(input.timelineElements) ||
+            input.timelineElements.length > 3000 ||
+            input.timelineElements.some(
+              (item) =>
+                !item ||
+                typeof item !== "object" ||
+                typeof item.clipId !== "string" ||
+                typeof item.label !== "string" ||
+                typeof item.trackId !== "string" ||
+                typeof item.trackName !== "string" ||
+                typeof item.componentId !== "string" ||
+                typeof item.componentName !== "string" ||
+                typeof item.fromFrame !== "number" ||
+                typeof item.durationInFrames !== "number" ||
+                typeof item.endFrame !== "number" ||
+                typeof item.localFrame !== "number" ||
+                typeof item.editability !== "string" ||
+                typeof item.sourceRef !== "string" ||
+                !Array.isArray(item.editableFields) ||
+                item.editableFields.length > 50 ||
+                item.editableFields.some(
+                  (field: Record<string, unknown>) =>
+                    !field ||
+                    typeof field !== "object" ||
+                    typeof field.key !== "string" ||
+                    (field.target !== "content" && field.target !== "props") ||
+                    typeof field.label !== "string" ||
+                    (field.type !== "text" &&
+                      field.type !== "number" &&
+                      field.type !== "color" &&
+                      field.type !== "select" &&
+                      field.type !== "boolean"),
+                ),
+            ) ||
+            typeof input.imageDataUrl !== "string" ||
+            !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(
+              input.imageDataUrl,
+            )
+          )
+            throw new Error("Visual inspection context has an invalid shape");
+          const id = inspectionRoute[1];
+          const project = (await getProjects()).find(
+            (candidate: { id: string; manifest?: unknown }) =>
+              candidate.id === id,
+          );
+          if (!project?.manifest) throw new Error("Unknown project");
+          const manifest = project.manifest as {
+            fps: number;
+            width: number;
+            height: number;
+            durationInFrames: number;
+          };
+          if (
+            input.frame < 0 ||
+            input.frame >= input.durationInFrames ||
+            input.fps !== manifest.fps ||
+            input.width !== manifest.width ||
+            input.height !== manifest.height ||
+            input.durationInFrames < 1
+          )
+            throw new Error(
+              "Visual inspection frame does not match the project",
+            );
+          const imageBytes = Buffer.from(
+            input.imageDataUrl.slice("data:image/png;base64,".length),
+            "base64",
+          );
+          if (
+            imageBytes.length < 24 ||
+            imageBytes.length > 8_000_000 ||
+            !imageBytes
+              .subarray(0, 8)
+              .equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+          )
+            throw new Error("Canvas capture is not a valid PNG under 8 MiB");
+          const projectRoot = path.join(projectsDir, id);
+          const captureId = randomUUID();
+          const inspectionRoot = path.join(
+            projectRoot,
+            ".floxbow",
+            "visual-inspection",
+          );
+          const outputDirectory = path.join(inspectionRoot, captureId);
+          await mkdir(outputDirectory, { recursive: true });
+          const realProject = await realpath(projectRoot);
+          const realOutput = await realpath(outputDirectory);
+          const relativeOutput = path.relative(realProject, realOutput);
+          if (
+            relativeOutput.startsWith("..") ||
+            path.isAbsolute(relativeOutput)
+          )
+            throw new Error("Inspection output escaped the project directory");
+          const absoluteDirectory = realOutput;
+          const frameSeconds = Number(input.frame) / Number(input.fps);
+          const metadata = {
+            schemaVersion: 2,
+            projectId: id,
+            capturedAt: new Date().toISOString(),
+            frame: input.frame,
+            timeSeconds: Math.round(frameSeconds * 1000) / 1000,
+            fps: input.fps,
+            durationInFrames: input.durationInFrames,
+            composition: { width: input.width, height: input.height },
+            editor: {
+              revision: input.revision,
+              stateVersion: input.stateVersion,
+              dirty: input.dirty,
+              selectedClipId: input.selectedClipId,
+              selectedClipLabel: input.selectedClipLabel,
+            },
+            elements: input.nodes,
+            timelineElements: input.timelineElements,
+            screenshot: {
+              file: "frame.png",
+              width: imageBytes.readUInt32BE(16),
+              height: imageBytes.readUInt32BE(20),
+            },
+            request: input.request,
+            note: "timelineElements lists Timeline clips active at the captured frame and their declared editable fields. elements lists explicitly registered DOM visuals with measured bounds; transparent image pixels are not segmented. WebGL internals and exact occlusion are not enumerated.",
+          };
+          const requestText = [
+            "# FloxBow visual edit request",
+            "",
+            input.request,
+            "",
+            `Project: ${id}`,
+            `Frame: ${input.frame} (${frameSeconds.toFixed(3)} s at ${input.fps} fps)`,
+            `Selected Timeline clip: ${input.selectedClipLabel || input.selectedClipId || "none"} (${input.selectedClipId || "none"})`,
+            `Editor state: ${input.dirty ? "unsaved draft" : "saved"}; state version ${input.stateVersion}; revision ${input.revision}`,
+            `Timeline elements active at this frame: ${input.timelineElements.length}. Search inspection.json.timelineElements for the visible text or object. Each entry includes its clip ID, track, component, frame range, sourceRef, content, props, and declared editableFields. Change only fields listed in editableFields through the Inspector contract.`,
+            `Screenshot: ${path.join(absoluteDirectory, "frame.png")}`,
+            `Inspection data: ${path.join(absoluteDirectory, "inspection.json")}`,
+            "Use timelineElements as the frame-specific lookup index and visual nodes in elements for measured bounds. A clip with no declared editableFields is identifiable but is not directly Inspector-editable; follow its sourceRef to inspect the owning component and supported editing path.",
+          ].join("\n");
+          const atomicWrite = async (name: string, data: string | Buffer) => {
+            const target = path.join(absoluteDirectory, name);
+            const temporary = `${target}.${randomUUID()}.tmp`;
+            await writeFile(temporary, data, { flag: "wx" });
+            await rename(temporary, target);
+          };
+          await atomicWrite("frame.png", imageBytes);
+          await atomicWrite(
+            "inspection.json",
+            `${JSON.stringify(metadata, null, 2)}\n`,
+          );
+          await atomicWrite("request.md", `${requestText}\n`);
+          res.setHeader("Content-Type", "application/json");
+          res.end(
+            JSON.stringify({
+              captureId,
+              directory: absoluteDirectory,
+              screenshot: path.join(absoluteDirectory, "frame.png"),
+              inspection: path.join(absoluteDirectory, "inspection.json"),
+              request: path.join(absoluteDirectory, "request.md"),
+              copiedText: requestText,
+            }),
+          );
+          return;
+        }
         const projectSettingsRoute =
           /^\/api\/projects\/([a-z0-9-]+)\/settings$/.exec(pathname);
         if (isShell && projectSettingsRoute) {

@@ -46,6 +46,10 @@ import {
   subtitleTrackId,
 } from "./timeline-track-utils";
 import { useWorkspaceManager } from "./WorkspaceManager";
+import {
+  clampTimelineHeight,
+  DEFAULT_TIMELINE_HEIGHT,
+} from "./editor-layout";
 import type {
   TimelineCommandEnvelope,
   TimelineCommandResult,
@@ -92,6 +96,15 @@ export function TimelineEditor({
   requestPreviewReload: () => void;
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
+  const canvasSurface = useRef<HTMLDivElement>(null);
+  const [visualRequest, setVisualRequest] = useState("");
+  const [rightPanelTab, setRightPanelTab] = useState<"inspector" | "visual-context">("inspector");
+  const [visualContextBusy, setVisualContextBusy] = useState(false);
+  const [visualContextStatus, setVisualContextStatus] = useState("");
+  const [visualContextPaths, setVisualContextPaths] = useState<{
+    screenshot: string;
+    inspection: string;
+  }>();
   const send = useCallback(
     (type: string, payload: Record<string, unknown> = {}) => {
       iframe.current?.contentWindow?.postMessage(
@@ -224,6 +237,167 @@ export function TimelineEditor({
     ? timelinePlaybackEnd(doc, playToProjectEnd)
     : manifest.durationInFrames;
   playPreviewRef.current = () => sessionRef.current.commands.play();
+  async function prepareVisualContext() {
+    if (!doc || !visualRequest.trim() || !window.floxBowWindows) return;
+    const surface = canvasSurface.current;
+    const stage = surface?.closest<HTMLElement>(".preview-stage");
+    if (!surface || !stage) {
+      setVisualContextStatus("Canvas surface is not available.");
+      return;
+    }
+    setVisualContextBusy(true);
+    setVisualContextStatus("Inspecting the current frame…");
+    try {
+      pause();
+      seek(frame);
+      const requestId = crypto.randomUUID();
+      const inspection = await new Promise<{
+        frame: number;
+        width: number;
+        height: number;
+        fps: number;
+        durationInFrames: number;
+        nodes: unknown[];
+      }>((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          window.removeEventListener("message", receive);
+          reject(new Error("Preview did not return frame inspection data."));
+        }, 5000);
+        const receive = (event: MessageEvent) => {
+          const data = event.data;
+          if (
+            event.source !== iframe.current?.contentWindow ||
+            event.origin !== previewOrigin ||
+            data?.channel !== "motion-editor-v1" ||
+            data?.projectId !== manifest.id ||
+            data?.type !== "inspect-frame-result" ||
+            data?.requestId !== requestId
+          )
+            return;
+          window.clearTimeout(timeout);
+          window.removeEventListener("message", receive);
+          if (typeof data.error === "string") reject(new Error(data.error));
+          else resolve(data);
+        };
+        window.addEventListener("message", receive);
+        send("inspect-frame", { requestId });
+      });
+      const surfaceRect = surface.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      const left = Math.max(0, stageRect.left, surfaceRect.left);
+      const top = Math.max(0, stageRect.top, surfaceRect.top);
+      const right = Math.min(
+        window.innerWidth,
+        stageRect.right,
+        surfaceRect.right,
+      );
+      const bottom = Math.min(
+        window.innerHeight,
+        stageRect.bottom,
+        surfaceRect.bottom,
+      );
+      if (right <= left || bottom <= top)
+        throw new Error(
+          "Canvas is outside the visible preview area. Choose Fit and retry.",
+        );
+      const capture = await window.floxBowWindows.captureCanvas({
+        x: Math.floor(left),
+        y: Math.floor(top),
+        width: Math.ceil(right) - Math.floor(left),
+        height: Math.ceil(bottom) - Math.floor(top),
+      });
+      const selectedClip = doc.clips.find((item) => item.id === selected);
+      const trackNames = new Map(
+        doc.tracks.map((track) => [track.id, track.name]),
+      );
+      const componentById = new Map(
+        components.map((component) => [component.id, component]),
+      );
+      const timelineElements = doc.tracks.flatMap((track) =>
+        doc.clips
+          .filter(
+            (item) =>
+              item.trackId === track.id &&
+              inspection.frame >= item.from &&
+              inspection.frame < item.from + item.durationInFrames,
+          )
+          .map((item) => {
+            const component = componentById.get(item.componentId);
+            const editableFields = (component?.fields ?? []).map((field) => ({
+              key: field.key,
+              target: field.target,
+              label: field.label,
+              type: field.type,
+              value: fieldValue(item, field),
+            }));
+            return {
+              clipId: item.id,
+              label: item.label,
+              trackId: item.trackId,
+              trackName: trackNames.get(item.trackId) ?? item.trackId,
+              componentId: item.componentId,
+              componentName: component?.name ?? item.componentId,
+              fromFrame: item.from,
+              durationInFrames: item.durationInFrames,
+              endFrame: item.from + item.durationInFrames,
+              localFrame: inspection.frame - item.from,
+              fromSeconds: Number((item.from / inspection.fps).toFixed(3)),
+              durationSeconds: Number(
+                (item.durationInFrames / inspection.fps).toFixed(3),
+              ),
+              content: item.content,
+              props: item.props,
+              editability: editableFields.length
+                ? "declared-fields"
+                : "timeline-data-only",
+              sourceRef: `timeline:${manifest.id}/${item.id} · component:${item.componentId}`,
+              editableFields,
+            };
+          }),
+      );
+      const response = await fetch(`/api/visual-inspection/${manifest.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request: visualRequest.trim(),
+          frame: inspection.frame,
+          fps: inspection.fps,
+          durationInFrames: inspection.durationInFrames,
+          width: inspection.width,
+          height: inspection.height,
+          revision: snapshot.revision,
+          stateVersion: snapshot.stateVersion,
+          selectedClipId: selected,
+          selectedClipLabel: selectedClip?.label ?? "",
+          dirty: snapshot.dirty,
+          nodes: inspection.nodes,
+          timelineElements,
+          imageDataUrl: capture.dataUrl,
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const saved = (await response.json()) as {
+        screenshot: string;
+        inspection: string;
+        copiedText: string;
+      };
+      await window.floxBowWindows.copyVisualContext(saved.copiedText);
+      setVisualContextPaths({
+        screenshot: saved.screenshot,
+        inspection: saved.inspection,
+      });
+      setVisualContextStatus(
+        `Context saved and copied for frame ${inspection.frame} (${(inspection.frame / inspection.fps).toFixed(2)} s).`,
+      );
+    } catch (error) {
+      setVisualContextStatus(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setVisualContextBusy(false);
+    }
+  }
+
   const timelineWarnings = doc ? timelineGapWarnings(doc) : [];
   const warningKey = (warning: (typeof timelineWarnings)[number]) =>
     `${warning.trackId}:${warning.from}:${warning.end}`;
@@ -499,11 +673,33 @@ export function TimelineEditor({
     () => Number(localStorage.getItem("motion-inspector-width")) || 270,
   );
   const [timelineHeight, setTimelineHeight] = useState(
-    () => Number(localStorage.getItem("motion-timeline-height")) || 280,
+    () =>
+      clampTimelineHeight(
+        Number(localStorage.getItem("motion-timeline-height")) ||
+          DEFAULT_TIMELINE_HEIGHT,
+        window.innerHeight,
+      ),
   );
   const panelResize = useRef<
-    { kind: "inspector" | "timeline"; start: number; size: number } | undefined
+    {
+      kind: "inspector" | "timeline";
+      start: number;
+      size: number;
+      pointerId: number;
+    } | undefined
   >(undefined);
+  useEffect(() => {
+    const constrainTimeline = () => {
+      setTimelineHeight((current) => {
+        const next = clampTimelineHeight(current, window.innerHeight);
+        if (next !== current)
+          localStorage.setItem("motion-timeline-height", String(next));
+        return next;
+      });
+    };
+    window.addEventListener("resize", constrainTimeline);
+    return () => window.removeEventListener("resize", constrainTimeline);
+  }, []);
   useEffect(() => {
     const receive = (event: MessageEvent) =>
       receivePreviewMessage(event, iframe.current?.contentWindow ?? null);
@@ -1504,12 +1700,9 @@ export function TimelineEditor({
       setInspectorWidth(width);
       localStorage.setItem("motion-inspector-width", String(width));
     } else {
-      const height = Math.max(
-        170,
-        Math.min(
-          Math.round(window.innerHeight * 0.55),
-          d.size + d.start - e.clientY,
-        ),
+      const height = clampTimelineHeight(
+        d.size + d.start - e.clientY,
+        window.innerHeight,
       );
       setTimelineHeight(height);
       localStorage.setItem("motion-timeline-height", String(height));
@@ -1517,6 +1710,33 @@ export function TimelineEditor({
   }
   function endPanelResize() {
     panelResize.current = undefined;
+  }
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      if (panelResize.current?.pointerId !== event.pointerId) return;
+      resizePanel(event as unknown as ReactPointerEvent<HTMLButtonElement>);
+    };
+    const end = (event: PointerEvent) => {
+      if (panelResize.current?.pointerId === event.pointerId)
+        endPanelResize();
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+  }, []);
+  function beginPanelResize(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    kind: "inspector" | "timeline",
+    start: number,
+    size: number,
+  ) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panelResize.current = { kind, start, size, pointerId: event.pointerId };
   }
   async function importFile(file: File | undefined) {
     if (!file || !doc) return;
@@ -2378,6 +2598,14 @@ export function TimelineEditor({
           <button onClick={reloadDisk} disabled={!doc}>
             Reload from disk
           </button>
+          <button
+            type="button"
+            onClick={() => setRightPanelTab("visual-context")}
+            disabled={!doc || built}
+            title="Capture the current Canvas frame and copy a context package for an AI coding request"
+          >
+            AI context
+          </button>
           <span className="save-status">
             {dirty ? "Unsaved changes" : "Saved"}
             {built ? " · Built components" : ""}
@@ -2407,6 +2635,7 @@ export function TimelineEditor({
             </select>
           </label>
         </div>
+        <div className="editor-feedback">
         <details className="timeline-review">
           <summary>
             Timeline review:{" "}
@@ -2485,6 +2714,7 @@ export function TimelineEditor({
             {notice}
           </p>
         )}
+        </div>
         <div
           className="editor-columns"
           style={
@@ -2504,6 +2734,7 @@ export function TimelineEditor({
             masterVolume={masterVolume}
             onMasterVolumeChange={setMasterVolume}
             iframeRef={iframe}
+            surfaceRef={canvasSurface}
             onPreviewLoad={() => {
               send("hello");
               send("playback-boundary", { endFrame: playbackEndFrame });
@@ -2577,18 +2808,43 @@ export function TimelineEditor({
           <button
             className="panel-splitter inspector-splitter"
             aria-label="Resize inspector"
-            onPointerDown={(event) => {
-              event.currentTarget.setPointerCapture(event.pointerId);
-              panelResize.current = {
-                kind: "inspector",
-                start: event.clientX,
-                size: inspectorWidth,
-              };
-            }}
+            onPointerDown={(event) =>
+              beginPanelResize(event, "inspector", event.clientX, inspectorWidth)
+            }
             onPointerMove={resizePanel}
             onPointerUp={endPanelResize}
           />
-          <InspectorView
+          <section className="right-editor-panel" aria-label="Editor tools">
+            <div className="right-panel-tabs" role="tablist" aria-label="Right panel">
+              <button
+                id="inspector-tab"
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === "inspector"}
+                aria-controls="inspector-panel"
+                onClick={() => setRightPanelTab("inspector")}
+              >
+                Inspector
+              </button>
+              <button
+                id="visual-context-tab"
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === "visual-context"}
+                aria-controls="visual-context-panel"
+                onClick={() => setRightPanelTab("visual-context")}
+              >
+                AI visual context
+              </button>
+            </div>
+            {rightPanelTab === "inspector" ? (
+              <div
+                id="inspector-panel"
+                className="right-panel-content"
+                role="tabpanel"
+                aria-labelledby="inspector-tab"
+              >
+                <InspectorView
             manifest={editorManifest}
             document={doc}
             clip={clip}
@@ -2624,7 +2880,57 @@ export function TimelineEditor({
                   canPerformTimelineOperation(clip, "delete", components)
                 : false
             }
-          />
+                />
+              </div>
+            ) : (
+              <section
+                id="visual-context-panel"
+                className="visual-context-panel right-panel-content"
+                aria-label="AI visual context"
+                role="tabpanel"
+                aria-labelledby="visual-context-tab"
+              >
+                <div className="visual-context-heading">
+                  <strong>Prepare context from this Canvas frame</strong>
+                  <span>
+                    Frame {frame} · {(frame / manifest.fps).toFixed(2)} s ·{" "}
+                    {clip?.label ?? "No clip selected"}
+                  </span>
+                </div>
+                <label htmlFor="visual-context-request">
+                  What should change at this moment?
+                </label>
+                <textarea
+                  id="visual-context-request"
+                  value={visualRequest}
+                  onChange={(event) => setVisualRequest(event.currentTarget.value)}
+                  maxLength={4000}
+                  placeholder="For example: Change the tutorial sample caption to red at this moment."
+                  rows={2}
+                />
+                <div className="visual-context-actions">
+                  <button
+                    type="button"
+                    onClick={() => void prepareVisualContext()}
+                    disabled={visualContextBusy || !visualRequest.trim() || built}
+                  >
+                    {visualContextBusy ? "Preparing…" : "Capture and copy for AI"}
+                  </button>
+                  <span role="status">{visualContextStatus}</span>
+                </div>
+                {visualContextPaths && (
+                  <div className="visual-context-paths">
+                    <div>
+                      Screenshot: <code>{visualContextPaths.screenshot}</code>
+                    </div>
+                    <div>
+                      Frame map: <code>{visualContextPaths.inspection}</code>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+          </section>
         </div>
         <div
           className="timeline-location"
@@ -2710,12 +3016,7 @@ export function TimelineEditor({
                 onUpdateClipGesture={updateClipGesture}
                 onEndClipGesture={endClipGesture}
                 onResizeStart={(event) => {
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  panelResize.current = {
-                    kind: "timeline",
-                    start: event.clientY,
-                    size: timelineHeight,
-                  };
+                  beginPanelResize(event, "timeline", event.clientY, timelineHeight);
                 }}
                 onResizeMove={resizePanel}
                 onResizeEnd={endPanelResize}

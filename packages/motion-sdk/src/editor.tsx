@@ -1061,7 +1061,11 @@ export function TimelineComposition({
     ),
   ];
   return (
-    <AbsoluteFill style={{ background: "#000000" }}>
+    <div
+      data-flox-composition-root="true"
+      style={{ position: "absolute", inset: 0, overflow: "hidden" }}
+    >
+      <AbsoluteFill style={{ background: "#000000" }}>
       {visualTracksInRenderOrder(t).flatMap((track) =>
         track.visible === false
           ? []
@@ -1086,26 +1090,34 @@ export function TimelineComposition({
                     durationInFrames={clip.durationInFrames}
                     name={clip.label}
                   >
-                    <FrameAwareComponent
-                      component={Element}
-                      clip={clip}
-                      imageSources={imageSources}
-                      videoSources={videoSources}
-                      assetGroups={t.assetGroups}
-                      sceneLocalStartFrame={
-                        clip.sceneId
-                          ? clip.from -
-                            (t.scenes?.find(
-                              (scene) => scene.id === clip.sceneId,
-                            )?.from ?? clip.from)
-                          : 0
-                      }
-                    />
+                    <div
+                      data-flox-clip-id={clip.id}
+                      data-flox-track-id={track.id}
+                      data-flox-component-id={clip.componentId}
+                      style={{ display: "contents" }}
+                    >
+                      <FrameAwareComponent
+                        component={Element}
+                        clip={clip}
+                        imageSources={imageSources}
+                        videoSources={videoSources}
+                        assetGroups={t.assetGroups}
+                        sceneLocalStartFrame={
+                          clip.sceneId
+                            ? clip.from -
+                              (t.scenes?.find(
+                                (scene) => scene.id === clip.sceneId,
+                              )?.from ?? clip.from)
+                            : 0
+                        }
+                      />
+                    </div>
                   </Sequence>
                 );
               }),
       )}
-    </AbsoluteFill>
+      </AbsoluteFill>
+    </div>
   );
 }
 
