@@ -1117,7 +1117,9 @@ try {
       2,
     );
 
-    await page.getByRole("button", { name: "Add Audio" }).click();
+    await page
+      .getByRole("button", { name: "Add Audio", exact: true })
+      .click();
     await Promise.race([
       secondPickerStarted,
       new Promise<never>((_, reject) =>
