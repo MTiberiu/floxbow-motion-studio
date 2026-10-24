@@ -395,7 +395,6 @@ function PreviewHost({
           case "play":
             setError("");
             clearPlaybackCheck();
-            onPlay();
             player.current?.play();
             if (
               timelineRef.current?.clips.some(

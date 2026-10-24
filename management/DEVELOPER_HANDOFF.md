@@ -4,7 +4,7 @@ Updated: 2026-10-24. This file records verified local progress and the next safe
 
 ## Checkout and scope
 
-- The current increment is being published directly to `origin/dev` from the local `dev` checkout. Check the latest Git status and remote SHA before assuming synchronization.
+- Development increments use the repository's protected-branch review flow. Check the latest Git status and `origin/dev` SHA before assuming synchronization.
 - `499cc93` contains the left Media Library and PNG placement increment. The current local code also adds ordinary MP4 video clips.
 - The existing `projects/Test` project remains present and untouched. No source media, `main`, or the independently developed Kinetic module has been changed.
 - Smoke tests create synthetic projects and media, then clean them up.
@@ -53,11 +53,11 @@ Updated: 2026-10-24. This file records verified local progress and the next safe
 ## Verification for the current local increment
 
 - Latest unit run: 127/127 passed. Typecheck, project validation and build passed. Build retains existing Zod annotation-position and large-bundle warnings.
-- Local Electron smoke launches successfully. Timeline resize and fixed-footer checks pass in multiple runs; soundtrack drag to another audio row passes; AI Visual Context opens in its right-side tab, captures a screenshot and frame map, and the read-only resolver returns current editable Text fields. Full smoke is not green: separate runs have stopped at the left ruler-scroll boundary check, at the multi-selection drag-active check, and at the subsequent group-movement assertion. Keep these strict assertions enabled and treat the complete Electron smoke as unresolved.
+- Full local Electron smoke passes, including Timeline resize and fixed footer, soundtrack movement, playback restart at the content end, docked/detached synchronization, AI Visual Context capture and resolver, group movement, video movement between visual tracks, and MP4 export. Smoke geometry now scrolls selected clips into view and expands the Timeline before testing a move between rows; the assertions still verify the actual edits and resulting duration.
 - Smoke fixtures use generated projects and media and remove their test projects afterward. The existing `projects/Test` project, other source media, `main`, and Kinetic remain untouched. The Three.js experiment is not present in the feature branch's tracked code and has not been integrated.
 - The smoke fixture uses generated project/media data. The existing `projects/Test` project, other source media, `main`, and Kinetic remain untouched.
 - The synthetic smoke fixtures create and clean up their own projects and media. Existing `projects/Test`, other source media, `main`, and Kinetic remain untouched.
 
 ## Next logical increment
 
-Diagnose why a mouse drag over an already multi-selected Timeline clip does not enter the drag-active state in Electron smoke. Keep the assertion strict and rerun the complete smoke. Do not fold the ignored project-level Three.js experiment or private project media into Git.
+Review and integrate the current protected-branch change before starting another implementation. Continue the end-to-end acceptance project for multiple image layers, Text, Video and Audio, then address the remaining independent audio and waveform gaps. Do not fold the ignored project-level Three.js experiment or private project media into Git.

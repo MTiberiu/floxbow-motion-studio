@@ -3180,6 +3180,7 @@ try {
     await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
 
     const groupedClips = page.locator(".timeline-clip.is-selected");
+    await groupedClips.first().scrollIntoViewIfNeeded();
     const groupedStartsBefore = await groupedClips.evaluateAll((clips) =>
       clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
     );
@@ -3189,22 +3190,6 @@ try {
       x: groupedDragBox!.x + groupedDragBox!.width / 2,
       y: groupedDragBox!.y + groupedDragBox!.height / 2,
     };
-    console.log(
-      "Timeline group pointer target",
-      await page.evaluate(({ x, y }) => {
-        const hit = document.elementFromPoint(x, y);
-        const clip = hit?.closest<HTMLElement>(".timeline-clip");
-        const row = hit?.closest<HTMLElement>(".track-row");
-        return {
-          hit: hit?.tagName + "." + hit?.className,
-          hitClipId: clip?.dataset.clipId ?? null,
-          row: row?.className ?? null,
-          rowLocked: row?.dataset.locked ?? null,
-          clipRect: clip?.getBoundingClientRect().toJSON() ?? null,
-          point: { x, y },
-        };
-      }, groupedDragPoint),
-    );
     await page.mouse.move(
       groupedDragPoint.x,
       groupedDragPoint.y,
@@ -4237,9 +4222,32 @@ try {
       .locator(".timeline-actions")
       .getByRole("button", { name: "Add visual track", exact: true })
       .click();
+    const trackMoveDock = page.locator(".timeline-dock");
+    const trackMoveDockBefore = await trackMoveDock.boundingBox();
+    const trackMoveResize = await page
+      .getByRole("button", { name: "Resize timeline height" })
+      .boundingBox();
+    expect(trackMoveDockBefore).toBeTruthy();
+    expect(trackMoveResize).toBeTruthy();
+    await page.mouse.move(
+      trackMoveResize!.x + trackMoveResize!.width / 2,
+      trackMoveResize!.y + trackMoveResize!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      trackMoveResize!.x + trackMoveResize!.width / 2,
+      trackMoveResize!.y - 150,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await trackMoveDock.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(trackMoveDockBefore!.height + 100);
     const videoSourceTrackId = await videoClip.evaluate(
       (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
     );
+    if (!videoSourceTrackId)
+      throw new Error("Video clip has no source Timeline track.");
     const videoSourceRow = page.locator(
       `.track-row[data-track-row="${videoSourceTrackId}"]`,
     );
@@ -4248,32 +4256,61 @@ try {
       .locator(".track-row.is-visual-track")
       .evaluateAll(
         (rows, sourceTrackId) => {
-          const viewport = document
-            .querySelector<HTMLElement>(".timeline-scroll")!
-            .getBoundingClientRect();
           return rows
-            .find((row) => {
-              const bounds = row.getBoundingClientRect();
-              return (
-                row.getAttribute("data-track-row") !== sourceTrackId &&
-                bounds.top >= viewport.top &&
-                bounds.bottom <= viewport.bottom
-              );
-            })
+            .find((row) => row.getAttribute("data-track-row") !== sourceTrackId)
             ?.getAttribute("data-track-row");
         },
         videoSourceTrackId,
       );
-    expect(videoTargetTrackId).toBeTruthy();
+    if (!videoTargetTrackId)
+      throw new Error("No destination visual Timeline track is available.");
     const videoTargetRow = page.locator(
       `.track-row[data-track-row="${videoTargetTrackId}"]`,
     );
-    const videoMoveTarget = await videoClip.evaluate((clip) => {
-      const sourceTrack =
-        clip.closest<HTMLElement>(".track-lane")?.dataset.track;
+    await page.locator(".timeline-scroll").evaluate((viewport, ids) => {
+      const rows = ids.map((id) =>
+        viewport.querySelector<HTMLElement>(
+          `.track-row[data-track-row="${CSS.escape(id)}"]`,
+        ),
+      );
+      if (rows.some((row) => !row))
+        throw new Error("Video source or target track is not rendered.");
+      const bounds = rows.map((row) => row!.getBoundingClientRect());
+      const viewportBounds = viewport.getBoundingClientRect();
+      const top = Math.min(...bounds.map((rect) => rect.top));
+      const bottom = Math.max(...bounds.map((rect) => rect.bottom));
+      if (bottom - top > viewport.clientHeight)
+        throw new Error("Expanded Timeline cannot show both video tracks.");
+      if (top < viewportBounds.top)
+        viewport.scrollTop -= viewportBounds.top - top;
+      const updated = rows.map((row) => row!.getBoundingClientRect());
+      const updatedBottom = Math.max(...updated.map((rect) => rect.bottom));
+      if (updatedBottom > viewportBounds.bottom)
+        viewport.scrollTop += updatedBottom - viewportBounds.bottom;
+    }, [videoSourceTrackId, videoTargetTrackId]);
+    await expect
+      .poll(() =>
+        page.locator(".timeline-scroll").evaluate((viewport, ids) => {
+          const rows = ids.map((id) =>
+            viewport.querySelector<HTMLElement>(
+              `.track-row[data-track-row="${CSS.escape(id)}"]`,
+            )!,
+          );
+          const viewportBounds = viewport.getBoundingClientRect();
+          return rows.every((row) => {
+            const bounds = row.getBoundingClientRect();
+            return (
+              bounds.top >= viewportBounds.top &&
+              bounds.bottom <= viewportBounds.bottom
+            );
+          });
+        }, [videoSourceTrackId, videoTargetTrackId]),
+      )
+      .toBe(true);
+    const videoMoveTarget = await videoClip.evaluate((clip, targetTrackId) => {
       const row = Array.from(
         document.querySelectorAll<HTMLElement>(".track-row.is-visual-track"),
-      ).find((candidate) => candidate.dataset.trackRow !== sourceTrack)!;
+      ).find((candidate) => candidate.dataset.trackRow === targetTrackId)!;
       const lane = row.querySelector<HTMLElement>(".track-lane")!;
       const clipRect = clip.getBoundingClientRect();
       const laneRect = lane.getBoundingClientRect();
@@ -4286,7 +4323,7 @@ try {
         sourceY: clipRect.top + clipRect.height / 2,
         targetY: laneRect.top + laneRect.height / 2,
       };
-    });
+    }, videoTargetTrackId);
     expect(videoMoveTarget.trackId).toBeTruthy();
     const videoRangeBeforeTrackMove = await readClipFrameRange(videoClip);
     await page.mouse.move(videoMoveTarget.x, videoMoveTarget.sourceY);
