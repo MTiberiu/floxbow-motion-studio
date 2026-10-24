@@ -518,27 +518,33 @@ export function TimelineView({
     return element.scrollLeft !== before;
   }
 
+  const dragCallbacks = useRef({ updateDrag, finish, scrollTowardPointer });
+  dragCallbacks.current = { updateDrag, finish, scrollTowardPointer };
+
   useLayoutEffect(() => {
-    if (!dragging) return;
     let frameId = 0;
     const handleMouseMove = (event: MouseEvent) => {
       if (!drag.current) return;
-      if (drag.current.active) scrollTowardPointer(event.clientX);
-      updateDrag(event.clientX, event.clientY);
+      if (drag.current.active)
+        dragCallbacks.current.scrollTowardPointer(event.clientX);
+      dragCallbacks.current.updateDrag(event.clientX, event.clientY);
     };
     const handleMouseUp = (event: MouseEvent) => {
       if (drag.current) {
         drag.current.lastX = event.clientX;
         drag.current.lastY = event.clientY;
       }
-      finish();
+      dragCallbacks.current.finish();
     };
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("mouseup", handleMouseUp, true);
     const tick = () => {
       const current = drag.current;
-      if (current?.active && scrollTowardPointer(current.lastX))
-        updateDrag(current.lastX, current.lastY);
+      if (
+        current?.active &&
+        dragCallbacks.current.scrollTowardPointer(current.lastX)
+      )
+        dragCallbacks.current.updateDrag(current.lastX, current.lastY);
       frameId = requestAnimationFrame(tick);
     };
     frameId = requestAnimationFrame(tick);
@@ -547,7 +553,7 @@ export function TimelineView({
       window.removeEventListener("mousemove", handleMouseMove, true);
       window.removeEventListener("mouseup", handleMouseUp, true);
     };
-  }, [dragging]);
+  }, []);
 
   function finish() {
     const current = drag.current;
