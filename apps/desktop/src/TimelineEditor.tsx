@@ -76,6 +76,15 @@ export function TimelineEditor({
   requestPreviewReload: () => void;
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
+  const canvasSurface = useRef<HTMLDivElement>(null);
+  const [visualRequest, setVisualRequest] = useState("");
+  const [showVisualContext, setShowVisualContext] = useState(false);
+  const [visualContextBusy, setVisualContextBusy] = useState(false);
+  const [visualContextStatus, setVisualContextStatus] = useState("");
+  const [visualContextPaths, setVisualContextPaths] = useState<{
+    screenshot: string;
+    inspection: string;
+  }>();
   const send = useCallback(
     (type: string, payload: Record<string, unknown> = {}) => {
       iframe.current?.contentWindow?.postMessage(
@@ -170,6 +179,166 @@ export function TimelineEditor({
   const playbackEndFrame = doc
     ? timelinePlaybackEnd(doc, playToProjectEnd)
     : manifest.durationInFrames;
+  async function prepareVisualContext() {
+    if (!doc || !visualRequest.trim() || !window.floxBowWindows) return;
+    const surface = canvasSurface.current;
+    const stage = surface?.closest<HTMLElement>(".preview-stage");
+    if (!surface || !stage) {
+      setVisualContextStatus("Canvas surface is not available.");
+      return;
+    }
+    setVisualContextBusy(true);
+    setVisualContextStatus("Inspecting the current frame…");
+    try {
+      pause();
+      seek(frame);
+      const requestId = crypto.randomUUID();
+      const inspection = await new Promise<{
+        frame: number;
+        width: number;
+        height: number;
+        fps: number;
+        durationInFrames: number;
+        nodes: unknown[];
+      }>((resolve, reject) => {
+        const timeout = window.setTimeout(() => {
+          window.removeEventListener("message", receive);
+          reject(new Error("Preview did not return frame inspection data."));
+        }, 5000);
+        const receive = (event: MessageEvent) => {
+          const data = event.data;
+          if (
+            event.source !== iframe.current?.contentWindow ||
+            event.origin !== previewOrigin ||
+            data?.channel !== "motion-editor-v1" ||
+            data?.projectId !== manifest.id ||
+            data?.type !== "inspect-frame-result" ||
+            data?.requestId !== requestId
+          )
+            return;
+          window.clearTimeout(timeout);
+          window.removeEventListener("message", receive);
+          if (typeof data.error === "string") reject(new Error(data.error));
+          else resolve(data);
+        };
+        window.addEventListener("message", receive);
+        send("inspect-frame", { requestId });
+      });
+      const surfaceRect = surface.getBoundingClientRect();
+      const stageRect = stage.getBoundingClientRect();
+      const left = Math.max(0, stageRect.left, surfaceRect.left);
+      const top = Math.max(0, stageRect.top, surfaceRect.top);
+      const right = Math.min(
+        window.innerWidth,
+        stageRect.right,
+        surfaceRect.right,
+      );
+      const bottom = Math.min(
+        window.innerHeight,
+        stageRect.bottom,
+        surfaceRect.bottom,
+      );
+      if (right <= left || bottom <= top)
+        throw new Error(
+          "Canvas is outside the visible preview area. Choose Fit and retry.",
+        );
+      const capture = await window.floxBowWindows.captureCanvas({
+        x: Math.round(left),
+        y: Math.round(top),
+        width: Math.round(right - left),
+        height: Math.round(bottom - top),
+      });
+      const selectedClip = doc.clips.find((item) => item.id === selected);
+      const trackNames = new Map(
+        doc.tracks.map((track) => [track.id, track.name]),
+      );
+      const componentById = new Map(
+        components.map((component) => [component.id, component]),
+      );
+      const timelineElements = doc.tracks.flatMap((track) =>
+        doc.clips
+          .filter(
+            (item) =>
+              item.trackId === track.id &&
+              inspection.frame >= item.from &&
+              inspection.frame < item.from + item.durationInFrames,
+          )
+          .map((item) => {
+            const component = componentById.get(item.componentId);
+            const editableFields = (component?.fields ?? []).map((field) => ({
+              key: field.key,
+              target: field.target,
+              label: field.label,
+              type: field.type,
+              value: fieldValue(item, field),
+            }));
+            return {
+              clipId: item.id,
+              label: item.label,
+              trackId: item.trackId,
+              trackName: trackNames.get(item.trackId) ?? item.trackId,
+              componentId: item.componentId,
+              componentName: component?.name ?? item.componentId,
+              fromFrame: item.from,
+              durationInFrames: item.durationInFrames,
+              endFrame: item.from + item.durationInFrames,
+              localFrame: inspection.frame - item.from,
+              fromSeconds: Number((item.from / inspection.fps).toFixed(3)),
+              durationSeconds: Number(
+                (item.durationInFrames / inspection.fps).toFixed(3),
+              ),
+              content: item.content,
+              props: item.props,
+              editability: editableFields.length
+                ? "declared-fields"
+                : "timeline-data-only",
+              sourceRef: `timeline:${manifest.id}/${item.id} · component:${item.componentId}`,
+              editableFields,
+            };
+          }),
+      );
+      const response = await fetch(`/api/visual-inspection/${manifest.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          request: visualRequest.trim(),
+          frame: inspection.frame,
+          fps: inspection.fps,
+          durationInFrames: inspection.durationInFrames,
+          width: inspection.width,
+          height: inspection.height,
+          revision: snapshot.revision,
+          stateVersion: snapshot.stateVersion,
+          selectedClipId: selected,
+          selectedClipLabel: selectedClip?.label ?? "",
+          dirty: snapshot.dirty,
+          nodes: inspection.nodes,
+          timelineElements,
+          imageDataUrl: capture.dataUrl,
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const saved = (await response.json()) as {
+        screenshot: string;
+        inspection: string;
+        copiedText: string;
+      };
+      await window.floxBowWindows.copyVisualContext(saved.copiedText);
+      setVisualContextPaths({
+        screenshot: saved.screenshot,
+        inspection: saved.inspection,
+      });
+      setVisualContextStatus(
+        `Context saved and copied for frame ${inspection.frame} (${(inspection.frame / inspection.fps).toFixed(2)} s).`,
+      );
+    } catch (error) {
+      setVisualContextStatus(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setVisualContextBusy(false);
+    }
+  }
   const timelineWarnings = doc ? timelineGapWarnings(doc) : [];
   const edit = (next: EditTimeline, createCheckpoint = true) => {
     const current = commands.getCurrentDocument();
@@ -1406,6 +1575,14 @@ export function TimelineEditor({
         <button onClick={reloadDisk} disabled={!doc}>
           Reload from disk
         </button>
+        <button
+          type="button"
+          onClick={() => setShowVisualContext((shown) => !shown)}
+          disabled={!doc || built}
+          title="Capture the current Canvas frame and copy a context package for an AI coding request"
+        >
+          AI visual context
+        </button>
         <span className="save-status">
           {dirty ? "Unsaved changes" : "Saved"}
           {built ? " · Built components" : ""}
@@ -1435,6 +1612,51 @@ export function TimelineEditor({
           </select>
         </label>
       </div>
+      {showVisualContext && (
+        <section
+          className="visual-context-panel"
+          aria-label="AI visual context"
+        >
+          <div className="visual-context-heading">
+            <strong>Prepare context from this Canvas frame</strong>
+            <span>
+              Frame {frame} · {(frame / manifest.fps).toFixed(2)} s ·{" "}
+              {clip?.label ?? "No clip selected"}
+            </span>
+          </div>
+          <label htmlFor="visual-context-request">
+            What should change at this moment?
+          </label>
+          <textarea
+            id="visual-context-request"
+            value={visualRequest}
+            onChange={(event) => setVisualRequest(event.currentTarget.value)}
+            maxLength={4000}
+            placeholder="For example: Change the tutorial sample caption to red at this moment."
+            rows={2}
+          />
+          <div className="visual-context-actions">
+            <button
+              type="button"
+              onClick={() => void prepareVisualContext()}
+              disabled={visualContextBusy || !visualRequest.trim() || built}
+            >
+              {visualContextBusy ? "Preparing…" : "Capture and copy for AI"}
+            </button>
+            <span role="status">{visualContextStatus}</span>
+          </div>
+          {visualContextPaths && (
+            <div className="visual-context-paths">
+              <div>
+                Screenshot: <code>{visualContextPaths.screenshot}</code>
+              </div>
+              <div>
+                Frame map: <code>{visualContextPaths.inspection}</code>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
       <details className="timeline-review" open={timelineWarnings.length > 0}>
         <summary>
           Timeline review:{" "}
@@ -1513,6 +1735,7 @@ export function TimelineEditor({
           frame={frame}
           playing={playing}
           iframeRef={iframe}
+          surfaceRef={canvasSurface}
           onPreviewLoad={() => {
             send("hello");
             send("playback-boundary", { endFrame: playbackEndFrame });

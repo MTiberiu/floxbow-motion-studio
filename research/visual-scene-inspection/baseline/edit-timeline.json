@@ -1,0 +1,900 @@
+{
+  "version": 1,
+  "fps": 30,
+  "durationInFrames": 3510,
+  "tracks": [
+    {
+      "id": "visuals",
+      "name": "Visuals"
+    },
+    {
+      "id": "scene-objects",
+      "name": "Scene Objects · PNG Layers"
+    },
+    {
+      "id": "editor-ui",
+      "name": "Editor UI · Pop-out"
+    },
+    {
+      "id": "titles",
+      "name": "Titles · Kinetic"
+    },
+    {
+      "id": "captions",
+      "name": "Captions"
+    },
+    {
+      "id": "ai-chat",
+      "name": "AI Chat · Staged"
+    },
+    {
+      "id": "editor-demo",
+      "name": "Editor Demo · Staged"
+    },
+    {
+      "id": "story-gags",
+      "name": "Story Gags · Visual Inserts"
+    },
+    {
+      "id": "internet-message-scene",
+      "name": "Three.js · How the Internet Sends a Message"
+    }
+  ],
+  "clips": [
+    {
+      "id": "scene-01-room-screen-off",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 01 · empty room, laptop off",
+      "from": 0,
+      "durationInFrames": 96,
+      "content": {
+        "imageId": "openingRoomOff",
+        "alt": "An empty warm desk with the laptop screen switched off"
+      },
+      "props": {
+        "zoomStart": 1.015,
+        "zoomEnd": 1.035,
+        "panDirection": "right",
+        "panDistance": 18,
+        "fadeFrames": 18,
+        "chaos": 0,
+        "cameraMove": "push"
+      }
+    },
+    {
+      "id": "scene-01-screen-lights",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 01 · laptop lights as she starts typing",
+      "from": 82,
+      "durationInFrames": 478,
+      "content": {
+        "imageId": "curiosity",
+        "alt": "The laptop display lights up as the creator starts typing"
+      },
+      "props": {
+        "zoomStart": 1.035,
+        "zoomEnd": 1.075,
+        "panDirection": "right",
+        "panDistance": 18,
+        "fadeFrames": 12,
+        "chaos": 0,
+        "cameraMove": "push"
+      }
+    },
+    {
+      "id": "scene-01-creator-layer",
+      "trackId": "scene-objects",
+      "componentId": "scene-object",
+      "label": "Creator · transparent PNG layer",
+      "from": 24,
+      "durationInFrames": 68,
+      "content": {
+        "assetId": "openingCreator",
+        "alt": "The creator seated at her editing desk"
+      },
+      "props": {
+        "offsetX": 0,
+        "offsetY": 0,
+        "scale": 1,
+        "breathing": 1.2,
+        "breathingPeriod": 90,
+        "entranceFrames": 40,
+        "entranceX": -12,
+        "entranceY": 1.2,
+        "fadeOutFrames": 18
+      }
+    },
+    {
+      "id": "scene-01-creator-typing",
+      "trackId": "scene-objects",
+      "componentId": "scene-object",
+      "label": "Creator · typing pose PNG",
+      "from": 74,
+      "durationInFrames": 486,
+      "content": {
+        "assetId": "openingCreatorTyping",
+        "alt": "The creator leans forward and types at her laptop"
+      },
+      "props": {
+        "offsetX": 0,
+        "offsetY": 0,
+        "scale": 1,
+        "breathing": 0.3,
+        "breathingPeriod": 90,
+        "entranceFrames": 0,
+        "entranceX": 0,
+        "entranceY": 0,
+        "fadeInFrames": 18
+      }
+    },
+    {
+      "id": "scene-01-laptop-glow",
+      "trackId": "scene-objects",
+      "componentId": "scene-glow",
+      "label": "Laptop · screen light",
+      "from": 92,
+      "durationInFrames": 468,
+      "content": {},
+      "props": {
+        "x": 69.4,
+        "y": 43.5,
+        "width": 17.2,
+        "height": 20,
+        "intensity": 0.12,
+        "fadeInFrames": 18,
+        "fadeOutFrames": 12
+      }
+    },
+    {
+      "id": "scene-02-first-try",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 02 first try",
+      "from": 560,
+      "durationInFrames": 400,
+      "content": {
+        "imageId": "firstPrompt",
+        "alt": "The creator begins a first AI-assisted video"
+      },
+      "props": {
+        "zoomStart": 1.025,
+        "zoomEnd": 1.1,
+        "panDirection": "left",
+        "panDistance": 18,
+        "fadeFrames": 24,
+        "chaos": 0,
+        "cameraMove": "pan-right"
+      }
+    },
+    {
+      "id": "scene-03-first-result",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 03 first result",
+      "from": 940,
+      "durationInFrames": 330,
+      "content": {
+        "imageId": "firstResult",
+        "alt": "A finished video appears on the laptop"
+      },
+      "props": {
+        "zoomStart": 1.02,
+        "zoomEnd": 1.09,
+        "panDirection": "right",
+        "panDistance": 16,
+        "fadeFrames": 24,
+        "chaos": 0,
+        "cameraMove": "pull"
+      }
+    },
+    {
+      "id": "scene-04-tiny-fix",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 04 tiny fix",
+      "from": 1250,
+      "durationInFrames": 420,
+      "content": {
+        "imageId": "tinyFix",
+        "alt": "A small edit begins to disturb the timeline"
+      },
+      "props": {
+        "zoomStart": 1.03,
+        "zoomEnd": 1.13,
+        "panDirection": "left",
+        "panDistance": 24,
+        "fadeFrames": 24,
+        "chaos": 1,
+        "cameraMove": "push"
+      }
+    },
+    {
+      "id": "scene-05-cascade",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 05 cascade",
+      "from": 1658,
+      "durationInFrames": 372,
+      "content": {
+        "imageId": "cascade",
+        "alt": "The creator pauses after the edit spirals out of control"
+      },
+      "props": {
+        "zoomStart": 1.025,
+        "zoomEnd": 1.09,
+        "panDirection": "right",
+        "panDistance": 16,
+        "fadeFrames": 24,
+        "chaos": 0,
+        "cameraMove": "hold"
+      }
+    },
+    {
+      "id": "scene-06-tomorrow",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 06 tomorrow",
+      "from": 2018,
+      "durationInFrames": 352,
+      "content": {
+        "imageId": "storyboard",
+        "alt": "The creator maps a repeatable story workflow on a wall"
+      },
+      "props": {
+        "zoomStart": 1.02,
+        "zoomEnd": 1.085,
+        "panDirection": "left",
+        "panDistance": 16,
+        "fadeFrames": 24,
+        "chaos": 0,
+        "cameraMove": "pan-left"
+      }
+    },
+    {
+      "id": "scene-07-editor",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 07 editor",
+      "from": 2358,
+      "durationInFrames": 392,
+      "content": {
+        "imageId": "editorBuild",
+        "alt": "A timeline editor brings scenes, titles and sound together"
+      },
+      "props": {
+        "zoomStart": 1.02,
+        "zoomEnd": 1.085,
+        "panDirection": "right",
+        "panDistance": 18,
+        "fadeFrames": 24,
+        "chaos": 0,
+        "cameraMove": "push"
+      }
+    },
+    {
+      "id": "scene-08-ending",
+      "trackId": "visuals",
+      "componentId": "story-image",
+      "label": "scene 08 ending",
+      "from": 2738,
+      "durationInFrames": 322,
+      "content": {
+        "imageId": "dawnFinish",
+        "alt": "The creator watches the finished film in the morning light"
+      },
+      "props": {
+        "zoomStart": 1.015,
+        "zoomEnd": 1.065,
+        "panDirection": "left",
+        "panDistance": 12,
+        "fadeFrames": 24,
+        "chaos": 0,
+        "cameraMove": "pull"
+      }
+    },
+    {
+      "id": "opening-search",
+      "trackId": "story-gags",
+      "componentId": "search-prompt",
+      "label": "Search: make a video with AI",
+      "from": 104,
+      "durationInFrames": 61,
+      "content": {
+        "query": "make a video with AI"
+      },
+      "props": {
+        "width": 62
+      }
+    },
+    {
+      "id": "thumbnail-one-prompt",
+      "trackId": "story-gags",
+      "componentId": "clickbait-thumbnail",
+      "label": "Thumbnail · one prompt",
+      "from": 128,
+      "durationInFrames": 37,
+      "content": {
+        "headline": "ONE PROMPT\nONE MOVIE?",
+        "badge": "THE NEW AI METHOD",
+        "imageId": "thumbnailOnePrompt"
+      },
+      "props": {
+        "x": 17,
+        "y": 55,
+        "width": 27,
+        "rotation": 0,
+        "fadeFrames": 9,
+        "enterFrom": "none",
+        "accent": "#ff303c"
+      }
+    },
+    {
+      "id": "thumbnail-no-editing",
+      "trackId": "story-gags",
+      "componentId": "clickbait-thumbnail",
+      "label": "Thumbnail · no editing",
+      "from": 128,
+      "durationInFrames": 37,
+      "content": {
+        "headline": "3 DRAGONS\nONE PROMPT?",
+        "badge": "WATCH THE DEMO",
+        "imageId": "thumbnailDragon",
+        "expandOnClick": true
+      },
+      "props": {
+        "x": 50,
+        "y": 55,
+        "width": 27,
+        "rotation": 0,
+        "fadeFrames": 9,
+        "enterFrom": "none",
+        "clickFrame": 17,
+        "expandFrames": 20,
+        "accent": "#ffcf3f"
+      }
+    },
+    {
+      "id": "thumbnail-ai-film",
+      "trackId": "story-gags",
+      "componentId": "clickbait-thumbnail",
+      "label": "Thumbnail · instant film",
+      "from": 128,
+      "durationInFrames": 37,
+      "content": {
+        "headline": "AI MAKES\nTHE WHOLE FILM",
+        "badge": "INSTANT CINEMA",
+        "imageId": "thumbnailWholeFilm"
+      },
+      "props": {
+        "x": 83,
+        "y": 55,
+        "width": 27,
+        "rotation": 0,
+        "fadeFrames": 9,
+        "enterFrom": "none",
+        "accent": "#ff4964"
+      }
+    },
+    {
+      "id": "opening-click",
+      "trackId": "story-gags",
+      "componentId": "story-insert",
+      "label": "Cursor clicks the middle promise",
+      "from": 145,
+      "durationInFrames": 20,
+      "content": {
+        "kind": "cursor",
+        "label": "Click the middle thumbnail."
+      },
+      "props": {
+        "x": 50,
+        "y": 54,
+        "width": 12,
+        "rotation": -3,
+        "fadeFrames": 8,
+        "enterFrom": "none",
+        "accent": "#ffe78a"
+      }
+    },
+    {
+      "id": "tutorial-promise",
+      "trackId": "story-gags",
+      "componentId": "tutorial-bait",
+      "label": "Demo, prompt, fake signup, dragon refuses",
+      "from": 165,
+      "durationInFrames": 405,
+      "content": {
+        "sampleLine": "THREE VERY DIFFERENT MOVES.",
+        "setupLine": "ONE PROMPT.",
+        "prompt": "Three dragons. Three moves.",
+        "sitePitch": "Want to see how?",
+        "buttonLabel": "GET THE PROMPT",
+        "formTitle": "GET THE PROMPT",
+        "formLabels": "Name\nEmail\nPhone\nAddress",
+        "moneyLine": "NOW GIVE ME YOUR MONEY.",
+        "dragonLine": "I came to dance, not hand over my address."
+      },
+      "props": {}
+    },
+    {
+      "id": "caption-hook",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "The demo was real · I wanted to try",
+      "from": 570,
+      "durationInFrames": 108,
+      "content": {
+        "text": "That demo was real. I wanted to try it.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "story-chat-02",
+      "trackId": "ai-chat",
+      "componentId": "fake-chat",
+      "label": "AI · It worked",
+      "from": 690,
+      "durationInFrames": 96,
+      "content": {
+        "speaker": "AI",
+        "message": "It worked!",
+        "side": "left",
+        "previousMessage": "Make this story into a video."
+      },
+      "props": {
+        "pulse": 0.01
+      }
+    },
+    {
+      "id": "caption-first-video",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "The first video felt like the future",
+      "from": 798,
+      "durationInFrames": 132,
+      "content": {
+        "text": "I watched it and thought: this is the future.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "title-tiny-change",
+      "trackId": "titles",
+      "componentId": "story-title",
+      "label": "ONE TINY CHANGE",
+      "from": 960,
+      "durationInFrames": 78,
+      "content": {
+        "text": "ONE TINY CHANGE",
+        "motion": "kinetic"
+      },
+      "props": {
+        "size": 76,
+        "color": "#fff7ea",
+        "accentColor": "#ff4964",
+        "x": 7,
+        "y": 9,
+        "fadeFrames": 14,
+        "visibleFrames": 78
+      }
+    },
+    {
+      "id": "editor-story-beat-01",
+      "trackId": "editor-demo",
+      "componentId": "editor-beat",
+      "label": "YOU · Change the opening title to red",
+      "from": 1070,
+      "durationInFrames": 102,
+      "content": {
+        "mode": "manual",
+        "title": "ONE TINY CHANGE",
+        "speaker": "YOU",
+        "message": "Change the opening title to red."
+      },
+      "props": {
+        "shake": 0
+      }
+    },
+    {
+      "id": "editor-story-beat-02",
+      "trackId": "editor-demo",
+      "componentId": "editor-beat",
+      "label": "AI · The caption is red",
+      "from": 1172,
+      "durationInFrames": 102,
+      "content": {
+        "mode": "wrong-target",
+        "title": "ONE TINY CHANGE",
+        "speaker": "AI",
+        "message": "Done. I changed the caption to red."
+      },
+      "props": {
+        "shake": 0.5
+      }
+    },
+    {
+      "id": "editor-story-beat-03",
+      "trackId": "editor-demo",
+      "componentId": "editor-beat",
+      "label": "YOU · No, just the title",
+      "from": 1275,
+      "durationInFrames": 90,
+      "content": {
+        "mode": "manual",
+        "title": "ONE TINY CHANGE",
+        "speaker": "YOU",
+        "message": "No—the title. Just that."
+      },
+      "props": {
+        "shake": 0
+      }
+    },
+    {
+      "id": "editor-story-beat-04",
+      "trackId": "editor-demo",
+      "componentId": "editor-beat",
+      "label": "AI · Fixed, everything is red",
+      "from": 1368,
+      "durationInFrames": 96,
+      "content": {
+        "mode": "chaos",
+        "title": "ONE TINY CHANGE",
+        "speaker": "AI",
+        "message": "Fixed. Now everything is red."
+      },
+      "props": {
+        "shake": 8
+      }
+    },
+    {
+      "id": "caption-edit-chaos",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "One edit · three new problems",
+      "from": 1472,
+      "durationInFrames": 78,
+      "content": {
+        "text": "One edit. Three new problems.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "editor-story-beat-05",
+      "trackId": "editor-demo",
+      "componentId": "editor-beat",
+      "label": "YOU · Undo three times",
+      "from": 1556,
+      "durationInFrames": 84,
+      "content": {
+        "mode": "chaos",
+        "title": "ONE TINY CHANGE",
+        "speaker": "YOU",
+        "message": "Undo. Undo. Undo."
+      },
+      "props": {
+        "shake": 7
+      }
+    },
+    {
+      "id": "caption-recovery",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "The fix works · a new question remains",
+      "from": 1660,
+      "durationInFrames": 180,
+      "content": {
+        "text": "I got the animation right. I was happy again.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "title-tomorrow",
+      "trackId": "titles",
+      "componentId": "story-title",
+      "label": "WHAT ABOUT TOMORROW?",
+      "from": 1870,
+      "durationInFrames": 90,
+      "content": {
+        "text": "WHAT ABOUT TOMORROW?",
+        "motion": "kinetic"
+      },
+      "props": {
+        "size": 68,
+        "color": "#fff7ea",
+        "accentColor": "#ffd66b",
+        "x": 7,
+        "y": 9,
+        "fadeFrames": 14,
+        "visibleFrames": 90
+      }
+    },
+    {
+      "id": "caption-tomorrow",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "The next video",
+      "from": 2045,
+      "durationInFrames": 138,
+      "content": {
+        "text": "What happens tomorrow when I want to make another video?",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "gag-version-pile",
+      "trackId": "story-gags",
+      "componentId": "story-insert",
+      "label": "Version pile · Final_FINAL_v12.mp4",
+      "from": 2210,
+      "durationInFrames": 126,
+      "content": {
+        "kind": "version-stack",
+        "label": "Final_FINAL_v12.mp4"
+      },
+      "props": {
+        "x": 77,
+        "y": 48,
+        "width": 28,
+        "rotation": 2,
+        "fadeFrames": 10,
+        "enterFrom": "right",
+        "accent": "#a999ff"
+      }
+    },
+    {
+      "id": "caption-reuse",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Keep what works · choose the next edit",
+      "from": 2200,
+      "durationInFrames": 125,
+      "content": {
+        "text": "Keep what works. Change only what I choose.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "title-timeline",
+      "trackId": "titles",
+      "componentId": "story-title",
+      "label": "SAVE THE GOOD. CHANGE ONE THING.",
+      "from": 2325,
+      "durationInFrames": 92,
+      "content": {
+        "text": "SAVE THE GOOD. CHANGE ONE THING.",
+        "motion": "kinetic"
+      },
+      "props": {
+        "size": 61,
+        "color": "#fff7ea",
+        "accentColor": "#a999ff",
+        "x": 7,
+        "y": 9,
+        "fadeFrames": 14,
+        "visibleFrames": 92
+      }
+    },
+    {
+      "id": "caption-editor-need",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "A timeline makes each part visible",
+      "from": 2440,
+      "durationInFrames": 135,
+      "content": {
+        "text": "Scenes, titles, and captions—ready to edit right here.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "editor-ui-popout",
+      "trackId": "editor-ui",
+      "componentId": "editor-popout",
+      "label": "The editor becomes the solution",
+      "from": 2430,
+      "durationInFrames": 295,
+      "content": {
+        "selectedClip": "One editable title clip"
+      },
+      "props": {
+        "screenTLX": 58.2,
+        "screenTLY": 24,
+        "screenTRX": 94,
+        "screenTRY": 19,
+        "screenBRX": 94.6,
+        "screenBRY": 64.5,
+        "screenBLX": 57.1,
+        "screenBLY": 60.5,
+        "flatX": 50,
+        "flatY": 45,
+        "flatWidth": 72,
+        "flatHeight": 70,
+        "travelFrames": 84,
+        "holdFrames": 42,
+        "accent": "#a999ff"
+      }
+    },
+    {
+      "id": "caption-human-control",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "AI helps · the creator decides",
+      "from": 2580,
+      "durationInFrames": 145,
+      "content": {
+        "text": "AI can build the first draft. I make the final call.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "title-final-idea",
+      "trackId": "titles",
+      "componentId": "story-title",
+      "label": "I JUST WANTED ONE VIDEO.",
+      "from": 2760,
+      "durationInFrames": 75,
+      "content": {
+        "text": "I JUST WANTED ONE VIDEO.",
+        "motion": "kinetic"
+      },
+      "props": {
+        "size": 76,
+        "color": "#fff7ea",
+        "accentColor": "#ffd66b",
+        "x": 7,
+        "y": 10,
+        "fadeFrames": 14,
+        "visibleFrames": 75
+      }
+    },
+    {
+      "id": "caption-ending",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "The struggle becomes its own story",
+      "from": 2835,
+      "durationInFrames": 225,
+      "content": {
+        "text": "I wanted AI to tell my story. Instead, making that video became the story.",
+        "status": "demo",
+        "presentation": "caption"
+      },
+      "props": {
+        "fontFamily": "Georgia",
+        "fontSize": 45,
+        "color": "#fff7ea",
+        "highlightColor": "#ffd66b",
+        "x": 50,
+        "y": 82,
+        "animation": "fade",
+        "animationFrames": 12,
+        "karaoke": false
+      }
+    },
+    {
+      "id": "internet-message-route",
+      "trackId": "internet-message-scene",
+      "componentId": "internet-message",
+      "label": "How the Internet Sends a Message",
+      "from": 3060,
+      "durationInFrames": 450,
+      "content": {},
+      "props": {
+        "hudAccent": "#70efff",
+        "hudHighlight": "#ffb547",
+        "hudText": "#e8faff",
+        "cameraApproachAt": 4.5,
+        "cameraApproachLat": 50,
+        "cameraApproachLon": -4,
+        "cameraApproachDistance": 3.25,
+        "cameraApproachShift": -0.24,
+        "cameraOrbitAt": 9.8,
+        "cameraOrbitLat": 25,
+        "cameraOrbitLon": 95,
+        "cameraOrbitDistance": 3.4,
+        "cameraOrbitShift": -0.18,
+        "cameraPullbackAt": 12.9,
+        "cameraPullbackDistance": 3.95,
+        "cameraPullbackShift": -0.62
+      }
+    }
+  ]
+}

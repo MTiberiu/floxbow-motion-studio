@@ -14,6 +14,13 @@ declare global {
   interface Window {
     floxBowWindows?: Readonly<{
       getContext: () => Promise<WindowContext>;
+      captureCanvas: (rect: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }) => Promise<{ dataUrl: string; width: number; height: number }>;
+      copyVisualContext: (text: string) => Promise<boolean>;
       openPanel: (request: OpenPanelRequest) => Promise<OpenPanelResult>;
       closePanel: (request?: ClosePanelRequest) => Promise<boolean>;
       onPanelClosed: (

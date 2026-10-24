@@ -1,0 +1,12 @@
+{
+  "id": "ai-video-origin-story",
+  "name": "I Just Wanted to Make a Video",
+  "type": "explainer",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "durationInFrames": 3510,
+  "entry": "Composition.tsx",
+  "sdkVersion": "0.1.0",
+  "editTimeline": "edit-timeline.json"
+}

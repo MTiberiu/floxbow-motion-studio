@@ -628,35 +628,47 @@ export function TimelineComposition({
     ),
   ];
   return (
-    <AbsoluteFill style={{ background: "#000000" }}>
-      {t.tracks.flatMap((track) =>
-        t.clips
-          .filter((c) => c.trackId === track.id)
-          .map((clip) => {
-            if (clip.componentId === "soundtrack") return null;
-            const definition = registeredComponents.find(
-              (c) => c.id === clip.componentId,
-            );
-            if (!definition)
-              throw new Error(`Unknown component ${clip.componentId}`);
-            const Element = definition.component;
-            return (
-              <Sequence
-                key={clip.id}
-                from={clip.from}
-                durationInFrames={clip.durationInFrames}
-                name={clip.label}
-              >
-                <FrameAwareComponent
-                  component={Element}
-                  clip={clip}
-                  imageSources={imageSources}
-                />
-              </Sequence>
-            );
-          }),
-      )}
-    </AbsoluteFill>
+    <div
+      data-flox-composition-root="true"
+      style={{ position: "absolute", inset: 0, overflow: "hidden" }}
+    >
+      <AbsoluteFill style={{ background: "#000000" }}>
+        {t.tracks.flatMap((track) =>
+          t.clips
+            .filter((c) => c.trackId === track.id)
+            .map((clip) => {
+              if (clip.componentId === "soundtrack") return null;
+              const definition = registeredComponents.find(
+                (c) => c.id === clip.componentId,
+              );
+              if (!definition)
+                throw new Error(`Unknown component ${clip.componentId}`);
+              const Element = definition.component;
+              return (
+                <Sequence
+                  key={clip.id}
+                  from={clip.from}
+                  durationInFrames={clip.durationInFrames}
+                  name={clip.label}
+                >
+                  <div
+                    data-flox-clip-id={clip.id}
+                    data-flox-track-id={track.id}
+                    data-flox-component-id={clip.componentId}
+                    style={{ display: "contents" }}
+                  >
+                    <FrameAwareComponent
+                      component={Element}
+                      clip={clip}
+                      imageSources={imageSources}
+                    />
+                  </div>
+                </Sequence>
+              );
+            }),
+        )}
+      </AbsoluteFill>
+    </div>
   );
 }
 

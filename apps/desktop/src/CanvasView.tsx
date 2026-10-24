@@ -19,6 +19,7 @@ export type CanvasViewProps = {
   frame: number;
   playing: boolean;
   iframeRef: RefObject<HTMLIFrameElement | null>;
+  surfaceRef: RefObject<HTMLDivElement | null>;
   onPreviewLoad: () => void;
   onSeek: (frame: number) => void;
   onPlay: () => void;
@@ -42,6 +43,7 @@ export function CanvasView({
   frame,
   playing,
   iframeRef,
+  surfaceRef,
   onPreviewLoad,
   onSeek,
   onPlay,
@@ -228,6 +230,7 @@ export function CanvasView({
         )}
         <div
           className="canvas-surface"
+          ref={surfaceRef}
           style={{
             width: manifest.width,
             height: manifest.height,

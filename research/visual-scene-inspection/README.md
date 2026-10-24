@@ -6,7 +6,7 @@ Build and demonstrate a small, local inspection-to-edit loop that lets an AI rec
 
 ## Branch and test animation
 
-- Branch: `feature/whisper-workflow-validation` (keep isolated; do not publish or merge).
+- Branch: `feature/whisper-workflow-validation` (keep isolated; do not publish or merge; rebase only when explicitly requested to sync with `dev`).
 - Existing animation: `projects/ai-video-origin-story/`.
 - Useful cases: aligned full-frame creator PNG layers; the composite `tutorial-promise` clip with internal timing and children; the Three.js globe as a complex single Timeline clip.
 - Preserve the current story and use the existing project as the testbed.
@@ -64,7 +64,7 @@ The resolver reads only `inspection.json`, the project's canonical `edit-timelin
 ## Scope and safety
 
 - Experimental, local-only changes on the current branch.
-- No merge, rebase, cherry-pick, push or change to `dev`.
+- No merge, cherry-pick, push or change to `dev` unless separately authorized.
 - No dynamic plugin installation, arbitrary filesystem access, arbitrary JSON path writes, or automatic exposure of every DOM/WebGL child.
 - Test only with the existing animation and a small number of registered visual nodes.
 
