@@ -20,6 +20,7 @@ function createWindowHost({
   app,
   BrowserWindow,
   ipcMain,
+  clipboard,
   shellUrl,
   preloadPath,
 }) {
@@ -243,6 +244,49 @@ function createWindowHost({
             commandSequence: record.lastCommandSequence,
           });
     return validateOutgoingMessage(context, isWindowContext, "window context");
+  });
+
+  ipcMain.handle(CHANNELS.captureCanvas, async (event, rect, ...args) => {
+    assertSender(event, "primary");
+    if (
+      args.length !== 0 ||
+      !rect ||
+      typeof rect !== "object" ||
+      Array.isArray(rect) ||
+      Object.keys(rect).length !== 4 ||
+      !["x", "y", "width", "height"].every((key) => Object.hasOwn(rect, key)) ||
+      ![rect.x, rect.y, rect.width, rect.height].every(
+        (value) => Number.isInteger(value) && value >= 0 && value <= 5000,
+      ) ||
+      rect.width < 1 ||
+      rect.height < 1
+    )
+      throw new Error("Invalid Canvas capture rectangle");
+    if (!primaryWindow || primaryWindow.isDestroyed())
+      throw new Error("The primary editor window is unavailable");
+    const [contentWidth, contentHeight] = primaryWindow.getContentSize();
+    if (
+      rect.x + rect.width > contentWidth ||
+      rect.y + rect.height > contentHeight
+    )
+      throw new Error("Canvas capture rectangle is outside the editor window");
+    const image = await primaryWindow.webContents.capturePage(rect);
+    const png = image.toPNG();
+    if (png.byteLength > 8_000_000)
+      throw new Error("Canvas capture exceeds the 8 MiB limit");
+    return Object.freeze({
+      dataUrl: `data:image/png;base64,${png.toString("base64")}`,
+      width: image.getSize().width,
+      height: image.getSize().height,
+    });
+  });
+
+  ipcMain.handle(CHANNELS.copyVisualContext, (event, value, ...args) => {
+    assertSender(event, "primary");
+    if (args.length !== 0 || typeof value !== "string" || value.length > 20000)
+      throw new Error("Invalid visual context clipboard text");
+    clipboard.writeText(value);
+    return true;
   });
 
   ipcMain.handle(CHANNELS.openPanel, (event, request, ...args) => {

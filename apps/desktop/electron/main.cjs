@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require("electron");
+const { app, BrowserWindow, ipcMain, clipboard, session } = require("electron");
 const path = require("node:path");
 const { createWindowHost } = require("./window-host.cjs");
 
@@ -22,6 +22,7 @@ app
       app,
       BrowserWindow,
       ipcMain,
+      clipboard,
       shellUrl: url,
       preloadPath: path.join(__dirname, "preload.cjs"),
     });

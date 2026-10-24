@@ -154,6 +154,7 @@ function createHarness() {
   FakeWindow.failNextLoad = false;
   const app = new EventEmitter();
   const handlers = new Map<string, (event: any, ...args: any[]) => unknown>();
+  const clipboardWrites: string[] = [];
   const ipcMain = {
     handle(channel: string, handler: (event: any, ...args: any[]) => unknown) {
       handlers.set(channel, handler);
@@ -163,6 +164,7 @@ function createHarness() {
     app,
     BrowserWindow: FakeWindow,
     ipcMain,
+    clipboard: { writeText: (value: string) => clipboardWrites.push(value) },
     shellUrl,
     preloadPath: "C:/app/preload.cjs",
   });
@@ -185,9 +187,81 @@ function createHarness() {
     invoke,
     invokeEvent,
     primary,
+    clipboardWrites,
     windows: FakeWindow.instances,
   };
 }
+
+test("visual context IPC captures bounded Canvas pixels and limits access to the primary window", async () => {
+  const { invoke, primary, clipboardWrites, windows } = createHarness();
+  const rect = { x: 10, y: 20, width: 320, height: 180 };
+  Object.assign(primary, { getContentSize: () => [800, 600] });
+  Object.assign(primary.webContents, {
+    capturePage: async (requestedRect: unknown) => {
+      assert.deepEqual(requestedRect, rect);
+      return {
+        toPNG: () => Buffer.from("canvas-png"),
+        getSize: () => ({ width: rect.width, height: rect.height }),
+      };
+    },
+  });
+
+  const captured = (await invoke(CHANNELS.captureCanvas, primary, rect)) as {
+    dataUrl: string;
+    width: number;
+    height: number;
+  };
+  assert.equal(
+    captured.dataUrl,
+    `data:image/png;base64,${Buffer.from("canvas-png").toString("base64")}`,
+  );
+  assert.equal(captured.width, rect.width);
+  assert.equal(captured.height, rect.height);
+  await assert.rejects(
+    Promise.resolve(
+      invoke(CHANNELS.captureCanvas, primary, { ...rect, x: 600 }),
+    ),
+    /outside the editor window/,
+  );
+  await assert.rejects(
+    Promise.resolve(
+      invoke(CHANNELS.captureCanvas, primary, rect, "unexpected"),
+    ),
+    /Invalid Canvas capture rectangle/,
+  );
+  Object.assign(primary.webContents, {
+    capturePage: async () => ({
+      toPNG: () => Buffer.alloc(8_000_001),
+      getSize: () => ({ width: 1, height: 1 }),
+    }),
+  });
+  await assert.rejects(
+    Promise.resolve(invoke(CHANNELS.captureCanvas, primary, rect)),
+    /exceeds the 8 MiB limit/,
+  );
+
+  assert.equal(invoke(CHANNELS.copyVisualContext, primary, "request text"), true);
+  assert.deepEqual(clipboardWrites, ["request text"]);
+  assert.throws(
+    () => invoke(CHANNELS.copyVisualContext, primary, "x".repeat(20_001)),
+    /Invalid visual context clipboard text/,
+  );
+  assert.throws(
+    () => invoke(CHANNELS.copyVisualContext, primary, "text", "unexpected"),
+    /Invalid visual context clipboard text/,
+  );
+
+  invoke(CHANNELS.openPanel, primary, request);
+  assert.throws(
+    () => invoke(CHANNELS.copyVisualContext, windows[1], "child request"),
+    /not permitted for this window role/,
+  );
+  await assert.rejects(
+    Promise.resolve(invoke(CHANNELS.captureCanvas, windows[1], rect)),
+    /not permitted for this window role/,
+  );
+  assert.deepEqual(clipboardWrites, ["request text"]);
+});
 
 test("panel open contract is strict, bounded and rejects malformed identifiers", () => {
   assert.deepEqual(Object.keys(PANEL_REGISTRY), ["timeline"]);

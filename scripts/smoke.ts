@@ -511,6 +511,7 @@ try {
     env,
   });
   const page = await app.firstWindow();
+  await page.setViewportSize({ width: 1440, height: 900 });
   page.setDefaultTimeout(20_000);
   page.on("pageerror", (error) =>
     console.error("Electron renderer error:", error),
@@ -518,6 +519,7 @@ try {
   await page.evaluate(() => {
     localStorage.removeItem("motion-project");
     localStorage.removeItem("motion-preview-playback-end");
+    localStorage.removeItem("motion-timeline-height");
     for (const key of Object.keys(localStorage))
       if (key.startsWith("motion-draft-v1:")) localStorage.removeItem(key);
   });
@@ -571,7 +573,9 @@ try {
   }, firstPanelRequest);
   expect(panelApi.context).toEqual({ role: "primary", panelId: null });
   expect(panelApi.keys).toEqual([
+    "captureCanvas",
     "closePanel",
+    "copyVisualContext",
     "getContext",
     "onPanelClosed",
     "onTimelineCommand",
@@ -921,12 +925,74 @@ try {
     await page.getByRole("button", { name: "Add audio track" }).click();
     const audioRows = page.locator(".track-row.is-audio-track");
     await expect(audioRows).toHaveCount(2);
+    const earlyTimeline = page.locator(".timeline-dock");
+    const earlyTimelineResize = page.getByRole("button", {
+      name: "Resize timeline height",
+    });
+    const earlyTimelineBefore = await earlyTimeline.boundingBox();
+    const earlyResizeHandle = await earlyTimelineResize.boundingBox();
+    expect(earlyTimelineBefore).toBeTruthy();
+    expect(earlyResizeHandle).toBeTruthy();
+    await page.mouse.move(
+      earlyResizeHandle!.x + earlyResizeHandle!.width / 2,
+      earlyResizeHandle!.y + earlyResizeHandle!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      earlyResizeHandle!.x + earlyResizeHandle!.width / 2,
+      earlyResizeHandle!.y - 90,
+      { steps: 9 },
+    );
+    await page.mouse.up();
+    console.log(
+      "Timeline resize layout diagnostics",
+      await page.evaluate(() => {
+        return {
+          viewport: { width: innerWidth, height: innerHeight },
+          editor: document
+            .querySelector<HTMLElement>(".timeline-editor")
+            ?.getBoundingClientRect()
+            .toJSON(),
+          dockable: document
+            .querySelector<HTMLElement>(".dockable-panel")
+            ?.getBoundingClientRect()
+            .toJSON(),
+          body: document
+            .querySelector<HTMLElement>(".dockable-panel-body")
+            ?.getBoundingClientRect()
+            .toJSON(),
+          dock: document
+            .querySelector<HTMLElement>(".timeline-dock")
+            ?.getBoundingClientRect()
+            .toJSON(),
+          footer: document
+            .querySelector<HTMLElement>(".timeline-footer")
+            ?.getBoundingClientRect()
+            .toJSON(),
+          configuredHeight: document
+            .querySelector<HTMLElement>(".timeline-editor")
+            ?.style.getPropertyValue("--timeline-height"),
+        };
+      }),
+    );
+    await expect
+      .poll(async () => (await earlyTimeline.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(earlyTimelineBefore!.height + 30);
     const secondAudioRow = audioRows.last();
     await secondAudioRow.scrollIntoViewIfNeeded();
     const secondAudioBox = await secondAudioRow.boundingBox();
+    const stickyRulerBox = await page.locator(".ruler-row").boundingBox();
     const soundtrackBox = await dockedSoundtrack.boundingBox();
     expect(secondAudioBox).toBeTruthy();
+    expect(stickyRulerBox).toBeTruthy();
     expect(soundtrackBox).toBeTruthy();
+    const audioDropY = Math.max(
+      secondAudioBox!.y + secondAudioBox!.height / 2,
+      stickyRulerBox!.y + stickyRulerBox!.height + 4,
+    );
+    expect(audioDropY).toBeLessThan(
+      secondAudioBox!.y + secondAudioBox!.height,
+    );
     await page.mouse.move(
       soundtrackBox!.x + soundtrackBox!.width / 2,
       soundtrackBox!.y + soundtrackBox!.height / 2,
@@ -934,9 +1000,29 @@ try {
     await page.mouse.down();
     await page.mouse.move(
       soundtrackBox!.x + soundtrackBox!.width / 2,
-      secondAudioBox!.y + secondAudioBox!.height / 2,
+      audioDropY,
       { steps: 5 },
     );
+    const audioDropDiagnostics = await page.evaluate(
+      ({ x, y }) => {
+        const element = document.elementFromPoint(x, y);
+        const row = element?.closest<HTMLElement>(".track-row");
+        return {
+          hit: element?.className ?? null,
+          row: row?.className ?? null,
+          rowId: row?.dataset.trackRow ?? null,
+          laneId: row?.querySelector<HTMLElement>(".track-lane")?.dataset
+            .track ?? null,
+          dropTarget: row?.dataset.dropTarget ?? null,
+          ghost: document.querySelector(".timeline-drag-ghost")?.textContent,
+        };
+      },
+      {
+        x: soundtrackBox!.x + soundtrackBox!.width / 2,
+        y: audioDropY,
+      },
+    );
+    console.log("Audio track drag diagnostics", audioDropDiagnostics);
     await expect(secondAudioRow).toHaveClass(/is-drop-target/);
     await page.mouse.up();
     await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
@@ -2863,6 +2949,72 @@ try {
       .frameLocator('[data-panel-id="editor"] iframe')
       .locator(`[data-standalone-text-id="${textClipId}"]`);
     const previewFrame = page.locator('[data-panel-id="editor"] iframe');
+    const timelineDock = page.locator(".timeline-dock");
+    const timelineFooter = timelineDock.locator(".timeline-footer");
+    const timelineResize = page.getByRole("button", {
+      name: "Resize timeline height",
+    });
+    const initialTimelineBounds = await timelineDock.boundingBox();
+    const initialFooterBounds = await timelineFooter.boundingBox();
+    const timelineResizeBounds = await timelineResize.boundingBox();
+    expect(initialTimelineBounds).toBeTruthy();
+    expect(initialFooterBounds).toBeTruthy();
+    expect(timelineResizeBounds).toBeTruthy();
+    expect(initialFooterBounds!.height).toBe(34);
+    expect(
+      Math.abs(
+        initialTimelineBounds!.y +
+          initialTimelineBounds!.height -
+          (initialFooterBounds!.y + initialFooterBounds!.height),
+      ),
+    ).toBeLessThanOrEqual(2);
+    await page.mouse.move(
+      timelineResizeBounds!.x + timelineResizeBounds!.width / 2,
+      timelineResizeBounds!.y + timelineResizeBounds!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      timelineResizeBounds!.x + timelineResizeBounds!.width / 2,
+      timelineResizeBounds!.y - 70,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await timelineDock.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(initialTimelineBounds!.height + 30);
+    const expandedFooterBounds = await timelineFooter.boundingBox();
+    expect(expandedFooterBounds?.height).toBe(34);
+    const expandedTimelineBounds = await timelineDock.boundingBox();
+    expect(expandedTimelineBounds).toBeTruthy();
+    expect(
+      Math.abs(
+        expandedTimelineBounds!.y +
+          expandedTimelineBounds!.height -
+          (expandedFooterBounds!.y + expandedFooterBounds!.height),
+      ),
+    ).toBeLessThanOrEqual(2);
+    const expandedCanvasBounds = await previewFrame.boundingBox();
+    expect(expandedCanvasBounds?.height ?? 0).toBeGreaterThan(120);
+
+    const expandedResizeBounds = await timelineResize.boundingBox();
+    expect(expandedTimelineBounds).toBeTruthy();
+    expect(expandedResizeBounds).toBeTruthy();
+    await page.mouse.move(
+      expandedResizeBounds!.x + expandedResizeBounds!.width / 2,
+      expandedResizeBounds!.y + expandedResizeBounds!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      expandedResizeBounds!.x + expandedResizeBounds!.width / 2,
+      expandedResizeBounds!.y + 600,
+      { steps: 12 },
+    );
+    await page.mouse.up();
+    await expect
+      .poll(async () => (await timelineDock.boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(170);
+    expect((await previewFrame.boundingBox())?.height ?? 0).toBeGreaterThan(120);
+
     await inspectorText.fill("AI editable title");
     await expect(inspectorText).toHaveValue("AI editable title");
     await expect(textPreview).toHaveText("AI editable title");
@@ -2887,6 +3039,94 @@ try {
     await expect(textPreview).toHaveText("AI editable title");
     await expect(textPreview).toHaveCSS("color", "rgb(0, 255, 0)");
     await expect(textPreview).toHaveCSS("text-align", "right");
+    if (!built) {
+      const visualContextButton = page.getByRole("button", {
+        name: "AI context",
+        exact: true,
+      });
+      await expect(visualContextButton).toBeEnabled();
+      await visualContextButton.click();
+      const visualContextTab = page.getByRole("tab", {
+        name: "AI visual context",
+      });
+      await expect(visualContextTab).toHaveAttribute("aria-selected", "true");
+      await expect(
+        page.getByRole("tab", { name: "Inspector" }),
+      ).toHaveAttribute("aria-selected", "false");
+      await page
+        .getByLabel("What should change at this moment?")
+        .fill("Change the AI editable title to blue.");
+      await page
+        .getByRole("button", { name: "Capture and copy for AI", exact: true })
+        .click();
+      await expect(
+        page.locator(".visual-context-actions [role='status']"),
+      ).toContainText("Context saved and copied", { timeout: 30_000 });
+      const contextPaths = page.locator(".visual-context-paths code");
+      await expect(contextPaths).toHaveCount(2);
+      const screenshotPath = await contextPaths.nth(0).innerText();
+      const inspectionPath = await contextPaths.nth(1).innerText();
+      const inspection = JSON.parse(await readFile(inspectionPath, "utf8"));
+      expect(inspection.schemaVersion).toBe(2);
+      expect(inspection.projectId).toBe(thirdId);
+      expect(Number.isInteger(inspection.frame)).toBe(true);
+      expect(inspection.timelineElements).toContainEqual(
+        expect.objectContaining({
+          clipId: textClipId,
+          componentId: "text",
+          editability: "declared-fields",
+          editableFields: expect.arrayContaining([
+            expect.objectContaining({
+              key: "text",
+              target: "content",
+              value: "AI editable title",
+            }),
+          ]),
+        }),
+      );
+      const screenshot = await readFile(screenshotPath);
+      expect(screenshot.subarray(0, 8)).toEqual(
+        Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      );
+    }
+    if (!built) {
+      const contextPaths = page.locator(".visual-context-paths code");
+      const inspectionPath = await contextPaths.nth(1).innerText();
+      const captureId = path.basename(path.dirname(inspectionPath));
+      const resolvedContext = await execFileAsync(
+        process.execPath,
+        [
+          path.join(
+            root,
+            "research/visual-scene-inspection/context-resolver.mjs",
+          ),
+          captureId,
+          "--project",
+          thirdId,
+          "--target",
+          textClipId!,
+          "--json",
+        ],
+        { cwd: root, windowsHide: true, timeout: 30_000 },
+      );
+      const resolved = JSON.parse(resolvedContext.stdout);
+      expect(resolved.readOnly).toBe(true);
+      expect(resolved.projectId).toBe(thirdId);
+      expect(resolved.targets[0].clipId).toBe(textClipId);
+      expect(resolved.targets[0].captured.editableFields).toContainEqual(
+        expect.objectContaining({
+          key: "text",
+          target: "content",
+          value: "AI editable title",
+        }),
+      );
+      expect(resolved.revisions.timelineStatus).toBe("current");
+    }
+    await page.getByRole("tab", { name: "Inspector" }).click();
+    await expect(page.getByRole("tab", { name: "Inspector" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     const textHitbox = page.locator(`[data-canvas-element-id="${textClipId}"]`);
     const textBounds = await textHitbox.boundingBox();
     expect(textBounds).toBeTruthy();
@@ -2945,11 +3185,35 @@ try {
     );
     const groupedDragBox = await groupedClips.first().boundingBox();
     expect(groupedDragBox).toBeTruthy();
+    const groupedDragPoint = {
+      x: groupedDragBox!.x + groupedDragBox!.width / 2,
+      y: groupedDragBox!.y + groupedDragBox!.height / 2,
+    };
+    console.log(
+      "Timeline group pointer target",
+      await page.evaluate(({ x, y }) => {
+        const hit = document.elementFromPoint(x, y);
+        const clip = hit?.closest<HTMLElement>(".timeline-clip");
+        const row = hit?.closest<HTMLElement>(".track-row");
+        return {
+          hit: hit?.tagName + "." + hit?.className,
+          hitClipId: clip?.dataset.clipId ?? null,
+          row: row?.className ?? null,
+          rowLocked: row?.dataset.locked ?? null,
+          clipRect: clip?.getBoundingClientRect().toJSON() ?? null,
+          point: { x, y },
+        };
+      }, groupedDragPoint),
+    );
     await page.mouse.move(
-      groupedDragBox!.x + groupedDragBox!.width / 2,
-      groupedDragBox!.y + groupedDragBox!.height / 2,
+      groupedDragPoint.x,
+      groupedDragPoint.y,
     );
     await page.mouse.down();
+    await expect(page.locator(".timeline-dock")).toHaveAttribute(
+      "data-drag-active",
+      "true",
+    );
     await page.mouse.move(
       groupedDragBox!.x + groupedDragBox!.width / 2 + 45,
       groupedDragBox!.y + groupedDragBox!.height / 2,
@@ -2957,6 +3221,11 @@ try {
     );
     await page.mouse.up();
     await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
+    await expect
+      .poll(async () =>
+        Number(await groupedClips.first().getAttribute("data-from-frame")),
+      )
+      .toBeGreaterThan(groupedStartsBefore[0]);
     const groupedStartsAfter = await groupedClips.evaluateAll((clips) =>
       clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
     );

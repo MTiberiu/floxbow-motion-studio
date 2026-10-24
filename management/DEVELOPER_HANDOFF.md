@@ -4,7 +4,7 @@ Updated: 2026-10-24. This file records verified local progress and the next safe
 
 ## Checkout and scope
 
-- The local checkout is on `dev` at `66c0e0c` with the Canvas media visibility and Timeline drop-target follow-up in progress. The current development increment is on PR #39's branch; do not merge until the updated full CI is green.
+- The current increment is being published directly to `origin/dev` from the local `dev` checkout. Check the latest Git status and remote SHA before assuming synchronization.
 - `499cc93` contains the left Media Library and PNG placement increment. The current local code also adds ordinary MP4 video clips.
 - The existing `projects/Test` project remains present and untouched. No source media, `main`, or the independently developed Kinetic module has been changed.
 - Smoke tests create synthetic projects and media, then clean them up.
@@ -34,6 +34,8 @@ Updated: 2026-10-24. This file records verified local progress and the next safe
 - A same-frame preview seek no longer arms a pending seek acknowledgment. This prevents later Remotion frame updates from being ignored when no new seek event is emitted for an already-current frame.
 - The primary Canvas toolbar now has an application-level preview volume control. It sends a bounded 0–1 master-volume message to the one Remotion Player, affecting soundtrack and embedded video audio together; the preference is kept in shell localStorage, not the project JSON or MP4 export.
 - Timeline track header now offers separate Add visual track and Add audio track actions. Empty audio rows can be reordered within the audio group, and the fixed frame-zero soundtrack can be moved vertically between unlocked audio rows without changing its source, duration, or playback timing. Visual clips can be dropped into explicit top/bottom insertion strips to create a visual row.
+- AI Visual Context captures the current Remotion Canvas frame, active Timeline elements, declared editable values, timing and revision into a project-local `.floxbow/visual-inspection/<capture-id>/` package, then copies an agent request. A read-only repository resolver can return summary, source, field or temporal context and marks stale revisions. The resolver has no default project ID and constrains project paths to the workspace. In the editor, Inspector and AI Visual Context are separate tabs in the right panel; opening the AI panel no longer inserts a variable-height sibling into the root Editor grid.
+- The Editor uses fixed grid rows for toolbar, bounded feedback, Canvas and Timeline. Timeline resizing is clamped on load and viewport resize; its footer stays at the bottom of the allocated Timeline area. The effective minimum Timeline dock area remains 170 px beneath its 34 px action row.
 - The fixed soundtrack can now be moved between audio rows through either drag or the Inspector's Audio track selector, and can be deleted with a single undoable edit. Its timing remains fixed at frame zero and spans the complete source.
 - Video clips with an audio stream now offer **Separate video audio**. This creates a Timeline v1 `video-audio` clip that shares the registered MP4 asset ID, copies the source in-point and Timeline range, and mutes the original Video clip. The new audio clip uses the same Remotion Player and MP4 render path, can be moved/trimmed/deleted independently, and advances its MP4 source offset when its left edge is trimmed. MP4s without audio are rejected with a clear message.
 - The Timeline ruler now labels human-readable minutes/seconds, uses 10-second major marks with subtler 5-second marks when space permits, and widens major intervals on long fitted timelines. The ruler has a stronger color and border contrast from the track rows.
@@ -50,11 +52,12 @@ Updated: 2026-10-24. This file records verified local progress and the next safe
 
 ## Verification for the current local increment
 
-- Latest complete unit run: 108/108 passed. Typecheck, validation and build passed; build retains the known Zod annotation and large-bundle warnings.
-- Local `npm run test:smoke` cannot launch Electron in this environment (`Electron.launch`: `Process failed to launch!`). At PR #39 HEAD `66c0e0c`, GitHub smoke reached the audio-track drag and failed because the expected clip was not in the second Audio row. The follow-up records the highlighted drop target and commits the tracked target instead of relying only on a final pointer hit-test. Updated CI must verify this path and the scaffolded Image/Video Canvas preview assertions.
+- Latest unit run: 127/127 passed. Typecheck, project validation and build passed. Build retains existing Zod annotation-position and large-bundle warnings.
+- Local Electron smoke launches successfully. Timeline resize and fixed-footer checks pass in multiple runs; soundtrack drag to another audio row passes; AI Visual Context opens in its right-side tab, captures a screenshot and frame map, and the read-only resolver returns current editable Text fields. Full smoke is not green: separate runs have stopped at the left ruler-scroll boundary check, at the multi-selection drag-active check, and at the subsequent group-movement assertion. Keep these strict assertions enabled and treat the complete Electron smoke as unresolved.
+- Smoke fixtures use generated projects and media and remove their test projects afterward. The existing `projects/Test` project, other source media, `main`, and Kinetic remain untouched. The Three.js experiment is not present in the feature branch's tracked code and has not been integrated.
 - The smoke fixture uses generated project/media data. The existing `projects/Test` project, other source media, `main`, and Kinetic remain untouched.
 - The synthetic smoke fixtures create and clean up their own projects and media. Existing `projects/Test`, other source media, `main`, and Kinetic remain untouched.
 
 ## Next logical increment
 
-Wait for full CI on the updated PR #39 HEAD, confirm Image and Video remain visible in the smoke preview, and merge only after the product regression and audio-track movement check pass. Do not start another implementation increment until this checkpoint is resolved.
+Diagnose why a mouse drag over an already multi-selected Timeline clip does not enter the drag-active state in Electron smoke. Keep the assertion strict and rerun the complete smoke. Do not fold the ignored project-level Three.js experiment or private project media into Git.
