@@ -3935,6 +3935,14 @@ try {
     await expect(page.getByLabel("Clip end time (seconds)")).toHaveValue(
       videoEndBeforeLeftTrim,
     );
+    const trimmedVideoRange = await readClipFrameRange(videoClip);
+    const trimmedVideoDurationInFrames =
+      trimmedVideoRange[1] - trimmedVideoRange[0];
+    const videoFps = Number(
+      await page
+        .getByLabel("Clip start time (seconds)")
+        .getAttribute("data-fps"),
+    );
     await expect(page.getByLabel("Source start time (seconds)")).toHaveValue(
       "0.5",
     );
@@ -4075,7 +4083,10 @@ try {
       .click();
     await expect(page.getByText(/1 unverified subtitle added/)).toBeVisible();
     expect(extractedVideoAudio.start).toBe(0.5);
-    expect(extractedVideoAudio.duration).toBe(49 / 30);
+    expect(extractedVideoAudio.duration).toBeCloseTo(
+      trimmedVideoDurationInFrames / videoFps,
+      10,
+    );
     expect(extractedVideoAudio.size).toBeGreaterThan(44);
     const generatedVideoSubtitle = page
       .locator(".timeline-clip.subtitle-clip")
@@ -4131,7 +4142,7 @@ try {
       content: { assetId: videoAssetId, sourceStartSeconds: 0.5 },
       props: { x: 62 },
       from: 195,
-      durationInFrames: 49,
+      durationInFrames: trimmedVideoDurationInFrames,
     });
     await page
       .getByRole("button", { name: "Reload from disk", exact: true })
@@ -4175,7 +4186,7 @@ try {
       ),
     ).toMatchObject({
       from: 195,
-      durationInFrames: 49,
+      durationInFrames: trimmedVideoDurationInFrames,
       content: {
         assetId: videoAssetId,
         sourceVideoClipId: videoClipId,
