@@ -13,3 +13,12 @@ export function shouldIgnorePendingSeekFrame(
 ) {
   return pendingFrame !== null && currentFrame !== pendingFrame;
 }
+
+/** Restart from zero when playback is requested at or beyond its active end. */
+export function shouldRestartPlaybackAtBoundary(
+  currentFrame: number,
+  activeEndFrame: number,
+  endedAtBoundary: boolean,
+) {
+  return endedAtBoundary || currentFrame + 1 >= activeEndFrame;
+}

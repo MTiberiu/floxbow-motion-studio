@@ -19,6 +19,7 @@ import {
 import { timelinePlaybackEnd } from "@motion/sdk/timeline-analysis";
 import {
   pendingSeekTarget,
+  shouldRestartPlaybackAtBoundary,
   shouldIgnorePendingSeekFrame,
 } from "./seek-sync";
 import { isValidMasterVolume } from "./master-volume";
@@ -170,7 +171,15 @@ function PreviewHost({
       report();
     };
     const onPlay = () => {
-      if (endedAtPlaybackBoundary.current) {
+      const currentFrame = player.current?.getCurrentFrame() ?? 0;
+      if (
+        shouldRestartPlaybackAtBoundary(
+          currentFrame,
+          activePlaybackEnd.current,
+          endedAtPlaybackBoundary.current,
+        )
+      ) {
+        pendingSeekFrame.current = pendingSeekTarget(currentFrame, 0);
         player.current?.seekTo(0);
         activePlaybackEnd.current = configuredPlaybackEnd.current;
         endedAtPlaybackBoundary.current = false;

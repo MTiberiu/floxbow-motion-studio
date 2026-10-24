@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   pendingSeekTarget,
   shouldIgnorePendingSeekFrame,
+  shouldRestartPlaybackAtBoundary,
 } from "../packages/player/src/seek-sync";
 
 test("same-frame seek does not leave playback waiting for a frame update", () => {
@@ -17,4 +18,10 @@ test("stale seeked reports cannot overwrite the requested editor frame", () => {
   assert.equal(shouldIgnorePendingSeekFrame(60, 180), true);
   assert.equal(shouldIgnorePendingSeekFrame(180, 180), false);
   assert.equal(shouldIgnorePendingSeekFrame(60, null), false);
+});
+
+test("play restarts at zero at the active content boundary", () => {
+  assert.equal(shouldRestartPlaybackAtBoundary(238, 239, false), true);
+  assert.equal(shouldRestartPlaybackAtBoundary(70, 239, true), true);
+  assert.equal(shouldRestartPlaybackAtBoundary(237, 239, false), false);
 });
