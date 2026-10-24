@@ -87,6 +87,28 @@ async function readClipFrameRange(clip: Locator) {
   );
 }
 
+async function findCanvasHitPoint(hitbox: Locator) {
+  return hitbox.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    const canvas = element.parentElement!.getBoundingClientRect();
+    const left = Math.max(bounds.left, canvas.left);
+    const right = Math.min(bounds.right, canvas.right);
+    const top = Math.max(bounds.top, canvas.top);
+    const bottom = Math.min(bounds.bottom, canvas.bottom);
+    const stepX = Math.max(2, (right - left) / 50);
+    const stepY = Math.max(2, (bottom - top) / 50);
+    for (let y = top + stepY / 2; y < bottom; y += stepY) {
+      for (let x = left + stepX / 2; x < right; x += stepX) {
+        const target = document.elementFromPoint(x, y);
+        if (target === element || (target && element.contains(target))) {
+          return { x, y };
+        }
+      }
+    }
+    return undefined;
+  });
+}
+
 async function inspectNarrowTimelineClip(clip: Locator) {
   return clip.evaluate((element) => {
     const originalWidth = element.style.width;
@@ -2872,25 +2894,7 @@ try {
       .getByTestId("canvas-interaction-layer")
       .boundingBox();
     expect(canvasBounds).toBeTruthy();
-    const dragStart = await textHitbox.evaluate((hitbox) => {
-      const bounds = hitbox.getBoundingClientRect();
-      const canvas = hitbox.parentElement!.getBoundingClientRect();
-      const left = Math.max(bounds.left, canvas.left);
-      const right = Math.min(bounds.right, canvas.right);
-      const top = Math.max(bounds.top, canvas.top);
-      const bottom = Math.min(bounds.bottom, canvas.bottom);
-      const stepX = Math.max(2, (right - left) / 50);
-      const stepY = Math.max(2, (bottom - top) / 50);
-      for (let y = top + stepY / 2; y < bottom; y += stepY) {
-        for (let x = left + stepX / 2; x < right; x += stepX) {
-          const target = document.elementFromPoint(x, y);
-          if (target === hitbox || (target && hitbox.contains(target))) {
-            return { x, y };
-          }
-        }
-      }
-      return undefined;
-    });
+    const dragStart = await findCanvasHitPoint(textHitbox);
     expect(dragStart).toBeTruthy();
     await page.mouse.move(
       dragStart!.x,
@@ -3078,25 +3082,7 @@ try {
     const canvasSourcePositionX = Number(
       await page.getByLabel("Position X (%)", { exact: true }).inputValue(),
     );
-    const duplicateDragStart = await textHitbox.evaluate((hitbox) => {
-      const bounds = hitbox.getBoundingClientRect();
-      const canvas = hitbox.parentElement!.getBoundingClientRect();
-      const left = Math.max(bounds.left, canvas.left);
-      const right = Math.min(bounds.right, canvas.right);
-      const top = Math.max(bounds.top, canvas.top);
-      const bottom = Math.min(bounds.bottom, canvas.bottom);
-      const stepX = Math.max(2, (right - left) / 50);
-      const stepY = Math.max(2, (bottom - top) / 50);
-      for (let y = top + stepY / 2; y < bottom; y += stepY) {
-        for (let x = left + stepX / 2; x < right; x += stepX) {
-          const target = document.elementFromPoint(x, y);
-          if (target === hitbox || (target && hitbox.contains(target))) {
-            return { x, y };
-          }
-        }
-      }
-      return undefined;
-    });
+    const duplicateDragStart = await findCanvasHitPoint(textHitbox);
     expect(duplicateDragStart).toBeTruthy();
     await page.keyboard.down("Control");
     await page.mouse.move(
@@ -3138,21 +3124,21 @@ try {
     const positionYBeforeShift = Number(
       await page.getByLabel("Position Y (%)", { exact: true }).inputValue(),
     );
-    const shiftDragBox = await textHitbox.boundingBox();
-    expect(shiftDragBox).toBeTruthy();
+    const shiftDragStart = await findCanvasHitPoint(textHitbox);
+    expect(shiftDragStart).toBeTruthy();
     await page.keyboard.down("Shift");
     await page.mouse.move(
-      shiftDragBox!.x + shiftDragBox!.width / 2,
-      shiftDragBox!.y + shiftDragBox!.height / 2,
+      shiftDragStart!.x,
+      shiftDragStart!.y,
     );
     await page.mouse.down();
     await page.mouse.move(
-      shiftDragBox!.x + shiftDragBox!.width / 2 + 10,
-      shiftDragBox!.y + shiftDragBox!.height / 2 + 4,
+      shiftDragStart!.x + 10,
+      shiftDragStart!.y + 4,
     );
     await page.mouse.move(
-      shiftDragBox!.x + shiftDragBox!.width / 2 + 15,
-      shiftDragBox!.y + shiftDragBox!.height / 2 + 24,
+      shiftDragStart!.x + 15,
+      shiftDragStart!.y + 24,
     );
     await expect
       .poll(async () =>
@@ -3162,8 +3148,8 @@ try {
       )
       .toBe(positionYBeforeShift);
     await page.mouse.move(
-      shiftDragBox!.x + shiftDragBox!.width / 2 + 36,
-      shiftDragBox!.y + shiftDragBox!.height / 2 + 25,
+      shiftDragStart!.x + 36,
+      shiftDragStart!.y + 25,
       { steps: 2 },
     );
     await page.mouse.up();
