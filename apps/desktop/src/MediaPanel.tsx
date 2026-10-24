@@ -220,6 +220,19 @@ export function MediaPanel({
         <div className="media-panel-actions">
           <button
             type="button"
+            disabled={!projectId || built}
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("motion-open-asset-organizer", {
+                  detail: { projectId },
+                }),
+              )
+            }
+          >
+            Organize
+          </button>
+          <button
+            type="button"
             disabled={
               !projectId ||
               built ||

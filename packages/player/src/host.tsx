@@ -7,6 +7,7 @@ import {
   standaloneTextModule,
   standaloneImageModule,
   standaloneVideoModule,
+  standaloneCharacterModule,
   type EditableVideoProps,
   type EditableComponent,
 } from "@motion/sdk/editor";
@@ -16,7 +17,10 @@ import {
   type EditTimeline,
 } from "@motion/sdk/timeline";
 import { timelinePlaybackEnd } from "@motion/sdk/timeline-analysis";
-import { pendingSeekTarget } from "./seek-sync";
+import {
+  pendingSeekTarget,
+  shouldIgnorePendingSeekFrame,
+} from "./seek-sync";
 import { isValidMasterVolume } from "./master-volume";
 import { StudioPlayer } from "./index";
 type VideoModule = {
@@ -58,7 +62,28 @@ function PreviewHost({
         ]),
     );
   const audioSources = timeline ? sourcesFor(timeline, "soundtrack") : {};
-  const imageSources = timeline ? sourcesFor(timeline, "image") : undefined;
+  const imageSources = timeline
+    ? {
+        ...sourcesFor(timeline, "image"),
+        ...Object.fromEntries(
+          [
+            ...new Set(
+              timeline.clips
+                .filter((clip) => clip.componentId === "character")
+                .flatMap(
+                  (clip) =>
+                    (timeline.assetGroups ?? [])
+                      .find((group) => group.id === clip.content.groupId)
+                      ?.members.map((member) => member.assetId) ?? [],
+                ),
+            ),
+          ].map((assetId) => [
+            assetId,
+            `${location.origin}/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(assetId)}/stream`,
+          ]),
+        ),
+      }
+    : undefined;
   const videoSources = timeline ? sourcesFor(timeline, "video") : undefined;
   const requestedParentOrigin =
     new URLSearchParams(location.search).get("hostOrigin") ?? "";
@@ -103,28 +128,35 @@ function PreviewHost({
           standaloneTextModule,
           standaloneImageModule,
           standaloneVideoModule,
+          standaloneCharacterModule,
           ...(module.editorComponents ?? []).filter(
             (component) =>
               component.id !== standaloneTextModule.id &&
               component.id !== standaloneImageModule.id &&
-              component.id !== standaloneVideoModule.id,
+              component.id !== standaloneVideoModule.id &&
+              component.id !== standaloneCharacterModule.id,
           ),
         ].map(serializableComponentInfo),
       );
       send("ready", { components });
     };
-    const report = () =>
+    const report = () => {
+      const currentFrame = player.current?.getCurrentFrame() ?? 0;
+      const pendingFrame = pendingSeekFrame.current;
+      if (shouldIgnorePendingSeekFrame(currentFrame, pendingFrame)) return;
+      if (pendingFrame !== null) pendingSeekFrame.current = null;
       send("frame", {
-        frame: player.current?.getCurrentFrame() ?? 0,
+        frame: currentFrame,
         playing: player.current?.isPlaying() ?? false,
       });
+    };
     const onFrame: CallbackListener<"frameupdate"> = () => {
       const currentPlayer = player.current;
       const currentFrame = currentPlayer?.getCurrentFrame() ?? 0;
-      if (pendingSeekFrame.current !== null) {
-        if (currentFrame !== pendingSeekFrame.current) return;
-        pendingSeekFrame.current = null;
-      }
+      if (
+        shouldIgnorePendingSeekFrame(currentFrame, pendingSeekFrame.current)
+      )
+        return;
       if (
         playbackWasActive.current &&
         currentFrame + 1 >= activePlaybackEnd.current

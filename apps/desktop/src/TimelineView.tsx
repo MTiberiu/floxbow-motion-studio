@@ -22,6 +22,11 @@ import {
   renameTimelineScene,
   resizeTimelineScene,
 } from "./timeline-scenes";
+import {
+  createSceneMoment,
+  removeSceneMoment,
+  renameSceneMoment,
+} from "./scene-moments";
 import { createTimelineRulerMarks } from "./timeline-ruler";
 import type {
   ComponentInfo,
@@ -184,6 +189,7 @@ export function TimelineView({
   const [trackDropPreview, setTrackDropPreview] = useState<TrackDropPreview>();
   const [marquee, setMarquee] = useState<TimelineMarquee>();
   const [selectedSceneId, setSelectedSceneId] = useState("");
+  const [sceneMomentsOpen, setSceneMomentsOpen] = useState(false);
   const operationRef = useRef(onTimelineOperation);
   operationRef.current = onTimelineOperation;
 
@@ -1115,6 +1121,14 @@ export function TimelineView({
               <button type="button" onClick={addScene}>
                 + Scene
               </button>
+              <button
+                type="button"
+                disabled={!selectedSceneId}
+                aria-expanded={sceneMomentsOpen}
+                onClick={() => setSceneMomentsOpen((open) => !open)}
+              >
+                Moments
+              </button>
             </div>
             <div className="scene-lane">
               {(document.scenes ?? []).map((scene) => (
@@ -1198,6 +1212,126 @@ export function TimelineView({
               ))}
             </div>
           </div>
+          {sceneMomentsOpen && selectedSceneId && (
+            <div className="scene-moments-panel" aria-label="Scene Moments">
+              <div className="scene-moments-header">
+                <strong>Scene Moments</strong>
+                <span>
+                  {
+                    (document.sceneMoments ?? []).filter(
+                      (moment) => moment.sceneId === selectedSceneId,
+                    ).length
+                  }{" "}
+                  saved
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const name = window.prompt(
+                      "Scene Moment name",
+                      "New moment",
+                    );
+                    if (!name?.trim()) return;
+                    try {
+                      onEdit((current) =>
+                        createSceneMoment(
+                          current,
+                          selectedSceneId,
+                          frame,
+                          name,
+                        ),
+                      );
+                    } catch (error) {
+                      window.alert(String(error));
+                    }
+                  }}
+                >
+                  + Moment at playhead
+                </button>
+                <button
+                  type="button"
+                  aria-label="Close Scene Moments"
+                  onClick={() => setSceneMomentsOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="scene-moments-list">
+                {(document.sceneMoments ?? [])
+                  .filter((moment) => moment.sceneId === selectedSceneId)
+                  .sort((left, right) => left.atFrame - right.atFrame)
+                  .map((moment) => {
+                    const scene = document.scenes?.find(
+                      (item) => item.id === moment.sceneId,
+                    );
+                    return (
+                      <div className="scene-moment" key={moment.id}>
+                        <button
+                          type="button"
+                          className="scene-moment-jump"
+                          onClick={() => {
+                            if (scene) onSeek(scene.from + moment.atFrame);
+                            onSelectClips(
+                              moment.characterStates.map(
+                                (state) => state.clipId,
+                              ),
+                            );
+                          }}
+                        >
+                          <strong>{moment.name}</strong>
+                          <small>
+                            {frameToSeconds(
+                              moment.atFrame,
+                              document.fps,
+                            ).toFixed(2)}
+                            s scene time · {moment.characterStates.length}{" "}
+                            character states
+                          </small>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Rename ${moment.name}`}
+                          onClick={() => {
+                            const name = window.prompt(
+                              "Scene Moment name",
+                              moment.name,
+                            );
+                            if (!name?.trim()) return;
+                            try {
+                              onEdit((current) =>
+                                renameSceneMoment(current, moment.id, name),
+                              );
+                            } catch (error) {
+                              window.alert(String(error));
+                            }
+                          }}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`Delete ${moment.name}`}
+                          onClick={() =>
+                            onEdit((current) =>
+                              removeSceneMoment(current, moment.id),
+                            )
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                {!document.sceneMoments?.some(
+                  (moment) => moment.sceneId === selectedSceneId,
+                ) && (
+                  <span className="muted">
+                    No moments saved for this scene.
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           <div
             className={`track-insert-zone ${trackDropPreview?.newTrackPosition === "top" ? "is-drop-target" : ""}`}
             data-track-insert="top"

@@ -18,6 +18,7 @@
     "test": "tsx --test tests/*.test.ts",
     "test:editor": "node --import tsx scripts/test-editor.ts",
     "test:editor:built": "node --import tsx scripts/test-editor.ts --built",
+    "test:scene-acceptance": "tsx scripts/acceptance-scene-project.ts",
     "validate": "tsx scripts/projects.ts validate",
     "create:project": "tsx scripts/projects.ts create",
     "render": "tsx packages/renderer/src/cli.ts",

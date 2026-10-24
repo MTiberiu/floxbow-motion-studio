@@ -59,6 +59,28 @@ Shortening a scene is rejected if a member clip would cross the new boundary. Mo
 
 Scene membership and timing are part of the canonical `edit-timeline.json`, so normal EditorSession save, reload, undo and redo apply. Preview and MP4 use the same global frame ranges; validation prevents scene-owned visual or audio clips from spilling past their scene bounds. Existing unassigned clips remain global.
 
+## Scene Moments
+
+`sceneMoments` is optional project metadata on the same Timeline JSON. Each moment is a named scene-local frame bookmark and may reference the pose-event IDs active on Character clips at that moment. It does not create duplicate clips or image files. In the Timeline, select a scene, open **Moments**, and add a bookmark at the playhead. Selecting a saved moment seeks to that frame and selects its referenced Character clips.
+
+```json
+{
+  "sceneMoments": [
+    {
+      "id": "moment-first-line",
+      "sceneId": "scene-opening",
+      "name": "First line",
+      "atFrame": 120,
+      "characterStates": [
+        { "clipId": "guide-character", "poseEventId": "guide-speaking" }
+      ]
+    }
+  ]
+}
+```
+
+The validator requires the scene and pose-event references to exist, belong to that scene and be active by the bookmark frame. Shortening a scene past a saved moment is rejected by normal Timeline validation; moments are never silently deleted or moved.
+
 ## Current limits
 
-The first implementation provides scene names, ordered ranges, explicit clip membership, local-time derivation, safe downstream resizing and clip-level ripple editing. Scene contents still appear on their existing Timeline tracks. A dedicated scene-focused view, drag resizing, cross-scene clip transfer controls, reusable character groups, pose events and Scene Moments are not implemented yet.
+The current implementation provides scene names, ordered ranges, explicit clip membership, local-time derivation, safe downstream resizing, clip-level ripple editing and named Scene Moment bookmarks. The Media Library Organizer can group registered images; a Character clip uses a character group as one visual Timeline/Canvas element, and its scene-local pose events switch among members marked as poses. Different source crops can be aligned with group-member offsets. Character animation is discrete image-state switching, not skeletal or interpolated motion. Cross-scene clip transfer controls, drag scene resizing and interpolated character motion remain unsupported.

@@ -53,20 +53,29 @@ function AudioAwareComposition({
       }),
   );
   const imageSourceMap = Object.fromEntries(
-    (timeline?.clips ?? [])
-      .filter(
-        (clip) =>
-          clip.componentId === "image" &&
-          typeof clip.content.assetId === "string",
-      )
-      .map((clip) => {
-        const assetId = String(clip.content.assetId);
-        return [
-          assetId,
-          imageSources?.[assetId] ??
-            `${location.origin}/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/stream`,
-        ];
-      }),
+    [
+      ...new Set([
+        ...(timeline?.clips ?? [])
+          .filter(
+            (clip) =>
+              clip.componentId === "image" &&
+              typeof clip.content.assetId === "string",
+          )
+          .map((clip) => String(clip.content.assetId)),
+        ...(timeline?.clips ?? [])
+          .filter((clip) => clip.componentId === "character")
+          .flatMap(
+            (clip) =>
+              (timeline?.assetGroups ?? [])
+                .find((group) => group.id === clip.content.groupId)
+                ?.members.map((member) => member.assetId) ?? [],
+          ),
+      ]),
+    ].map((assetId) => [
+      assetId,
+      imageSources?.[assetId] ??
+        `${location.origin}/api/media/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetId)}/stream`,
+    ]),
   );
   const videoSourceMap = Object.fromEntries(
     (timeline?.clips ?? [])

@@ -16,6 +16,7 @@ import {
   standaloneTextClipSchema,
   standaloneVideoClipSchema,
   standaloneVideoAudioClipSchema,
+  standaloneCharacterClipSchema,
 } from "@motion/sdk/editor";
 import { readMediaRegistry } from "../../../scripts/media-store";
 import { streamRegisteredMedia } from "../../../scripts/media-stream";
@@ -96,6 +97,8 @@ export async function renderProject(root: string, id: string, still = false) {
       if (clip.componentId === "video") standaloneVideoClipSchema.parse(clip);
       if (clip.componentId === "video-audio")
         standaloneVideoAudioClipSchema.parse(clip);
+      if (clip.componentId === "character")
+        standaloneCharacterClipSchema.parse(clip);
     }
     if (
       timeline.fps !== m.fps ||
@@ -122,9 +125,14 @@ export async function renderProject(root: string, id: string, still = false) {
         }),
     ),
   ];
+  const characterGroupIds = new Set(
+    (timeline?.clips ?? [])
+      .filter((clip) => clip.componentId === "character")
+      .map((clip) => String(clip.content.groupId ?? "")),
+  );
   const imageIds = [
-    ...new Set(
-      (timeline?.clips ?? [])
+    ...new Set([
+      ...(timeline?.clips ?? [])
         .filter((clip) => clip.componentId === "image")
         .map((clip) => {
           const assetId = clip.content.assetId;
@@ -135,7 +143,10 @@ export async function renderProject(root: string, id: string, still = false) {
             throw new Error("An Image Timeline clip has an invalid media ID.");
           return assetId;
         }),
-    ),
+      ...(timeline?.assetGroups ?? [])
+        .filter((group) => characterGroupIds.has(group.id))
+        .flatMap((group) => group.members.map((member) => member.assetId)),
+    ]),
   ];
   const videoIds = [
     ...new Set(

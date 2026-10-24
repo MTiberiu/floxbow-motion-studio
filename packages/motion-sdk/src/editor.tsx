@@ -21,6 +21,7 @@ import {
   type TimelineClip,
   type ComponentInfo,
   type EditableField,
+  type VisualAssetGroup,
   visualTracksInRenderOrder,
 } from "./timeline";
 export type EditableComponent = ComponentInfo & {
@@ -29,6 +30,8 @@ export type EditableComponent = ComponentInfo & {
     frame?: number;
     imageSources?: Readonly<Record<string, string>>;
     videoSources?: Readonly<Record<string, string>>;
+    assetGroups?: readonly VisualAssetGroup[];
+    sceneLocalStartFrame?: number;
   }>;
 };
 export type EditableVideoProps = {
@@ -155,6 +158,82 @@ export const standaloneImageClipSchema = z
       .passthrough(),
   })
   .passthrough();
+
+export const standaloneCharacterClipSchema = z
+  .object({
+    componentId: z.literal("character"),
+    content: z
+      .object({
+        groupId: z
+          .string()
+          .regex(/^[a-zA-Z0-9_-]+$/)
+          .max(100),
+        poseEvents: z
+          .array(
+            z.object({
+              id: z
+                .string()
+                .regex(/^[a-zA-Z0-9_-]+$/)
+                .max(100),
+              atFrame: z.number().int().nonnegative().max(216_000),
+              memberId: z
+                .string()
+                .regex(/^[a-zA-Z0-9_-]+$/)
+                .max(100),
+            }),
+          )
+          .max(2000)
+          .default([]),
+      })
+      .passthrough(),
+    props: z
+      .object({
+        x: z.number().finite().min(0).max(100).default(50),
+        y: z.number().finite().min(0).max(100).default(50),
+        width: z.number().finite().min(1).max(500).default(40),
+        height: z.number().finite().min(1).max(500).default(70),
+        rotation: z.number().finite().min(-3600).max(3600).default(0),
+        anchor: z
+          .enum([
+            "top-left",
+            "top-center",
+            "top-right",
+            "middle-left",
+            "center",
+            "middle-right",
+            "bottom-left",
+            "bottom-center",
+            "bottom-right",
+          ])
+          .default("center"),
+        opacity: z.number().finite().min(0).max(1).default(1),
+        fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+/** Resolves a character state using the clip's scene-local frame evidence. */
+export function resolveCharacterPose(
+  group: VisualAssetGroup,
+  events: readonly { atFrame: number; memberId: string }[],
+  sceneLocalStartFrame: number,
+  clipFrame: number,
+) {
+  const localFrame = sceneLocalStartFrame + clipFrame;
+  const event = events
+    .filter((candidate) => candidate.atFrame <= localFrame)
+    .reduce<(typeof events)[number] | undefined>(
+      (latest, candidate) =>
+        !latest || candidate.atFrame > latest.atFrame ? candidate : latest,
+      undefined,
+    );
+  return (
+    group.members.find((candidate) => candidate.id === event?.memberId) ??
+    group.members.find((candidate) => candidate.role === "pose") ??
+    group.members[0]
+  );
+}
 
 export const standaloneVideoClipSchema = z
   .object({
@@ -530,11 +609,15 @@ function FrameAwareComponent({
   clip,
   imageSources,
   videoSources,
+  assetGroups,
+  sceneLocalStartFrame,
 }: {
   component: EditableComponent["component"];
   clip: TimelineClip;
   imageSources?: Readonly<Record<string, string>>;
   videoSources?: Readonly<Record<string, string>>;
+  assetGroups?: readonly VisualAssetGroup[];
+  sceneLocalStartFrame?: number;
 }) {
   return (
     <Component
@@ -542,6 +625,8 @@ function FrameAwareComponent({
       frame={useCurrentFrame()}
       imageSources={imageSources}
       videoSources={videoSources}
+      assetGroups={assetGroups}
+      sceneLocalStartFrame={sceneLocalStartFrame}
     />
   );
 }
@@ -729,6 +814,105 @@ export const standaloneImageModule: EditableComponent = {
   component: StandaloneImage,
 };
 
+const characterFields: EditableField[] = [...imageFields];
+
+function StandaloneCharacter({
+  clip,
+  frame = 0,
+  imageSources,
+  assetGroups = [],
+  sceneLocalStartFrame = 0,
+}: {
+  clip: TimelineClip;
+  frame?: number;
+  imageSources?: Readonly<Record<string, string>>;
+  assetGroups?: readonly VisualAssetGroup[];
+  sceneLocalStartFrame?: number;
+}) {
+  const inheritedSources = useTimelineMediaSources().imageSources;
+  const sources = imageSources ?? inheritedSources;
+  const character = standaloneCharacterClipSchema.parse(clip);
+  const group = assetGroups.find(
+    (candidate) => candidate.id === character.content.groupId,
+  );
+  if (!group)
+    throw new Error(
+      `Character group ${character.content.groupId} is unavailable. Repair its assetGroups entry in edit-timeline.json.`,
+    );
+  const member = resolveCharacterPose(
+    group,
+    character.content.poseEvents,
+    sceneLocalStartFrame,
+    frame,
+  );
+  if (!member)
+    throw new Error(`Character group ${group.name} contains no images.`);
+  const source = sources?.[member.assetId];
+  if (!source && sources === undefined) return null;
+  if (!source)
+    throw new Error(
+      `Character image asset ${member.assetId} is unavailable. Relink it in the Media Library.`,
+    );
+  const { x, y, width, height, rotation, anchor, opacity, fit } =
+    character.props;
+  const positions: Record<string, { translate: string; origin: string }> = {
+    "top-left": { translate: "0, 0", origin: "top left" },
+    "top-center": { translate: "-50%, 0", origin: "top center" },
+    "top-right": { translate: "-100%, 0", origin: "top right" },
+    "middle-left": { translate: "0, -50%", origin: "center left" },
+    center: { translate: "-50%, -50%", origin: "center" },
+    "middle-right": { translate: "-100%, -50%", origin: "center right" },
+    "bottom-left": { translate: "0, -100%", origin: "bottom left" },
+    "bottom-center": { translate: "-50%, -100%", origin: "bottom center" },
+    "bottom-right": { translate: "-100%, -100%", origin: "bottom right" },
+  };
+  const position = positions[anchor];
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <Img
+        data-character-group-id={group.id}
+        data-character-member-id={member.id}
+        data-character-asset-id={member.assetId}
+        src={source}
+        style={{
+          position: "absolute",
+          left: `${x + member.offsetX}%`,
+          top: `${y + member.offsetY}%`,
+          width: `${width}%`,
+          height: `${height}%`,
+          transform: `translate(${position.translate}) rotate(${rotation}deg)`,
+          transformOrigin: position.origin,
+          opacity,
+          objectFit: fit,
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+/** A logical character is one Canvas/Timeline object backed by an asset group. */
+export const standaloneCharacterModule: EditableComponent = {
+  id: "character",
+  name: "Character",
+  fields: characterFields,
+  timelineBehavior: "core-character",
+  canvas: {
+    owner: "core.character",
+    coordinateSpace: "composition-percent",
+    transform: {
+      x: "x",
+      y: "y",
+      width: "width",
+      height: "height",
+      rotation: "rotation",
+      anchor: "anchor",
+    },
+    operations: { move: true, resize: true, rotate: true },
+    resizeMode: "preserve-aspect",
+  },
+  component: StandaloneCharacter,
+};
+
 const videoFields: EditableField[] = [
   ...imageFields.filter((field) => field.key !== "fit"),
   {
@@ -866,11 +1050,13 @@ export function TimelineComposition({
   const registeredComponents = [
     standaloneTextModule,
     standaloneImageModule,
+    standaloneCharacterModule,
     standaloneVideoModule,
     ...components.filter(
       (component) =>
         component.id !== "text" &&
         component.id !== "image" &&
+        component.id !== "character" &&
         component.id !== "video",
     ),
   ];
@@ -905,6 +1091,15 @@ export function TimelineComposition({
                       clip={clip}
                       imageSources={imageSources}
                       videoSources={videoSources}
+                      assetGroups={t.assetGroups}
+                      sceneLocalStartFrame={
+                        clip.sceneId
+                          ? clip.from -
+                            (t.scenes?.find(
+                              (scene) => scene.id === clip.sceneId,
+                            )?.from ?? clip.from)
+                          : 0
+                      }
                     />
                   </Sequence>
                 );

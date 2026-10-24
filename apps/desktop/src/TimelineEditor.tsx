@@ -5,6 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import {
   timelineGapWarnings,
@@ -34,6 +35,7 @@ import {
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
+import { AssetOrganizerDialog } from "./AssetOrganizerDialog";
 import {
   changeClipRangeWithDurationExtension,
   createAudioTimelineTrack,
@@ -143,6 +145,7 @@ export function TimelineEditor({
   const workspace = useWorkspaceManager();
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
+  const [assetOrganizerOpen, setAssetOrganizerOpen] = useState(false);
   const [dismissedTimelineWarnings, setDismissedTimelineWarnings] = useState<
     string[]
   >([]);
@@ -170,6 +173,15 @@ export function TimelineEditor({
     const stored = Number(storedValue);
     return Number.isFinite(stored) && stored >= 0 && stored <= 1 ? stored : 1;
   });
+  useEffect(() => {
+    const openOrganizer = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
+      if (detail?.projectId === manifest.id) setAssetOrganizerOpen(true);
+    };
+    window.addEventListener("motion-open-asset-organizer", openOrganizer);
+    return () =>
+      window.removeEventListener("motion-open-asset-organizer", openOrganizer);
+  }, [manifest.id]);
   const { snapshot, commands } = session;
   const {
     document: doc,
@@ -794,6 +806,113 @@ export function TimelineEditor({
     window.addEventListener("motion-add-image", addImage);
     return () => window.removeEventListener("motion-add-image", addImage);
   }, [manifest.id, manifest.width, manifest.height, workspace]);
+
+  useEffect(() => {
+    const addCharacter = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          projectId?: unknown;
+          groupId?: unknown;
+          displayName?: unknown;
+        }>
+      ).detail;
+      if (
+        detail?.projectId !== manifest.id ||
+        typeof detail.groupId !== "string"
+      )
+        return;
+      const live = sessionRef.current;
+      const current = live.commands.getCurrentDocument();
+      if (live.snapshot.projectId !== manifest.id || !current) return;
+      const group = current.assetGroups?.find(
+        (candidate) => candidate.id === detail.groupId,
+      );
+      const firstPose = group?.members.find((member) => member.role === "pose");
+      if (!group || !firstPose) {
+        setError(
+          "Choose at least one pose image before placing this character.",
+        );
+        return;
+      }
+      const from = Math.min(
+        Math.max(0, live.snapshot.frame),
+        MAX_TIMELINE_DURATION_FRAMES - 1,
+      );
+      const scene = (current.scenes ?? []).find(
+        (candidate) =>
+          from >= candidate.from &&
+          from < candidate.from + candidate.durationInFrames,
+      );
+      const visualTrack = current.tracks.find(
+        (track) => !isAudioTrack(current, track) && !track.locked,
+      );
+      if (!visualTrack) {
+        setError(
+          "Add an unlocked visual Timeline track before placing a character.",
+        );
+        return;
+      }
+      const sceneEnd = scene
+        ? scene.from + scene.durationInFrames
+        : MAX_TIMELINE_DURATION_FRAMES;
+      const durationInFrames = Math.min(current.fps * 5, sceneEnd - from);
+      if (durationInFrames < 1) {
+        setError("The character cannot be placed at this Timeline position.");
+        return;
+      }
+      const clip = {
+        id: `character-${crypto.randomUUID()}`,
+        trackId: visualTrack.id,
+        componentId: "character",
+        label:
+          typeof detail.displayName === "string"
+            ? detail.displayName.slice(0, 200)
+            : group.name,
+        from,
+        durationInFrames,
+        ...(scene ? { sceneId: scene.id } : {}),
+        content: {
+          groupId: group.id,
+          poseEvents: [
+            {
+              id: `pose-${crypto.randomUUID()}`,
+              atFrame: scene ? from - scene.from : 0,
+              memberId: firstPose.id,
+            },
+          ],
+        },
+        props: {
+          x: 50,
+          y: 50,
+          width: 40,
+          height: 70,
+          rotation: 0,
+          anchor: "bottom-center",
+          opacity: 1,
+          fit: "contain",
+        },
+      };
+      try {
+        const next = parseEditTimeline({
+          ...current,
+          durationInFrames: Math.max(
+            current.durationInFrames,
+            from + durationInFrames,
+          ),
+          clips: [...current.clips, clip],
+        });
+        edit(next);
+        live.commands.selectClip(clip.id);
+        setNotice(`${clip.label} placed as an editable Timeline character.`);
+        workspace.activatePanel("editor");
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    };
+    window.addEventListener("motion-add-character", addCharacter);
+    return () =>
+      window.removeEventListener("motion-add-character", addCharacter);
+  }, [manifest.id, workspace]);
 
   useEffect(() => {
     const addVideo = (event: Event) => {
@@ -1775,6 +1894,7 @@ export function TimelineEditor({
           assetId: video.content.assetId,
           sourceVideoClipId: video.id,
           sourceStartSeconds: Number(video.content.sourceStartSeconds ?? 0),
+          sourceDurationSeconds: Number(video.content.sourceDurationSeconds),
         },
         props: { volume: Number.isFinite(volume) ? volume : 1 },
       };
@@ -2155,438 +2275,465 @@ export function TimelineEditor({
     }
   }
   return (
-    <section
-      className={`timeline-editor${detachedTimeline ? " timeline-detached" : ""}`}
-      data-editor-session-id={snapshot.sessionId}
-      style={
-        { "--timeline-height": `${timelineHeight}px` } as React.CSSProperties
-      }
-    >
-      <div className="editor-toolbar">
-        <button disabled={!dirty || saving || conflict} onClick={save}>
-          Save project
-        </button>
-        <label className="canvas-format-control">
-          Canvas
-          <select
-            aria-label="Canvas format"
-            value={
-              CANVAS_FORMATS.find(
-                (format) =>
-                  format.width === canvasSettings.width &&
-                  format.height === canvasSettings.height,
-              )?.id ?? "custom"
-            }
-            disabled={built || savingCanvasSettings || !canvasSettings.revision}
-            onChange={(event) =>
-              void changeCanvasFormat(event.currentTarget.value)
-            }
-          >
-            {canvasSettings.revision &&
-              !CANVAS_FORMATS.some(
-                (format) =>
-                  format.width === canvasSettings.width &&
-                  format.height === canvasSettings.height,
-              ) && (
-                <option value="custom" disabled>
-                  Custom · {canvasSettings.width} × {canvasSettings.height}
-                </option>
-              )}
-            {CANVAS_FORMATS.map((format) => (
-              <option key={format.id} value={format.id}>
-                {format.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="transcription-source-control">
-          Transcribe from
-          <select
-            aria-label="Transcription source"
-            value={transcriptionSourceId}
-            disabled={!transcriptionSources.length || transcribing}
-            onChange={(event) =>
-              setTranscriptionSourceId(event.currentTarget.value)
-            }
-          >
-            {transcriptionSources.map((sourceOption) => (
-              <option key={sourceOption.id} value={sourceOption.id}>
-                {sourceOption.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" disabled={!doc} onClick={addText}>
-          Add Text
-        </button>
-        <button
-          type="button"
-          onClick={() => void generateSubtitles()}
-          disabled={
-            !doc || !transcriptionSources.length || transcribing || built
-          }
-          title={
-            built
-              ? "Local Whisper transcription is available in the live development workspace."
-              : undefined
-          }
-        >
-          {transcribing ? "Generating subtitles…" : "Generate Subtitles"}
-        </button>
-        <button onClick={reloadDisk} disabled={!doc}>
-          Reload from disk
-        </button>
-        <span className="save-status">
-          {dirty ? "Unsaved changes" : "Saved"}
-          {built ? " · Built components" : ""}
-        </span>
-        <button disabled={!undoCount} onClick={undo}>
-          Undo
-        </button>
-        <button disabled={!redoCount} onClick={redo}>
-          Redo
-        </button>
-        <label className="playback-end-control">
-          Playback ends
-          <select
-            aria-label="Playback ends"
-            value={playToProjectEnd ? "project" : "content"}
-            onChange={(event) => {
-              const useProjectEnd = event.currentTarget.value === "project";
-              localStorage.setItem(
-                "motion-preview-playback-end",
-                useProjectEnd ? "project" : "content",
-              );
-              setPlayToProjectEnd(useProjectEnd);
+    <>
+      {assetOrganizerOpen &&
+        doc &&
+        createPortal(
+          <AssetOrganizerDialog
+            projectId={manifest.id}
+            groups={doc.assetGroups ?? []}
+            onEdit={(update) => {
+              const current = commands.getCurrentDocument();
+              if (!current) return;
+              try {
+                edit(update(current));
+              } catch (editError) {
+                setError(String(editError));
+              }
             }}
-          >
-            <option value="content">At last clip</option>
-            <option value="project">At project end</option>
-          </select>
-        </label>
-      </div>
-      <details className="timeline-review">
-        <summary>
-          Timeline review:{" "}
-          {visibleTimelineWarnings.length
-            ? `${visibleTimelineWarnings.length} gap${visibleTimelineWarnings.length === 1 ? "" : "s"}`
-            : "no visual gaps"}
-        </summary>
-        {visibleTimelineWarnings.length ? (
-          <ul>
-            {visibleTimelineWarnings.map((warning) => {
-              const seconds = (warning.end - warning.from) / manifest.fps;
-              const isLongGap = seconds >= 5;
-              const label =
-                warning.kind === "late"
-                  ? `Late isolated visual content: starts at ${(warning.end / manifest.fps).toFixed(2)}s after ${seconds.toFixed(2)}s with no visual clips on any track.`
-                  : warning.kind === "between"
-                    ? `${isLongGap ? "Long empty visual interval" : "Empty visual interval"}: ${seconds.toFixed(2)}s from ${(warning.from / manifest.fps).toFixed(2)}s to ${(warning.end / manifest.fps).toFixed(2)}s across all tracks.`
-                    : `Empty visual tail: ${seconds.toFixed(2)}s after the last visible clip on all tracks.`;
-              const targetIds = [
-                warning.previousClipId,
-                warning.nextClipId,
-              ].filter((id): id is string => Boolean(id));
-              return (
-                <li key={warningKey(warning)}>
-                  <span>{label}</span>
-                  {targetIds.map((id) => {
-                    const target = doc?.clips.find((item) => item.id === id);
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => {
-                          setSelected(id);
-                          seek(target?.from ?? warning.from);
-                        }}
-                      >
-                        Locate {target?.label ?? id}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    aria-label="Dismiss empty visual interval warning"
-                    onClick={() =>
-                      setDismissedTimelineWarnings((dismissed) =>
-                        dismissed.includes(warningKey(warning))
-                          ? dismissed
-                          : [...dismissed, warningKey(warning)],
-                      )
-                    }
-                  >
-                    Dismiss
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p>No visual timeline gaps were found.</p>
+            onClose={() => setAssetOrganizerOpen(false)}
+          />,
+          globalThis.document.body,
         )}
-      </details>
-      {conflict && (
-        <p className="error" role="alert">
-          The project changed on disk while you were editing. Export your draft
-          or reload from disk; saving is blocked to protect the agent’s changes.
-        </p>
-      )}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p className="editor-notice" role="status">
-          {notice}
-        </p>
-      )}
-      <div
-        className="editor-columns"
+      <section
+        className={`timeline-editor${detachedTimeline ? " timeline-detached" : ""}`}
+        data-editor-session-id={snapshot.sessionId}
         style={
-          { "--inspector-width": `${inspectorWidth}px` } as React.CSSProperties
+          { "--timeline-height": `${timelineHeight}px` } as React.CSSProperties
         }
       >
-        <CanvasView
-          manifest={editorManifest}
-          previewOrigin={previewOrigin}
-          built={built}
-          reload={reload}
-          previewGeneration={previewGeneration}
-          frame={frame}
-          playing={playing}
-          masterVolume={masterVolume}
-          onMasterVolumeChange={setMasterVolume}
-          iframeRef={iframe}
-          onPreviewLoad={() => {
-            send("hello");
-            send("playback-boundary", { endFrame: playbackEndFrame });
-            send("master-volume", { volume: masterVolume });
-          }}
-          onSeek={seek}
-          onPlay={() => playPreviewRef.current()}
-          onPause={pause}
-          timeline={doc}
-          components={components}
-          selectedClipIds={selectedIds}
-          onSelectClips={(clipIds) => {
-            sourceCommandId.current = null;
-            sessionSelectClips(clipIds);
-          }}
-          onCanvasGestureStart={beginCanvasGesture}
-          onCanvasDuplicate={duplicateCanvasClips}
-          onCanvasTransform={(changes) => {
-            const gesture = canvasGesture.current;
-            if (gesture?.canceled) return;
-            const current = commands.getCurrentDocument();
-            if (!current) return;
-            if (
-              gesture &&
-              commands.getStateVersion() !== gesture.latestVersion
-            ) {
-              gesture.canceled = true;
-              setNotice(
-                "Canvas gesture stopped because another edit changed this element.",
-              );
-              return;
-            }
-            try {
-              const definitions = new Map(
-                components.map((item) => [item.id, item]),
-              );
-              const next = parseEditTimeline({
-                ...current,
-                clips: current.clips.map((clip) => {
-                  const transform = changes.get(clip.id);
-                  const definition = definitions.get(clip.componentId);
-                  return transform && definition
-                    ? applyCanvasTransform(clip, definition, transform)
-                    : clip;
-                }),
-              });
-              if (gesture && !gesture.checkpointed) {
-                if (commands.getStateVersion() !== gesture.startVersion) {
-                  gesture.canceled = true;
-                  setNotice(
-                    "Canvas gesture stopped because another edit changed this element.",
-                  );
-                  return;
-                }
-                checkpoint();
-                gesture.checkpointed = true;
+        <div className="editor-toolbar">
+          <button disabled={!dirty || saving || conflict} onClick={save}>
+            Save project
+          </button>
+          <label className="canvas-format-control">
+            Canvas
+            <select
+              aria-label="Canvas format"
+              value={
+                CANVAS_FORMATS.find(
+                  (format) =>
+                    format.width === canvasSettings.width &&
+                    format.height === canvasSettings.height,
+                )?.id ?? "custom"
               }
-              edit(next, false);
-              if (gesture) gesture.latestVersion = commands.getStateVersion();
-            } catch (canvasError) {
-              setError(String(canvasError));
-              if (gesture) gesture.canceled = true;
+              disabled={
+                built || savingCanvasSettings || !canvasSettings.revision
+              }
+              onChange={(event) =>
+                void changeCanvasFormat(event.currentTarget.value)
+              }
+            >
+              {canvasSettings.revision &&
+                !CANVAS_FORMATS.some(
+                  (format) =>
+                    format.width === canvasSettings.width &&
+                    format.height === canvasSettings.height,
+                ) && (
+                  <option value="custom" disabled>
+                    Custom · {canvasSettings.width} × {canvasSettings.height}
+                  </option>
+                )}
+              {CANVAS_FORMATS.map((format) => (
+                <option key={format.id} value={format.id}>
+                  {format.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="transcription-source-control">
+            Transcribe from
+            <select
+              aria-label="Transcription source"
+              value={transcriptionSourceId}
+              disabled={!transcriptionSources.length || transcribing}
+              onChange={(event) =>
+                setTranscriptionSourceId(event.currentTarget.value)
+              }
+            >
+              {transcriptionSources.map((sourceOption) => (
+                <option key={sourceOption.id} value={sourceOption.id}>
+                  {sourceOption.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" disabled={!doc} onClick={addText}>
+            Add Text
+          </button>
+          <button
+            type="button"
+            onClick={() => void generateSubtitles()}
+            disabled={
+              !doc || !transcriptionSources.length || transcribing || built
             }
-          }}
-          onCanvasGestureEnd={endCanvasGesture}
-          onCanvasGestureCancel={cancelCanvasGesture}
-          onDropMedia={(data, position) =>
-            handleCanvasMediaDrop(data, position)
+            title={
+              built
+                ? "Local Whisper transcription is available in the live development workspace."
+                : undefined
+            }
+          >
+            {transcribing ? "Generating subtitles…" : "Generate Subtitles"}
+          </button>
+          <button onClick={reloadDisk} disabled={!doc}>
+            Reload from disk
+          </button>
+          <span className="save-status">
+            {dirty ? "Unsaved changes" : "Saved"}
+            {built ? " · Built components" : ""}
+          </span>
+          <button disabled={!undoCount} onClick={undo}>
+            Undo
+          </button>
+          <button disabled={!redoCount} onClick={redo}>
+            Redo
+          </button>
+          <label className="playback-end-control">
+            Playback ends
+            <select
+              aria-label="Playback ends"
+              value={playToProjectEnd ? "project" : "content"}
+              onChange={(event) => {
+                const useProjectEnd = event.currentTarget.value === "project";
+                localStorage.setItem(
+                  "motion-preview-playback-end",
+                  useProjectEnd ? "project" : "content",
+                );
+                setPlayToProjectEnd(useProjectEnd);
+              }}
+            >
+              <option value="content">At last clip</option>
+              <option value="project">At project end</option>
+            </select>
+          </label>
+        </div>
+        <details className="timeline-review">
+          <summary>
+            Timeline review:{" "}
+            {visibleTimelineWarnings.length
+              ? `${visibleTimelineWarnings.length} gap${visibleTimelineWarnings.length === 1 ? "" : "s"}`
+              : "no visual gaps"}
+          </summary>
+          {visibleTimelineWarnings.length ? (
+            <ul>
+              {visibleTimelineWarnings.map((warning) => {
+                const seconds = (warning.end - warning.from) / manifest.fps;
+                const isLongGap = seconds >= 5;
+                const label =
+                  warning.kind === "late"
+                    ? `Late isolated visual content: starts at ${(warning.end / manifest.fps).toFixed(2)}s after ${seconds.toFixed(2)}s with no visual clips on any track.`
+                    : warning.kind === "between"
+                      ? `${isLongGap ? "Long empty visual interval" : "Empty visual interval"}: ${seconds.toFixed(2)}s from ${(warning.from / manifest.fps).toFixed(2)}s to ${(warning.end / manifest.fps).toFixed(2)}s across all tracks.`
+                      : `Empty visual tail: ${seconds.toFixed(2)}s after the last visible clip on all tracks.`;
+                const targetIds = [
+                  warning.previousClipId,
+                  warning.nextClipId,
+                ].filter((id): id is string => Boolean(id));
+                return (
+                  <li key={warningKey(warning)}>
+                    <span>{label}</span>
+                    {targetIds.map((id) => {
+                      const target = doc?.clips.find((item) => item.id === id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            setSelected(id);
+                            seek(target?.from ?? warning.from);
+                          }}
+                        >
+                          Locate {target?.label ?? id}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      aria-label="Dismiss empty visual interval warning"
+                      onClick={() =>
+                        setDismissedTimelineWarnings((dismissed) =>
+                          dismissed.includes(warningKey(warning))
+                            ? dismissed
+                            : [...dismissed, warningKey(warning)],
+                        )
+                      }
+                    >
+                      Dismiss
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p>No visual timeline gaps were found.</p>
+          )}
+        </details>
+        {conflict && (
+          <p className="error" role="alert">
+            The project changed on disk while you were editing. Export your
+            draft or reload from disk; saving is blocked to protect the agent’s
+            changes.
+          </p>
+        )}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="editor-notice" role="status">
+            {notice}
+          </p>
+        )}
+        <div
+          className="editor-columns"
+          style={
+            {
+              "--inspector-width": `${inspectorWidth}px`,
+            } as React.CSSProperties
           }
-        />
-        <button
-          className="panel-splitter inspector-splitter"
-          aria-label="Resize inspector"
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            panelResize.current = {
-              kind: "inspector",
-              start: event.clientX,
-              size: inspectorWidth,
-            };
-          }}
-          onPointerMove={resizePanel}
-          onPointerUp={endPanelResize}
-        />
-        <InspectorView
-          manifest={editorManifest}
-          document={doc}
-          clip={clip}
-          selectedCount={selectedIds.length}
-          definition={definition}
-          onEdit={(next) => {
-            const current = commands.getCurrentDocument();
-            if (current)
-              edit(typeof next === "function" ? next(current) : next);
-          }}
-          onChangeProperty={property}
-          onChangeRange={changeRange}
-          onDuplicate={duplicate}
-          onDelete={deleteClip}
-          onSeparateVideoAudio={separateVideoAudio}
-          canChangeRange={
-            clip
-              ? !selectedTrackLocked &&
-                canPerformTimelineOperation(clip, "move", components)
-              : false
-          }
-          canChangeTrack={clip ? !selectedTrackLocked : false}
-          canEditProperties={!selectedTrackLocked}
-          canDuplicate={
-            clip
-              ? !selectedTrackLocked &&
-                canPerformTimelineOperation(clip, "duplicate", components)
-              : false
-          }
-          canDelete={
-            clip
-              ? !selectedTrackLocked &&
-                canPerformTimelineOperation(clip, "delete", components)
-              : false
-          }
-        />
-      </div>
-      <div
-        className="timeline-location"
-        data-timeline-detached={Boolean(detachedTimeline)}
-      >
-        {detachedTimeline ? (
-          <div className="timeline-detached-placeholder" role="status">
-            <strong>Timeline is open in its own window.</strong>
-            <span>
-              Canvas and Inspector remain connected to the same editing session.
-            </span>
-            {timelineTransportError && (
-              <span className="error" role="alert">
-                {timelineTransportError}
-              </span>
-            )}
-            <div>
-              <button type="button" onClick={attachTimeline}>
-                Attach Timeline
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void publishTimelineSnapshot(detachedTimeline)
-                    .then(() => setTimelineTransportError(""))
-                    .catch((error: unknown) =>
-                      setTimelineTransportError(String(error)),
-                    )
+        >
+          <CanvasView
+            manifest={editorManifest}
+            previewOrigin={previewOrigin}
+            built={built}
+            reload={reload}
+            previewGeneration={previewGeneration}
+            frame={frame}
+            playing={playing}
+            masterVolume={masterVolume}
+            onMasterVolumeChange={setMasterVolume}
+            iframeRef={iframe}
+            onPreviewLoad={() => {
+              send("hello");
+              send("playback-boundary", { endFrame: playbackEndFrame });
+              send("master-volume", { volume: masterVolume });
+            }}
+            onSeek={seek}
+            onPlay={() => playPreviewRef.current()}
+            onPause={pause}
+            timeline={doc}
+            components={components}
+            selectedClipIds={selectedIds}
+            onSelectClips={(clipIds) => {
+              sourceCommandId.current = null;
+              sessionSelectClips(clipIds);
+            }}
+            onCanvasGestureStart={beginCanvasGesture}
+            onCanvasDuplicate={duplicateCanvasClips}
+            onCanvasTransform={(changes) => {
+              const gesture = canvasGesture.current;
+              if (gesture?.canceled) return;
+              const current = commands.getCurrentDocument();
+              if (!current) return;
+              if (
+                gesture &&
+                commands.getStateVersion() !== gesture.latestVersion
+              ) {
+                gesture.canceled = true;
+                setNotice(
+                  "Canvas gesture stopped because another edit changed this element.",
+                );
+                return;
+              }
+              try {
+                const definitions = new Map(
+                  components.map((item) => [item.id, item]),
+                );
+                const next = parseEditTimeline({
+                  ...current,
+                  clips: current.clips.map((clip) => {
+                    const transform = changes.get(clip.id);
+                    const definition = definitions.get(clip.componentId);
+                    return transform && definition
+                      ? applyCanvasTransform(clip, definition, transform)
+                      : clip;
+                  }),
+                });
+                if (gesture && !gesture.checkpointed) {
+                  if (commands.getStateVersion() !== gesture.startVersion) {
+                    gesture.canceled = true;
+                    setNotice(
+                      "Canvas gesture stopped because another edit changed this element.",
+                    );
+                    return;
+                  }
+                  checkpoint();
+                  gesture.checkpointed = true;
                 }
-              >
-                Retry sync
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="timeline-window-actions">
-              <button type="button" onClick={() => void detachTimeline()}>
-                Detach Timeline
-              </button>
+                edit(next, false);
+                if (gesture) gesture.latestVersion = commands.getStateVersion();
+              } catch (canvasError) {
+                setError(String(canvasError));
+                if (gesture) gesture.canceled = true;
+              }
+            }}
+            onCanvasGestureEnd={endCanvasGesture}
+            onCanvasGestureCancel={cancelCanvasGesture}
+            onDropMedia={(data, position) =>
+              handleCanvasMediaDrop(data, position)
+            }
+          />
+          <button
+            className="panel-splitter inspector-splitter"
+            aria-label="Resize inspector"
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              panelResize.current = {
+                kind: "inspector",
+                start: event.clientX,
+                size: inspectorWidth,
+              };
+            }}
+            onPointerMove={resizePanel}
+            onPointerUp={endPanelResize}
+          />
+          <InspectorView
+            manifest={editorManifest}
+            document={doc}
+            clip={clip}
+            selectedCount={selectedIds.length}
+            definition={definition}
+            onEdit={(next) => {
+              const current = commands.getCurrentDocument();
+              if (current)
+                edit(typeof next === "function" ? next(current) : next);
+            }}
+            onChangeProperty={property}
+            onChangeRange={changeRange}
+            onDuplicate={duplicate}
+            onDelete={deleteClip}
+            onSeparateVideoAudio={separateVideoAudio}
+            canChangeRange={
+              clip
+                ? !selectedTrackLocked &&
+                  canPerformTimelineOperation(clip, "move", components)
+                : false
+            }
+            canChangeTrack={clip ? !selectedTrackLocked : false}
+            canEditProperties={!selectedTrackLocked}
+            canDuplicate={
+              clip
+                ? !selectedTrackLocked &&
+                  canPerformTimelineOperation(clip, "duplicate", components)
+                : false
+            }
+            canDelete={
+              clip
+                ? !selectedTrackLocked &&
+                  canPerformTimelineOperation(clip, "delete", components)
+                : false
+            }
+          />
+        </div>
+        <div
+          className="timeline-location"
+          data-timeline-detached={Boolean(detachedTimeline)}
+        >
+          {detachedTimeline ? (
+            <div className="timeline-detached-placeholder" role="status">
+              <strong>Timeline is open in its own window.</strong>
+              <span>
+                Canvas and Inspector remain connected to the same editing
+                session.
+              </span>
               {timelineTransportError && (
                 <span className="error" role="alert">
                   {timelineTransportError}
                 </span>
               )}
+              <div>
+                <button type="button" onClick={attachTimeline}>
+                  Attach Timeline
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void publishTimelineSnapshot(detachedTimeline)
+                      .then(() => setTimelineTransportError(""))
+                      .catch((error: unknown) =>
+                        setTimelineTransportError(String(error)),
+                      )
+                  }
+                >
+                  Retry sync
+                </button>
+              </div>
             </div>
-            <TimelineView
-              manifest={editorManifest}
-              document={doc}
-              components={components}
-              selectedClipIds={selectedIds}
-              selectedClipId={selected}
-              frame={frame}
-              playing={playing}
-              onEdit={(next, createCheckpoint = true) => {
-                const current = commands.getCurrentDocument();
-                if (!current) return;
-                edit(
-                  typeof next === "function" ? next(current) : next,
-                  createCheckpoint,
-                );
-              }}
-              onSelectClip={setSelected}
-              onSelectClips={(ids) => {
-                sourceCommandId.current = null;
-                sessionSelectClips(ids);
-              }}
-              onSeek={seek}
-              onPause={pause}
-              onPlay={() => playPreviewRef.current()}
-              onDropMedia={(data, target) =>
-                handleTimelineMediaDrop(data, target)
-              }
-              onBeginClipGesture={beginClipGesture}
-              onTimelineOperation={(operation) => {
-                const operationError = performTimelineOperation(operation);
-                if (operationError) setError(operationError);
-              }}
-              keyboardShortcutsEnabled={active}
-              rippleMode={rippleMode}
-              onRippleModeChange={setRippleMode}
-              onUpdateClipGesture={updateClipGesture}
-              onEndClipGesture={endClipGesture}
-              onResizeStart={(event) => {
-                event.currentTarget.setPointerCapture(event.pointerId);
-                panelResize.current = {
-                  kind: "timeline",
-                  start: event.clientY,
-                  size: timelineHeight,
-                };
-              }}
-              onResizeMove={resizePanel}
-              onResizeEnd={endPanelResize}
-              onAddSubtitle={addSubtitle}
-              onImportFile={importFile}
-              onExportTiming={exportTiming}
-              onExportDocument={() =>
-                doc &&
-                download(
-                  `${manifest.id}.timeline.json`,
-                  JSON.stringify(doc, null, 2),
-                )
-              }
-            />
-          </>
-        )}
-      </div>
-    </section>
+          ) : (
+            <>
+              <div className="timeline-window-actions">
+                <button type="button" onClick={() => void detachTimeline()}>
+                  Detach Timeline
+                </button>
+                {timelineTransportError && (
+                  <span className="error" role="alert">
+                    {timelineTransportError}
+                  </span>
+                )}
+              </div>
+              <TimelineView
+                manifest={editorManifest}
+                document={doc}
+                components={components}
+                selectedClipIds={selectedIds}
+                selectedClipId={selected}
+                frame={frame}
+                playing={playing}
+                onEdit={(next, createCheckpoint = true) => {
+                  const current = commands.getCurrentDocument();
+                  if (!current) return;
+                  edit(
+                    typeof next === "function" ? next(current) : next,
+                    createCheckpoint,
+                  );
+                }}
+                onSelectClip={setSelected}
+                onSelectClips={(ids) => {
+                  sourceCommandId.current = null;
+                  sessionSelectClips(ids);
+                }}
+                onSeek={seek}
+                onPause={pause}
+                onPlay={() => playPreviewRef.current()}
+                onDropMedia={(data, target) =>
+                  handleTimelineMediaDrop(data, target)
+                }
+                onBeginClipGesture={beginClipGesture}
+                onTimelineOperation={(operation) => {
+                  const operationError = performTimelineOperation(operation);
+                  if (operationError) setError(operationError);
+                }}
+                keyboardShortcutsEnabled={active}
+                rippleMode={rippleMode}
+                onRippleModeChange={setRippleMode}
+                onUpdateClipGesture={updateClipGesture}
+                onEndClipGesture={endClipGesture}
+                onResizeStart={(event) => {
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  panelResize.current = {
+                    kind: "timeline",
+                    start: event.clientY,
+                    size: timelineHeight,
+                  };
+                }}
+                onResizeMove={resizePanel}
+                onResizeEnd={endPanelResize}
+                onAddSubtitle={addSubtitle}
+                onImportFile={importFile}
+                onExportTiming={exportTiming}
+                onExportDocument={() =>
+                  doc &&
+                  download(
+                    `${manifest.id}.timeline.json`,
+                    JSON.stringify(doc, null, 2),
+                  )
+                }
+              />
+            </>
+          )}
+        </div>
+      </section>
+    </>
   );
 }

@@ -56,6 +56,9 @@ async function setFrameFromUiTime(page: Page, label: string, frame: number) {
   if (!Number.isFinite(fps) || fps <= 0)
     throw new Error(`The ${label} input does not expose its project FPS.`);
   await input.fill((frame / fps).toFixed(3));
+  await expect
+    .poll(() => readFrameFromUiTime(page, label))
+    .toBe(frame);
 }
 
 async function readFrameFromUiTime(page: Page, label: string) {
@@ -897,6 +900,7 @@ try {
     const audioRows = page.locator(".track-row.is-audio-track");
     await expect(audioRows).toHaveCount(2);
     const secondAudioRow = audioRows.last();
+    await secondAudioRow.scrollIntoViewIfNeeded();
     const secondAudioBox = await secondAudioRow.boundingBox();
     const soundtrackBox = await dockedSoundtrack.boundingBox();
     expect(secondAudioBox).toBeTruthy();
@@ -911,7 +915,7 @@ try {
       secondAudioBox!.y + secondAudioBox!.height / 2,
       { steps: 5 },
     );
-    await expect(secondAudioRow).toHaveAttribute("data-drop-target", "true");
+    await expect(secondAudioRow).toHaveClass(/is-drop-target/);
     await page.mouse.up();
     await expect(secondAudioRow.locator(".audio-clip")).toHaveCount(1);
     await dockedSoundtrack.click();
@@ -3743,10 +3747,11 @@ try {
       "data-preview-generation",
       initialPreviewGeneration ?? "",
     );
-    await expect(imagePreview).toBeVisible();
     const pausePlayback = page.getByRole("button", { name: "Pause" });
     if (await pausePlayback.isVisible()) await pausePlayback.click();
+    // The image starts just after the initial 2-second playhead frame.
     await setFrameFromUiTime(page, "Playhead time (seconds)", 2.5 * 30);
+    await expect(imagePreview).toBeVisible();
     await expect(page.getByTestId("frame-readout")).toContainText("75 /");
     await expect(imageInspectorX).toHaveValue("35");
     await expect(imageInspectorY).toHaveValue("42");
@@ -3911,6 +3916,37 @@ try {
       .locator(".timeline-actions")
       .getByRole("button", { name: "Add visual track", exact: true })
       .click();
+    const videoSourceTrackId = await videoClip.evaluate(
+      (clip) => clip.closest<HTMLElement>(".track-lane")?.dataset.track,
+    );
+    const videoSourceRow = page.locator(
+      `.track-row[data-track-row="${videoSourceTrackId}"]`,
+    );
+    await videoSourceRow.scrollIntoViewIfNeeded();
+    const videoTargetTrackId = await page
+      .locator(".track-row.is-visual-track")
+      .evaluateAll(
+        (rows, sourceTrackId) => {
+          const viewport = document
+            .querySelector<HTMLElement>(".timeline-scroll")!
+            .getBoundingClientRect();
+          return rows
+            .find((row) => {
+              const bounds = row.getBoundingClientRect();
+              return (
+                row.getAttribute("data-track-row") !== sourceTrackId &&
+                bounds.top >= viewport.top &&
+                bounds.bottom <= viewport.bottom
+              );
+            })
+            ?.getAttribute("data-track-row");
+        },
+        videoSourceTrackId,
+      );
+    expect(videoTargetTrackId).toBeTruthy();
+    const videoTargetRow = page.locator(
+      `.track-row[data-track-row="${videoTargetTrackId}"]`,
+    );
     const videoMoveTarget = await videoClip.evaluate((clip) => {
       const sourceTrack =
         clip.closest<HTMLElement>(".track-lane")?.dataset.track;
@@ -4100,6 +4136,7 @@ try {
         assetId: videoAssetId,
         sourceVideoClipId: videoClipId,
         sourceStartSeconds: 0.5,
+        sourceDurationSeconds: expect.any(Number),
       },
     });
 
@@ -4332,6 +4369,7 @@ try {
         .getByText("Caption belongs to project two", { exact: true }),
     ).toBeVisible();
     await selectProject(thirdId);
+    await setFrameFromUiTime(page, "Playhead time (seconds)", 202);
     await expect(
       page.locator(".timeline-clip").filter({ hasText: "Video audio caption" }),
     ).toBeVisible();
