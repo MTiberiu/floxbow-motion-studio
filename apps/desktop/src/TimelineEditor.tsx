@@ -35,7 +35,8 @@ import {
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
-import { TextContextPopup } from "./TextContextPopup";
+import { ClipContextPopup } from "./ClipContextPopup";
+import { clipsForTrack } from "./FocusedTrackTimeline";
 import { AssetOrganizerDialog } from "./AssetOrganizerDialog";
 import {
   changeClipRangeWithDurationExtension,
@@ -2032,12 +2033,16 @@ export function TimelineEditor({
   }
   const clip = doc?.clips.find((c) => c.id === selected);
   const textContextClip = textContextPopup
-    ? doc?.clips.find(
-        (candidate) =>
-          candidate.id === textContextPopup.clipId &&
-          candidate.componentId === "text",
-      )
+    ? doc?.clips.find((candidate) => candidate.id === textContextPopup.clipId)
     : undefined;
+  const textContextTrackClips =
+    textContextClip && doc
+      ? clipsForTrack(doc.clips, textContextClip.trackId)
+      : [];
+  const textContextTrackName = textContextClip
+    ? (doc?.tracks.find((track) => track.id === textContextClip.trackId)
+        ?.name ?? "Text")
+    : "Text";
   const selectedTrackLocked = Boolean(
     clip && doc?.tracks.find((track) => track.id === clip.trackId)?.locked,
   );
@@ -2551,7 +2556,7 @@ export function TimelineEditor({
           globalThis.document.body,
         )}
       {textContextPopup && textContextClip && (
-        <TextContextPopup
+        <ClipContextPopup
           clip={textContextClip}
           position={textContextPopup.position}
           onChangeText={(clipId, value) =>
@@ -2560,6 +2565,29 @@ export function TimelineEditor({
           onChangeColor={(clipId, value) =>
             changeTextContextValue(clipId, "color", value)
           }
+          timeline={{
+            clips: textContextTrackClips,
+            trackName: textContextTrackName,
+            frame,
+            fps: editorManifest.fps,
+            durationInFrames: doc?.durationInFrames ?? 1,
+            playing,
+            onSelectClip: (clipId) => {
+              setSelected(clipId);
+              const target = doc?.clips.find(
+                (candidate) => candidate.id === clipId,
+              );
+              if (target) seek(target.from);
+              setTextContextPopup((current) =>
+                current ? { ...current, clipId } : current,
+              );
+            },
+            onSeek: seek,
+            onTogglePlayback: () => {
+              if (playing) pause();
+              else void commands.play();
+            },
+          }}
           onClose={() => setTextContextPopup(undefined)}
         />
       )}
@@ -2854,7 +2882,7 @@ export function TimelineEditor({
             onDropMedia={(data, position) =>
               handleCanvasMediaDrop(data, position)
             }
-            onTextContextMenu={(clipId, position) => {
+            onClipContextMenu={(clipId, position) => {
               setSelected(clipId);
               setTextContextPopup({ clipId, position });
             }}
@@ -3073,6 +3101,10 @@ export function TimelineEditor({
                   sessionSelectClips(ids);
                 }}
                 onSeek={seek}
+                onClipContextMenu={(clipId, position) => {
+                  setSelected(clipId);
+                  setTextContextPopup({ clipId, position });
+                }}
                 onPause={pause}
                 onPlay={() => playPreviewRef.current()}
                 onDropMedia={(data, target) =>

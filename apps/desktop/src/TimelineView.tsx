@@ -108,6 +108,10 @@ export type TimelineViewProps = {
   onSelectClip: (clipId: string, additive?: boolean) => void;
   onSelectClips: (clipIds: readonly string[]) => void;
   onSeek: (frame: number) => void;
+  onClipContextMenu?: (
+    clipId: string,
+    position: { x: number; y: number },
+  ) => void;
   onPause: () => void;
   onPlay?: () => void;
   onBeginClipGesture: (
@@ -157,6 +161,7 @@ export function TimelineView({
   onSelectClip,
   onSelectClips,
   onSeek,
+  onClipContextMenu,
   onPause,
   onPlay,
   onBeginClipGesture,
@@ -1521,6 +1526,16 @@ export function TimelineView({
                               event.shiftKey || event.ctrlKey || event.metaKey,
                             );
                           }
+                        }}
+                        onContextMenu={(event) => {
+                          if (!onClipContextMenu) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onSelectClip(clip.id);
+                          onClipContextMenu(clip.id, {
+                            x: event.clientX,
+                            y: event.clientY,
+                          });
                         }}
                         onKeyDown={(event) => {
                           if (event.defaultPrevented) return;

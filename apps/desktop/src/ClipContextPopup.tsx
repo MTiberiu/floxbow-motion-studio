@@ -1,20 +1,33 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import type { TimelineClip } from "@motion/sdk/timeline";
+import { FocusedTrackTimeline } from "./FocusedTrackTimeline";
 
 type Position = { x: number; y: number };
 
-export function TextContextPopup({
+export function ClipContextPopup({
   clip,
   position: initialPosition,
   onChangeText,
   onChangeColor,
+  timeline,
   onClose,
 }: {
   clip: TimelineClip;
   position: Position;
   onChangeText: (clipId: string, text: string) => void;
   onChangeColor: (clipId: string, color: string) => void;
+  timeline: {
+    clips: readonly TimelineClip[];
+    trackName: string;
+    frame: number;
+    fps: number;
+    durationInFrames: number;
+    playing: boolean;
+    onSelectClip: (clipId: string) => void;
+    onSeek: (frame: number) => void;
+    onTogglePlayback: () => void;
+  };
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -86,7 +99,7 @@ export function TextContextPopup({
       ref={panel}
       className="text-context-popup"
       role="dialog"
-      aria-label="Edit text"
+      aria-label={`Edit ${clip.componentId} clip`}
       style={{ left: position.x, top: position.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
@@ -98,44 +111,71 @@ export function TextContextPopup({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <span>Text</span>
+        <span>
+          {clip.componentId === "text"
+            ? "Text"
+            : clip.label || clip.componentId}
+        </span>
         <span className="text-context-popup-hint">Drag to move</span>
-        <button type="button" aria-label="Close text editor" onClick={onClose}>
+        <button type="button" aria-label="Close clip editor" onClick={onClose}>
           ×
         </button>
       </div>
-      <label>
-        Text content
-        <textarea
-          aria-label="Text content"
-          value={text}
-          maxLength={20_000}
-          rows={3}
-          onChange={(event) => onChangeText(clip.id, event.currentTarget.value)}
-        />
-      </label>
-      <label className="text-context-color-control">
-        Text color
-        <span>
-          <input
-            aria-label="Text color"
-            type="color"
-            value={color}
-            onChange={(event) =>
-              onChangeColor(clip.id, event.currentTarget.value)
-            }
-          />
-          <output>{color.toUpperCase()}</output>
-        </span>
-      </label>
+      {clip.componentId === "text" ? (
+        <>
+          <label>
+            Text content
+            <textarea
+              aria-label="Text content"
+              value={text}
+              maxLength={20_000}
+              rows={3}
+              onChange={(event) =>
+                onChangeText(clip.id, event.currentTarget.value)
+              }
+            />
+          </label>
+          <label className="text-context-color-control">
+            Text color
+            <span>
+              <input
+                aria-label="Text color"
+                type="color"
+                value={color}
+                onChange={(event) =>
+                  onChangeColor(clip.id, event.currentTarget.value)
+                }
+              />
+              <output>{color.toUpperCase()}</output>
+            </span>
+          </label>
+        </>
+      ) : (
+        <div className="clip-context-summary">
+          <span>{clip.componentId}</span>
+          <strong>{clip.label || String(clip.content.text ?? clip.id)}</strong>
+        </div>
+      )}
+      <FocusedTrackTimeline
+        clips={timeline.clips}
+        selectedClipId={clip.id}
+        trackName={timeline.trackName}
+        frame={timeline.frame}
+        fps={timeline.fps}
+        durationInFrames={timeline.durationInFrames}
+        playing={timeline.playing}
+        onSelectClip={timeline.onSelectClip}
+        onSeek={timeline.onSeek}
+        onTogglePlayback={timeline.onTogglePlayback}
+      />
     </div>,
     document.body,
   );
 }
 
 function clampPosition(position: Position): Position {
-  const width = 292;
-  const height = 236;
+  const width = 360;
+  const height = 370;
   return {
     x: Math.max(8, Math.min(position.x, window.innerWidth - width - 8)),
     y: Math.max(8, Math.min(position.y, window.innerHeight - height - 8)),

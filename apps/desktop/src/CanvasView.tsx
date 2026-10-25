@@ -42,7 +42,7 @@ export type CanvasViewProps = {
     data: MediaAssetDragData,
     position: { x: number; y: number },
   ) => void;
-  onTextContextMenu?: (
+  onClipContextMenu?: (
     clipId: string,
     position: { x: number; y: number },
   ) => void;
@@ -74,7 +74,7 @@ export function CanvasView({
   onCanvasGestureEnd,
   onCanvasGestureCancel,
   onDropMedia,
-  onTextContextMenu,
+  onClipContextMenu,
 }: CanvasViewProps) {
   const viewport = useRef<HTMLDivElement>(null);
   const panDrag = useRef<
@@ -275,7 +275,7 @@ export function CanvasView({
             onGestureEnd={onCanvasGestureEnd}
             onGestureCancel={onCanvasGestureCancel}
             onDropMedia={onDropMedia}
-            onTextContextMenu={onTextContextMenu}
+            onClipContextMenu={onClipContextMenu}
           />
         </div>
         <div

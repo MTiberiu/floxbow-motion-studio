@@ -48,7 +48,7 @@ export type CanvasInteractionLayerProps = {
     data: NonNullable<ReturnType<typeof parseMediaAssetDragData>>,
     position: { x: number; y: number },
   ) => void;
-  onTextContextMenu?: (
+  onClipContextMenu?: (
     clipId: string,
     position: { x: number; y: number },
   ) => void;
@@ -116,7 +116,7 @@ export function CanvasInteractionLayer({
   onGestureEnd,
   onGestureCancel,
   onDropMedia,
-  onTextContextMenu,
+  onClipContextMenu,
 }: CanvasInteractionLayerProps) {
   const root = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | undefined>(undefined);
@@ -850,11 +850,11 @@ export function CanvasInteractionLayer({
             tabIndex={0}
             onPointerDown={(event) => start(event, "move", item)}
             onContextMenu={(event) => {
-              if (item.componentId !== "text" || !onTextContextMenu) return;
+              if (!onClipContextMenu) return;
               event.preventDefault();
               event.stopPropagation();
               onSelect([item.id]);
-              onTextContextMenu(item.id, {
+              onClipContextMenu(item.id, {
                 x: event.clientX,
                 y: event.clientY,
               });
