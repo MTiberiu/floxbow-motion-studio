@@ -14,6 +14,7 @@ import {
 } from "remotion";
 import { z } from "zod";
 import { SoundtrackAudio } from "@motion/audio";
+import { mediaOrientationStyle } from "./media-orientation";
 import {
   componentInfoSchema,
   parseEditTimeline,
@@ -154,6 +155,7 @@ export const standaloneImageClipSchema = z
           .default("center"),
         opacity: z.number().finite().min(0).max(1).default(1),
         fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+        flipHorizontal: z.boolean().default(false),
       })
       .passthrough(),
   })
@@ -270,6 +272,7 @@ export const standaloneVideoClipSchema = z
           .default("center"),
         opacity: z.number().finite().min(0).max(1).default(1),
         fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+        flipHorizontal: z.boolean().default(false),
         volume: z.number().finite().min(0).max(1).default(1),
       })
       .passthrough(),
@@ -743,6 +746,14 @@ const imageFields: EditableField[] = [
   },
 ];
 
+const horizontalFlipField: EditableField = {
+  key: "flipHorizontal",
+  target: "props",
+  label: "Flip horizontally",
+  type: "boolean",
+  default: false,
+};
+
 function StandaloneImage({
   clip,
   imageSources,
@@ -757,7 +768,17 @@ function StandaloneImage({
   if (!source && sources === undefined) return null;
   if (!source)
     throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
-  const { x, y, width, height, rotation, anchor, opacity, fit } = image.props;
+  const {
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    anchor,
+    opacity,
+    fit,
+    flipHorizontal,
+  } = image.props;
   const positions: Record<string, { translate: string; origin: string }> = {
     "top-left": { translate: "0, 0", origin: "top left" },
     "top-center": { translate: "-50%, 0", origin: "top center" },
@@ -772,9 +793,8 @@ function StandaloneImage({
   const position = positions[anchor];
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
-      <Img
+      <div
         data-image-asset-id={image.content.assetId}
-        src={source}
         style={{
           position: "absolute",
           left: `${x}%`,
@@ -784,9 +804,19 @@ function StandaloneImage({
           transform: `translate(${position.translate}) rotate(${rotation}deg)`,
           transformOrigin: position.origin,
           opacity,
-          objectFit: fit,
         }}
-      />
+      >
+        <Img
+          src={source}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: fit,
+            ...mediaOrientationStyle(flipHorizontal),
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 }
@@ -795,7 +825,7 @@ function StandaloneImage({
 export const standaloneImageModule: EditableComponent = {
   id: "image",
   name: "Image",
-  fields: imageFields,
+  fields: [...imageFields, horizontalFlipField],
   canvas: {
     owner: "core.image",
     coordinateSpace: "composition-percent",
@@ -915,6 +945,7 @@ export const standaloneCharacterModule: EditableComponent = {
 
 const videoFields: EditableField[] = [
   ...imageFields.filter((field) => field.key !== "fit"),
+  horizontalFlipField,
   {
     key: "fit",
     target: "props",
@@ -967,8 +998,18 @@ function StandaloneVideo({
     throw new Error(
       `Video clip ${clip.id} exceeds the duration of its MP4 source.`,
     );
-  const { x, y, width, height, rotation, anchor, opacity, fit, volume } =
-    video.props;
+  const {
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    anchor,
+    opacity,
+    fit,
+    volume,
+    flipHorizontal,
+  } = video.props;
   const positions: Record<string, { translate: string; origin: string }> = {
     "top-left": { translate: "0, 0", origin: "top left" },
     "top-center": { translate: "-50%, 0", origin: "top center" },
@@ -984,12 +1025,8 @@ function StandaloneVideo({
   const sourceStart = Math.round(video.content.sourceStartSeconds * fps);
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
-      <OffthreadVideo
+      <div
         data-video-asset-id={video.content.assetId}
-        src={source}
-        startFrom={sourceStart}
-        endAt={sourceStart + clip.durationInFrames}
-        volume={volume}
         style={{
           position: "absolute",
           left: `${x}%`,
@@ -999,9 +1036,22 @@ function StandaloneVideo({
           transform: `translate(${position.translate}) rotate(${rotation}deg)`,
           transformOrigin: position.origin,
           opacity,
-          objectFit: fit,
         }}
-      />
+      >
+        <OffthreadVideo
+          src={source}
+          startFrom={sourceStart}
+          endAt={sourceStart + clip.durationInFrames}
+          volume={volume}
+          style={{
+            display: "block",
+            width: "100%",
+            height: "100%",
+            objectFit: fit,
+            ...mediaOrientationStyle(flipHorizontal),
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 }

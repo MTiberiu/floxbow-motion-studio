@@ -11,6 +11,7 @@ import {
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import { parseEditTimeline } from "@motion/sdk/timeline";
+import { mediaOrientationStyle } from "../packages/motion-sdk/src/media-orientation";
 
 const videoClip = {
   id: "video-intro-instance",
@@ -33,6 +34,7 @@ const videoClip = {
     anchor: "center",
     opacity: 1,
     fit: "contain",
+    flipHorizontal: false,
     volume: 0.75,
   },
 };
@@ -50,17 +52,41 @@ test("standalone Video uses registered asset IDs and declares shared Canvas oper
     definition.fields.some((field) => field.key === "sourceStartSeconds"),
   );
   assert.ok(definition.fields.some((field) => field.key === "volume"));
+  assert.equal(
+    definition.fields.find((field) => field.key === "flipHorizontal")?.type,
+    "boolean",
+  );
   assert.deepEqual(standaloneVideoClipSchema.parse(videoClip).content, {
     assetId: "video-intro",
     sourceStartSeconds: 0.25,
     sourceDurationSeconds: 8,
   });
+  const { flipHorizontal: _legacyFlip, ...legacyProps } = videoClip.props;
+  assert.equal(
+    standaloneVideoClipSchema.parse({
+      ...videoClip,
+      props: legacyProps,
+    }).props.flipHorizontal,
+    false,
+  );
   assert.throws(() =>
     standaloneVideoClipSchema.parse({
       ...videoClip,
       content: { ...videoClip.content, assetId: "../outside.mp4" },
     }),
   );
+  assert.equal(
+    standaloneVideoClipSchema.parse({
+      ...videoClip,
+      props: { ...videoClip.props, flipHorizontal: true },
+    }).props.flipHorizontal,
+    true,
+  );
+  assert.deepEqual(mediaOrientationStyle(true), {
+    transform: "scaleX(-1)",
+    transformOrigin: "center",
+  });
+  assert.equal(mediaOrientationStyle(false).transform, undefined);
 });
 
 test("Video transform edits remain canonical Timeline v1 clip properties", () => {
