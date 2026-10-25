@@ -626,13 +626,13 @@ export function DetachedTimelineWindow({
         onSeek={(frame) => dispatch({ type: "seek", frame: Math.round(frame) })}
         onPause={() => dispatch({ type: "pause" })}
         onPlay={() => dispatch({ type: "play" })}
-        onBeginClipGesture={(gestureId, clipId, duplicateId, groupMove) => {
+        onBeginClipGesture={(gestureId, clipId, duplicateIds, groupMove) => {
           activeGestures.current.add(gestureId);
           dispatch({
             type: "beginClipGesture",
             gestureId,
             clipId,
-            ...(duplicateId ? { duplicateId } : {}),
+            ...(duplicateIds ? { duplicateIds } : {}),
             ...(groupMove ? { groupMove: true } : {}),
           });
         }}

@@ -55,6 +55,15 @@ export type TimelineCommand =
       groupMove?: boolean;
     }>
   | Readonly<{
+      type: "beginClipGesture";
+      gestureId: string;
+      clipId: string;
+      duplicateIds: readonly {
+        sourceId: string;
+        duplicateId: string;
+      }[];
+    }>
+  | Readonly<{
       type: "updateClipGesture";
       gestureId: string;
       clipId: string;

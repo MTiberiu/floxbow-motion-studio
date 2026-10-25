@@ -8,6 +8,7 @@ import {
   timelinePlaybackEnd,
 } from "@motion/sdk/timeline-analysis";
 import {
+  addTimelineClipCopies,
   addTimelineClipCopy,
   canPerformTimelineOperation,
   removeTimelineClip,
@@ -65,6 +66,55 @@ test("shared clip copy preserves identity data and extends duration without copy
   assert.deepEqual(copy.props, source.props);
   assert.equal(next.durationInFrames, 330);
   assert.equal(next.clips.length, document.clips.length + 1);
+});
+
+test("drag-copy duplicates every selected clip at its own Timeline position", () => {
+  const next = addTimelineClipCopies(
+    document,
+    [
+      { sourceId: "title", duplicateId: "title-copy" },
+      { sourceId: "end-card", duplicateId: "end-card-copy" },
+    ],
+    [],
+  );
+  assert.deepEqual(
+    next.clips
+      .filter((clip) => clip.id.endsWith("-copy"))
+      .map(({ id, from, durationInFrames, label }) => ({
+        id,
+        from,
+        durationInFrames,
+        label,
+      })),
+    [
+      {
+        id: "title-copy",
+        from: 0,
+        durationInFrames: 30,
+        label: "Title (copy)",
+      },
+      {
+        id: "end-card-copy",
+        from: 240,
+        durationInFrames: 30,
+        label: "End (copy)",
+      },
+    ],
+  );
+  assert.equal(next.durationInFrames, document.durationInFrames);
+  assert.equal(next.clips.length, document.clips.length + 2);
+  assert.throws(
+    () =>
+      addTimelineClipCopies(
+        document,
+        [
+          { sourceId: "title", duplicateId: "copy-a" },
+          { sourceId: "title", duplicateId: "copy-b" },
+        ],
+        [],
+      ),
+    /once/,
+  );
 });
 
 test("soundtrack remains fixed for timing edits but can be deleted", () => {
