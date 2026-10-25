@@ -429,15 +429,17 @@ export function InspectorView({
               · frames {clip.from}–{clip.from + clip.durationInFrames} (end
               exclusive)
             </small>
-            {definition?.fields.map((field) => (
-              <PropertyControl
-                key={field.key}
-                field={field}
-                value={fieldValue(clip, field)}
-                onChange={(value) => onChangeProperty(field, value)}
-                disabled={!canEditProperties}
-              />
-            ))}
+            {definition?.fields
+              .filter((field) => field.key !== "flipHorizontal")
+              .map((field) => (
+                <PropertyControl
+                  key={field.key}
+                  field={field}
+                  value={fieldValue(clip, field)}
+                  onChange={(value) => onChangeProperty(field, value)}
+                  disabled={!canEditProperties}
+                />
+              ))}
             {!definition?.fields.length && (
               <p className="muted">
                 This scene exposes timing only. Its animation stays in the
@@ -467,6 +469,35 @@ export function InspectorView({
                 className="canvas-placement-tools"
                 aria-label="Canvas placement"
               >
+                {definition?.fields.find(
+                  (field) => field.key === "flipHorizontal",
+                ) && (
+                  <button
+                    type="button"
+                    className="canvas-flip-button"
+                    title="Flip horizontally"
+                    aria-label="Flip horizontally"
+                    aria-pressed={clip.props.flipHorizontal === true}
+                    disabled={!canEditProperties}
+                    onClick={() => {
+                      const field = definition.fields.find(
+                        (candidate) => candidate.key === "flipHorizontal",
+                      );
+                      if (field)
+                        onChangeProperty(
+                          field,
+                          clip.props.flipHorizontal !== true,
+                        );
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 3v18" />
+                      <path d="M8.5 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h2.5" />
+                      <path d="M15.5 5H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2.5" />
+                      <path d="m7 9-3 3 3 3m10-6 3 3-3 3" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={!canEditProperties}

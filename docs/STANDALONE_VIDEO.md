@@ -28,12 +28,13 @@ The supported contract is validated by `standaloneVideoClipSchema` from `@motion
     "anchor": "center",
     "opacity": 1,
     "fit": "contain",
+    "flipHorizontal": false,
     "volume": 1
   }
 }
 ```
 
-`content.assetId` must reference a registered MP4 entry in the project's `media.json`. `sourceDurationSeconds` is host-probed metadata captured when the clip is created; the renderer probes the actual source again and rejects a mismatch. `sourceStartSeconds` is the in-point in the source MP4. `from` and `durationInFrames` are the clip's project-time placement. The Editor Inspector exposes source in-point, transform, fit, opacity, and embedded clip volume. Left-edge trim advances the source in-point; right-edge trim preserves it. A trim that would exceed the source is rejected.
+`content.assetId` must reference a registered MP4 entry in the project's `media.json`. `sourceDurationSeconds` is host-probed metadata captured when the clip is created; the renderer probes the actual source again and rejects a mismatch. `sourceStartSeconds` is the in-point in the source MP4. `from` and `durationInFrames` are the clip's project-time placement. `flipHorizontal` mirrors the video pixels inside the existing clip bounds and defaults to `false` for older project files. The Editor Inspector exposes source in-point, transform, fit, opacity, horizontal flip, and embedded clip volume; flipping does not change the clip's audio. Left-edge trim advances the source in-point; right-edge trim preserves it. A trim that would exceed the source is rejected.
 
 ## Canvas, preview, and render
 
