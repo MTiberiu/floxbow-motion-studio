@@ -1706,7 +1706,8 @@ export function TimelineEditor({
     key: "text" | "color" | "fontSize",
     value: string | number,
   ) {
-    const current = sessionRef.current.commands.getCurrentDocument();
+    const liveSession = sessionRef.current;
+    const current = liveSession.commands.getCurrentDocument();
     const isTextClip = (componentId: string) =>
       componentId === "text" || componentId === "subtitles";
     const source = current?.clips.find(
@@ -1717,9 +1718,32 @@ export function TimelineEditor({
     const next = structuredClone(current);
     const target = next.clips.find((candidate) => candidate.id === clipId);
     if (!target || !isTextClip(target.componentId)) return;
-    if (key === "text") target.content.text = value;
-    else target.props[key] = value;
     try {
+      const field = liveSession.snapshot.components
+        .find((component) => component.id === target.componentId)
+        ?.fields.find(
+          (candidate) =>
+            candidate.key === key &&
+            candidate.target === (key === "text" ? "content" : "props"),
+        );
+      if (!field)
+        throw new Error(`The ${key} field is unavailable for this clip.`);
+      const validated = validateField(field, value);
+      if (key === "text") {
+        const behavior = resolveTimelineBehavior(
+          target.componentId,
+          liveSession.snapshot.components,
+        );
+        const behaviorEdit = behavior.editContent?.(
+          target.content,
+          field.key,
+          validated,
+        );
+        if (behaviorEdit) {
+          target.content = behaviorEdit.content;
+          if (behaviorEdit.notice) setNotice(behaviorEdit.notice);
+        } else target.content.text = validated;
+      } else target.props[key] = validated;
       edit(parseEditTimeline(next));
     } catch (editError) {
       setError(String(editError));
