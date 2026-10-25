@@ -1275,14 +1275,21 @@
   gap: 7px;
   margin: 8px 0 12px;
 }
-.image-quick-tools .icon-tool-button {
+.image-quick-tools .icon-tool-button,
+.clip-context-image-actions .icon-tool-button {
   display: inline-grid;
   place-items: center;
   width: 32px;
   height: 30px;
   padding: 4px;
+  border: 1px solid #425069;
+  border-radius: 5px;
+  color: #d8e2ef;
+  background: #151c24;
+  cursor: pointer;
 }
-.image-quick-tools .icon-tool-button svg {
+.image-quick-tools .icon-tool-button svg,
+.clip-context-image-actions .icon-tool-button svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -1291,7 +1298,8 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.image-quick-tools .icon-tool-button[aria-pressed="true"] {
+.image-quick-tools .icon-tool-button[aria-pressed="true"],
+.clip-context-image-actions .icon-tool-button[aria-pressed="true"] {
   color: #e7f6d2;
   background: #c5f18a24;
   border-color: #8ebc65;
@@ -1514,6 +1522,68 @@
   margin: 0;
   accent-color: #c4ed8b;
   cursor: ew-resize;
+}
+.focused-track-dock {
+  grid-template-rows: 0 auto minmax(220px, 1fr) 0;
+  min-height: 300px;
+  border: 0;
+  overflow: visible;
+  background: transparent;
+}
+.focused-track-dock .timeline-resize,
+.focused-track-dock .timeline-footer,
+.focused-track-dock .timeline-actions h3,
+.focused-track-dock
+  .timeline-actions
+  > button:not(.focused-timeline-play):not(.focused-timeline-duplicate):not(
+    .focused-timeline-center
+  ),
+.focused-track-dock .track-tools,
+.focused-track-dock .track-header > div,
+.focused-track-dock .scene-row,
+.focused-track-dock .track-insert-zone,
+.focused-track-dock .timeline-drag-ghost {
+  display: none;
+}
+.focused-track-dock .timeline-actions {
+  min-height: 34px;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+  border: 0;
+}
+.focused-track-dock .timeline-actions .timeline-zoom-controls {
+  gap: 3px;
+}
+.focused-track-dock .timeline-actions h3 small {
+  display: none;
+}
+.focused-track-dock .timeline-scroll {
+  min-height: 220px;
+  max-height: 300px;
+  border: 1px solid #394859;
+  border-radius: 5px;
+}
+.focused-track-dock .ruler-row,
+.focused-track-dock .track-row {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+.focused-track-dock .track-label {
+  padding-inline: 4px;
+  font-size: 8px;
+}
+.focused-track-dock .track-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clip-context-image-actions {
+  display: flex;
+  margin-top: 7px;
+}
+.clip-context-image-actions .icon-tool-button {
+  width: 32px;
+  height: 30px;
 }
 .preview-volume-control {
   display: inline-flex;

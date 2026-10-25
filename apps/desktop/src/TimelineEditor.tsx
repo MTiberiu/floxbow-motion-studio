@@ -36,7 +36,7 @@ import {
 } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
 import { ClipContextPopup } from "./ClipContextPopup";
-import { clipsForTrack } from "./FocusedTrackTimeline";
+import { clipsForTrack } from "./timeline-focus";
 import { AssetOrganizerDialog } from "./AssetOrganizerDialog";
 import {
   changeClipRangeWithDurationExtension,
@@ -1706,16 +1706,34 @@ export function TimelineEditor({
     value: string,
   ) {
     const current = sessionRef.current.commands.getCurrentDocument();
+    const isTextClip = (componentId: string) =>
+      componentId === "text" || componentId === "subtitles";
     const source = current?.clips.find(
       (candidate) =>
-        candidate.id === clipId && candidate.componentId === "text",
+        candidate.id === clipId && isTextClip(candidate.componentId),
     );
     if (!current || !source) return;
     const next = structuredClone(current);
     const target = next.clips.find((candidate) => candidate.id === clipId);
-    if (!target || target.componentId !== "text") return;
+    if (!target || !isTextClip(target.componentId)) return;
     if (key === "text") target.content.text = value;
     else target.props.color = value;
+    try {
+      edit(parseEditTimeline(next));
+    } catch (editError) {
+      setError(String(editError));
+    }
+  }
+  function toggleContextImageFlip(clipId: string) {
+    const current = sessionRef.current.commands.getCurrentDocument();
+    if (!current) return;
+    const next = structuredClone(current);
+    const target = next.clips.find(
+      (candidate) =>
+        candidate.id === clipId && candidate.componentId === "image",
+    );
+    if (!target) return;
+    target.props.flipHorizontal = target.props.flipHorizontal !== true;
     try {
       edit(parseEditTimeline(next));
     } catch (editError) {
@@ -2039,10 +2057,9 @@ export function TimelineEditor({
     textContextClip && doc
       ? clipsForTrack(doc.clips, textContextClip.trackId)
       : [];
-  const textContextTrackName = textContextClip
-    ? (doc?.tracks.find((track) => track.id === textContextClip.trackId)
-        ?.name ?? "Text")
-    : "Text";
+  const textContextTrack = textContextClip
+    ? doc?.tracks.find((track) => track.id === textContextClip.trackId)
+    : undefined;
   const selectedTrackLocked = Boolean(
     clip && doc?.tracks.find((track) => track.id === clip.trackId)?.locked,
   );
@@ -2565,29 +2582,76 @@ export function TimelineEditor({
           onChangeColor={(clipId, value) =>
             changeTextContextValue(clipId, "color", value)
           }
-          timeline={{
-            clips: textContextTrackClips,
-            trackName: textContextTrackName,
-            frame,
-            fps: editorManifest.fps,
-            durationInFrames: doc?.durationInFrames ?? 1,
-            playing,
-            onSelectClip: (clipId) => {
-              setSelected(clipId);
-              const target = doc?.clips.find(
-                (candidate) => candidate.id === clipId,
-              );
-              if (target) seek(target.from);
-              setTextContextPopup((current) =>
-                current ? { ...current, clipId } : current,
-              );
-            },
-            onSeek: seek,
-            onTogglePlayback: () => {
-              if (playing) pause();
-              else void commands.play();
-            },
-          }}
+          onToggleImageFlip={toggleContextImageFlip}
+          timelineView={
+            doc && textContextTrack ? (
+              <TimelineView
+                manifest={editorManifest}
+                document={doc}
+                focusedTrackId={textContextTrack.id}
+                focusedClipId={textContextClip.id}
+                components={components}
+                selectedClipIds={selectedIds.filter((id) =>
+                  textContextTrackClips.some((item) => item.id === id),
+                )}
+                selectedClipId={textContextClip.id}
+                frame={frame}
+                playing={playing}
+                onEdit={(next, createCheckpoint = true) => {
+                  const current = commands.getCurrentDocument();
+                  if (current)
+                    edit(
+                      typeof next === "function" ? next(current) : next,
+                      createCheckpoint,
+                    );
+                }}
+                onSelectClip={(clipId, additive = false) => {
+                  setSelected(clipId, additive);
+                  if (!additive) {
+                    const target = doc.clips.find(
+                      (candidate) => candidate.id === clipId,
+                    );
+                    if (target) seek(target.from);
+                    setTextContextPopup((current) =>
+                      current ? { ...current, clipId } : current,
+                    );
+                  }
+                }}
+                onSelectClips={(clipIds) => {
+                  sourceCommandId.current = null;
+                  sessionSelectClips(clipIds);
+                  if (clipIds[0])
+                    setTextContextPopup((current) =>
+                      current ? { ...current, clipId: clipIds[0] } : current,
+                    );
+                }}
+                onSeek={seek}
+                onClipContextMenu={(clipId, position) => {
+                  setSelected(clipId);
+                  setTextContextPopup({ clipId, position });
+                }}
+                onPause={pause}
+                onPlay={() => playPreviewRef.current()}
+                onBeginClipGesture={beginClipGesture}
+                onTimelineOperation={(operation) => {
+                  const operationError = performTimelineOperation(operation);
+                  if (operationError) setError(operationError);
+                }}
+                keyboardShortcutsEnabled={false}
+                rippleMode={rippleMode}
+                onRippleModeChange={setRippleMode}
+                onUpdateClipGesture={updateClipGesture}
+                onEndClipGesture={endClipGesture}
+                onResizeStart={() => {}}
+                onResizeMove={() => {}}
+                onResizeEnd={() => {}}
+                onAddSubtitle={() => {}}
+                onImportFile={() => {}}
+                onExportTiming={() => {}}
+                onExportDocument={() => {}}
+              />
+            ) : null
+          }
           onClose={() => setTextContextPopup(undefined)}
         />
       )}

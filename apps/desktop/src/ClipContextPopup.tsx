@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import type { TimelineClip } from "@motion/sdk/timeline";
-import { FocusedTrackTimeline } from "./FocusedTrackTimeline";
 
 type Position = { x: number; y: number };
 
@@ -10,24 +15,16 @@ export function ClipContextPopup({
   position: initialPosition,
   onChangeText,
   onChangeColor,
-  timeline,
+  onToggleImageFlip,
+  timelineView,
   onClose,
 }: {
   clip: TimelineClip;
   position: Position;
   onChangeText: (clipId: string, text: string) => void;
   onChangeColor: (clipId: string, color: string) => void;
-  timeline: {
-    clips: readonly TimelineClip[];
-    trackName: string;
-    frame: number;
-    fps: number;
-    durationInFrames: number;
-    playing: boolean;
-    onSelectClip: (clipId: string) => void;
-    onSeek: (frame: number) => void;
-    onTogglePlayback: () => void;
-  };
+  onToggleImageFlip: (clipId: string) => void;
+  timelineView: ReactNode;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -44,26 +41,19 @@ export function ClipContextPopup({
   }, [clip.id, initialPosition.x, initialPosition.y]);
 
   useEffect(() => {
-    const dismissOutside = (event: globalThis.PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !panel.current?.contains(event.target)
-      )
-        onClose();
-    };
     const dismissEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
-    document.addEventListener("pointerdown", dismissOutside, true);
     window.addEventListener("keydown", dismissEscape);
     return () => {
-      document.removeEventListener("pointerdown", dismissOutside, true);
       window.removeEventListener("keydown", dismissEscape);
     };
   }, [onClose]);
 
   function beginDrag(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("button"))
+      return;
     event.preventDefault();
     drag.current = {
       pointerId: event.pointerId,
@@ -121,7 +111,7 @@ export function ClipContextPopup({
           ×
         </button>
       </div>
-      {clip.componentId === "text" ? (
+      {clip.componentId === "text" || clip.componentId === "subtitles" ? (
         <>
           <label>
             Text content
@@ -156,18 +146,23 @@ export function ClipContextPopup({
           <strong>{clip.label || String(clip.content.text ?? clip.id)}</strong>
         </div>
       )}
-      <FocusedTrackTimeline
-        clips={timeline.clips}
-        selectedClipId={clip.id}
-        trackName={timeline.trackName}
-        frame={timeline.frame}
-        fps={timeline.fps}
-        durationInFrames={timeline.durationInFrames}
-        playing={timeline.playing}
-        onSelectClip={timeline.onSelectClip}
-        onSeek={timeline.onSeek}
-        onTogglePlayback={timeline.onTogglePlayback}
-      />
+      {clip.componentId === "image" && (
+        <div className="clip-context-image-actions">
+          <button
+            type="button"
+            className="icon-tool-button"
+            aria-label="Flip horizontally"
+            title="Flip horizontally"
+            aria-pressed={clip.props.flipHorizontal === true}
+            onClick={() => onToggleImageFlip(clip.id)}
+          >
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M10 2v16M8 5 3 10l5 5M12 5l5 5-5 5" />
+            </svg>
+          </button>
+        </div>
+      )}
+      {timelineView}
     </div>,
     document.body,
   );
@@ -175,7 +170,7 @@ export function ClipContextPopup({
 
 function clampPosition(position: Position): Position {
   const width = 360;
-  const height = 370;
+  const height = 520;
   return {
     x: Math.max(8, Math.min(position.x, window.innerWidth - width - 8)),
     y: Math.max(8, Math.min(position.y, window.innerHeight - height - 8)),
