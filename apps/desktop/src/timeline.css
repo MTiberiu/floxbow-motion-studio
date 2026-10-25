@@ -683,6 +683,8 @@
   overflow: auto;
   overscroll-behavior: contain;
   border-bottom: 1px solid #2b3540;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .timeline-canvas {
   width: 100%;
