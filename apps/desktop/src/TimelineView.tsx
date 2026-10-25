@@ -45,6 +45,7 @@ import {
   type MediaAssetDragData,
 } from "./media-drag";
 
+type DragDuplicate = { sourceId: string; duplicateId: string };
 type Drag = {
   clip: TimelineClip;
   sourceClipId: string;
@@ -58,9 +59,12 @@ type Drag = {
   lastY: number;
   gestureId: string;
   active: boolean;
+  gestureStarted?: boolean;
+  gestureMode?: "move" | "duplicate";
+  modifierDown?: boolean;
   trackOnly?: boolean;
   dropTrackId?: string;
-  duplicateId?: string;
+  duplicateIds?: readonly DragDuplicate[];
   groupClipIds?: readonly string[];
 };
 type TimelineMarquee = {
@@ -120,7 +124,7 @@ export type TimelineViewProps = {
   onBeginClipGesture: (
     gestureId: string,
     clipId: string,
-    duplicateId?: string,
+    duplicateIds?: readonly DragDuplicate[],
     groupMove?: boolean,
   ) => void;
   onTimelineOperation?: (
@@ -213,7 +217,7 @@ export function TimelineView({
         ),
       );
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isTextEntry(event.target)) return;
+      if (isTextEntry(event.target)) return;
       const modifier = event.ctrlKey || event.metaKey;
       let operation: Parameters<typeof onTimelineOperation>[0] | undefined;
       if (modifier && event.key.toLowerCase() === "c") operation = "copy";
@@ -233,8 +237,8 @@ export function TimelineView({
       event.preventDefault();
       operationRef.current?.(operation);
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [keyboardShortcutsEnabled, Boolean(onTimelineOperation)]);
   const displayDurationInFrames = Math.min(
     MAX_TIMELINE_DURATION_FRAMES,
@@ -418,7 +422,7 @@ export function TimelineView({
       clip.componentId !== "soundtrack" &&
       mode === "move" &&
       (event.ctrlKey || event.metaKey || event.altKey);
-    if (!wasSelected || duplicate)
+    if (!wasSelected)
       onSelectClip(
         clip.id,
         !duplicate && (event.shiftKey || event.ctrlKey || event.metaKey),
@@ -428,7 +432,6 @@ export function TimelineView({
     const groupClipIds =
       mode === "move" &&
       clip.componentId !== "soundtrack" &&
-      !duplicate &&
       (wasSelected || additiveSelection)
         ? [...new Set([...selectedClipIds, clip.id])]
         : [clip.id];
@@ -448,12 +451,16 @@ export function TimelineView({
       active: false,
       trackOnly: clip.componentId === "soundtrack",
       groupClipIds,
-      duplicateId: duplicate ? `clip-${crypto.randomUUID()}` : undefined,
+      duplicateIds: undefined,
     };
     setDragging(true);
   }
 
-  function updateDrag(clientX: number, clientY = drag.current?.lastY ?? 0) {
+  function updateDrag(
+    clientX: number,
+    clientY = drag.current?.lastY ?? 0,
+    modifierDown = false,
+  ) {
     const current = drag.current;
     if (!current) return;
     current.lastX = clientX;
@@ -466,26 +473,49 @@ export function TimelineView({
     if (!current.active) {
       current.active = true;
       onPause();
-      if (current.duplicateId) {
-        const source = current.clip;
-        current.clip = {
-          ...source,
-          id: current.duplicateId,
-          label: `${source.label} (copy)`,
-        };
-      }
-      if (!current.trackOnly)
-        onBeginClipGesture(
-          current.gestureId,
-          current.sourceClipId,
-          current.duplicateId,
-          !current.duplicateId && (current.groupClipIds?.length ?? 0) > 1,
-        );
       setDragging(true);
     }
+    if (modifierDown && !current.duplicateIds?.length && !current.trackOnly) {
+      current.duplicateIds = (
+        current.groupClipIds ?? [current.sourceClipId]
+      ).map((sourceId) => ({
+        sourceId,
+        duplicateId: `clip-${crypto.randomUUID()}`,
+      }));
+      const activeCopy = current.duplicateIds.find(
+        (copy) => copy.sourceId === current.sourceClipId,
+      );
+      if (activeCopy)
+        current.clip = {
+          ...current.clip,
+          id: activeCopy.duplicateId,
+          label: `${current.clip.label} (copy)`,
+        };
+    }
+    if (!current.gestureStarted && !current.trackOnly) {
+      current.gestureStarted = true;
+      current.gestureMode = current.duplicateIds?.length ? "duplicate" : "move";
+      onBeginClipGesture(
+        current.gestureId,
+        current.sourceClipId,
+        current.duplicateIds,
+        !current.duplicateIds && (current.groupClipIds?.length ?? 0) > 1,
+      );
+    } else if (
+      current.duplicateIds?.length &&
+      current.gestureMode !== "duplicate"
+    ) {
+      current.gestureMode = "duplicate";
+      onBeginClipGesture(
+        current.gestureId,
+        current.sourceClipId,
+        current.duplicateIds,
+        false,
+      );
+    }
     if (current.mode === "move" && document) {
-      const movingIds = current.duplicateId
-        ? [current.duplicateId]
+      const movingIds = current.duplicateIds?.length
+        ? current.duplicateIds.map((copy) => copy.duplicateId)
         : (current.groupClipIds ?? [current.sourceClipId]);
       const hit = window.document.elementFromPoint(clientX, clientY);
       const row =
@@ -510,7 +540,7 @@ export function TimelineView({
             : undefined;
       const target = document.tracks.find((track) => track.id === trackId);
       const movingClips = movingIds.map((id) =>
-        id === current.duplicateId
+        id === current.clip.id
           ? current.clip
           : document.clips.find((clip) => clip.id === id),
       );
@@ -550,7 +580,11 @@ export function TimelineView({
     let start = current.clip.from;
     let end = start + current.clip.durationInFrames;
     if (current.mode === "move") {
-      const selected = new Set(current.groupClipIds ?? [current.clip.id]);
+      const selected = new Set(
+        current.duplicateIds?.length
+          ? current.duplicateIds.map((copy) => copy.duplicateId)
+          : (current.groupClipIds ?? [current.clip.id]),
+      );
       const grouped = (document?.clips ?? []).filter((clip) =>
         selected.has(clip.id),
       );
@@ -609,9 +643,26 @@ export function TimelineView({
     let frameId = 0;
     const handleMouseMove = (event: MouseEvent) => {
       if (!drag.current) return;
+      drag.current.modifierDown =
+        event.ctrlKey || event.metaKey || event.altKey;
       if (drag.current.active)
         dragCallbacks.current.scrollTowardPointer(event.clientX);
-      dragCallbacks.current.updateDrag(event.clientX, event.clientY);
+      dragCallbacks.current.updateDrag(
+        event.clientX,
+        event.clientY,
+        drag.current.modifierDown,
+      );
+    };
+    const handleModifierChange = (event: KeyboardEvent) => {
+      if (!drag.current) return;
+      drag.current.modifierDown =
+        event.ctrlKey || event.metaKey || event.altKey;
+      if (drag.current.modifierDown && drag.current.active)
+        dragCallbacks.current.updateDrag(
+          drag.current.lastX,
+          drag.current.lastY,
+          true,
+        );
     };
     const handleMouseUp = (event: MouseEvent) => {
       if (drag.current) {
@@ -622,6 +673,8 @@ export function TimelineView({
     };
     window.addEventListener("mousemove", handleMouseMove, true);
     window.addEventListener("mouseup", handleMouseUp, true);
+    window.addEventListener("keydown", handleModifierChange, true);
+    window.addEventListener("keyup", handleModifierChange, true);
     const tick = () => {
       const current = drag.current;
       if (
@@ -636,6 +689,8 @@ export function TimelineView({
       cancelAnimationFrame(frameId);
       window.removeEventListener("mousemove", handleMouseMove, true);
       window.removeEventListener("mouseup", handleMouseUp, true);
+      window.removeEventListener("keydown", handleModifierChange, true);
+      window.removeEventListener("keyup", handleModifierChange, true);
     };
   }, []);
 
@@ -722,8 +777,8 @@ export function TimelineView({
         else if (last && current.lastY > last.bottom)
           newTrackPosition = "bottom";
       }
-      const movingIds = current.duplicateId
-        ? [current.duplicateId]
+      const movingIds = current.duplicateIds?.length
+        ? current.duplicateIds.map((copy) => copy.duplicateId)
         : (current.groupClipIds ?? [current.sourceClipId]);
       const shouldChangeTrack =
         Boolean(newTrackPosition) ||

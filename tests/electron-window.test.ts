@@ -582,6 +582,36 @@ test("Timeline commands and acknowledgments require a scoped command ID and exac
         type: "beginClipGesture",
         gestureId: instanceId,
         clipId: "caption",
+        duplicateIds: [
+          { sourceId: "caption", duplicateId: "caption-copy" },
+          { sourceId: "title", duplicateId: "title-copy" },
+        ],
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "beginClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
+        duplicateIds: [
+          { sourceId: "caption", duplicateId: "caption-copy" },
+          { sourceId: "title", duplicateId: "caption-copy" },
+        ],
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    isTimelineCommand({
+      ...command,
+      command: {
+        type: "beginClipGesture",
+        gestureId: instanceId,
+        clipId: "caption",
         groupMove: true,
       },
     }),

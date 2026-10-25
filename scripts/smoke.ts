@@ -56,9 +56,7 @@ async function setFrameFromUiTime(page: Page, label: string, frame: number) {
   if (!Number.isFinite(fps) || fps <= 0)
     throw new Error(`The ${label} input does not expose its project FPS.`);
   await input.fill((frame / fps).toFixed(3));
-  await expect
-    .poll(() => readFrameFromUiTime(page, label))
-    .toBe(frame);
+  await expect.poll(() => readFrameFromUiTime(page, label)).toBe(frame);
 }
 
 async function readFrameFromUiTime(page: Page, label: string) {
@@ -990,9 +988,7 @@ try {
       secondAudioBox!.y + secondAudioBox!.height / 2,
       stickyRulerBox!.y + stickyRulerBox!.height + 4,
     );
-    expect(audioDropY).toBeLessThan(
-      secondAudioBox!.y + secondAudioBox!.height,
-    );
+    expect(audioDropY).toBeLessThan(secondAudioBox!.y + secondAudioBox!.height);
     await page.mouse.move(
       soundtrackBox!.x + soundtrackBox!.width / 2,
       soundtrackBox!.y + soundtrackBox!.height / 2,
@@ -1011,8 +1007,9 @@ try {
           hit: element?.className ?? null,
           row: row?.className ?? null,
           rowId: row?.dataset.trackRow ?? null,
-          laneId: row?.querySelector<HTMLElement>(".track-lane")?.dataset
-            .track ?? null,
+          laneId:
+            row?.querySelector<HTMLElement>(".track-lane")?.dataset.track ??
+            null,
           dropTarget: row?.dataset.dropTarget ?? null,
           ghost: document.querySelector(".timeline-drag-ghost")?.textContent,
         };
@@ -3013,7 +3010,9 @@ try {
     await expect
       .poll(async () => (await timelineDock.boundingBox())?.height ?? 0)
       .toBeGreaterThanOrEqual(170);
-    expect((await previewFrame.boundingBox())?.height ?? 0).toBeGreaterThan(120);
+    expect((await previewFrame.boundingBox())?.height ?? 0).toBeGreaterThan(
+      120,
+    );
 
     await inspectorText.fill("AI editable title");
     await expect(inspectorText).toHaveValue("AI editable title");
@@ -3136,16 +3135,9 @@ try {
     expect(canvasBounds).toBeTruthy();
     const dragStart = await findCanvasHitPoint(textHitbox);
     expect(dragStart).toBeTruthy();
-    await page.mouse.move(
-      dragStart!.x,
-      dragStart!.y,
-    );
+    await page.mouse.move(dragStart!.x, dragStart!.y);
     await page.mouse.down();
-    await page.mouse.move(
-      dragStart!.x - 36,
-      dragStart!.y + 10,
-      { steps: 3 },
-    );
+    await page.mouse.move(dragStart!.x - 36, dragStart!.y + 10, { steps: 3 });
     await page.mouse.up();
     await expect
       .poll(async () =>
@@ -3190,10 +3182,7 @@ try {
       x: groupedDragBox!.x + groupedDragBox!.width / 2,
       y: groupedDragBox!.y + groupedDragBox!.height / 2,
     };
-    await page.mouse.move(
-      groupedDragPoint.x,
-      groupedDragPoint.y,
-    );
+    await page.mouse.move(groupedDragPoint.x, groupedDragPoint.y);
     await page.mouse.down();
     await expect(page.locator(".timeline-dock")).toHaveAttribute(
       "data-drag-active",
@@ -3214,6 +3203,9 @@ try {
     const groupedStartsAfter = await groupedClips.evaluateAll((clips) =>
       clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
     );
+    const groupedSourceIds = await groupedClips.evaluateAll((clips) =>
+      clips.map((clip) => clip.getAttribute("data-clip-id")!),
+    );
     expect(groupedStartsAfter[0]).toBeGreaterThan(groupedStartsBefore[0]);
     expect(groupedStartsAfter[1] - groupedStartsBefore[1]).toBe(
       groupedStartsAfter[0] - groupedStartsBefore[0],
@@ -3226,6 +3218,54 @@ try {
         ),
       )
       .toEqual(groupedStartsBefore);
+
+    const clipsBeforeGroupCopy = await page
+      .locator(".timeline-clip:not(.audio-clip)")
+      .count();
+    const groupCopyStart = await groupedClips.first().boundingBox();
+    expect(groupCopyStart).toBeTruthy();
+    await page.mouse.move(
+      groupCopyStart!.x + groupCopyStart!.width / 2,
+      groupCopyStart!.y + groupCopyStart!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      groupCopyStart!.x + groupCopyStart!.width / 2 + 8,
+      groupCopyStart!.y + groupCopyStart!.height / 2,
+    );
+    await page.keyboard.down("Control");
+    await page.mouse.move(
+      groupCopyStart!.x + groupCopyStart!.width / 2 + 56,
+      groupCopyStart!.y + groupCopyStart!.height / 2,
+      { steps: 4 },
+    );
+    await page.keyboard.up("Control");
+    await page.mouse.up();
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      clipsBeforeGroupCopy + 2,
+    );
+    await expect(page.locator(".timeline-clip.is-selected")).toHaveCount(2);
+    const groupCopies = page.locator(".timeline-clip.is-selected");
+    const groupCopyIds = await groupCopies.evaluateAll((clips) =>
+      clips.map((clip) => clip.getAttribute("data-clip-id")!),
+    );
+    expect(groupCopyIds.every((id) => !groupedSourceIds.includes(id))).toBe(
+      true,
+    );
+    const groupCopyStarts = await groupCopies.evaluateAll((clips) =>
+      clips.map((clip) => Number(clip.getAttribute("data-from-frame"))),
+    );
+    expect(Math.abs(groupCopyStarts[1] - groupCopyStarts[0])).toBe(
+      Math.abs(groupedStartsAfter[1] - groupedStartsAfter[0]),
+    );
+    await page.keyboard.press("Control+z");
+    await expect(page.locator(".timeline-clip:not(.audio-clip)")).toHaveCount(
+      clipsBeforeGroupCopy,
+    );
+    await page.locator(`[data-clip-id="${groupedSourceIds[0]}"]`).click();
+    await page
+      .locator(`[data-clip-id="${groupedSourceIds[1]}"]`)
+      .click({ modifiers: ["Shift"] });
 
     // Rotation uses rendered Canvas geometry and must keep the full selection.
     await textHitbox.click();
@@ -3339,10 +3379,7 @@ try {
     const duplicateDragStart = await findCanvasHitPoint(textHitbox);
     expect(duplicateDragStart).toBeTruthy();
     await page.keyboard.down("Control");
-    await page.mouse.move(
-      duplicateDragStart!.x,
-      duplicateDragStart!.y,
-    );
+    await page.mouse.move(duplicateDragStart!.x, duplicateDragStart!.y);
     await page.mouse.down();
     await page.mouse.move(
       duplicateDragStart!.x + 42,
@@ -3381,19 +3418,10 @@ try {
     const shiftDragStart = await findCanvasHitPoint(textHitbox);
     expect(shiftDragStart).toBeTruthy();
     await page.keyboard.down("Shift");
-    await page.mouse.move(
-      shiftDragStart!.x,
-      shiftDragStart!.y,
-    );
+    await page.mouse.move(shiftDragStart!.x, shiftDragStart!.y);
     await page.mouse.down();
-    await page.mouse.move(
-      shiftDragStart!.x + 10,
-      shiftDragStart!.y + 4,
-    );
-    await page.mouse.move(
-      shiftDragStart!.x + 15,
-      shiftDragStart!.y + 24,
-    );
+    await page.mouse.move(shiftDragStart!.x + 10, shiftDragStart!.y + 4);
+    await page.mouse.move(shiftDragStart!.x + 15, shiftDragStart!.y + 24);
     await expect
       .poll(async () =>
         Number(
@@ -3401,11 +3429,9 @@ try {
         ),
       )
       .toBe(positionYBeforeShift);
-    await page.mouse.move(
-      shiftDragStart!.x + 36,
-      shiftDragStart!.y + 25,
-      { steps: 2 },
-    );
+    await page.mouse.move(shiftDragStart!.x + 36, shiftDragStart!.y + 25, {
+      steps: 2,
+    });
     await page.mouse.up();
     await page.keyboard.up("Shift");
     await expect
@@ -4254,57 +4280,60 @@ try {
     await videoSourceRow.scrollIntoViewIfNeeded();
     const videoTargetTrackId = await page
       .locator(".track-row.is-visual-track")
-      .evaluateAll(
-        (rows, sourceTrackId) => {
-          return rows
-            .find((row) => row.getAttribute("data-track-row") !== sourceTrackId)
-            ?.getAttribute("data-track-row");
-        },
-        videoSourceTrackId,
-      );
+      .evaluateAll((rows, sourceTrackId) => {
+        return rows
+          .find((row) => row.getAttribute("data-track-row") !== sourceTrackId)
+          ?.getAttribute("data-track-row");
+      }, videoSourceTrackId);
     if (!videoTargetTrackId)
       throw new Error("No destination visual Timeline track is available.");
     const videoTargetRow = page.locator(
       `.track-row[data-track-row="${videoTargetTrackId}"]`,
     );
-    await page.locator(".timeline-scroll").evaluate((viewport, ids) => {
-      const rows = ids.map((id) =>
-        viewport.querySelector<HTMLElement>(
-          `.track-row[data-track-row="${CSS.escape(id)}"]`,
-        ),
-      );
-      if (rows.some((row) => !row))
-        throw new Error("Video source or target track is not rendered.");
-      const bounds = rows.map((row) => row!.getBoundingClientRect());
-      const viewportBounds = viewport.getBoundingClientRect();
-      const top = Math.min(...bounds.map((rect) => rect.top));
-      const bottom = Math.max(...bounds.map((rect) => rect.bottom));
-      if (bottom - top > viewport.clientHeight)
-        throw new Error("Expanded Timeline cannot show both video tracks.");
-      if (top < viewportBounds.top)
-        viewport.scrollTop -= viewportBounds.top - top;
-      const updated = rows.map((row) => row!.getBoundingClientRect());
-      const updatedBottom = Math.max(...updated.map((rect) => rect.bottom));
-      if (updatedBottom > viewportBounds.bottom)
-        viewport.scrollTop += updatedBottom - viewportBounds.bottom;
-    }, [videoSourceTrackId, videoTargetTrackId]);
+    await page.locator(".timeline-scroll").evaluate(
+      (viewport, ids) => {
+        const rows = ids.map((id) =>
+          viewport.querySelector<HTMLElement>(
+            `.track-row[data-track-row="${CSS.escape(id)}"]`,
+          ),
+        );
+        if (rows.some((row) => !row))
+          throw new Error("Video source or target track is not rendered.");
+        const bounds = rows.map((row) => row!.getBoundingClientRect());
+        const viewportBounds = viewport.getBoundingClientRect();
+        const top = Math.min(...bounds.map((rect) => rect.top));
+        const bottom = Math.max(...bounds.map((rect) => rect.bottom));
+        if (bottom - top > viewport.clientHeight)
+          throw new Error("Expanded Timeline cannot show both video tracks.");
+        if (top < viewportBounds.top)
+          viewport.scrollTop -= viewportBounds.top - top;
+        const updated = rows.map((row) => row!.getBoundingClientRect());
+        const updatedBottom = Math.max(...updated.map((rect) => rect.bottom));
+        if (updatedBottom > viewportBounds.bottom)
+          viewport.scrollTop += updatedBottom - viewportBounds.bottom;
+      },
+      [videoSourceTrackId, videoTargetTrackId],
+    );
     await expect
       .poll(() =>
-        page.locator(".timeline-scroll").evaluate((viewport, ids) => {
-          const rows = ids.map((id) =>
-            viewport.querySelector<HTMLElement>(
-              `.track-row[data-track-row="${CSS.escape(id)}"]`,
-            )!,
-          );
-          const viewportBounds = viewport.getBoundingClientRect();
-          return rows.every((row) => {
-            const bounds = row.getBoundingClientRect();
-            return (
-              bounds.top >= viewportBounds.top &&
-              bounds.bottom <= viewportBounds.bottom
+        page.locator(".timeline-scroll").evaluate(
+          (viewport, ids) => {
+            const rows = ids.map((id) =>
+              viewport.querySelector<HTMLElement>(
+                `.track-row[data-track-row="${CSS.escape(id)}"]`,
+              )!,
             );
-          });
-        }, [videoSourceTrackId, videoTargetTrackId]),
+            const viewportBounds = viewport.getBoundingClientRect();
+            return rows.every((row) => {
+              const bounds = row.getBoundingClientRect();
+              return (
+                bounds.top >= viewportBounds.top &&
+                bounds.bottom <= viewportBounds.bottom
+              );
+            });
+          },
+          [videoSourceTrackId, videoTargetTrackId],
+        ),
       )
       .toBe(true);
     const videoMoveTarget = await videoClip.evaluate((clip, targetTrackId) => {
@@ -4443,8 +4472,7 @@ try {
     );
     expect(savedVideoSubtitle).toMatchObject({
       from: trimmedVideoRange[0] + Math.round(0.2 * videoFps),
-      durationInFrames:
-        Math.round(0.7 * videoFps) - Math.round(0.2 * videoFps),
+      durationInFrames: Math.round(0.7 * videoFps) - Math.round(0.2 * videoFps),
     });
     const savedVideoWord = savedVideoSubtitle.content.words[0];
     expect(savedVideoWord.start).toBeCloseTo(0.05, 10);

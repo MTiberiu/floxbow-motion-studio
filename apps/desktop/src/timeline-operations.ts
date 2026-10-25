@@ -69,6 +69,31 @@ export function addTimelineClipCopy(
   };
 }
 
+export function addTimelineClipCopies(
+  document: EditTimeline,
+  copies: readonly { sourceId: string; duplicateId: string }[],
+  components: readonly ComponentInfo[],
+): EditTimeline {
+  if (!copies.length) throw new Error("Select at least one clip to duplicate.");
+  if (new Set(copies.map((copy) => copy.sourceId)).size !== copies.length)
+    throw new Error("A clip can only appear once in a drag duplicate group.");
+  if (new Set(copies.map((copy) => copy.duplicateId)).size !== copies.length)
+    throw new Error("Each duplicated clip needs a unique ID.");
+  let next = document;
+  for (const { sourceId, duplicateId } of copies) {
+    const source = document.clips.find((clip) => clip.id === sourceId);
+    if (!source) throw new Error("A selected Timeline clip no longer exists.");
+    next = addTimelineClipCopy(
+      next,
+      source,
+      duplicateId,
+      source.from,
+      components,
+    );
+  }
+  return next;
+}
+
 export function removeTimelineClip(
   document: EditTimeline,
   clip: TimelineClip,

@@ -573,16 +573,34 @@ function isTimelineCommand(value) {
     return (
       (hasExactKeys(command, ["type", "gestureId", "clipId"]) ||
         hasExactKeys(command, ["type", "gestureId", "clipId", "duplicateId"]) ||
-        hasExactKeys(command, ["type", "gestureId", "clipId", "groupMove"])) &&
+        hasExactKeys(command, ["type", "gestureId", "clipId", "groupMove"]) ||
+        hasExactKeys(command, ["type", "gestureId", "clipId", "duplicateIds"])) &&
       typeof command.gestureId === "string" &&
       instanceIdPattern.test(command.gestureId) &&
       typeof command.clipId === "string" &&
       command.clipId.length <= 100 &&
       (command.groupMove === undefined || command.groupMove === true) &&
-      !(command.groupMove && command.duplicateId) &&
+      !(command.groupMove && (command.duplicateId || command.duplicateIds)) &&
       (command.duplicateId === undefined ||
         (typeof command.duplicateId === "string" &&
-          /^[a-zA-Z0-9_-]{1,100}$/.test(command.duplicateId)))
+          /^[a-zA-Z0-9_-]{1,100}$/.test(command.duplicateId))) &&
+      (command.duplicateIds === undefined ||
+        (Array.isArray(command.duplicateIds) &&
+          command.duplicateIds.length > 0 &&
+          command.duplicateIds.length <= 256 &&
+          command.duplicateIds.every(
+            (copy) =>
+              copy &&
+              hasExactKeys(copy, ["sourceId", "duplicateId"]) &&
+              typeof copy.sourceId === "string" &&
+              /^[a-zA-Z0-9_-]{1,100}$/.test(copy.sourceId) &&
+              typeof copy.duplicateId === "string" &&
+              /^[a-zA-Z0-9_-]{1,100}$/.test(copy.duplicateId),
+          ) &&
+          new Set(command.duplicateIds.map((copy) => copy.sourceId)).size ===
+            command.duplicateIds.length &&
+          new Set(command.duplicateIds.map((copy) => copy.duplicateId)).size ===
+            command.duplicateIds.length))
     );
   if (command.type === "updateClipGesture")
     return (

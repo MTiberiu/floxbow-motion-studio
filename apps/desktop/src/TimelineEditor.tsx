@@ -22,6 +22,7 @@ import {
 import { useEditorSession } from "./EditorSession";
 import { resolveTimelineBehavior } from "./timeline-behaviors";
 import {
+  addTimelineClipCopies,
   addTimelineClipCopy,
   canPerformTimelineOperation,
   removeTimelineClip,
@@ -1468,7 +1469,12 @@ export function TimelineEditor({
           } else if (command.type === "beginClipGesture") {
             if (!current)
               throw new Error("This project has no editable Timeline.");
-            const clip = current.clips.find(
+            const activeGesture =
+              clipGesture.current?.gestureId === command.gestureId
+                ? clipGesture.current
+                : undefined;
+            const baseline = activeGesture?.baseline ?? current;
+            const clip = baseline.clips.find(
               (item) => item.id === command.clipId,
             );
             if (!clip)
@@ -1477,32 +1483,45 @@ export function TimelineEditor({
               throw new Error(
                 "Soundtrack clips cannot be moved or trimmed. Reselect audio to change the soundtrack.",
               );
-            let gestureBaseline = current;
+            let gestureBaseline = baseline;
             let gestureClipId = command.clipId;
             let gestureClipIds: readonly string[] = [command.clipId];
-            if (command.duplicateId) {
-              const duplicate = addTimelineClipCopy(
-                current,
-                clip,
-                command.duplicateId,
-                clip.from,
+            const duplicateIds =
+              "duplicateIds" in command
+                ? command.duplicateIds
+                : command.duplicateId
+                  ? [
+                      {
+                        sourceId: command.clipId,
+                        duplicateId: command.duplicateId,
+                      },
+                    ]
+                  : undefined;
+            if (duplicateIds?.length) {
+              const duplicate = addTimelineClipCopies(
+                baseline,
+                duplicateIds,
                 components,
               );
-              sessionCheckpoint();
+              if (!activeGesture) sessionCheckpoint();
               edit(duplicate, false, false, envelope.commandId);
               gestureBaseline = duplicate;
-              gestureClipId = command.duplicateId;
-              gestureClipIds = [command.duplicateId];
-              sessionSelectClip(gestureClipId);
+              gestureClipId =
+                duplicateIds.find((copy) => copy.sourceId === command.clipId)
+                  ?.duplicateId ?? duplicateIds[0].duplicateId;
+              gestureClipIds = duplicateIds.map((copy) => copy.duplicateId);
+              sessionSelectClips(gestureClipIds);
             } else {
-              if (command.groupMove) {
+              if (activeGesture)
+                throw new Error("The active clip gesture cannot change mode.");
+              if ("groupMove" in command && command.groupMove) {
                 const selected = commands.getSelectedClipIds();
                 if (!selected.includes(command.clipId))
                   throw new Error("The selected Timeline group has changed.");
                 gestureClipIds = selected;
               }
               const group = gestureClipIds.map((id) =>
-                current.clips.find((item) => item.id === id),
+                baseline.clips.find((item) => item.id === id),
               );
               if (group.some((item) => !item))
                 throw new Error("A selected Timeline clip no longer exists.");
@@ -2481,37 +2500,39 @@ export function TimelineEditor({
   function beginClipGesture(
     gestureId: string,
     clipId: string,
-    duplicateId?: string,
+    duplicateIds?: readonly { sourceId: string; duplicateId: string }[],
     groupMove = false,
   ) {
-    const baseline = commands.getCurrentDocument();
-    if (!baseline) return;
+    const current = commands.getCurrentDocument();
+    if (!current) return;
+    const activeGesture =
+      clipGesture.current?.gestureId === gestureId
+        ? clipGesture.current
+        : undefined;
+    const baseline = activeGesture?.baseline ?? current;
     const clip = baseline.clips.find((item) => item.id === clipId);
     if (!clip) return;
     let gestureBaseline = baseline;
     let gestureClipId = clipId;
     let gestureClipIds: readonly string[] = [clipId];
-    if (duplicateId) {
+    if (duplicateIds?.length) {
       let next: EditTimeline;
       try {
-        next = addTimelineClipCopy(
-          baseline,
-          clip,
-          duplicateId,
-          clip.from,
-          components,
-        );
+        next = addTimelineClipCopies(baseline, duplicateIds, components);
       } catch (operationError) {
         setError(String(operationError));
         return;
       }
-      checkpoint();
+      if (!activeGesture) checkpoint();
       edit(next, false);
       gestureBaseline = next;
-      gestureClipId = duplicateId;
-      gestureClipIds = [duplicateId];
-      setSelected(duplicateId);
+      gestureClipId =
+        duplicateIds.find((copy) => copy.sourceId === clipId)?.duplicateId ??
+        duplicateIds[0].duplicateId;
+      gestureClipIds = duplicateIds.map((copy) => copy.duplicateId);
+      sessionSelectClips(gestureClipIds);
     } else {
+      if (activeGesture) return;
       if (groupMove) {
         const selected = commands.getSelectedClipIds();
         if (!selected.includes(clipId)) {
