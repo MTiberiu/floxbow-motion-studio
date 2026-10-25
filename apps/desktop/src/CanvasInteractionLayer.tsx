@@ -48,6 +48,10 @@ export type CanvasInteractionLayerProps = {
     data: NonNullable<ReturnType<typeof parseMediaAssetDragData>>,
     position: { x: number; y: number },
   ) => void;
+  onClipContextMenu?: (
+    clipId: string,
+    position: { x: number; y: number },
+  ) => void;
 };
 
 const anchorTranslations: Record<string, string> = {
@@ -112,6 +116,7 @@ export function CanvasInteractionLayer({
   onGestureEnd,
   onGestureCancel,
   onDropMedia,
+  onClipContextMenu,
 }: CanvasInteractionLayerProps) {
   const root = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | undefined>(undefined);
@@ -844,6 +849,16 @@ export function CanvasInteractionLayer({
             role="button"
             tabIndex={0}
             onPointerDown={(event) => start(event, "move", item)}
+            onContextMenu={(event) => {
+              if (!onClipContextMenu) return;
+              event.preventDefault();
+              event.stopPropagation();
+              onSelect([item.id]);
+              onClipContextMenu(item.id, {
+                x: event.clientX,
+                y: event.clientY,
+              });
+            }}
             onKeyDown={(event) => {
               if (event.defaultPrevented) return;
               if (event.key !== "Enter" && event.key !== " ") return;

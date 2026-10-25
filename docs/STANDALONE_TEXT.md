@@ -47,6 +47,8 @@ The frame-based animation controls are declarative and default to zero (disabled
 
 Inspector exposes the same supported properties. Timeline timing remains integer frames. Canvas transforms, Inspector controls, external JSON edits and rendering all use the saved clip's canonical `props`.
 
+Right-click a Text element on Canvas to open a small floating editor beside the pointer. It edits the selected clip's text and color directly; drag the panel header to move it, click outside or press Escape to close it. The popup edits the same saved `content.text` and `props.color` used by Inspector and rendering.
+
 ## External agent editing
 
 An agent edits the existing canonical timeline file; it does not create a sidecar document or modify shared application code. Preserve clip IDs, track IDs, timing, unrelated clips and unknown project data. Change only the requested `content.text` or supported `props` fields. Write a temporary file beside `edit-timeline.json`, validate that the JSON parses, then replace the original file atomically when possible.

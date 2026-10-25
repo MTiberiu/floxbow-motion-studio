@@ -12,8 +12,10 @@ import {
   secondsToFrame,
 } from "@motion/sdk/timeline";
 import { subtitleWordTimingMatchesText } from "@motion/lyrics-sync/subtitles";
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import { isAudioTimelineClip, isAudioTrack } from "./timeline-track-utils";
+import { EditorIconButton } from "./EditorIconButton";
+import { readImageSize } from "./image-size";
 
 export type InspectorViewProps = {
   manifest: ProjectManifest;
@@ -54,6 +56,8 @@ export function InspectorView({
   canDelete = true,
   selectedCount = 1,
 }: InspectorViewProps) {
+  const [resettingImageSize, setResettingImageSize] = useState(false);
+  const [imageSizeError, setImageSizeError] = useState("");
   const characterScene =
     clip?.sceneId && document?.scenes
       ? document.scenes.find((scene) => scene.id === clip.sceneId)
@@ -77,6 +81,71 @@ export function InspectorView({
           memberId: string;
         }>)
       : [];
+
+  async function resetImageSize() {
+    if (!clip || clip.componentId !== "image" || !document) return;
+    setImageSizeError("");
+    setResettingImageSize(true);
+    try {
+      const assetId = String(clip.content.assetId ?? "");
+      const storedSize = clip.content.originalSize;
+      let originalSize =
+        storedSize &&
+        typeof storedSize === "object" &&
+        "width" in storedSize &&
+        "height" in storedSize &&
+        typeof storedSize.width === "number" &&
+        Number.isFinite(storedSize.width) &&
+        storedSize.width > 0 &&
+        typeof storedSize.height === "number" &&
+        Number.isFinite(storedSize.height) &&
+        storedSize.height > 0
+          ? { width: storedSize.width, height: storedSize.height }
+          : undefined;
+      if (!originalSize) {
+        originalSize = await readImageSize(
+          `/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(assetId)}/thumbnail`,
+        );
+      }
+      const width = Math.max(
+        1,
+        Math.min(500, (originalSize.width / manifest.width) * 100),
+      );
+      const height = Math.max(
+        1,
+        Math.min(500, (originalSize.height / manifest.height) * 100),
+      );
+      onEdit((current) => ({
+        ...current,
+        clips: current.clips.map((candidate) =>
+          candidate.id === clip.id && candidate.componentId === "image"
+            ? {
+                ...candidate,
+                content: {
+                  ...candidate.content,
+                  originalSize,
+                  aspectRatio: originalSize.width / originalSize.height,
+                },
+                props: {
+                  ...candidate.props,
+                  width,
+                  height,
+                  fit: "contain",
+                },
+              }
+            : candidate,
+        ),
+      }));
+    } catch (error) {
+      setImageSizeError(
+        error instanceof Error
+          ? `Could not read the original image size: ${error.message}`
+          : "Could not read the original image size.",
+      );
+    } finally {
+      setResettingImageSize(false);
+    }
+  }
   return (
     <section
       className="properties"
@@ -429,15 +498,23 @@ export function InspectorView({
               · frames {clip.from}–{clip.from + clip.durationInFrames} (end
               exclusive)
             </small>
-            {definition?.fields.map((field) => (
-              <PropertyControl
-                key={field.key}
-                field={field}
-                value={fieldValue(clip, field)}
-                onChange={(value) => onChangeProperty(field, value)}
-                disabled={!canEditProperties}
-              />
-            ))}
+            {definition?.fields
+              .filter(
+                (field) =>
+                  !(
+                    clip.componentId === "image" &&
+                    field.key === "flipHorizontal"
+                  ),
+              )
+              .map((field) => (
+                <PropertyControl
+                  key={field.key}
+                  field={field}
+                  value={fieldValue(clip, field)}
+                  onChange={(value) => onChangeProperty(field, value)}
+                  disabled={!canEditProperties}
+                />
+              ))}
             {!definition?.fields.length && (
               <p className="muted">
                 This scene exposes timing only. Its animation stays in the
@@ -464,10 +541,12 @@ export function InspectorView({
             )}
             {(clip.componentId === "image" || clip.componentId === "video") && (
               <div
-                className="canvas-placement-tools"
+                className="canvas-placement-tools editor-icon-actions"
                 aria-label="Canvas placement"
               >
-                <button
+                <EditorIconButton
+                  icon="center"
+                  label="Center on Canvas"
                   type="button"
                   disabled={!canEditProperties}
                   onClick={() =>
@@ -488,10 +567,10 @@ export function InspectorView({
                       ),
                     }))
                   }
-                >
-                  Center on Canvas
-                </button>
-                <button
+                />
+                <EditorIconButton
+                  icon="fit"
+                  label="Fit inside Canvas"
                   type="button"
                   disabled={!canEditProperties}
                   onClick={() =>
@@ -515,10 +594,10 @@ export function InspectorView({
                       ),
                     }))
                   }
-                >
-                  Fit inside Canvas
-                </button>
-                <button
+                />
+                <EditorIconButton
+                  icon="fill"
+                  label="Fill Canvas"
                   type="button"
                   disabled={!canEditProperties}
                   onClick={() =>
@@ -542,9 +621,47 @@ export function InspectorView({
                       ),
                     }))
                   }
-                >
-                  Fill Canvas
-                </button>
+                />
+              </div>
+            )}
+            {clip.componentId === "image" && (
+              <div
+                className="image-quick-tools editor-icon-actions"
+                aria-label="Image tools"
+              >
+                <EditorIconButton
+                  icon="flip"
+                  label="Flip horizontally"
+                  type="button"
+                  aria-pressed={clip.props.flipHorizontal === true}
+                  disabled={!canEditProperties}
+                  onClick={() => {
+                    const field = definition?.fields.find(
+                      (candidate) => candidate.key === "flipHorizontal",
+                    );
+                    if (field)
+                      onChangeProperty(
+                        field,
+                        clip.props.flipHorizontal !== true,
+                      );
+                  }}
+                />
+                <EditorIconButton
+                  icon="reset"
+                  label={
+                    resettingImageSize
+                      ? "Reading original image size"
+                      : "Reset size to original image dimensions"
+                  }
+                  type="button"
+                  disabled={!canEditProperties || resettingImageSize}
+                  onClick={() => void resetImageSize()}
+                />
+                {imageSizeError && (
+                  <small className="image-size-error" role="alert">
+                    {imageSizeError}
+                  </small>
+                )}
               </div>
             )}
             {clip.componentId === "video" && onSeparateVideoAudio && (
@@ -558,15 +675,28 @@ export function InspectorView({
                 </button>
               </div>
             )}
-            <div className="tools">
-              <button onClick={onDuplicate} disabled={!canDuplicate}>
-                Duplicate clip
-              </button>
-              <button onClick={onDelete} disabled={!canDelete}>
-                {clip.componentId === "soundtrack"
-                  ? "Delete audio"
-                  : "Delete clip"}
-              </button>
+            <div
+              className="tools editor-icon-actions"
+              aria-label="Clip actions"
+            >
+              <EditorIconButton
+                icon="duplicate"
+                label="Duplicate clip"
+                type="button"
+                onClick={onDuplicate}
+                disabled={!canDuplicate}
+              />
+              <EditorIconButton
+                icon="delete"
+                label={
+                  clip.componentId === "soundtrack"
+                    ? "Delete audio"
+                    : "Delete clip"
+                }
+                type="button"
+                onClick={onDelete}
+                disabled={!canDelete}
+              />
             </div>
           </>
         )

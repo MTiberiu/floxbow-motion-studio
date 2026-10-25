@@ -28,6 +28,7 @@ import {
   renameSceneMoment,
 } from "./scene-moments";
 import { createTimelineRulerMarks } from "./timeline-ruler";
+import { tracksForFocusedTimeline } from "./timeline-focus";
 import type {
   ComponentInfo,
   EditTimeline,
@@ -96,6 +97,8 @@ export type TimelineViewProps = {
     editTimeline?: string;
   };
   document?: EditTimeline;
+  focusedTrackId?: string;
+  focusedClipId?: string;
   components: readonly ComponentInfo[];
   selectedClipIds: readonly string[];
   selectedClipId?: string;
@@ -108,6 +111,10 @@ export type TimelineViewProps = {
   onSelectClip: (clipId: string, additive?: boolean) => void;
   onSelectClips: (clipIds: readonly string[]) => void;
   onSeek: (frame: number) => void;
+  onClipContextMenu?: (
+    clipId: string,
+    position: { x: number; y: number },
+  ) => void;
   onPause: () => void;
   onPlay?: () => void;
   onBeginClipGesture: (
@@ -148,6 +155,8 @@ export type TimelineViewProps = {
 export function TimelineView({
   manifest,
   document,
+  focusedTrackId,
+  focusedClipId,
   components,
   selectedClipIds,
   selectedClipId = selectedClipIds[0] ?? "",
@@ -157,6 +166,7 @@ export function TimelineView({
   onSelectClip,
   onSelectClips,
   onSeek,
+  onClipContextMenu,
   onPause,
   onPlay,
   onBeginClipGesture,
@@ -183,7 +193,7 @@ export function TimelineView({
   const wheelDelta = useRef(0);
   const onUpdateClipGestureRef = useRef(onUpdateClipGesture);
   onUpdateClipGestureRef.current = onUpdateClipGesture;
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(focusedTrackId ? 4 : 1);
   const [viewportWidth, setViewportWidth] = useState(900);
   const [dragging, setDragging] = useState(false);
   const [trackDropPreview, setTrackDropPreview] = useState<TrackDropPreview>();
@@ -239,6 +249,10 @@ export function TimelineView({
   const zoomBaseWidth = scroll.current?.clientWidth || viewportWidth;
   const canvasWidth = timelineCanvasWidthForZoom(zoomBaseWidth, zoom);
   const hasDocument = Boolean(document);
+  const visibleTracks = tracksForFocusedTimeline(
+    document?.tracks ?? [],
+    focusedTrackId,
+  );
   const rulerMarks = createTimelineRulerMarks(
     displayDurationInFrames,
     document?.fps ?? manifest.fps,
@@ -287,6 +301,29 @@ export function TimelineView({
     setViewportWidth(element.clientWidth);
     return () => observer.disconnect();
   }, [hasDocument]);
+
+  function centerFocusedClip() {
+    const scrollElement = scroll.current;
+    if (!focusedClipId || !scrollElement) return;
+    const clipElement = Array.from(
+      scrollElement.querySelectorAll<HTMLElement>(
+        ".timeline-clip[data-clip-id]",
+      ),
+    ).find((element) => element.dataset.clipId === focusedClipId);
+    if (!clipElement) return;
+    const clipBounds = clipElement.getBoundingClientRect();
+    const viewportBounds = scrollElement.getBoundingClientRect();
+    scrollElement.scrollLeft +=
+      clipBounds.left +
+      clipBounds.width / 2 -
+      (viewportBounds.left + viewportBounds.width / 2);
+  }
+
+  useLayoutEffect(() => {
+    if (!focusedTrackId || !focusedClipId) return;
+    const frameId = window.requestAnimationFrame(centerFocusedClip);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [focusedTrackId, focusedClipId, zoom, canvasWidth, viewportWidth]);
 
   function changeZoom(nextZoom: number, clientX?: number) {
     const currentZoom = zoomRef.current;
@@ -879,7 +916,7 @@ export function TimelineView({
 
   return document ? (
     <div
-      className="timeline-dock"
+      className={`timeline-dock${focusedTrackId ? " focused-track-dock" : ""}`}
       data-editor-view="timeline"
       data-drag-active={dragging || undefined}
     >
@@ -894,7 +931,7 @@ export function TimelineView({
         <h3>
           Timeline{" "}
           <small>
-            {document.fps} FPS · {document.tracks.length} tracks
+            {document.fps} FPS · {visibleTracks.length} tracks
           </small>
         </h3>
         <button
@@ -907,6 +944,7 @@ export function TimelineView({
         </button>
         <button
           type="button"
+          className="focused-timeline-play"
           aria-label={
             playing ? "Pause Timeline playback" : "Play Timeline playback"
           }
@@ -915,6 +953,29 @@ export function TimelineView({
         >
           {playing ? "Pause" : "Play"}
         </button>
+        {focusedTrackId && (
+          <>
+            <button
+              type="button"
+              className="focused-timeline-duplicate"
+              aria-label="Duplicate selected clip"
+              title="Duplicate selected clip"
+              disabled={!selectedClipId}
+              onClick={() => onTimelineOperation?.("duplicate")}
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              className="focused-timeline-center"
+              aria-label="Center Timeline on selected clip"
+              title="Center on selected clip"
+              onClick={centerFocusedClip}
+            >
+              Center
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={() =>
@@ -1340,7 +1401,7 @@ export function TimelineView({
             <span />
             <span>Drop here to create a visual track above</span>
           </div>
-          {document.tracks.map((track) => (
+          {visibleTracks.map((track) => (
             <div
               className={`track-row ${track.kind === "audio" || isAudioTrack(document, track) ? "is-audio-track" : "is-visual-track"} ${track.visible === false ? "is-hidden-track" : ""} ${track.locked ? "is-locked-track" : ""} ${trackDropPreview?.trackId === track.id ? "is-drop-target" : ""}`}
               key={track.id}
@@ -1521,6 +1582,16 @@ export function TimelineView({
                               event.shiftKey || event.ctrlKey || event.metaKey,
                             );
                           }
+                        }}
+                        onContextMenu={(event) => {
+                          if (!onClipContextMenu) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onSelectClip(clip.id);
+                          onClipContextMenu(clip.id, {
+                            x: event.clientX,
+                            y: event.clientY,
+                          });
                         }}
                         onKeyDown={(event) => {
                           if (event.defaultPrevented) return;

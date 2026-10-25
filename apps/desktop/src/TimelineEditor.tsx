@@ -35,6 +35,9 @@ import {
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
+import { ClipContextPopup } from "./ClipContextPopup";
+import { readImageSize } from "./image-size";
+import { clipsForTrack } from "./timeline-focus";
 import { AssetOrganizerDialog } from "./AssetOrganizerDialog";
 import {
   changeClipRangeWithDurationExtension,
@@ -46,10 +49,7 @@ import {
   subtitleTrackId,
 } from "./timeline-track-utils";
 import { useWorkspaceManager } from "./WorkspaceManager";
-import {
-  clampTimelineHeight,
-  DEFAULT_TIMELINE_HEIGHT,
-} from "./editor-layout";
+import { clampTimelineHeight, DEFAULT_TIMELINE_HEIGHT } from "./editor-layout";
 import type {
   TimelineCommandEnvelope,
   TimelineCommandResult,
@@ -98,7 +98,9 @@ export function TimelineEditor({
   const iframe = useRef<HTMLIFrameElement>(null);
   const canvasSurface = useRef<HTMLDivElement>(null);
   const [visualRequest, setVisualRequest] = useState("");
-  const [rightPanelTab, setRightPanelTab] = useState<"inspector" | "visual-context">("inspector");
+  const [rightPanelTab, setRightPanelTab] = useState<
+    "inspector" | "visual-context"
+  >("inspector");
   const [visualContextBusy, setVisualContextBusy] = useState(false);
   const [visualContextStatus, setVisualContextStatus] = useState("");
   const [visualContextPaths, setVisualContextPaths] = useState<{
@@ -159,6 +161,13 @@ export function TimelineEditor({
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
   const [assetOrganizerOpen, setAssetOrganizerOpen] = useState(false);
+  const [textContextPopup, setTextContextPopup] = useState<
+    { clipId: string; position: { x: number; y: number } } | undefined
+  >(undefined);
+  useEffect(() => {
+    if (!active) setTextContextPopup(undefined);
+  }, [active]);
+  useEffect(() => setTextContextPopup(undefined), [manifest.id]);
   const [dismissedTimelineWarnings, setDismissedTimelineWarnings] = useState<
     string[]
   >([]);
@@ -672,21 +681,21 @@ export function TimelineEditor({
   const [inspectorWidth, setInspectorWidth] = useState(
     () => Number(localStorage.getItem("motion-inspector-width")) || 270,
   );
-  const [timelineHeight, setTimelineHeight] = useState(
-    () =>
-      clampTimelineHeight(
-        Number(localStorage.getItem("motion-timeline-height")) ||
-          DEFAULT_TIMELINE_HEIGHT,
-        window.innerHeight,
-      ),
+  const [timelineHeight, setTimelineHeight] = useState(() =>
+    clampTimelineHeight(
+      Number(localStorage.getItem("motion-timeline-height")) ||
+        DEFAULT_TIMELINE_HEIGHT,
+      window.innerHeight,
+    ),
   );
   const panelResize = useRef<
-    {
-      kind: "inspector" | "timeline";
-      start: number;
-      size: number;
-      pointerId: number;
-    } | undefined
+    | {
+        kind: "inspector" | "timeline";
+        start: number;
+        size: number;
+        pointerId: number;
+      }
+    | undefined
   >(undefined);
   useEffect(() => {
     const constrainTimeline = () => {
@@ -1692,6 +1701,149 @@ export function TimelineEditor({
       setError(String(e));
     }
   }
+  function changeTextContextValue(
+    clipId: string,
+    key: "text" | "color" | "fontSize",
+    value: string | number,
+  ) {
+    const liveSession = sessionRef.current;
+    const current = liveSession.commands.getCurrentDocument();
+    const isTextClip = (componentId: string) =>
+      componentId === "text" || componentId === "subtitles";
+    const source = current?.clips.find(
+      (candidate) =>
+        candidate.id === clipId && isTextClip(candidate.componentId),
+    );
+    if (!current || !source) return;
+    const next = structuredClone(current);
+    const target = next.clips.find((candidate) => candidate.id === clipId);
+    if (!target || !isTextClip(target.componentId)) return;
+    try {
+      const field = liveSession.snapshot.components
+        .find((component) => component.id === target.componentId)
+        ?.fields.find(
+          (candidate) =>
+            candidate.key === key &&
+            candidate.target === (key === "text" ? "content" : "props"),
+        );
+      if (!field)
+        throw new Error(`The ${key} field is unavailable for this clip.`);
+      const validated = validateField(field, value);
+      if (key === "text") {
+        const behavior = resolveTimelineBehavior(
+          target.componentId,
+          liveSession.snapshot.components,
+        );
+        const behaviorEdit = behavior.editContent?.(
+          target.content,
+          field.key,
+          validated,
+        );
+        if (behaviorEdit) {
+          target.content = behaviorEdit.content;
+          if (behaviorEdit.notice) setNotice(behaviorEdit.notice);
+        } else target.content.text = validated;
+      } else target.props[key] = validated;
+      edit(parseEditTimeline(next));
+    } catch (editError) {
+      setError(String(editError));
+    }
+  }
+  function applyContextImagePreset(
+    clipId: string,
+    preset: "center" | "fit" | "fill" | "flip",
+  ) {
+    const current = sessionRef.current.commands.getCurrentDocument();
+    if (!current) return;
+    const next = structuredClone(current);
+    const target = next.clips.find(
+      (candidate) =>
+        candidate.id === clipId && candidate.componentId === "image",
+    );
+    if (!target) return;
+    if (preset === "flip") {
+      target.props.flipHorizontal = target.props.flipHorizontal !== true;
+    } else if (preset === "center") {
+      target.props.x = 50;
+      target.props.y = 50;
+      target.props.anchor = "center";
+    } else {
+      target.props.x = 50;
+      target.props.y = 50;
+      target.props.width = 100;
+      target.props.height = 100;
+      target.props.anchor = "center";
+      target.props.fit = preset === "fit" ? "contain" : "cover";
+    }
+    try {
+      edit(parseEditTimeline(next));
+    } catch (editError) {
+      setError(String(editError));
+    }
+  }
+  async function resetContextImageSize(clipId: string) {
+    try {
+      const first = sessionRef.current.commands.getCurrentDocument();
+      const source = first?.clips.find(
+        (candidate) =>
+          candidate.id === clipId && candidate.componentId === "image",
+      );
+      if (!first || !source) return;
+      const stored = source.content.originalSize;
+      let originalSize =
+        stored &&
+        typeof stored === "object" &&
+        "width" in stored &&
+        "height" in stored &&
+        typeof stored.width === "number" &&
+        Number.isFinite(stored.width) &&
+        stored.width > 0 &&
+        typeof stored.height === "number" &&
+        Number.isFinite(stored.height) &&
+        stored.height > 0
+          ? { width: stored.width, height: stored.height }
+          : undefined;
+      if (!originalSize) {
+        originalSize = await readImageSize(
+          `/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(String(source.content.assetId ?? ""))}/thumbnail`,
+        );
+      }
+      const width = Math.max(
+        1,
+        Math.min(500, (originalSize.width / editorManifest.width) * 100),
+      );
+      const height = Math.max(
+        1,
+        Math.min(500, (originalSize.height / editorManifest.height) * 100),
+      );
+      const current = sessionRef.current.commands.getCurrentDocument();
+      if (!current?.clips.some((candidate) => candidate.id === clipId)) return;
+      edit(
+        parseEditTimeline({
+          ...structuredClone(current),
+          clips: current.clips.map((candidate) =>
+            candidate.id === clipId && candidate.componentId === "image"
+              ? {
+                  ...candidate,
+                  content: {
+                    ...candidate.content,
+                    originalSize,
+                    aspectRatio: originalSize.width / originalSize.height,
+                  },
+                  props: { ...candidate.props, width, height, fit: "contain" },
+                }
+              : candidate,
+          ),
+        }),
+      );
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? `Could not reset the image size: ${error.message}`
+          : "Could not reset the image size.",
+      );
+    }
+  }
   function resizePanel(e: ReactPointerEvent<HTMLButtonElement>) {
     const d = panelResize.current;
     if (!d) return;
@@ -1717,8 +1869,7 @@ export function TimelineEditor({
       resizePanel(event as unknown as ReactPointerEvent<HTMLButtonElement>);
     };
     const end = (event: PointerEvent) => {
-      if (panelResize.current?.pointerId === event.pointerId)
-        endPanelResize();
+      if (panelResize.current?.pointerId === event.pointerId) endPanelResize();
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end);
@@ -2003,6 +2154,17 @@ export function TimelineEditor({
     }
   }
   const clip = doc?.clips.find((c) => c.id === selected);
+  const textContextClip = textContextPopup
+    ? doc?.clips.find((candidate) => candidate.id === textContextPopup.clipId)
+    : undefined;
+  const textContextTrackClips =
+    textContextClip && doc
+      ? clipsForTrack(doc.clips, textContextClip.trackId)
+      : [];
+  const textContextTrack = textContextClip
+    ? doc?.tracks.find((track) => track.id === textContextClip.trackId)
+    : undefined;
+  const contextTrackLocked = textContextTrack?.locked === true;
   const selectedTrackLocked = Boolean(
     clip && doc?.tracks.find((track) => track.id === clip.trackId)?.locked,
   );
@@ -2212,13 +2374,14 @@ export function TimelineEditor({
   }
   function performTimelineOperation(
     operation: TimelineOperation | "undo" | "redo",
+    targetClipId?: string,
   ): string | undefined {
     const liveSnapshot = sessionRef.current.snapshot;
     const liveCommands = sessionRef.current.commands;
     const liveComponents = liveSnapshot.components;
     const current = commands.getCurrentDocument();
     const selectedClip = current?.clips.find(
-      (item) => item.id === liveSnapshot.selectedClipId,
+      (item) => item.id === (targetClipId ?? liveSnapshot.selectedClipId),
     );
     if (operation === "undo") {
       if (!liveSnapshot.undoCount) return "There is no edit to undo.";
@@ -2515,6 +2678,110 @@ export function TimelineEditor({
           />,
           globalThis.document.body,
         )}
+      {textContextPopup && textContextClip && (
+        <ClipContextPopup
+          clip={textContextClip}
+          position={textContextPopup.position}
+          onChangeText={(clipId, value) =>
+            changeTextContextValue(clipId, "text", value)
+          }
+          onChangeColor={(clipId, value) =>
+            changeTextContextValue(clipId, "color", value)
+          }
+          onChangeFontSize={(clipId, value) =>
+            changeTextContextValue(clipId, "fontSize", value)
+          }
+          onImagePreset={applyContextImagePreset}
+          onResetImageSize={resetContextImageSize}
+          onClipOperation={(clipId, operation) => {
+            const operationError = performTimelineOperation(operation, clipId);
+            if (operationError) setError(operationError);
+          }}
+          canEditClip={!contextTrackLocked}
+          canDuplicate={
+            !contextTrackLocked &&
+            canPerformTimelineOperation(
+              textContextClip,
+              "duplicate",
+              components,
+            )
+          }
+          canDelete={
+            !contextTrackLocked &&
+            canPerformTimelineOperation(textContextClip, "delete", components)
+          }
+          timelineView={
+            doc && textContextTrack ? (
+              <TimelineView
+                manifest={editorManifest}
+                document={doc}
+                focusedTrackId={textContextTrack.id}
+                focusedClipId={textContextClip.id}
+                components={components}
+                selectedClipIds={selectedIds.filter((id) =>
+                  textContextTrackClips.some((item) => item.id === id),
+                )}
+                selectedClipId={textContextClip.id}
+                frame={frame}
+                playing={playing}
+                onEdit={(next, createCheckpoint = true) => {
+                  const current = commands.getCurrentDocument();
+                  if (current)
+                    edit(
+                      typeof next === "function" ? next(current) : next,
+                      createCheckpoint,
+                    );
+                }}
+                onSelectClip={(clipId, additive = false) => {
+                  setSelected(clipId, additive);
+                  if (!additive) {
+                    const target = doc.clips.find(
+                      (candidate) => candidate.id === clipId,
+                    );
+                    if (target) seek(target.from);
+                    setTextContextPopup((current) =>
+                      current ? { ...current, clipId } : current,
+                    );
+                  }
+                }}
+                onSelectClips={(clipIds) => {
+                  sourceCommandId.current = null;
+                  sessionSelectClips(clipIds);
+                  if (clipIds[0])
+                    setTextContextPopup((current) =>
+                      current ? { ...current, clipId: clipIds[0] } : current,
+                    );
+                }}
+                onSeek={seek}
+                onClipContextMenu={(clipId, position) => {
+                  setSelected(clipId);
+                  setTextContextPopup({ clipId, position });
+                }}
+                onPause={pause}
+                onPlay={() => playPreviewRef.current()}
+                onBeginClipGesture={beginClipGesture}
+                onTimelineOperation={(operation) => {
+                  const operationError = performTimelineOperation(operation);
+                  if (operationError) setError(operationError);
+                }}
+                keyboardShortcutsEnabled={false}
+                rippleMode={rippleMode}
+                onRippleModeChange={setRippleMode}
+                onUpdateClipGesture={updateClipGesture}
+                onEndClipGesture={endClipGesture}
+                onResizeStart={() => {}}
+                onResizeMove={() => {}}
+                onResizeEnd={() => {}}
+                onAddSubtitle={() => {}}
+                onImportFile={() => {}}
+                onExportTiming={() => {}}
+                onExportDocument={() => {}}
+              />
+            ) : null
+          }
+          onClose={() => setTextContextPopup(undefined)}
+        />
+      )}
       <section
         className={`timeline-editor${detachedTimeline ? " timeline-detached" : ""}`}
         data-editor-session-id={snapshot.sessionId}
@@ -2636,84 +2903,86 @@ export function TimelineEditor({
           </label>
         </div>
         <div className="editor-feedback">
-        <details className="timeline-review">
-          <summary>
-            Timeline review:{" "}
-            {visibleTimelineWarnings.length
-              ? `${visibleTimelineWarnings.length} gap${visibleTimelineWarnings.length === 1 ? "" : "s"}`
-              : "no visual gaps"}
-          </summary>
-          {visibleTimelineWarnings.length ? (
-            <ul>
-              {visibleTimelineWarnings.map((warning) => {
-                const seconds = (warning.end - warning.from) / manifest.fps;
-                const isLongGap = seconds >= 5;
-                const label =
-                  warning.kind === "late"
-                    ? `Late isolated visual content: starts at ${(warning.end / manifest.fps).toFixed(2)}s after ${seconds.toFixed(2)}s with no visual clips on any track.`
-                    : warning.kind === "between"
-                      ? `${isLongGap ? "Long empty visual interval" : "Empty visual interval"}: ${seconds.toFixed(2)}s from ${(warning.from / manifest.fps).toFixed(2)}s to ${(warning.end / manifest.fps).toFixed(2)}s across all tracks.`
-                      : `Empty visual tail: ${seconds.toFixed(2)}s after the last visible clip on all tracks.`;
-                const targetIds = [
-                  warning.previousClipId,
-                  warning.nextClipId,
-                ].filter((id): id is string => Boolean(id));
-                return (
-                  <li key={warningKey(warning)}>
-                    <span>{label}</span>
-                    {targetIds.map((id) => {
-                      const target = doc?.clips.find((item) => item.id === id);
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => {
-                            setSelected(id);
-                            seek(target?.from ?? warning.from);
-                          }}
-                        >
-                          Locate {target?.label ?? id}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      aria-label="Dismiss empty visual interval warning"
-                      onClick={() =>
-                        setDismissedTimelineWarnings((dismissed) =>
-                          dismissed.includes(warningKey(warning))
-                            ? dismissed
-                            : [...dismissed, warningKey(warning)],
-                        )
-                      }
-                    >
-                      Dismiss
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p>No visual timeline gaps were found.</p>
+          <details className="timeline-review">
+            <summary>
+              Timeline review:{" "}
+              {visibleTimelineWarnings.length
+                ? `${visibleTimelineWarnings.length} gap${visibleTimelineWarnings.length === 1 ? "" : "s"}`
+                : "no visual gaps"}
+            </summary>
+            {visibleTimelineWarnings.length ? (
+              <ul>
+                {visibleTimelineWarnings.map((warning) => {
+                  const seconds = (warning.end - warning.from) / manifest.fps;
+                  const isLongGap = seconds >= 5;
+                  const label =
+                    warning.kind === "late"
+                      ? `Late isolated visual content: starts at ${(warning.end / manifest.fps).toFixed(2)}s after ${seconds.toFixed(2)}s with no visual clips on any track.`
+                      : warning.kind === "between"
+                        ? `${isLongGap ? "Long empty visual interval" : "Empty visual interval"}: ${seconds.toFixed(2)}s from ${(warning.from / manifest.fps).toFixed(2)}s to ${(warning.end / manifest.fps).toFixed(2)}s across all tracks.`
+                        : `Empty visual tail: ${seconds.toFixed(2)}s after the last visible clip on all tracks.`;
+                  const targetIds = [
+                    warning.previousClipId,
+                    warning.nextClipId,
+                  ].filter((id): id is string => Boolean(id));
+                  return (
+                    <li key={warningKey(warning)}>
+                      <span>{label}</span>
+                      {targetIds.map((id) => {
+                        const target = doc?.clips.find(
+                          (item) => item.id === id,
+                        );
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => {
+                              setSelected(id);
+                              seek(target?.from ?? warning.from);
+                            }}
+                          >
+                            Locate {target?.label ?? id}
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        aria-label="Dismiss empty visual interval warning"
+                        onClick={() =>
+                          setDismissedTimelineWarnings((dismissed) =>
+                            dismissed.includes(warningKey(warning))
+                              ? dismissed
+                              : [...dismissed, warningKey(warning)],
+                          )
+                        }
+                      >
+                        Dismiss
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p>No visual timeline gaps were found.</p>
+            )}
+          </details>
+          {conflict && (
+            <p className="error" role="alert">
+              The project changed on disk while you were editing. Export your
+              draft or reload from disk; saving is blocked to protect the
+              agent’s changes.
+            </p>
           )}
-        </details>
-        {conflict && (
-          <p className="error" role="alert">
-            The project changed on disk while you were editing. Export your
-            draft or reload from disk; saving is blocked to protect the agent’s
-            changes.
-          </p>
-        )}
-        {error && (
-          <p className="error" role="alert">
-            {error}
-          </p>
-        )}
-        {notice && (
-          <p className="editor-notice" role="status">
-            {notice}
-          </p>
-        )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          {notice && (
+            <p className="editor-notice" role="status">
+              {notice}
+            </p>
+          )}
         </div>
         <div
           className="editor-columns"
@@ -2804,18 +3073,31 @@ export function TimelineEditor({
             onDropMedia={(data, position) =>
               handleCanvasMediaDrop(data, position)
             }
+            onClipContextMenu={(clipId, position) => {
+              setSelected(clipId);
+              setTextContextPopup({ clipId, position });
+            }}
           />
           <button
             className="panel-splitter inspector-splitter"
             aria-label="Resize inspector"
             onPointerDown={(event) =>
-              beginPanelResize(event, "inspector", event.clientX, inspectorWidth)
+              beginPanelResize(
+                event,
+                "inspector",
+                event.clientX,
+                inspectorWidth,
+              )
             }
             onPointerMove={resizePanel}
             onPointerUp={endPanelResize}
           />
           <section className="right-editor-panel" aria-label="Editor tools">
-            <div className="right-panel-tabs" role="tablist" aria-label="Right panel">
+            <div
+              className="right-panel-tabs"
+              role="tablist"
+              aria-label="Right panel"
+            >
               <button
                 id="inspector-tab"
                 type="button"
@@ -2845,41 +3127,45 @@ export function TimelineEditor({
                 aria-labelledby="inspector-tab"
               >
                 <InspectorView
-            manifest={editorManifest}
-            document={doc}
-            clip={clip}
-            selectedCount={selectedIds.length}
-            definition={definition}
-            onEdit={(next) => {
-              const current = commands.getCurrentDocument();
-              if (current)
-                edit(typeof next === "function" ? next(current) : next);
-            }}
-            onChangeProperty={property}
-            onChangeRange={changeRange}
-            onDuplicate={duplicate}
-            onDelete={deleteClip}
-            onSeparateVideoAudio={separateVideoAudio}
-            canChangeRange={
-              clip
-                ? !selectedTrackLocked &&
-                  canPerformTimelineOperation(clip, "move", components)
-                : false
-            }
-            canChangeTrack={clip ? !selectedTrackLocked : false}
-            canEditProperties={!selectedTrackLocked}
-            canDuplicate={
-              clip
-                ? !selectedTrackLocked &&
-                  canPerformTimelineOperation(clip, "duplicate", components)
-                : false
-            }
-            canDelete={
-              clip
-                ? !selectedTrackLocked &&
-                  canPerformTimelineOperation(clip, "delete", components)
-                : false
-            }
+                  manifest={editorManifest}
+                  document={doc}
+                  clip={clip}
+                  selectedCount={selectedIds.length}
+                  definition={definition}
+                  onEdit={(next) => {
+                    const current = commands.getCurrentDocument();
+                    if (current)
+                      edit(typeof next === "function" ? next(current) : next);
+                  }}
+                  onChangeProperty={property}
+                  onChangeRange={changeRange}
+                  onDuplicate={duplicate}
+                  onDelete={deleteClip}
+                  onSeparateVideoAudio={separateVideoAudio}
+                  canChangeRange={
+                    clip
+                      ? !selectedTrackLocked &&
+                        canPerformTimelineOperation(clip, "move", components)
+                      : false
+                  }
+                  canChangeTrack={clip ? !selectedTrackLocked : false}
+                  canEditProperties={!selectedTrackLocked}
+                  canDuplicate={
+                    clip
+                      ? !selectedTrackLocked &&
+                        canPerformTimelineOperation(
+                          clip,
+                          "duplicate",
+                          components,
+                        )
+                      : false
+                  }
+                  canDelete={
+                    clip
+                      ? !selectedTrackLocked &&
+                        canPerformTimelineOperation(clip, "delete", components)
+                      : false
+                  }
                 />
               </div>
             ) : (
@@ -2903,7 +3189,9 @@ export function TimelineEditor({
                 <textarea
                   id="visual-context-request"
                   value={visualRequest}
-                  onChange={(event) => setVisualRequest(event.currentTarget.value)}
+                  onChange={(event) =>
+                    setVisualRequest(event.currentTarget.value)
+                  }
                   maxLength={4000}
                   placeholder="For example: Change the tutorial sample caption to red at this moment."
                   rows={2}
@@ -2912,9 +3200,13 @@ export function TimelineEditor({
                   <button
                     type="button"
                     onClick={() => void prepareVisualContext()}
-                    disabled={visualContextBusy || !visualRequest.trim() || built}
+                    disabled={
+                      visualContextBusy || !visualRequest.trim() || built
+                    }
                   >
-                    {visualContextBusy ? "Preparing…" : "Capture and copy for AI"}
+                    {visualContextBusy
+                      ? "Preparing…"
+                      : "Capture and copy for AI"}
                   </button>
                   <span role="status">{visualContextStatus}</span>
                 </div>
@@ -3000,6 +3292,10 @@ export function TimelineEditor({
                   sessionSelectClips(ids);
                 }}
                 onSeek={seek}
+                onClipContextMenu={(clipId, position) => {
+                  setSelected(clipId);
+                  setTextContextPopup({ clipId, position });
+                }}
                 onPause={pause}
                 onPlay={() => playPreviewRef.current()}
                 onDropMedia={(data, target) =>
@@ -3016,7 +3312,12 @@ export function TimelineEditor({
                 onUpdateClipGesture={updateClipGesture}
                 onEndClipGesture={endClipGesture}
                 onResizeStart={(event) => {
-                  beginPanelResize(event, "timeline", event.clientY, timelineHeight);
+                  beginPanelResize(
+                    event,
+                    "timeline",
+                    event.clientY,
+                    timelineHeight,
+                  );
                 }}
                 onResizeMove={resizePanel}
                 onResizeEnd={endPanelResize}
