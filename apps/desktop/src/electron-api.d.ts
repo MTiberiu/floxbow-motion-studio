@@ -21,6 +21,7 @@ declare global {
         height: number;
       }) => Promise<{ dataUrl: string; width: number; height: number }>;
       copyVisualContext: (text: string) => Promise<boolean>;
+      copyStoryboardContext: (text: string) => Promise<boolean>;
       openPanel: (request: OpenPanelRequest) => Promise<OpenPanelResult>;
       closePanel: (request?: ClosePanelRequest) => Promise<boolean>;
       onPanelClosed: (

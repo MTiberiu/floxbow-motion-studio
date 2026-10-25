@@ -41,6 +41,10 @@ Workspace panels preserve one active shell view with hide/reopen behavior. Elect
 
 ## Coupling and limits found
 
+### Storyboard directing boundary
+
+The static shell also registers Storyboard Designer. Its browser-safe version-1 schema and deterministic brief helpers are exported from `@motion/project-loader/storyboard`; its host store and read-only agent resolver live in `scripts/storyboard-store.ts`. It owns only optional project `storyboard.json`, never the Timeline document or preview transport. Reference identities resolve through the existing Media Registry; subtitle context uses `getSubtitleCues` from saved Timeline data. See [Storyboard Designer](STORYBOARD.md) for normalized composition geometry, scoped HTTP routes, the CLI resolver and compatibility limits.
+
 - The editor shell still has subtitle-specific add/import/export actions in `TimelineEditor.tsx`; subtitle clip construction, text correction and stale-karaoke detection live in `@motion/lyrics-sync/subtitles`. Other modules cannot currently declare equivalent custom editor actions through the component contract. This task does not add a descriptor because there is not yet a second real module with the same integration need.
 - `TimelineComposition` and timeline schema are both exported by `@motion/sdk`; the timeline is a public reusable API, but it is not yet its own package boundary.
 - `@motion/sdk` re-exports lyric types, while `@motion/lyrics-sync` imports timeline/component contracts from `@motion/sdk`. This creates a package-level type dependency cycle, even though the exports used at runtime are explicit.

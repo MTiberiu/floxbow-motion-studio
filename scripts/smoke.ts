@@ -575,6 +575,7 @@ try {
   expect(panelApi.keys).toEqual([
     "captureCanvas",
     "closePanel",
+    "copyStoryboardContext",
     "copyVisualContext",
     "getContext",
     "onPanelClosed",

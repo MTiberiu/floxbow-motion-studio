@@ -24,6 +24,8 @@ Core **Text**, **Image**, **Video**, and **Character** are implemented editor el
 
 ## Examples and proposals
 
+The additive `storyboard-director` workspace is documented in [Storyboard Designer](STORYBOARD.md). It stores creative planning independently from the rendered Timeline and reuses registered media and saved subtitle cues.
+
 Technical demonstrations live under [`examples/capabilities/`](../examples/README.md); they are not user projects. Existing project examples, if any, are separate from reusable capabilities.
 
 Proposals and experiments are not available features. [Review & Annotations](../improvements/proposals/ai-documentation-architecture.md) is proposed only: there is no implemented review-annotation module or project-data contract. Cross-module product ideas live in [`management/BACKLOG.md`](../management/BACKLOG.md); engineering designs and investigations live under [`improvements/`](../improvements/experiments/README.md). Do not infer implementation status from a proposal or backlog entry.

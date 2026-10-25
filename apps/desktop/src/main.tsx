@@ -19,6 +19,7 @@ import {
 import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
 import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
+import { StoryboardDesigner } from "./StoryboardDesigner";
 import { MediaPanel } from "./MediaPanel";
 import { DetachedTimelineWindow } from "./DetachedTimelineWindow";
 import {
@@ -303,7 +304,7 @@ function StudioShell() {
   }
   return (
     <div
-      className="studio"
+      className={`studio${workspace.activePanelId === "storyboard" ? " storyboard-mode" : ""}`}
       style={{ "--left-width": `${leftWidth}px` } as React.CSSProperties}
     >
       <header className="app-toolbar">
@@ -483,6 +484,8 @@ function StudioShell() {
             }
             if (id === "lyrics-sync")
               return <div className="auxiliary-view"><Lyrics key={selected} id={selected} /></div>;
+            if (id === "storyboard")
+              return m && state ? <StoryboardDesigner key={selected} manifest={m} active={active} built={state.built} /> : <p>Select or create a project to open Storyboard Designer.</p>;
             if (id === "capabilities")
               return <div className="auxiliary-view"><CapabilitiesExplorer /></div>;
             const exhaustive: never = id;
