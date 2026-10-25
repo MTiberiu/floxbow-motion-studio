@@ -304,7 +304,7 @@ function StudioShell() {
   }
   return (
     <div
-      className="studio"
+      className={`studio${workspace.activePanelId === "storyboard" ? " storyboard-mode" : ""}`}
       style={{ "--left-width": `${leftWidth}px` } as React.CSSProperties}
     >
       <header className="app-toolbar">

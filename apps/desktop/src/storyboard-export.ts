@@ -36,6 +36,7 @@ export function paintRepresentation(
   ctx: CanvasRenderingContext2D,
   representation: Representation,
   images: Record<string, HTMLImageElement> = {},
+  editorPreview = false,
 ) {
   const r = {
     ...representation,
@@ -45,11 +46,46 @@ export function paintRepresentation(
     height: (representation.height * ctx.canvas.height) / 100,
   };
   if (!r.visible) return;
+  if (representation.rasterDataUrl) {
+    const raster = images[representation.id];
+    if (raster) {
+      const b = representation.rasterBounds ?? { x: 0, y: 0, width: 100, height: 100 };
+      ctx.save();
+      ctx.translate(r.x + r.width / 2, r.y + r.height / 2);
+      ctx.rotate((r.rotation * Math.PI) / 180);
+      ctx.globalAlpha = r.opacity;
+      ctx.drawImage(
+        raster,
+        b.x * ctx.canvas.width / 100,
+        b.y * ctx.canvas.height / 100,
+        b.width * ctx.canvas.width / 100,
+        b.height * ctx.canvas.height / 100,
+        -r.width / 2,
+        -r.height / 2,
+        r.width,
+        r.height,
+      );
+      ctx.restore();
+    }
+    return;
+  }
+  if (representation.elements !== undefined) {
+    ctx.save();
+    ctx.translate(r.x + r.width / 2, r.y + r.height / 2);
+    ctx.rotate((r.rotation * Math.PI) / 180);
+    ctx.translate(-r.x - r.width / 2, -r.y - r.height / 2);
+    ctx.globalAlpha = representation.opacity;
+    for (const element of representation.elements) {
+      paintElement(ctx, element, ctx.canvas.width, ctx.canvas.height);
+    }
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.translate(r.x + r.width / 2, r.y + r.height / 2);
   ctx.rotate((r.rotation * Math.PI) / 180);
   ctx.translate(-r.width / 2, -r.height / 2);
-  ctx.globalAlpha = r.opacity;
+  ctx.globalAlpha = r.kind === "reference" && !editorPreview ? 1 : r.opacity;
   ctx.strokeStyle = r.color;
   ctx.fillStyle = r.color;
   ctx.lineWidth = r.thickness;
@@ -97,6 +133,55 @@ export function paintRepresentation(
   }
   ctx.restore();
 }
+function paintElement(
+  ctx: CanvasRenderingContext2D,
+  element: NonNullable<Representation["elements"]>[number],
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  const x = (element.x * canvasWidth) / 100;
+  const y = (element.y * canvasHeight) / 100;
+  const width = (element.width * canvasWidth) / 100;
+  const height = (element.height * canvasHeight) / 100;
+  ctx.save();
+  ctx.strokeStyle = element.color;
+  ctx.fillStyle = element.color;
+  ctx.lineWidth = element.thickness;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  if (element.kind === "rectangle") ctx.strokeRect(x, y, width, height);
+  if (element.kind === "ellipse") {
+    ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (element.kind === "line") {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y + height);
+    ctx.stroke();
+  }
+  if (element.kind === "pencil") {
+    const pts = element.points.map(([px, py]) => [x + px * width, y + py * height] as const);
+    if (pts.length === 1) {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      ctx.lineTo(pts[0][0] + .01, pts[0][1] + .01);
+    } else if (pts.length > 1) {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const midX = (pts[i][0] + pts[i + 1][0]) / 2;
+        const midY = (pts[i][1] + pts[i + 1][1]) / 2;
+        ctx.quadraticCurveTo(pts[i][0], pts[i][1], midX, midY);
+      }
+      ctx.lineTo(pts.at(-1)![0], pts.at(-1)![1]);
+    }
+    ctx.stroke();
+  }
+  if (element.kind === "text") {
+    ctx.font = `${Math.max(12, height)}px sans-serif`;
+    ctx.fillText(element.text, x, y + height, width);
+  }
+  ctx.restore();
+}
 export async function loadReferenceImages(doc: Storyboard) {
   const images: Record<string, HTMLImageElement> = {};
   await Promise.all(
@@ -111,7 +196,29 @@ export async function loadReferenceImages(doc: Storyboard) {
       }
     }),
   );
+  await Promise.all(
+    doc.scenes.flatMap((scene) => scene.sets).flatMap((set) => set.representations)
+      .filter((representation) => representation.rasterDataUrl)
+      .map(async (representation) => {
+        const image = new Image();
+        image.src = representation.rasterDataUrl!;
+        try {
+          await image.decode();
+          images[representation.id] = image;
+        } catch {
+          /* A damaged drawing remains visible as a missing layer in JSON. */
+        }
+      }),
+  );
   return images;
+}
+async function rasterImages(representations: Representation[], images: Record<string, HTMLImageElement>) {
+  const resolved = { ...images };
+  await Promise.all(representations.filter(r => r.rasterDataUrl && !resolved[r.id]).map(async r => {
+    const image = new Image(); image.src = r.rasterDataUrl!;
+    try { await image.decode(); resolved[r.id] = image; } catch { /* Keep damaged raster data explicit without blocking other layers. */ }
+  }));
+  return resolved;
 }
 export async function sketchPng(
   set: StorySet,
@@ -122,6 +229,7 @@ export async function sketchPng(
   canvas.width = format.width;
   canvas.height = format.height;
   const ctx = canvas.getContext("2d")!;
+  images = await rasterImages(set.representations, images);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   set.representations.forEach((r) => paintRepresentation(ctx, r, images));
@@ -136,6 +244,19 @@ export async function sketchPng(
       )
     ).arrayBuffer(),
   );
+}
+export async function representationPng(
+  representation: Representation,
+  format: StoryFormat,
+  images: Record<string, HTMLImageElement> = {},
+) {
+  const canvas = document.createElement("canvas");
+  canvas.width = format.width;
+  canvas.height = format.height;
+  const ctx = canvas.getContext("2d")!;
+  images = await rasterImages([representation], images);
+  paintRepresentation(ctx, representation, images);
+  return new Uint8Array(await (await new Promise<Blob>((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error("Layer rendering failed")), "image/png"))).arrayBuffer());
 }
 /** ZIP STORE with CRC32. No dependency or executable/archive input. */
 export function zipFiles(files: { name: string; data: Uint8Array }[]) {

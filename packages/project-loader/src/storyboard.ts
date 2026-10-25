@@ -7,9 +7,26 @@ const id = z
 const note = z.string().max(20000);
 const seconds = z.number().finite().min(0).max(86400);
 const coordinate = z.number().finite().min(-100000).max(100000);
+const drawingElementSchema = z.object({
+  id,
+  kind: z.enum(["pencil", "rectangle", "ellipse", "line", "text"]),
+  x: coordinate,
+  y: coordinate,
+  width: z.number().min(0.01).max(10000),
+  height: z.number().min(0.01).max(10000),
+  points: z.array(z.tuple([coordinate, coordinate])).max(10000),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  thickness: z.number().min(1).max(100),
+  text: note,
+}).strict();
+const rasterBoundsSchema = z.object({ x: coordinate, y: coordinate, width: z.number().min(0.01).max(10000), height: z.number().min(0.01).max(10000) }).strict();
 export const representationSchema = z
   .object({
     id,
+    layerName: z.string().min(1).max(200).optional(),
+    elements: z.array(drawingElementSchema).max(20000).optional(),
+    rasterDataUrl: z.string().max(90_000_000).regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/).optional(),
+    rasterBounds: rasterBoundsSchema.optional(),
     objectId: id.nullable(),
     setId: id,
     coordinateSpace: z.literal("composition-percent"),
@@ -208,6 +225,7 @@ export type Storyboard = z.infer<typeof storyboardSchema>;
 export type StoryScene = Storyboard["scenes"][number];
 export type StorySet = StoryScene["sets"][number];
 export type Representation = z.infer<typeof representationSchema>;
+export type DrawingElement = z.infer<typeof drawingElementSchema>;
 export const emptyStoryboard = (
   projectId: string,
   composition = { width: 1920, height: 1080, fps: 30 },

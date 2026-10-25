@@ -1,299 +1,34 @@
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import type {
-  Representation,
-  StorySet,
-} from "@motion/project-loader/storyboard";
+import { useEffect, useRef, useState, type PointerEvent, type WheelEvent } from "react";
+import type { Representation, StorySet } from "@motion/project-loader/storyboard";
 import { paintRepresentation } from "./storyboard-export";
-export const storyId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
-export function StoryboardCanvas({
-  set,
-  width,
-  height,
-  selected,
-  select,
-  change,
-  tracingUrl,
-  images,
-}: {
-  set: StorySet;
-  width: number;
-  height: number;
-  selected: string;
-  select: (id: string) => void;
-  change: (reps: Representation[]) => void;
-  tracingUrl?: string;
-  images: Record<string, HTMLImageElement>;
+import { storyId } from "./StoryboardCanvasIds";
+export { storyId } from "./StoryboardCanvasIds";
+type Tool = "pencil" | "eraser" | "move";
+type Brush = "sketch" | "marker";
+const labels: Record<Tool, string> = { pencil: "✎", eraser: "⌫", move: "↖" };
+type Gesture = { mode: "draw" | "erase" | "move" | "resize"; id: string; last: [number, number]; reps: Representation[]; canvas: HTMLCanvasElement; points: [number, number][] };
+type View = { zoom: number; panX: number; panY: number };
+export function StoryboardCanvas({ set, width, height, selected, select, change, images, undo, redo, exportLayer, color, size, brush, registerViewActions }: {
+ set: StorySet; width: number; height: number; selected: string; select: (id: string) => void; change: (reps: Representation[]) => void; images: Record<string, HTMLImageElement>; undo: () => void; redo: () => void; exportLayer: () => void; color: string; size: number; brush: Brush; registerViewActions: (actions: { center: () => void; fit: () => void }) => void;
 }) {
-  const canvas = useRef<HTMLCanvasElement>(null),
-    viewport = useRef<HTMLDivElement>(null);
-  const [tool, setTool] = useState("pencil"),
-    [color, setColor] = useState("#24334b"),
-    [thickness, setThickness] = useState(5),
-    [zoom, setZoom] = useState(1);
-  const [draft, setDraft] = useState<Representation[]>();
-  const [fitWidth, setFitWidth] = useState(300);
-  useEffect(() => {
-    const element = viewport.current;
-    if (!element) return;
-    const observer = new ResizeObserver(() =>
-      setFitWidth(
-        Math.max(
-          100,
-          Math.min(
-            element.clientWidth - 28,
-            ((element.clientHeight - 28) * width) / height,
-          ),
-        ),
-      ),
-    );
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [width, height]);
-  const [annotation, setAnnotation] = useState("Note");
-  const gesture = useRef<
-    | {
-        x: number;
-        y: number;
-        reps: Representation[];
-        id: string;
-        points: [number, number][];
-        pan?: [number, number];
-      }
-    | undefined
-  >(undefined);
-  const reps = draft ?? set.representations;
-  useEffect(() => {
-    const ctx = canvas.current?.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, width, height);
-    reps.forEach((r) => paintRepresentation(ctx, r, images));
-    const r = reps.find((r) => r.id === selected);
-    if (r) {
-      ctx.save();
-      ctx.translate(
-        ((r.x + r.width / 2) * width) / 100,
-        ((r.y + r.height / 2) * height) / 100,
-      );
-      ctx.rotate((r.rotation * Math.PI) / 180);
-      ctx.strokeStyle = "#568aff";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 5]);
-      ctx.strokeRect(
-        (-r.width * width) / 200 - 5,
-        (-r.height * height) / 200 - 5,
-        (r.width * width) / 100 + 10,
-        (r.height * height) / 100 + 10,
-      );
-      ctx.restore();
-    }
-  }, [reps, selected, width, height, images]);
-  useEffect(() => {
-    setDraft(undefined);
-    gesture.current = undefined;
-  }, [set.id]);
-  function point(e: PointerEvent<HTMLCanvasElement>): [number, number] {
-    const bounds = e.currentTarget.getBoundingClientRect();
-    return [
-      ((e.clientX - bounds.left) * 100) / bounds.width,
-      ((e.clientY - bounds.top) * 100) / bounds.height,
-    ];
-  }
-  function down(e: PointerEvent<HTMLCanvasElement>) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    const [x, y] = point(e);
-    if (tool === "pan") {
-      gesture.current = {
-        x: e.clientX,
-        y: e.clientY,
-        reps,
-        id: "",
-        points: [],
-        pan: [viewport.current!.scrollLeft, viewport.current!.scrollTop],
-      };
-      return;
-    }
-    const hit = [...reps].reverse().find((r) => {
-      if (!r.visible || r.locked) return false;
-      const dx = ((x - r.x - r.width / 2) * width) / 100,
-        dy = ((y - r.y - r.height / 2) * height) / 100,
-        angle = (-r.rotation * Math.PI) / 180;
-      const lx = dx * Math.cos(angle) - dy * Math.sin(angle),
-        ly = dx * Math.sin(angle) + dy * Math.cos(angle);
-      return (
-        Math.abs(lx) <= (r.width * width) / 200 + 8 &&
-        Math.abs(ly) <= (r.height * height) / 200 + 8
-      );
-    });
-    if (tool === "eraser") {
-      if (hit) change(reps.filter((r) => r.id !== hit.id));
-      return;
-    }
-    if (tool === "select" || tool === "resize") {
-      select(hit?.id ?? "");
-      if (hit)
-        gesture.current = {
-          x,
-          y,
-          reps: structuredClone(reps),
-          id: hit.id,
-          points: [],
-        };
-      return;
-    }
-    const text = tool === "text" ? annotation : "";
-    const r: Representation = {
-      id: storyId("rep"),
-      objectId: null,
-      setId: set.id,
-      coordinateSpace: "composition-percent",
-      anchor: "top-left",
-      rotation: 0,
-      zOrder: reps.length,
-      spatialNote: "",
-      referenceId: null,
-      kind: tool as Representation["kind"],
-      x,
-      y,
-      width: tool === "text" ? 25 : 0.1,
-      height: tool === "text" ? 4 : 0.1,
-      points: [[0, 0]],
-      color,
-      thickness,
-      text,
-      visible: true,
-      opacity: 1,
-      locked: false,
-      pose: "",
-      instructions: "",
-      motion: "",
-    };
-    const next = [...reps, r];
-    select(r.id);
-    setDraft(next);
-    gesture.current = { x, y, reps: next, id: r.id, points: [[x, y]] };
-  }
-  function move(e: PointerEvent<HTMLCanvasElement>) {
-    const g = gesture.current;
-    if (!g) return;
-    if (g.pan) {
-      viewport.current!.scrollLeft = g.pan[0] - (e.clientX - g.x);
-      viewport.current!.scrollTop = g.pan[1] - (e.clientY - g.y);
-      return;
-    }
-    const [x, y] = point(e);
-    const next = structuredClone(g.reps),
-      r = next.find((r) => r.id === g.id)!;
-    if (tool === "select") {
-      r.x += x - g.x;
-      r.y += y - g.y;
-    } else if (tool === "resize") {
-      r.width = Math.max(1, r.width + x - g.x);
-      r.height = Math.max(1, r.height + y - g.y);
-    } else if (tool === "pencil") {
-      if (g.points.length >= 10000) return;
-      g.points.push([x, y]);
-      const xs = g.points.map((p) => p[0]),
-        ys = g.points.map((p) => p[1]);
-      r.x = Math.min(...xs);
-      r.y = Math.min(...ys);
-      r.width = Math.max(1, Math.max(...xs) - r.x);
-      r.height = Math.max(1, Math.max(...ys) - r.y);
-      r.points = g.points.map(([px, py]) => [
-        (px - r.x) / r.width,
-        (py - r.y) / r.height,
-      ]);
-    } else if (tool !== "text") {
-      r.x = Math.min(g.x, x);
-      r.y = Math.min(g.y, y);
-      r.width = Math.max(1, Math.abs(x - g.x));
-      r.height = Math.max(1, Math.abs(y - g.y));
-    }
-    setDraft(next);
-  }
-  function up() {
-    if (gesture.current && !gesture.current.pan && draft) change(draft);
-    gesture.current = undefined;
-    setDraft(undefined);
-  }
-  return (
-    <div className="sb-canvas-area">
-      <div className="sb-tools">
-        {tool === "text" && (
-          <input
-            aria-label="Text annotation"
-            value={annotation}
-            onChange={(e) => setAnnotation(e.target.value)}
-          />
-        )}
-        {[
-          "pencil",
-          "eraser",
-          "select",
-          "resize",
-          "pan",
-          "rectangle",
-          "ellipse",
-          "line",
-          "text",
-        ].map((t) => (
-          <button key={t} aria-pressed={tool === t} onClick={() => setTool(t)}>
-            {t}
-          </button>
-        ))}
-        <input
-          aria-label="Drawing color"
-          type="color"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-        />
-        <input
-          aria-label="Brush thickness"
-          type="range"
-          min="1"
-          max="40"
-          value={thickness}
-          onChange={(e) => setThickness(+e.target.value)}
-        />
-        <button onClick={() => setZoom((z) => Math.max(0.5, z / 1.25))}>
-          −
-        </button>
-        <button onClick={() => setZoom(1)}>Fit</button>
-        <button onClick={() => setZoom((z) => Math.min(5, z * 1.25))}>+</button>
-      </div>
-      <div ref={viewport} className="sb-canvas-viewport">
-        <div
-          className="sb-paper"
-          style={{
-            width: `${zoom * fitWidth}px`,
-            aspectRatio: `${width}/${height}`,
-          }}
-        >
-          {tracingUrl && (
-            <img
-              alt="Locked tracing aid"
-              src={tracingUrl}
-              style={{ opacity: set.tracing?.opacity }}
-            />
-          )}
-          <canvas
-            aria-label="Storyboard sketch canvas"
-            ref={canvas}
-            width={width}
-            height={height}
-            onPointerDown={down}
-            onPointerMove={move}
-            onPointerUp={up}
-            onPointerCancel={() => {
-              gesture.current = undefined;
-              setDraft(undefined);
-            }}
-          />
-        </div>
-      </div>
-      <small>
-        Rough sketches communicate intent. Eraser removes a stroke or shape.
-        Resize: drag a selected element. Tracing is locked and editor-only.
-      </small>
-    </div>
-  );
+ const canvas = useRef<HTMLCanvasElement>(null), brushCursor = useRef<HTMLDivElement>(null), viewport = useRef<HTMLDivElement>(null), pointer = useRef<{ x: number; y: number } | undefined>(undefined), layers = useRef(new Map<string, HTMLCanvasElement>()), cachedData = useRef(new Map<string, string>()), currentSet = useRef(set.id), gesture = useRef<Gesture | undefined>(undefined), pan = useRef<{ x: number; y: number; startX: number; startY: number } | undefined>(undefined), render = useRef<(reps?: Representation[]) => void>(() => {}), frame = useRef<number | null>(null);
+ const [tool, setTool] = useState<Tool>("pencil"), [ready, setReady] = useState(false), [paper, setPaper] = useState({ width: 0, height: 0 }), [view, setView] = useState<View>({ zoom: 1, panX: 0, panY: 0 });
+ useEffect(() => { const el = viewport.current; if (!el) return; const resize = () => { const ratio = width / height, h = Math.max(80, Math.min(el.clientHeight - 24, (el.clientWidth - 24) / ratio)); setPaper({ width: h * ratio, height: h }); }; const observer = new ResizeObserver(resize); observer.observe(el); resize(); return () => observer.disconnect(); }, [width, height]);
+ useEffect(() => { let cancelled = false; if (currentSet.current !== set.id) { currentSet.current = set.id; layers.current.clear(); cachedData.current.clear(); setReady(false); setView({ zoom: 1, panX: 0, panY: 0 }); } const activeIds = new Set(set.representations.map(r => r.id)); for (const id of layers.current.keys()) if (!activeIds.has(id)) { layers.current.delete(id); cachedData.current.delete(id); } void Promise.all(set.representations.filter(r => r.rasterDataUrl && cachedData.current.get(r.id) !== r.rasterDataUrl).map(async r => { const off = document.createElement("canvas"); off.width = width; off.height = height; const image = new Image(); image.src = r.rasterDataUrl!; try { await image.decode(); off.getContext("2d")!.drawImage(image, 0, 0, width, height); } catch {} if (!cancelled) { layers.current.set(r.id, off); cachedData.current.set(r.id, r.rasterDataUrl!); } })).then(() => { if (!cancelled) { setReady(true); scheduleRender(); } }); return () => { cancelled = true; }; }, [set.id, set.representations, width, height]);
+ useEffect(() => { render.current = (reps = set.representations) => { const target = canvas.current?.getContext("2d"); if (!target || !ready) return; target.clearRect(0, 0, width, height); for (const r of reps) { const layer = layers.current.get(r.id); if (r.rasterDataUrl || layer) { if (!r.visible || !layer) continue; const b = r.rasterBounds ?? { x: 0, y: 0, width: 100, height: 100 }; target.save(); target.translate((r.x + r.width / 2) * width / 100, (r.y + r.height / 2) * height / 100); target.rotate(r.rotation * Math.PI / 180); target.globalAlpha = r.opacity; target.drawImage(layer, b.x * width / 100, b.y * height / 100, b.width * width / 100, b.height * height / 100, -r.width * width / 200, -r.height * height / 200, r.width * width / 100, r.height * height / 100); target.restore(); } else paintRepresentation(target, r, images, true); } const active = tool === "move" ? reps.find(r => r.id === selected) : undefined; if (active) { target.save(); target.strokeStyle = "#6895f5"; target.lineWidth = 2; target.setLineDash([7, 5]); target.strokeRect(active.x * width / 100, active.y * height / 100, active.width * width / 100, active.height * height / 100); target.fillStyle = "#6895f5"; target.fillRect((active.x + active.width) * width / 100 - 5, (active.y + active.height) * height / 100 - 5, 10, 10); target.restore(); } }; render.current(); }, [set.representations, selected, tool, width, height, images, ready]);
+ useEffect(() => () => { if (frame.current !== null) cancelAnimationFrame(frame.current); }, []);
+ function scheduleRender() { if (frame.current !== null) return; frame.current = requestAnimationFrame(() => { frame.current = null; render.current(); }); }
+ function point(e: PointerEvent<HTMLCanvasElement>): [number, number] { const b = e.currentTarget.getBoundingClientRect(); return [(e.clientX - b.left) * 100 / b.width, (e.clientY - b.top) * 100 / b.height]; }
+ function placeBrushCursor(clientX: number, clientY: number) { const el = brushCursor.current, target = canvas.current; if (!el || !target) return; const b = target.getBoundingClientRect(), sx = b.width / target.clientWidth, sy = b.height / target.clientHeight; if (!sx || !sy) return; el.style.left = `${(clientX - b.left) / sx}px`; el.style.top = `${(clientY - b.top) / sy}px`; const diameter = Math.max(2, size * (brush === "marker" ? 1.8 : 1) * Math.max(b.width / width, b.height / height)); el.style.width = `${diameter / sx}px`; el.style.height = `${diameter / sy}px`; el.style.display = tool === "move" ? "none" : "block"; }
+ function trackBrush(e: PointerEvent<HTMLCanvasElement>) { pointer.current = { x: e.clientX, y: e.clientY }; placeBrushCursor(e.clientX, e.clientY); }
+ useEffect(() => { if (pointer.current) placeBrushCursor(pointer.current.x, pointer.current.y); }, [view, paper, size, brush, tool]);
+ function down(e: PointerEvent<HTMLCanvasElement>) { if (e.button === 1) { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); pan.current = { x: view.panX, y: view.panY, startX: e.clientX, startY: e.clientY }; e.currentTarget.style.cursor = "grabbing"; if (brushCursor.current) brushCursor.current.style.display = "none"; return; } if (e.button !== 0 || !ready) return; e.currentTarget.setPointerCapture(e.pointerId); const p = point(e); if (tool === "move") { const hit = [...set.representations].reverse().find(r => r.visible && !r.locked && p[0] >= r.x && p[0] <= r.x + r.width && p[1] >= r.y && p[1] <= r.y + r.height); if (!hit) return; select(hit.id); gesture.current = { mode: p[0] > hit.x + hit.width - 2 && p[1] > hit.y + hit.height - 2 ? "resize" : "move", id: hit.id, last: p, reps: structuredClone(set.representations), canvas: document.createElement("canvas"), points: [] }; return; } const layer = set.representations.find(r => r.id === selected); if (!layer || layer.locked || layer.kind === "reference") return; let off = layers.current.get(layer.id); if (!off) { off = document.createElement("canvas"); off.width = width; off.height = height; layers.current.set(layer.id, off); } select(layer.id); const q = toSource(p, layer), ctx = off.getContext("2d")!; const mode = tool === "eraser" ? "erase" : "draw"; ctx.save(); ctx.globalCompositeOperation = mode === "erase" ? "destination-out" : "source-over"; ctx.globalAlpha = mode === "draw" && brush === "sketch" ? .8 : 1; ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = mode === "draw" && brush === "marker" ? size * 1.8 : size; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.shadowColor = color; ctx.shadowBlur = mode === "draw" && brush === "sketch" ? size * .28 : 0; ctx.beginPath(); ctx.arc(q[0], q[1], size / 2, 0, Math.PI * 2); ctx.fill(); ctx.restore(); gesture.current = { mode, id: layer.id, last: q, reps: structuredClone(set.representations), canvas: off, points: [q] }; scheduleRender(); }
+ function move(e: PointerEvent<HTMLCanvasElement>) { if (pan.current) { const p = pan.current, panX = p.x + e.clientX - p.startX, panY = p.y + e.clientY - p.startY; setView(v => ({ ...v, panX, panY })); return; } const g = gesture.current; if (!g) return; const rect = e.currentTarget.getBoundingClientRect(), samples = e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]; if (g.mode === "move" || g.mode === "resize") { const p = point(e), [dx, dy] = [p[0] - g.last[0], p[1] - g.last[1]], next = structuredClone(g.reps), r = next.find(x => x.id === g.id)!; if (g.mode === "move") { r.x += dx; r.y += dy; } else { r.width = Math.max(1, r.width + dx); r.height = Math.max(1, r.height + dy); } g.reps = next; g.last = p; render.current(next); return; } const r = set.representations.find(x => x.id === g.id)!; const ctx = g.canvas.getContext("2d")!; ctx.save(); ctx.globalCompositeOperation = g.mode === "erase" ? "destination-out" : "source-over"; ctx.globalAlpha = g.mode === "draw" && brush === "sketch" ? .8 : 1; ctx.strokeStyle = color; ctx.lineWidth = g.mode === "draw" && brush === "marker" ? size * 1.8 : size; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.shadowColor = color; ctx.shadowBlur = g.mode === "draw" && brush === "sketch" ? size * .28 : 0; ctx.beginPath(); ctx.moveTo(g.last[0], g.last[1]); for (const sample of samples) { const q = toSource([(sample.clientX - rect.left) * 100 / rect.width, (sample.clientY - rect.top) * 100 / rect.height], r); g.points.push(q); const mid: [number, number] = [(g.last[0] + q[0]) / 2, (g.last[1] + q[1]) / 2]; ctx.quadraticCurveTo(g.last[0], g.last[1], mid[0], mid[1]); g.last = q; } ctx.lineTo(g.last[0], g.last[1]); ctx.stroke(); ctx.restore(); scheduleRender(); }
+ function end() { if (pan.current) { pan.current = undefined; if (canvas.current) canvas.current.style.cursor = tool === "move" ? "default" : "none"; return; } const g = gesture.current; if (!g) return; gesture.current = undefined; if (g.mode === "move" || g.mode === "resize") { change(g.reps); return; } const original = structuredClone(set.representations.find(r => r.id === g.id)!); const points = g.points.map(([x, y]) => [x * 100 / width, y * 100 / height] as [number, number]); let bounds = original.rasterBounds ?? { x: 0, y: 0, width: 100, height: 100 }; if (g.mode === "draw") { const xs = points.map(p => p[0]), ys = points.map(p => p[1]), left = Math.max(0, Math.min(...xs) - .5), top = Math.max(0, Math.min(...ys) - .5), right = Math.min(100, Math.max(...xs) + .5), bottom = Math.min(100, Math.max(...ys) + .5), hasRaster = !!original.rasterDataUrl, next = { x: hasRaster ? Math.min(bounds.x, left) : left, y: hasRaster ? Math.min(bounds.y, top) : top, width: 0, height: 0 }; next.width = Math.max(1, (hasRaster ? Math.max(bounds.x + bounds.width, right) : right) - next.x); next.height = Math.max(1, (hasRaster ? Math.max(bounds.y + bounds.height, bottom) : bottom) - next.y); if (!hasRaster) { original.x += next.x / 100 * original.width; original.y += next.y / 100 * original.height; original.width = next.width / 100 * original.width; original.height = next.height / 100 * original.height; } else { const sx = original.width / bounds.width, sy = original.height / bounds.height; original.x += (next.x - bounds.x) * sx; original.y += (next.y - bounds.y) * sy; original.width *= next.width / bounds.width; original.height *= next.height / bounds.height; } bounds = next; } const data = g.canvas.toDataURL("image/png"); cachedData.current.set(g.id, data); layers.current.set(g.id, g.canvas); change(set.representations.map(r => r.id === g.id ? { ...original, rasterDataUrl: data, rasterBounds: bounds } : r)); }
+ function toSource(p: [number, number], r: Representation): [number, number] { const b = r.rasterBounds ?? { x: 0, y: 0, width: 100, height: 100 }; return [(b.x + (p[0] - r.x) * b.width / Math.max(.01, r.width)) * width / 100, (b.y + (p[1] - r.y) * b.height / Math.max(.01, r.height)) * height / 100]; }
+ function zoomBy(factor: number, anchor?: { x: number; y: number }) { const rect = viewport.current?.getBoundingClientRect(); if (!rect) return; setView(v => { const zoom = Math.min(4, Math.max(.35, v.zoom * factor)), ax = (anchor?.x ?? rect.left + rect.width / 2) - rect.left - rect.width / 2, ay = (anchor?.y ?? rect.top + rect.height / 2) - rect.top - rect.height / 2, ratio = zoom / v.zoom; return { zoom, panX: v.panX + ax * (1 - ratio), panY: v.panY + ay * (1 - ratio) }; }); }
+ useEffect(() => { registerViewActions({ center: () => setView(v => ({ ...v, panX: 0, panY: 0 })), fit: () => setView({ zoom: 1, panX: 0, panY: 0 }) }); }, [registerViewActions]);
+ function wheel(e: WheelEvent<HTMLDivElement>) { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, { x: e.clientX, y: e.clientY }); }
+ const paperStyle = { width: `${paper.width}px`, height: `${paper.height}px`, aspectRatio: `${width}/${height}`, transform: `translate(calc(-50% + ${view.panX}px), calc(-50% + ${view.panY}px)) scale(${view.zoom})` };
+ return <div className="sb-canvas-area"><div className="sb-tools" role="toolbar" aria-label="Drawing tools">{(Object.keys(labels) as Tool[]).map(t => <button key={t} title={{ pencil: "Pencil", eraser: "Eraser", move: "Move or resize layer" }[t]} aria-label={{ pencil: "Pencil", eraser: "Eraser", move: "Move or resize layer" }[t]} aria-pressed={tool === t} onClick={() => setTool(t)}>{labels[t]}</button>)}<span className="sb-tool-divider"/><button title="Undo" aria-label="Undo" onClick={undo}>↶</button><button title="Redo" aria-label="Redo" onClick={redo}>↷</button><button title="Clear selected layer" aria-label="Clear drawing" onClick={() => { const l = set.representations.find(r => r.id === selected); if (!l) return; const off = layers.current.get(l.id); off?.getContext("2d")?.clearRect(0, 0, width, height); cachedData.current.delete(l.id); change(set.representations.map(r => r.id === l.id ? { ...r, x: 0, y: 0, width: 100, height: 100, rasterDataUrl: undefined, rasterBounds: undefined, elements: [] } : r)); }}>⌫</button><button title="Export selected layer as transparent PNG" aria-label="Export layer PNG" onClick={exportLayer}>⇩</button><span className="sb-tool-divider"/><button title="Zoom in" aria-label="Zoom in" onClick={() => zoomBy(1.2)}>＋</button><button title="Zoom out" aria-label="Zoom out" onClick={() => zoomBy(1 / 1.2)}>−</button><button title="Reset zoom and pan" aria-label="Reset zoom" onClick={() => setView({ zoom: 1, panX: 0, panY: 0 })}>⟳</button></div><div ref={viewport} className="sb-canvas-viewport" aria-label="Canvas viewport" onWheel={wheel}><div className="sb-paper" style={paperStyle}><canvas aria-label="Storyboard sketch canvas" aria-busy={!ready} ref={canvas} width={width} height={height} onPointerEnter={trackBrush} onPointerLeave={() => { if (brushCursor.current) brushCursor.current.style.display = "none" }} onPointerDown={down} onPointerMove={e => { trackBrush(e); move(e); }} onPointerUp={end} onPointerCancel={end} onContextMenu={e => e.preventDefault()} style={{ cursor: tool === "move" ? "default" : "none" }}/><div ref={brushCursor} className="sb-brush-cursor" aria-hidden="true"/></div></div></div>;
 }
