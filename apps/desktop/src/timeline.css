@@ -1263,20 +1263,19 @@
   border-top-width: 1px;
 }
 .canvas-placement-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
   margin: 10px 0;
 }
 .image-quick-tools {
+  margin: 8px 0 12px;
+}
+.editor-icon-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px;
-  margin: 8px 0 12px;
+  gap: 6px;
+  padding-top: 10px;
 }
-.image-quick-tools .icon-tool-button,
-.clip-context-image-actions .icon-tool-button {
+.editor-icon-actions .editor-icon-button {
   display: inline-grid;
   place-items: center;
   width: 32px;
@@ -1288,8 +1287,7 @@
   background: #151c24;
   cursor: pointer;
 }
-.image-quick-tools .icon-tool-button svg,
-.clip-context-image-actions .icon-tool-button svg {
+.editor-icon-actions .editor-icon-button svg {
   width: 18px;
   height: 18px;
   fill: none;
@@ -1298,8 +1296,15 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.image-quick-tools .icon-tool-button[aria-pressed="true"],
-.clip-context-image-actions .icon-tool-button[aria-pressed="true"] {
+.editor-icon-actions .editor-icon-button:hover:not(:disabled) {
+  border-color: #8ebc65;
+  background: #202a36;
+}
+.editor-icon-actions .editor-icon-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.editor-icon-actions .editor-icon-button[aria-pressed="true"] {
   color: #e7f6d2;
   background: #c5f18a24;
   border-color: #8ebc65;
@@ -1390,6 +1395,15 @@
   font:
     10px ui-monospace,
     monospace;
+}
+.text-context-font-size-control input {
+  width: 90px;
+  padding: 6px 8px;
+  border: 1px solid #425069;
+  border-radius: 5px;
+  background: #101824;
+  color: #e8eef6;
+  font: inherit;
 }
 .clip-context-summary {
   display: grid;
@@ -1524,8 +1538,8 @@
   cursor: ew-resize;
 }
 .focused-track-dock {
-  grid-template-rows: 0 auto minmax(220px, 1fr) 0;
-  min-height: 300px;
+  grid-template-rows: 0 auto auto 0;
+  min-height: 0;
   border: 0;
   overflow: visible;
   background: transparent;
@@ -1559,8 +1573,9 @@
   display: none;
 }
 .focused-track-dock .timeline-scroll {
-  min-height: 220px;
-  max-height: 300px;
+  height: 108px;
+  min-height: 0;
+  max-height: 108px;
   border: 1px solid #394859;
   border-radius: 5px;
 }
@@ -1578,12 +1593,7 @@
   white-space: nowrap;
 }
 .clip-context-image-actions {
-  display: flex;
-  margin-top: 7px;
-}
-.clip-context-image-actions .icon-tool-button {
-  width: 32px;
-  height: 30px;
+  margin: 0 0 8px;
 }
 .preview-volume-control {
   display: inline-flex;

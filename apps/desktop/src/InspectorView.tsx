@@ -14,6 +14,8 @@ import {
 import { subtitleWordTimingMatchesText } from "@motion/lyrics-sync/subtitles";
 import { useState, type ChangeEvent } from "react";
 import { isAudioTimelineClip, isAudioTrack } from "./timeline-track-utils";
+import { EditorIconButton } from "./EditorIconButton";
+import { readImageSize } from "./image-size";
 
 export type InspectorViewProps = {
   manifest: ProjectManifest;
@@ -539,10 +541,12 @@ export function InspectorView({
             )}
             {(clip.componentId === "image" || clip.componentId === "video") && (
               <div
-                className="canvas-placement-tools"
+                className="canvas-placement-tools editor-icon-actions"
                 aria-label="Canvas placement"
               >
-                <button
+                <EditorIconButton
+                  icon="center"
+                  label="Center on Canvas"
                   type="button"
                   disabled={!canEditProperties}
                   onClick={() =>
@@ -563,10 +567,10 @@ export function InspectorView({
                       ),
                     }))
                   }
-                >
-                  Center on Canvas
-                </button>
-                <button
+                />
+                <EditorIconButton
+                  icon="fit"
+                  label="Fit inside Canvas"
                   type="button"
                   disabled={!canEditProperties}
                   onClick={() =>
@@ -590,10 +594,10 @@ export function InspectorView({
                       ),
                     }))
                   }
-                >
-                  Fit inside Canvas
-                </button>
-                <button
+                />
+                <EditorIconButton
+                  icon="fill"
+                  label="Fill Canvas"
                   type="button"
                   disabled={!canEditProperties}
                   onClick={() =>
@@ -617,18 +621,18 @@ export function InspectorView({
                       ),
                     }))
                   }
-                >
-                  Fill Canvas
-                </button>
+                />
               </div>
             )}
             {clip.componentId === "image" && (
-              <div className="image-quick-tools" aria-label="Image tools">
-                <button
+              <div
+                className="image-quick-tools editor-icon-actions"
+                aria-label="Image tools"
+              >
+                <EditorIconButton
+                  icon="flip"
+                  label="Flip horizontally"
                   type="button"
-                  className="icon-tool-button"
-                  aria-label="Flip horizontally"
-                  title="Flip horizontally"
                   aria-pressed={clip.props.flipHorizontal === true}
                   disabled={!canEditProperties}
                   onClick={() => {
@@ -641,19 +645,18 @@ export function InspectorView({
                         clip.props.flipHorizontal !== true,
                       );
                   }}
-                >
-                  <svg viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="M10 2v16M8 5 3 10l5 5M12 5l5 5-5 5" />
-                  </svg>
-                </button>
-                <button
+                />
+                <EditorIconButton
+                  icon="reset"
+                  label={
+                    resettingImageSize
+                      ? "Reading original image size"
+                      : "Reset size to original image dimensions"
+                  }
                   type="button"
                   disabled={!canEditProperties || resettingImageSize}
                   onClick={() => void resetImageSize()}
-                  title="Reset size to original image dimensions"
-                >
-                  {resettingImageSize ? "Reading size…" : "Reset size"}
-                </button>
+                />
                 {imageSizeError && (
                   <small className="image-size-error" role="alert">
                     {imageSizeError}
@@ -672,15 +675,28 @@ export function InspectorView({
                 </button>
               </div>
             )}
-            <div className="tools">
-              <button onClick={onDuplicate} disabled={!canDuplicate}>
-                Duplicate clip
-              </button>
-              <button onClick={onDelete} disabled={!canDelete}>
-                {clip.componentId === "soundtrack"
-                  ? "Delete audio"
-                  : "Delete clip"}
-              </button>
+            <div
+              className="tools editor-icon-actions"
+              aria-label="Clip actions"
+            >
+              <EditorIconButton
+                icon="duplicate"
+                label="Duplicate clip"
+                type="button"
+                onClick={onDuplicate}
+                disabled={!canDuplicate}
+              />
+              <EditorIconButton
+                icon="delete"
+                label={
+                  clip.componentId === "soundtrack"
+                    ? "Delete audio"
+                    : "Delete clip"
+                }
+                type="button"
+                onClick={onDelete}
+                disabled={!canDelete}
+              />
             </div>
           </>
         )
@@ -710,21 +726,6 @@ export function InspectorView({
       )}
     </section>
   );
-}
-
-function readImageSize(source: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => {
-      if (!image.naturalWidth || !image.naturalHeight) {
-        reject(new Error("The source has no readable dimensions."));
-        return;
-      }
-      resolve({ width: image.naturalWidth, height: image.naturalHeight });
-    };
-    image.onerror = () => reject(new Error("The image could not be loaded."));
-    image.src = source;
-  });
 }
 
 function PropertyControl({

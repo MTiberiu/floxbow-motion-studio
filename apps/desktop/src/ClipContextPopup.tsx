@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { TimelineClip } from "@motion/sdk/timeline";
+import { EditorIconButton } from "./EditorIconButton";
 
 type Position = { x: number; y: number };
 
@@ -15,7 +16,13 @@ export function ClipContextPopup({
   position: initialPosition,
   onChangeText,
   onChangeColor,
-  onToggleImageFlip,
+  onChangeFontSize,
+  onImagePreset,
+  onResetImageSize,
+  onClipOperation,
+  canEditClip,
+  canDuplicate,
+  canDelete,
   timelineView,
   onClose,
 }: {
@@ -23,7 +30,16 @@ export function ClipContextPopup({
   position: Position;
   onChangeText: (clipId: string, text: string) => void;
   onChangeColor: (clipId: string, color: string) => void;
-  onToggleImageFlip: (clipId: string) => void;
+  onChangeFontSize: (clipId: string, fontSize: number) => void;
+  onImagePreset: (
+    clipId: string,
+    preset: "center" | "fit" | "fill" | "flip",
+  ) => void;
+  onResetImageSize: (clipId: string) => Promise<void>;
+  onClipOperation: (clipId: string, operation: "duplicate" | "delete") => void;
+  canEditClip: boolean;
+  canDuplicate: boolean;
+  canDelete: boolean;
   timelineView: ReactNode;
   onClose: () => void;
 }) {
@@ -35,6 +51,7 @@ export function ClipContextPopup({
   const [position, setPosition] = useState(() =>
     clampPosition(initialPosition),
   );
+  const [resettingImageSize, setResettingImageSize] = useState(false);
 
   useEffect(() => {
     setPosition(clampPosition(initialPosition));
@@ -139,6 +156,25 @@ export function ClipContextPopup({
               <output>{color.toUpperCase()}</output>
             </span>
           </label>
+          <label className="text-context-font-size-control">
+            Font size
+            <input
+              aria-label="Font size"
+              type="number"
+              min={clip.componentId === "subtitles" ? 12 : 8}
+              max={clip.componentId === "subtitles" ? 220 : 500}
+              step={1}
+              value={Number(
+                clip.props.fontSize ??
+                  (clip.componentId === "subtitles" ? 68 : 72),
+              )}
+              disabled={!canEditClip}
+              onChange={(event) => {
+                const value = Number(event.currentTarget.value);
+                if (Number.isFinite(value)) onChangeFontSize(clip.id, value);
+              }}
+            />
+          </label>
         </>
       ) : (
         <div className="clip-context-summary">
@@ -147,19 +183,62 @@ export function ClipContextPopup({
         </div>
       )}
       {clip.componentId === "image" && (
-        <div className="clip-context-image-actions">
-          <button
-            type="button"
-            className="icon-tool-button"
-            aria-label="Flip horizontally"
-            title="Flip horizontally"
+        <div
+          className="clip-context-image-actions editor-icon-actions"
+          aria-label="Image actions"
+        >
+          <EditorIconButton
+            icon="center"
+            label="Center on Canvas"
+            disabled={!canEditClip}
+            onClick={() => onImagePreset(clip.id, "center")}
+          />
+          <EditorIconButton
+            icon="fit"
+            label="Fit inside Canvas"
+            disabled={!canEditClip}
+            onClick={() => onImagePreset(clip.id, "fit")}
+          />
+          <EditorIconButton
+            icon="fill"
+            label="Fill Canvas"
+            disabled={!canEditClip}
+            onClick={() => onImagePreset(clip.id, "fill")}
+          />
+          <EditorIconButton
+            icon="flip"
+            label="Flip horizontally"
             aria-pressed={clip.props.flipHorizontal === true}
-            onClick={() => onToggleImageFlip(clip.id)}
-          >
-            <svg viewBox="0 0 20 20" aria-hidden="true">
-              <path d="M10 2v16M8 5 3 10l5 5M12 5l5 5-5 5" />
-            </svg>
-          </button>
+            disabled={!canEditClip}
+            onClick={() => onImagePreset(clip.id, "flip")}
+          />
+          <EditorIconButton
+            icon="reset"
+            label={
+              resettingImageSize
+                ? "Reading original image size"
+                : "Reset size to original image dimensions"
+            }
+            disabled={!canEditClip || resettingImageSize}
+            onClick={() => {
+              setResettingImageSize(true);
+              void onResetImageSize(clip.id).finally(() =>
+                setResettingImageSize(false),
+              );
+            }}
+          />
+          <EditorIconButton
+            icon="duplicate"
+            label="Duplicate clip"
+            disabled={!canDuplicate}
+            onClick={() => onClipOperation(clip.id, "duplicate")}
+          />
+          <EditorIconButton
+            icon="delete"
+            label="Delete clip"
+            disabled={!canDelete}
+            onClick={() => onClipOperation(clip.id, "delete")}
+          />
         </div>
       )}
       {timelineView}

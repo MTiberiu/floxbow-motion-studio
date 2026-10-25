@@ -99,7 +99,7 @@ test("standalone Image declares editable properties and the shared Canvas transf
   );
 });
 
-test("Image Inspector offers a flip icon and reset-to-source-size action", () => {
+test("Image Inspector offers icon actions with hover descriptions", () => {
   const document = parseEditTimeline({
     version: 1,
     fps: 30,
@@ -128,7 +128,12 @@ test("Image Inspector offers a flip icon and reset-to-source-size action", () =>
     }),
   );
   assert.match(markup, /aria-label="Flip horizontally"/);
-  assert.match(markup, /Reset size/);
+  assert.match(markup, /title="Center on Canvas"/);
+  assert.match(markup, /title="Fit inside Canvas"/);
+  assert.match(markup, /title="Fill Canvas"/);
+  assert.match(markup, /title="Reset size to original image dimensions"/);
+  assert.match(markup, /title="Duplicate clip"/);
+  assert.match(markup, /title="Delete clip"/);
   assert.doesNotMatch(markup, /type="checkbox"/);
 });
 

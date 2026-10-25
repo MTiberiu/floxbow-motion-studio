@@ -36,6 +36,7 @@ import {
 } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
 import { ClipContextPopup } from "./ClipContextPopup";
+import { readImageSize } from "./image-size";
 import { clipsForTrack } from "./timeline-focus";
 import { AssetOrganizerDialog } from "./AssetOrganizerDialog";
 import {
@@ -1702,8 +1703,8 @@ export function TimelineEditor({
   }
   function changeTextContextValue(
     clipId: string,
-    key: "text" | "color",
-    value: string,
+    key: "text" | "color" | "fontSize",
+    value: string | number,
   ) {
     const current = sessionRef.current.commands.getCurrentDocument();
     const isTextClip = (componentId: string) =>
@@ -1717,14 +1718,17 @@ export function TimelineEditor({
     const target = next.clips.find((candidate) => candidate.id === clipId);
     if (!target || !isTextClip(target.componentId)) return;
     if (key === "text") target.content.text = value;
-    else target.props.color = value;
+    else target.props[key] = value;
     try {
       edit(parseEditTimeline(next));
     } catch (editError) {
       setError(String(editError));
     }
   }
-  function toggleContextImageFlip(clipId: string) {
+  function applyContextImagePreset(
+    clipId: string,
+    preset: "center" | "fit" | "fill" | "flip",
+  ) {
     const current = sessionRef.current.commands.getCurrentDocument();
     if (!current) return;
     const next = structuredClone(current);
@@ -1733,11 +1737,87 @@ export function TimelineEditor({
         candidate.id === clipId && candidate.componentId === "image",
     );
     if (!target) return;
-    target.props.flipHorizontal = target.props.flipHorizontal !== true;
+    if (preset === "flip") {
+      target.props.flipHorizontal = target.props.flipHorizontal !== true;
+    } else if (preset === "center") {
+      target.props.x = 50;
+      target.props.y = 50;
+      target.props.anchor = "center";
+    } else {
+      target.props.x = 50;
+      target.props.y = 50;
+      target.props.width = 100;
+      target.props.height = 100;
+      target.props.anchor = "center";
+      target.props.fit = preset === "fit" ? "contain" : "cover";
+    }
     try {
       edit(parseEditTimeline(next));
     } catch (editError) {
       setError(String(editError));
+    }
+  }
+  async function resetContextImageSize(clipId: string) {
+    try {
+      const first = sessionRef.current.commands.getCurrentDocument();
+      const source = first?.clips.find(
+        (candidate) =>
+          candidate.id === clipId && candidate.componentId === "image",
+      );
+      if (!first || !source) return;
+      const stored = source.content.originalSize;
+      let originalSize =
+        stored &&
+        typeof stored === "object" &&
+        "width" in stored &&
+        "height" in stored &&
+        typeof stored.width === "number" &&
+        Number.isFinite(stored.width) &&
+        stored.width > 0 &&
+        typeof stored.height === "number" &&
+        Number.isFinite(stored.height) &&
+        stored.height > 0
+          ? { width: stored.width, height: stored.height }
+          : undefined;
+      if (!originalSize) {
+        originalSize = await readImageSize(
+          `/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(String(source.content.assetId ?? ""))}/thumbnail`,
+        );
+      }
+      const width = Math.max(
+        1,
+        Math.min(500, (originalSize.width / editorManifest.width) * 100),
+      );
+      const height = Math.max(
+        1,
+        Math.min(500, (originalSize.height / editorManifest.height) * 100),
+      );
+      const current = sessionRef.current.commands.getCurrentDocument();
+      if (!current?.clips.some((candidate) => candidate.id === clipId)) return;
+      edit(
+        parseEditTimeline({
+          ...structuredClone(current),
+          clips: current.clips.map((candidate) =>
+            candidate.id === clipId && candidate.componentId === "image"
+              ? {
+                  ...candidate,
+                  content: {
+                    ...candidate.content,
+                    originalSize,
+                    aspectRatio: originalSize.width / originalSize.height,
+                  },
+                  props: { ...candidate.props, width, height, fit: "contain" },
+                }
+              : candidate,
+          ),
+        }),
+      );
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? `Could not reset the image size: ${error.message}`
+          : "Could not reset the image size.",
+      );
     }
   }
   function resizePanel(e: ReactPointerEvent<HTMLButtonElement>) {
@@ -2060,6 +2140,7 @@ export function TimelineEditor({
   const textContextTrack = textContextClip
     ? doc?.tracks.find((track) => track.id === textContextClip.trackId)
     : undefined;
+  const contextTrackLocked = textContextTrack?.locked === true;
   const selectedTrackLocked = Boolean(
     clip && doc?.tracks.find((track) => track.id === clip.trackId)?.locked,
   );
@@ -2269,13 +2350,14 @@ export function TimelineEditor({
   }
   function performTimelineOperation(
     operation: TimelineOperation | "undo" | "redo",
+    targetClipId?: string,
   ): string | undefined {
     const liveSnapshot = sessionRef.current.snapshot;
     const liveCommands = sessionRef.current.commands;
     const liveComponents = liveSnapshot.components;
     const current = commands.getCurrentDocument();
     const selectedClip = current?.clips.find(
-      (item) => item.id === liveSnapshot.selectedClipId,
+      (item) => item.id === (targetClipId ?? liveSnapshot.selectedClipId),
     );
     if (operation === "undo") {
       if (!liveSnapshot.undoCount) return "There is no edit to undo.";
@@ -2582,7 +2664,28 @@ export function TimelineEditor({
           onChangeColor={(clipId, value) =>
             changeTextContextValue(clipId, "color", value)
           }
-          onToggleImageFlip={toggleContextImageFlip}
+          onChangeFontSize={(clipId, value) =>
+            changeTextContextValue(clipId, "fontSize", value)
+          }
+          onImagePreset={applyContextImagePreset}
+          onResetImageSize={resetContextImageSize}
+          onClipOperation={(clipId, operation) => {
+            const operationError = performTimelineOperation(operation, clipId);
+            if (operationError) setError(operationError);
+          }}
+          canEditClip={!contextTrackLocked}
+          canDuplicate={
+            !contextTrackLocked &&
+            canPerformTimelineOperation(
+              textContextClip,
+              "duplicate",
+              components,
+            )
+          }
+          canDelete={
+            !contextTrackLocked &&
+            canPerformTimelineOperation(textContextClip, "delete", components)
+          }
           timelineView={
             doc && textContextTrack ? (
               <TimelineView
