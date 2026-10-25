@@ -12,7 +12,7 @@ import {
   secondsToFrame,
 } from "@motion/sdk/timeline";
 import { subtitleWordTimingMatchesText } from "@motion/lyrics-sync/subtitles";
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import { isAudioTimelineClip, isAudioTrack } from "./timeline-track-utils";
 
 export type InspectorViewProps = {
@@ -54,6 +54,8 @@ export function InspectorView({
   canDelete = true,
   selectedCount = 1,
 }: InspectorViewProps) {
+  const [resettingImageSize, setResettingImageSize] = useState(false);
+  const [imageSizeError, setImageSizeError] = useState("");
   const characterScene =
     clip?.sceneId && document?.scenes
       ? document.scenes.find((scene) => scene.id === clip.sceneId)
@@ -77,6 +79,71 @@ export function InspectorView({
           memberId: string;
         }>)
       : [];
+
+  async function resetImageSize() {
+    if (!clip || clip.componentId !== "image" || !document) return;
+    setImageSizeError("");
+    setResettingImageSize(true);
+    try {
+      const assetId = String(clip.content.assetId ?? "");
+      const storedSize = clip.content.originalSize;
+      let originalSize =
+        storedSize &&
+        typeof storedSize === "object" &&
+        "width" in storedSize &&
+        "height" in storedSize &&
+        typeof storedSize.width === "number" &&
+        Number.isFinite(storedSize.width) &&
+        storedSize.width > 0 &&
+        typeof storedSize.height === "number" &&
+        Number.isFinite(storedSize.height) &&
+        storedSize.height > 0
+          ? { width: storedSize.width, height: storedSize.height }
+          : undefined;
+      if (!originalSize) {
+        originalSize = await readImageSize(
+          `/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(assetId)}/thumbnail`,
+        );
+      }
+      const width = Math.max(
+        1,
+        Math.min(500, (originalSize.width / manifest.width) * 100),
+      );
+      const height = Math.max(
+        1,
+        Math.min(500, (originalSize.height / manifest.height) * 100),
+      );
+      onEdit((current) => ({
+        ...current,
+        clips: current.clips.map((candidate) =>
+          candidate.id === clip.id && candidate.componentId === "image"
+            ? {
+                ...candidate,
+                content: {
+                  ...candidate.content,
+                  originalSize,
+                  aspectRatio: originalSize.width / originalSize.height,
+                },
+                props: {
+                  ...candidate.props,
+                  width,
+                  height,
+                  fit: "contain",
+                },
+              }
+            : candidate,
+        ),
+      }));
+    } catch (error) {
+      setImageSizeError(
+        error instanceof Error
+          ? `Could not read the original image size: ${error.message}`
+          : "Could not read the original image size.",
+      );
+    } finally {
+      setResettingImageSize(false);
+    }
+  }
   return (
     <section
       className="properties"
@@ -429,15 +496,23 @@ export function InspectorView({
               · frames {clip.from}–{clip.from + clip.durationInFrames} (end
               exclusive)
             </small>
-            {definition?.fields.map((field) => (
-              <PropertyControl
-                key={field.key}
-                field={field}
-                value={fieldValue(clip, field)}
-                onChange={(value) => onChangeProperty(field, value)}
-                disabled={!canEditProperties}
-              />
-            ))}
+            {definition?.fields
+              .filter(
+                (field) =>
+                  !(
+                    clip.componentId === "image" &&
+                    field.key === "flipHorizontal"
+                  ),
+              )
+              .map((field) => (
+                <PropertyControl
+                  key={field.key}
+                  field={field}
+                  value={fieldValue(clip, field)}
+                  onChange={(value) => onChangeProperty(field, value)}
+                  disabled={!canEditProperties}
+                />
+              ))}
             {!definition?.fields.length && (
               <p className="muted">
                 This scene exposes timing only. Its animation stays in the
@@ -547,6 +622,45 @@ export function InspectorView({
                 </button>
               </div>
             )}
+            {clip.componentId === "image" && (
+              <div className="image-quick-tools" aria-label="Image tools">
+                <button
+                  type="button"
+                  className="icon-tool-button"
+                  aria-label="Flip horizontally"
+                  title="Flip horizontally"
+                  aria-pressed={clip.props.flipHorizontal === true}
+                  disabled={!canEditProperties}
+                  onClick={() => {
+                    const field = definition?.fields.find(
+                      (candidate) => candidate.key === "flipHorizontal",
+                    );
+                    if (field)
+                      onChangeProperty(
+                        field,
+                        clip.props.flipHorizontal !== true,
+                      );
+                  }}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <path d="M10 2v16M8 5 3 10l5 5M12 5l5 5-5 5" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEditProperties || resettingImageSize}
+                  onClick={() => void resetImageSize()}
+                  title="Reset size to original image dimensions"
+                >
+                  {resettingImageSize ? "Reading size…" : "Reset size"}
+                </button>
+                {imageSizeError && (
+                  <small className="image-size-error" role="alert">
+                    {imageSizeError}
+                  </small>
+                )}
+              </div>
+            )}
             {clip.componentId === "video" && onSeparateVideoAudio && (
               <div className="tools">
                 <button
@@ -596,6 +710,21 @@ export function InspectorView({
       )}
     </section>
   );
+}
+
+function readImageSize(source: string) {
+  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      if (!image.naturalWidth || !image.naturalHeight) {
+        reject(new Error("The source has no readable dimensions."));
+        return;
+      }
+      resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.onerror = () => reject(new Error("The image could not be loaded."));
+    image.src = source;
+  });
 }
 
 function PropertyControl({

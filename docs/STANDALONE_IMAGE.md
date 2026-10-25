@@ -28,7 +28,7 @@ An Image clip in `edit-timeline.json` has the ordinary Timeline v1 timing fields
 }
 ```
 
-`content.assetId` must refer to a registered PNG asset in `media.json`. `x` and `y` are composition percentages; width and height are percentages from 1–100; rotation is degrees; anchor is one of the nine named positions; opacity is 0–1; fit is `contain`, `cover`, or `fill`. These are validated by `standaloneImageClipSchema` and are also exposed as Inspector controls.
+`content.assetId` must refer to a registered PNG asset in `media.json`. `content.aspectRatio` is optional source geometry. `content.originalSize` optionally stores the source pixel dimensions as `{ "width": 1200, "height": 800 }`; Reset size reads the linked image's natural dimensions and saves them here for later resets. `x` and `y` are composition percentages; width and height are percentages from 1–500; rotation is degrees; anchor is one of the nine named positions; opacity is 0–1; fit is `contain`, `cover`, or `fill`; and `flipHorizontal` is an optional boolean that defaults to false. These are validated by `standaloneImageClipSchema`; Image Inspector offers an icon button for flipping and a Reset size action. The flip stays inside the image's existing composition bounds.
 
 The media asset ID identifies the source file. The clip ID identifies one Timeline use. Multiple clips can refer to the same asset and keep independent position, size, timing, and styling. Registering an asset does not create a Timeline clip; adding a clip does not copy the source image.
 

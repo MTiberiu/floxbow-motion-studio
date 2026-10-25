@@ -12,6 +12,7 @@ import {
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import { parseEditTimeline } from "@motion/sdk/timeline";
+import { InspectorView } from "../apps/desktop/src/InspectorView";
 
 const imageClip = {
   id: "image-first-placement",
@@ -44,6 +45,7 @@ test("standalone Image declares editable properties and the shared Canvas transf
   });
   assert.ok(definition.fields.some((field) => field.key === "fit"));
   assert.ok(definition.fields.some((field) => field.key === "opacity"));
+  assert.ok(definition.fields.some((field) => field.key === "flipHorizontal"));
   assert.equal(
     standaloneImageClipSchema.parse(imageClip).content.assetId,
     "image-forest",
@@ -61,10 +63,73 @@ test("standalone Image declares editable properties and the shared Canvas transf
   assert.equal(
     standaloneImageClipSchema.parse({
       ...imageClip,
-      props: { ...imageClip.props, width: 140, height: 120 },
+      content: {
+        ...imageClip.content,
+        aspectRatio: 2,
+        originalSize: { width: 1200, height: 600 },
+      },
+      props: {
+        ...imageClip.props,
+        width: 140,
+        height: 120,
+        flipHorizontal: true,
+      },
     }).props.width,
     140,
   );
+  const sizedAndFlipped = standaloneImageClipSchema.parse({
+    ...imageClip,
+    content: {
+      ...imageClip.content,
+      aspectRatio: 2,
+      originalSize: { width: 1200, height: 600 },
+    },
+    props: { ...imageClip.props, flipHorizontal: true },
+  });
+  assert.equal(sizedAndFlipped.props.flipHorizontal, true);
+  assert.deepEqual(sizedAndFlipped.content.originalSize, {
+    width: 1200,
+    height: 600,
+  });
+  assert.throws(() =>
+    standaloneImageClipSchema.parse({
+      ...imageClip,
+      content: { ...imageClip.content, originalSize: { width: 0, height: 20 } },
+    }),
+  );
+});
+
+test("Image Inspector offers a flip icon and reset-to-source-size action", () => {
+  const document = parseEditTimeline({
+    version: 1,
+    fps: 30,
+    durationInFrames: 360,
+    tracks: [{ id: "visuals", name: "Visuals" }],
+    clips: [imageClip],
+  });
+  const markup = renderToStaticMarkup(
+    createElement(InspectorView, {
+      manifest: {
+        id: "demo-project",
+        name: "Demo",
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        durationInFrames: 360,
+      } as never,
+      document,
+      clip: document.clips[0],
+      definition: serializableComponentInfo(standaloneImageModule),
+      onEdit: () => {},
+      onChangeProperty: () => {},
+      onChangeRange: () => {},
+      onDuplicate: () => {},
+      onDelete: () => {},
+    }),
+  );
+  assert.match(markup, /aria-label="Flip horizontally"/);
+  assert.match(markup, /Reset size/);
+  assert.doesNotMatch(markup, /type="checkbox"/);
 });
 
 test("Image selection and transforms use shared canonical Timeline v1 properties", () => {
@@ -140,4 +205,3 @@ test("Image waits for the live media map during preview initialization", () => {
     /Image asset image-forest is unavailable/,
   );
 });
-

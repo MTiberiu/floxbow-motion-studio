@@ -130,6 +130,12 @@ export const standaloneImageClipSchema = z
           .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
           .max(120),
         aspectRatio: z.number().finite().min(0.01).max(100).optional(),
+        originalSize: z
+          .object({
+            width: z.number().int().min(1).max(100_000),
+            height: z.number().int().min(1).max(100_000),
+          })
+          .optional(),
       })
       .passthrough(),
     props: z
@@ -154,6 +160,7 @@ export const standaloneImageClipSchema = z
           .default("center"),
         opacity: z.number().finite().min(0).max(1).default(1),
         fit: z.enum(["contain", "cover", "fill"]).default("contain"),
+        flipHorizontal: z.boolean().default(false),
       })
       .passthrough(),
   })
@@ -741,6 +748,13 @@ const imageFields: EditableField[] = [
     default: "contain",
     options: ["contain", "cover", "fill"],
   },
+  {
+    key: "flipHorizontal",
+    target: "props",
+    label: "Flip horizontally",
+    type: "boolean",
+    default: false,
+  },
 ];
 
 function StandaloneImage({
@@ -757,7 +771,17 @@ function StandaloneImage({
   if (!source && sources === undefined) return null;
   if (!source)
     throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
-  const { x, y, width, height, rotation, anchor, opacity, fit } = image.props;
+  const {
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    anchor,
+    opacity,
+    fit,
+    flipHorizontal,
+  } = image.props;
   const positions: Record<string, { translate: string; origin: string }> = {
     "top-left": { translate: "0, 0", origin: "top left" },
     "top-center": { translate: "-50%, 0", origin: "top center" },
@@ -772,9 +796,7 @@ function StandaloneImage({
   const position = positions[anchor];
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
-      <Img
-        data-image-asset-id={image.content.assetId}
-        src={source}
+      <div
         style={{
           position: "absolute",
           left: `${x}%`,
@@ -784,9 +806,22 @@ function StandaloneImage({
           transform: `translate(${position.translate}) rotate(${rotation}deg)`,
           transformOrigin: position.origin,
           opacity,
-          objectFit: fit,
         }}
-      />
+      >
+        <Img
+          data-image-asset-id={image.content.assetId}
+          src={source}
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            transform: flipHorizontal ? "scaleX(-1)" : undefined,
+            transformOrigin: "center",
+            objectFit: fit,
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 }
@@ -814,7 +849,9 @@ export const standaloneImageModule: EditableComponent = {
   component: StandaloneImage,
 };
 
-const characterFields: EditableField[] = [...imageFields];
+const characterFields: EditableField[] = imageFields.filter(
+  (field) => field.key !== "flipHorizontal",
+);
 
 function StandaloneCharacter({
   clip,
@@ -1066,56 +1103,56 @@ export function TimelineComposition({
       style={{ position: "absolute", inset: 0, overflow: "hidden" }}
     >
       <AbsoluteFill style={{ background: "#000000" }}>
-      {visualTracksInRenderOrder(t).flatMap((track) =>
-        track.visible === false
-          ? []
-          : t.clips
-              .filter((c) => c.trackId === track.id)
-              .map((clip) => {
-                if (
-                  clip.componentId === "soundtrack" ||
-                  clip.componentId === "video-audio"
-                )
-                  return null;
-                const definition = registeredComponents.find(
-                  (c) => c.id === clip.componentId,
-                );
-                if (!definition)
-                  throw new Error(`Unknown component ${clip.componentId}`);
-                const Element = definition.component;
-                return (
-                  <Sequence
-                    key={clip.id}
-                    from={clip.from}
-                    durationInFrames={clip.durationInFrames}
-                    name={clip.label}
-                  >
-                    <div
-                      data-flox-clip-id={clip.id}
-                      data-flox-track-id={track.id}
-                      data-flox-component-id={clip.componentId}
-                      style={{ display: "contents" }}
+        {visualTracksInRenderOrder(t).flatMap((track) =>
+          track.visible === false
+            ? []
+            : t.clips
+                .filter((c) => c.trackId === track.id)
+                .map((clip) => {
+                  if (
+                    clip.componentId === "soundtrack" ||
+                    clip.componentId === "video-audio"
+                  )
+                    return null;
+                  const definition = registeredComponents.find(
+                    (c) => c.id === clip.componentId,
+                  );
+                  if (!definition)
+                    throw new Error(`Unknown component ${clip.componentId}`);
+                  const Element = definition.component;
+                  return (
+                    <Sequence
+                      key={clip.id}
+                      from={clip.from}
+                      durationInFrames={clip.durationInFrames}
+                      name={clip.label}
                     >
-                      <FrameAwareComponent
-                        component={Element}
-                        clip={clip}
-                        imageSources={imageSources}
-                        videoSources={videoSources}
-                        assetGroups={t.assetGroups}
-                        sceneLocalStartFrame={
-                          clip.sceneId
-                            ? clip.from -
-                              (t.scenes?.find(
-                                (scene) => scene.id === clip.sceneId,
-                              )?.from ?? clip.from)
-                            : 0
-                        }
-                      />
-                    </div>
-                  </Sequence>
-                );
-              }),
-      )}
+                      <div
+                        data-flox-clip-id={clip.id}
+                        data-flox-track-id={track.id}
+                        data-flox-component-id={clip.componentId}
+                        style={{ display: "contents" }}
+                      >
+                        <FrameAwareComponent
+                          component={Element}
+                          clip={clip}
+                          imageSources={imageSources}
+                          videoSources={videoSources}
+                          assetGroups={t.assetGroups}
+                          sceneLocalStartFrame={
+                            clip.sceneId
+                              ? clip.from -
+                                (t.scenes?.find(
+                                  (scene) => scene.id === clip.sceneId,
+                                )?.from ?? clip.from)
+                              : 0
+                          }
+                        />
+                      </div>
+                    </Sequence>
+                  );
+                }),
+        )}
       </AbsoluteFill>
     </div>
   );

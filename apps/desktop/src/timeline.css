@@ -31,7 +31,9 @@
   border-bottom: 1px solid #303945;
   background: #1a2028;
 }
-.editor-toolbar { grid-row: 1; }
+.editor-toolbar {
+  grid-row: 1;
+}
 .editor-feedback {
   grid-row: 2;
   min-width: 0;
@@ -1265,6 +1267,119 @@
   flex-wrap: wrap;
   gap: 6px;
   margin: 10px 0;
+}
+.image-quick-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 8px 0 12px;
+}
+.image-quick-tools .icon-tool-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  padding: 4px;
+}
+.image-quick-tools .icon-tool-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.image-quick-tools .icon-tool-button[aria-pressed="true"] {
+  color: #e7f6d2;
+  background: #c5f18a24;
+  border-color: #8ebc65;
+}
+.image-size-error {
+  flex-basis: 100%;
+  color: #f3a8a8 !important;
+}
+.text-context-popup {
+  position: fixed;
+  z-index: 9999;
+  width: 292px;
+  box-sizing: border-box;
+  padding: 9px 11px 11px;
+  border: 1px solid #52637a;
+  border-radius: 9px;
+  background: #1b232d;
+  color: #e8eef6;
+  box-shadow: 0 12px 36px #0009;
+  font-size: 11px;
+}
+.text-context-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  margin: -2px -3px 7px;
+  padding: 1px 3px 6px;
+  border-bottom: 1px solid #334151;
+  cursor: move;
+  touch-action: none;
+  user-select: none;
+  font-weight: 650;
+}
+.text-context-popup-hint {
+  flex: 1;
+  color: #93a2b5;
+  font-size: 9px;
+  font-weight: 400;
+}
+.text-context-popup-header button {
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  border: 0;
+  color: #aebdce;
+  background: transparent;
+  font-size: 17px;
+  line-height: 1;
+}
+.text-context-popup > label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 7px;
+  color: #b6c3d6;
+}
+.text-context-popup textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 64px;
+  padding: 7px 8px;
+  border: 1px solid #425069;
+  border-radius: 5px;
+  background: #101824;
+  color: #e8eef6;
+  font: inherit;
+  line-height: 1.4;
+}
+.text-context-color-control > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.text-context-color-control input[type="color"] {
+  width: 42px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid #425069;
+  border-radius: 5px;
+  background: #101824;
+}
+.text-context-color-control output {
+  color: #9eafc3;
+  font:
+    10px ui-monospace,
+    monospace;
 }
 .preview-volume-control {
   display: inline-flex;
