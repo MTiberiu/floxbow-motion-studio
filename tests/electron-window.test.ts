@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import test from "node:test";
+import { parseEditTimeline } from "@motion/sdk/timeline";
 import { createWindowHost } from "../apps/desktop/electron/window-host.cjs";
 import {
   CHANNELS,
@@ -223,7 +224,12 @@ test("visual context IPC captures bounded Canvas pixels and limits access to the
     ...rect,
     x: 600,
   })) as { width: number; height: number };
-  assert.deepEqual(capturedRects[1], { x: 600, y: 20, width: 200, height: 180 });
+  assert.deepEqual(capturedRects[1], {
+    x: 600,
+    y: 20,
+    width: 200,
+    height: 180,
+  });
   assert.equal(clipped.width, 200);
   assert.equal(clipped.height, 180);
   await assert.rejects(
@@ -249,7 +255,10 @@ test("visual context IPC captures bounded Canvas pixels and limits access to the
     /exceeds the 8 MiB limit/,
   );
 
-  assert.equal(invoke(CHANNELS.copyVisualContext, primary, "request text"), true);
+  assert.equal(
+    invoke(CHANNELS.copyVisualContext, primary, "request text"),
+    true,
+  );
   assert.deepEqual(clipboardWrites, ["request text"]);
   assert.throws(
     () => invoke(CHANNELS.copyVisualContext, primary, "x".repeat(20_001)),
@@ -340,12 +349,25 @@ test("panel open contract is strict, bounded and rejects malformed identifiers",
 
 test("storyboard clipboard is bounded and primary-shell-only", () => {
   const { invoke, primary, clipboardWrites, windows } = createHarness();
-  assert.equal(invoke(CHANNELS.copyStoryboardContext, primary, "story".repeat(5000)), true);
+  assert.equal(
+    invoke(CHANNELS.copyStoryboardContext, primary, "story".repeat(5000)),
+    true,
+  );
   assert.equal(clipboardWrites[0].length, 25000);
-  assert.throws(() => invoke(CHANNELS.copyStoryboardContext, primary, "x".repeat(8_000_001)), /Invalid storyboard clipboard/);
-  assert.throws(() => invoke(CHANNELS.copyStoryboardContext, primary, "text", "extra"), /Invalid storyboard clipboard/);
+  assert.throws(
+    () =>
+      invoke(CHANNELS.copyStoryboardContext, primary, "x".repeat(8_000_001)),
+    /Invalid storyboard clipboard/,
+  );
+  assert.throws(
+    () => invoke(CHANNELS.copyStoryboardContext, primary, "text", "extra"),
+    /Invalid storyboard clipboard/,
+  );
   invoke(CHANNELS.openPanel, primary, request);
-  assert.throws(() => invoke(CHANNELS.copyStoryboardContext, windows[1], "child"), /not permitted for this window role/);
+  assert.throws(
+    () => invoke(CHANNELS.copyStoryboardContext, windows[1], "child"),
+    /not permitted for this window role/,
+  );
 });
 
 test("Timeline snapshots use a strict 1 MiB schema while control messages remain 4 KiB", () => {
@@ -418,6 +440,77 @@ test("Timeline snapshots use a strict 1 MiB schema while control messages remain
     isWithinMessageLimit("x".repeat(MAX_IPC_MESSAGE_BYTES + 1)),
     false,
   );
+});
+
+test("Timeline snapshot IPC accepts legacy and scene-aware v1 documents", () => {
+  const instanceId = request.sessionId;
+  const legacy = timelineSnapshot(instanceId);
+  assert.equal(isTimelineSnapshot(legacy), true);
+
+  const sceneAwareDocument = parseEditTimeline({
+    version: 1,
+    fps: 30,
+    durationInFrames: 180,
+    scenes: [
+      { id: "scene-a", name: "Scene A", from: 0, durationInFrames: 180 },
+    ],
+    sceneMoments: [
+      {
+        id: "moment-a",
+        sceneId: "scene-a",
+        name: "First pose",
+        atFrame: 30,
+        characterStates: [{ clipId: "andrei", poseEventId: "pose-neutral" }],
+      },
+    ],
+    assetGroups: [
+      {
+        id: "andrei-art",
+        name: "Andrei",
+        category: "characters",
+        members: [
+          {
+            id: "neutral",
+            assetId: "andrei-neutral",
+            label: "Neutral",
+            role: "pose",
+            offsetX: 0,
+            offsetY: 0,
+          },
+        ],
+      },
+    ],
+    tracks: [{ id: "visuals", name: "Visuals" }],
+    clips: [
+      {
+        id: "andrei",
+        trackId: "visuals",
+        sceneId: "scene-a",
+        componentId: "character",
+        label: "Andrei",
+        from: 0,
+        durationInFrames: 180,
+        content: {
+          groupId: "andrei-art",
+          poseEvents: [{ id: "pose-neutral", atFrame: 0, memberId: "neutral" }],
+        },
+        props: {},
+      },
+    ],
+  });
+  const sceneAware = timelineSnapshot(instanceId, {
+    document: sceneAwareDocument,
+  });
+  assert.equal(isTimelineSnapshot(sceneAware), true);
+  assert.equal(isWithinTimelineSnapshotLimit(sceneAware), true);
+
+  const invalidExtraField: any = structuredClone(sceneAware);
+  invalidExtraField.document.scenes[0].owner = "unexpected";
+  assert.equal(isTimelineSnapshot(invalidExtraField), false);
+
+  const invalidSceneReference: any = structuredClone(sceneAware);
+  invalidSceneReference.document.clips[0].sceneId = "missing-scene";
+  assert.equal(isTimelineSnapshot(invalidSceneReference), false);
 });
 
 test("Timeline commands and acknowledgments require a scoped command ID and exact schema", () => {

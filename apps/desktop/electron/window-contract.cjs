@@ -81,6 +81,108 @@ function isJsonValue(value, depth = 0) {
   );
 }
 
+const timelineIdPattern = /^[a-zA-Z0-9_-]{1,100}$/;
+
+function isTimelineId(value) {
+  return typeof value === "string" && timelineIdPattern.test(value);
+}
+
+function isTimelineScene(value) {
+  return (
+    hasExactKeys(value, ["id", "name", "from", "durationInFrames"]) &&
+    isTimelineId(value.id) &&
+    typeof value.name === "string" &&
+    value.name.length >= 1 &&
+    value.name.length <= 100 &&
+    Number.isInteger(value.from) &&
+    value.from >= 0 &&
+    Number.isInteger(value.durationInFrames) &&
+    value.durationInFrames >= 1
+  );
+}
+
+function isSceneMoment(value) {
+  if (
+    !hasExactKeys(value, [
+      "id",
+      "sceneId",
+      "name",
+      "atFrame",
+      "characterStates",
+    ]) ||
+    !isTimelineId(value.id) ||
+    !isTimelineId(value.sceneId) ||
+    typeof value.name !== "string" ||
+    value.name.length < 1 ||
+    value.name.length > 100 ||
+    !Number.isInteger(value.atFrame) ||
+    value.atFrame < 0 ||
+    !Array.isArray(value.characterStates) ||
+    value.characterStates.length > 200
+  )
+    return false;
+  const clipIds = new Set();
+  return value.characterStates.every((state) => {
+    if (
+      !hasExactKeys(state, ["clipId", "poseEventId"]) ||
+      !isTimelineId(state.clipId) ||
+      !isTimelineId(state.poseEventId) ||
+      clipIds.has(state.clipId)
+    )
+      return false;
+    clipIds.add(state.clipId);
+    return true;
+  });
+}
+
+function isVisualAssetGroup(value) {
+  if (
+    !hasExactKeys(value, ["id", "name", "category", "members"]) ||
+    !isTimelineId(value.id) ||
+    typeof value.name !== "string" ||
+    value.name.length < 1 ||
+    value.name.length > 100 ||
+    !["characters", "backgrounds", "props", "other"].includes(value.category) ||
+    !Array.isArray(value.members) ||
+    value.members.length < 1 ||
+    value.members.length > 100
+  )
+    return false;
+  const memberIds = new Set();
+  return value.members.every((member) => {
+    if (
+      !hasExactKeys(member, [
+        "id",
+        "assetId",
+        "label",
+        "role",
+        "offsetX",
+        "offsetY",
+      ]) ||
+      !isTimelineId(member.id) ||
+      typeof member.assetId !== "string" ||
+      member.assetId.length > 120 ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(member.assetId) ||
+      typeof member.label !== "string" ||
+      member.label.length < 1 ||
+      member.label.length > 100 ||
+      !["alternative", "pose"].includes(member.role) ||
+      typeof member.offsetX !== "number" ||
+      !Number.isFinite(member.offsetX) ||
+      member.offsetX < -100 ||
+      member.offsetX > 100 ||
+      typeof member.offsetY !== "number" ||
+      !Number.isFinite(member.offsetY) ||
+      member.offsetY < -100 ||
+      member.offsetY > 100 ||
+      memberIds.has(member.id)
+    )
+      return false;
+    memberIds.add(member.id);
+    return true;
+  });
+}
+
 function isTimelineDocument(value) {
   if (
     !isRecord(value) ||
@@ -94,6 +196,9 @@ function isTimelineDocument(value) {
           "fps",
           "durationInFrames",
           "trackOrder",
+          "scenes",
+          "sceneMoments",
+          "assetGroups",
           "tracks",
           "clips",
         ].includes(key),
@@ -146,11 +251,41 @@ function isTimelineDocument(value) {
       return false;
     tracks.add(track.id);
   }
+  if (
+    (value.scenes !== undefined &&
+      (!Array.isArray(value.scenes) ||
+        value.scenes.length > 256 ||
+        !value.scenes.every(isTimelineScene))) ||
+    (value.sceneMoments !== undefined &&
+      (!Array.isArray(value.sceneMoments) ||
+        value.sceneMoments.length > 2000 ||
+        !value.sceneMoments.every(isSceneMoment))) ||
+    (value.assetGroups !== undefined &&
+      (!Array.isArray(value.assetGroups) ||
+        value.assetGroups.length > 200 ||
+        !value.assetGroups.every(isVisualAssetGroup)))
+  )
+    return false;
   if (!Array.isArray(value.clips) || value.clips.length > 3000) return false;
   const clips = new Set();
   for (const clip of value.clips) {
+    if (!isRecord(clip)) return false;
+    const clipKeys = Object.keys(clip);
     if (
-      !hasExactKeys(clip, [
+      ![...clipKeys].every((key) =>
+        [
+          "id",
+          "trackId",
+          "sceneId",
+          "componentId",
+          "label",
+          "from",
+          "durationInFrames",
+          "content",
+          "props",
+        ].includes(key),
+      ) ||
+      ![
         "id",
         "trackId",
         "componentId",
@@ -159,7 +294,8 @@ function isTimelineDocument(value) {
         "durationInFrames",
         "content",
         "props",
-      ])
+      ].every((key) => Object.hasOwn(clip, key)) ||
+      (clip.sceneId !== undefined && !isTimelineId(clip.sceneId))
     )
       return false;
     if (
@@ -191,6 +327,98 @@ function isTimelineDocument(value) {
     )
       return false;
     clips.add(clip.id);
+  }
+  const sceneIds = new Set();
+  let previousSceneEnd = 0;
+  for (const [index, scene] of (value.scenes ?? []).entries()) {
+    const end = scene.from + scene.durationInFrames;
+    if (
+      sceneIds.has(scene.id) ||
+      end > value.durationInFrames ||
+      (index > 0 && scene.from < previousSceneEnd)
+    )
+      return false;
+    sceneIds.add(scene.id);
+    previousSceneEnd = end;
+  }
+  const assetGroups = value.assetGroups ?? [];
+  const assetGroupIds = new Set();
+  for (const group of assetGroups) {
+    if (assetGroupIds.has(group.id)) return false;
+    assetGroupIds.add(group.id);
+  }
+  for (const clip of value.clips) {
+    if (clip.sceneId !== undefined) {
+      const scene = (value.scenes ?? []).find(
+        (item) => item.id === clip.sceneId,
+      );
+      if (
+        !scene ||
+        clip.from < scene.from ||
+        clip.from + clip.durationInFrames > scene.from + scene.durationInFrames
+      )
+        return false;
+    }
+  }
+  const momentIds = new Set();
+  for (const moment of value.sceneMoments ?? []) {
+    const scene = (value.scenes ?? []).find(
+      (item) => item.id === moment.sceneId,
+    );
+    if (
+      momentIds.has(moment.id) ||
+      !scene ||
+      moment.atFrame >= scene.durationInFrames
+    )
+      return false;
+    momentIds.add(moment.id);
+    for (const state of moment.characterStates) {
+      const clip = value.clips.find((item) => item.id === state.clipId);
+      const event = Array.isArray(clip?.content?.poseEvents)
+        ? clip.content.poseEvents.find((item) => item?.id === state.poseEventId)
+        : undefined;
+      if (
+        !clip ||
+        clip.componentId !== "character" ||
+        clip.sceneId !== moment.sceneId ||
+        !event ||
+        typeof event.atFrame !== "number" ||
+        event.atFrame > moment.atFrame
+      )
+        return false;
+    }
+  }
+  for (const clip of value.clips) {
+    if (clip.componentId !== "character") continue;
+    const group = assetGroups.find((item) => item.id === clip.content.groupId);
+    const events = clip.content.poseEvents;
+    if (!group || (events !== undefined && !Array.isArray(events)))
+      return false;
+    if (!Array.isArray(events)) continue;
+    const scene = clip.sceneId
+      ? (value.scenes ?? []).find((item) => item.id === clip.sceneId)
+      : undefined;
+    let previousFrame = -1;
+    const eventIds = new Set();
+    for (const event of events) {
+      if (!isRecord(event)) return false;
+      const maxFrame = scene ? scene.durationInFrames : clip.durationInFrames;
+      const minFrame = scene ? clip.from - scene.from : 0;
+      if (
+        !isTimelineId(event.id) ||
+        eventIds.has(event.id) ||
+        !Number.isInteger(event.atFrame) ||
+        event.atFrame < minFrame ||
+        event.atFrame >= maxFrame ||
+        event.atFrame <= previousFrame ||
+        !group.members.some(
+          (member) => member.id === event.memberId && member.role === "pose",
+        )
+      )
+        return false;
+      eventIds.add(event.id);
+      previousFrame = event.atFrame;
+    }
   }
   return isWithinTimelineSnapshotLimit(value);
 }
