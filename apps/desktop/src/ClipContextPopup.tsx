@@ -24,6 +24,13 @@ export function ClipContextPopup({
   canDuplicate,
   canDelete,
   timelineView,
+  frame,
+  visualRequest,
+  onVisualRequestChange,
+  onSendVisualContext,
+  visualContextBusy,
+  visualContextStatus,
+  canSendVisualContext,
   onClose,
 }: {
   clip: TimelineClip;
@@ -41,6 +48,13 @@ export function ClipContextPopup({
   canDuplicate: boolean;
   canDelete: boolean;
   timelineView: ReactNode;
+  frame: number;
+  visualRequest: string;
+  onVisualRequestChange: (value: string) => void;
+  onSendVisualContext: () => void;
+  visualContextBusy: boolean;
+  visualContextStatus: string;
+  canSendVisualContext: boolean;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -52,9 +66,11 @@ export function ClipContextPopup({
     clampPosition(initialPosition),
   );
   const [resettingImageSize, setResettingImageSize] = useState(false);
+  const [activeTab, setActiveTab] = useState<"edit" | "ai-context">("edit");
 
   useEffect(() => {
     setPosition(clampPosition(initialPosition));
+    setActiveTab("edit");
   }, [clip.id, initialPosition.x, initialPosition.y]);
 
   useEffect(() => {
@@ -128,120 +144,198 @@ export function ClipContextPopup({
           ×
         </button>
       </div>
-      {clip.componentId === "text" || clip.componentId === "subtitles" ? (
-        <>
-          <label>
-            Text content
-            <textarea
-              aria-label="Text content"
-              value={text}
-              maxLength={20_000}
-              rows={3}
-              onChange={(event) =>
-                onChangeText(clip.id, event.currentTarget.value)
-              }
-            />
-          </label>
-          <label className="text-context-color-control">
-            Text color
-            <span>
-              <input
-                aria-label="Text color"
-                type="color"
-                value={color}
-                onChange={(event) =>
-                  onChangeColor(clip.id, event.currentTarget.value)
-                }
-              />
-              <output>{color.toUpperCase()}</output>
-            </span>
-          </label>
-          <label className="text-context-font-size-control">
-            Font size
-            <input
-              aria-label="Font size"
-              type="number"
-              min={clip.componentId === "subtitles" ? 12 : 8}
-              max={clip.componentId === "subtitles" ? 220 : 500}
-              step={1}
-              value={Number(
-                clip.props.fontSize ??
-                  (clip.componentId === "subtitles" ? 68 : 72),
-              )}
-              disabled={!canEditClip}
-              onChange={(event) => {
-                const value = Number(event.currentTarget.value);
-                if (Number.isFinite(value)) onChangeFontSize(clip.id, value);
-              }}
-            />
-          </label>
-        </>
-      ) : (
-        <div className="clip-context-summary">
-          <span>{clip.componentId}</span>
-          <strong>{clip.label || String(clip.content.text ?? clip.id)}</strong>
-        </div>
-      )}
-      {clip.componentId === "image" && (
-        <div
-          className="clip-context-image-actions editor-icon-actions"
-          aria-label="Image actions"
+      <div className="clip-context-tabs" role="tablist" aria-label="Clip tools">
+        <button
+          id="clip-edit-tab"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "edit"}
+          aria-controls="clip-edit-panel"
+          onClick={() => setActiveTab("edit")}
         >
-          <EditorIconButton
-            icon="center"
-            label="Center on Canvas"
-            disabled={!canEditClip}
-            onClick={() => onImagePreset(clip.id, "center")}
-          />
-          <EditorIconButton
-            icon="fit"
-            label="Fit inside Canvas"
-            disabled={!canEditClip}
-            onClick={() => onImagePreset(clip.id, "fit")}
-          />
-          <EditorIconButton
-            icon="fill"
-            label="Fill Canvas"
-            disabled={!canEditClip}
-            onClick={() => onImagePreset(clip.id, "fill")}
-          />
-          <EditorIconButton
-            icon="flip"
-            label="Flip horizontally"
-            aria-pressed={clip.props.flipHorizontal === true}
-            disabled={!canEditClip}
-            onClick={() => onImagePreset(clip.id, "flip")}
-          />
-          <EditorIconButton
-            icon="reset"
-            label={
-              resettingImageSize
-                ? "Reading original image size"
-                : "Reset size to original image dimensions"
+          Edit
+        </button>
+        <button
+          id="clip-ai-context-tab"
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "ai-context"}
+          aria-controls="clip-ai-context-panel"
+          onClick={() => setActiveTab("ai-context")}
+        >
+          AI Visual Context
+        </button>
+      </div>
+      {activeTab === "edit" ? (
+        <section
+          id="clip-edit-panel"
+          className="clip-context-tab-panel"
+          role="tabpanel"
+          aria-labelledby="clip-edit-tab"
+        >
+          {clip.componentId === "text" || clip.componentId === "subtitles" ? (
+            <>
+              <label>
+                Text content
+                <textarea
+                  aria-label="Text content"
+                  value={text}
+                  maxLength={20_000}
+                  rows={3}
+                  onChange={(event) =>
+                    onChangeText(clip.id, event.currentTarget.value)
+                  }
+                />
+              </label>
+              <label className="text-context-color-control">
+                Text color
+                <span>
+                  <input
+                    aria-label="Text color"
+                    type="color"
+                    value={color}
+                    onChange={(event) =>
+                      onChangeColor(clip.id, event.currentTarget.value)
+                    }
+                  />
+                  <output>{color.toUpperCase()}</output>
+                </span>
+              </label>
+              <label className="text-context-font-size-control">
+                Font size
+                <input
+                  aria-label="Font size"
+                  type="number"
+                  min={clip.componentId === "subtitles" ? 12 : 8}
+                  max={clip.componentId === "subtitles" ? 220 : 500}
+                  step={1}
+                  value={Number(
+                    clip.props.fontSize ??
+                      (clip.componentId === "subtitles" ? 68 : 72),
+                  )}
+                  disabled={!canEditClip}
+                  onChange={(event) => {
+                    const value = Number(event.currentTarget.value);
+                    if (Number.isFinite(value)) onChangeFontSize(clip.id, value);
+                  }}
+                />
+              </label>
+            </>
+          ) : (
+            <div className="clip-context-summary">
+              <span>{clip.componentId}</span>
+              <strong>
+                {clip.label || String(clip.content.text ?? clip.id)}
+              </strong>
+            </div>
+          )}
+          {clip.componentId === "image" && (
+            <div
+              className="clip-context-image-actions editor-icon-actions"
+              aria-label="Image actions"
+            >
+              <EditorIconButton
+                icon="center"
+                label="Center on Canvas"
+                disabled={!canEditClip}
+                onClick={() => onImagePreset(clip.id, "center")}
+              />
+              <EditorIconButton
+                icon="fit"
+                label="Fit inside Canvas"
+                disabled={!canEditClip}
+                onClick={() => onImagePreset(clip.id, "fit")}
+              />
+              <EditorIconButton
+                icon="fill"
+                label="Fill Canvas"
+                disabled={!canEditClip}
+                onClick={() => onImagePreset(clip.id, "fill")}
+              />
+              <EditorIconButton
+                icon="flip"
+                label="Flip horizontally"
+                aria-pressed={clip.props.flipHorizontal === true}
+                disabled={!canEditClip}
+                onClick={() => onImagePreset(clip.id, "flip")}
+              />
+              <EditorIconButton
+                icon="reset"
+                label={
+                  resettingImageSize
+                    ? "Reading original image size"
+                    : "Reset size to original image dimensions"
+                }
+                disabled={!canEditClip || resettingImageSize}
+                onClick={() => {
+                  setResettingImageSize(true);
+                  void onResetImageSize(clip.id).finally(() =>
+                    setResettingImageSize(false),
+                  );
+                }}
+              />
+              <EditorIconButton
+                icon="duplicate"
+                label="Duplicate clip"
+                disabled={!canDuplicate}
+                onClick={() => onClipOperation(clip.id, "duplicate")}
+              />
+              <EditorIconButton
+                icon="delete"
+                label="Delete clip"
+                disabled={!canDelete}
+                onClick={() => onClipOperation(clip.id, "delete")}
+              />
+            </div>
+          )}
+          {timelineView}
+        </section>
+      ) : (
+        <section
+          id="clip-ai-context-panel"
+          className="clip-context-tab-panel clip-context-ai-panel"
+          role="tabpanel"
+          aria-labelledby="clip-ai-context-tab"
+        >
+          <div className="clip-context-ai-heading">
+            <strong>AI Visual Context</strong>
+            <span>
+              Frame {frame} · {clip.label || clip.componentId}
+            </span>
+          </div>
+          <label htmlFor="clip-ai-context-request">
+            What should the AI know about this element?
+          </label>
+          <textarea
+            id="clip-ai-context-request"
+            aria-label="AI visual context details"
+            value={visualRequest}
+            maxLength={4000}
+            rows={4}
+            placeholder="Describe the visual change or details you want the AI to use…"
+            onChange={(event) =>
+              onVisualRequestChange(event.currentTarget.value)
             }
-            disabled={!canEditClip || resettingImageSize}
-            onClick={() => {
-              setResettingImageSize(true);
-              void onResetImageSize(clip.id).finally(() =>
-                setResettingImageSize(false),
-              );
-            }}
           />
-          <EditorIconButton
-            icon="duplicate"
-            label="Duplicate clip"
-            disabled={!canDuplicate}
-            onClick={() => onClipOperation(clip.id, "duplicate")}
-          />
-          <EditorIconButton
-            icon="delete"
-            label="Delete clip"
-            disabled={!canDelete}
-            onClick={() => onClipOperation(clip.id, "delete")}
-          />
-        </div>
+          <button
+            className="clip-context-send"
+            type="button"
+            onClick={onSendVisualContext}
+            disabled={
+              !canSendVisualContext || visualContextBusy || !visualRequest.trim()
+            }
+          >
+            {visualContextBusy ? "Preparing…" : "Send"}
+          </button>
+          <p className="clip-context-ai-note">
+            Captures this Canvas frame and prepares your note for an AI request.
+            Direct AI sending is not connected yet.
+          </p>
+          <span className="clip-context-ai-status" role="status">
+            {visualContextStatus}
+          </span>
+        </section>
       )}
-      {timelineView}
     </div>,
     document.body,
   );

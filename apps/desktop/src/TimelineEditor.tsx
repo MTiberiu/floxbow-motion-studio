@@ -247,8 +247,18 @@ export function TimelineEditor({
     ? timelinePlaybackEnd(doc, playToProjectEnd)
     : manifest.durationInFrames;
   playPreviewRef.current = () => sessionRef.current.commands.play();
-  async function prepareVisualContext() {
-    if (!doc || !visualRequest.trim() || !window.floxBowWindows) return;
+  async function prepareVisualContext(options: {
+    clipId?: string;
+    copyToClipboard?: boolean;
+  } = {}) {
+    const request = visualRequest.trim();
+    if (!doc || !request || !window.floxBowWindows) return;
+    const contextClipId = options.clipId ?? selected;
+    const selectedClip = doc.clips.find(
+      (item) => item.id === contextClipId,
+    );
+    const captureFrame =
+      options.clipId !== undefined ? (selectedClip?.from ?? frame) : frame;
     const surface = canvasSurface.current;
     const stage = surface?.closest<HTMLElement>(".preview-stage");
     if (!surface || !stage) {
@@ -259,7 +269,7 @@ export function TimelineEditor({
     setVisualContextStatus("Inspecting the current frame…");
     try {
       pause();
-      seek(frame);
+      seek(captureFrame);
       const requestId = crypto.randomUUID();
       const inspection = await new Promise<{
         frame: number;
@@ -316,7 +326,6 @@ export function TimelineEditor({
         width: Math.ceil(right) - Math.floor(left),
         height: Math.ceil(bottom) - Math.floor(top),
       });
-      const selectedClip = doc.clips.find((item) => item.id === selected);
       const trackNames = new Map(
         doc.tracks.map((track) => [track.id, track.name]),
       );
@@ -369,7 +378,7 @@ export function TimelineEditor({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          request: visualRequest.trim(),
+          request,
           frame: inspection.frame,
           fps: inspection.fps,
           durationInFrames: inspection.durationInFrames,
@@ -377,7 +386,7 @@ export function TimelineEditor({
           height: inspection.height,
           revision: snapshot.revision,
           stateVersion: snapshot.stateVersion,
-          selectedClipId: selected,
+          selectedClipId: contextClipId,
           selectedClipLabel: selectedClip?.label ?? "",
           dirty: snapshot.dirty,
           nodes: inspection.nodes,
@@ -391,13 +400,16 @@ export function TimelineEditor({
         inspection: string;
         copiedText: string;
       };
-      await window.floxBowWindows.copyVisualContext(saved.copiedText);
+      if (options.copyToClipboard !== false)
+        await window.floxBowWindows.copyVisualContext(saved.copiedText);
       setVisualContextPaths({
         screenshot: saved.screenshot,
         inspection: saved.inspection,
       });
       setVisualContextStatus(
-        `Context saved and copied for frame ${inspection.frame} (${(inspection.frame / inspection.fps).toFixed(2)} s).`,
+        options.copyToClipboard === false
+          ? `Context prepared for frame ${inspection.frame} (${(inspection.frame / inspection.fps).toFixed(2)} s). Direct AI sending is not connected yet.`
+          : `Context saved and copied for frame ${inspection.frame} (${(inspection.frame / inspection.fps).toFixed(2)} s).`,
       );
     } catch (error) {
       setVisualContextStatus(
@@ -2731,6 +2743,18 @@ export function TimelineEditor({
             !contextTrackLocked &&
             canPerformTimelineOperation(textContextClip, "delete", components)
           }
+          frame={frame}
+          visualRequest={visualRequest}
+          onVisualRequestChange={setVisualRequest}
+          onSendVisualContext={() =>
+            void prepareVisualContext({
+              clipId: textContextClip.id,
+              copyToClipboard: false,
+            })
+          }
+          visualContextBusy={visualContextBusy}
+          visualContextStatus={visualContextStatus}
+          canSendVisualContext={Boolean(doc) && !built}
           timelineView={
             doc && textContextTrack ? (
               <TimelineView
