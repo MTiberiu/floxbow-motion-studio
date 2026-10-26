@@ -102,6 +102,52 @@ const objectSchema = z
     referenceIds: z.array(id).max(500),
   })
   .strict();
+const actionPoseSchema = z.object({
+  id,
+  libraryPoseId: id.optional(),
+  name: z.string().min(1).max(120),
+  note,
+  status: z.enum(["needed", "supplied", "generated"]),
+  referenceId: id.nullable(),
+}).strict();
+const actionPlanSchema = z
+  .object({
+    id,
+    libraryActionId: id,
+    libraryActionName: z.string().min(1).max(160),
+    type: z.enum(["walk", "run", "jump", "dance", "idle", "custom"]),
+    sceneId: id,
+    objectId: id,
+    fromSetId: id,
+    toSetId: id.nullable(),
+    start: seconds.nullable(),
+    duration: z.number().positive().max(86400).nullable(),
+    loop: z.boolean(),
+    direction: note,
+    view: note,
+    poseGuidance: note,
+    poses: z.array(actionPoseSchema).max(40),
+    note,
+    status: z.enum(["planned", "requested", "assets-ready"]),
+  })
+  .strict();
+const aiImageRequestSchema = z
+  .object({
+    id,
+    kind: z.enum(["generate", "revise"]),
+    sceneId: id,
+    setId: id,
+    objectId: id,
+    representationId: id,
+    sourceReferenceId: id.nullable(),
+    outputReferenceId: id,
+    outputFile: z
+      .string()
+      .regex(/^assets\/storyboard\/references\/[a-z0-9-]+\.png$/),
+    instruction: note,
+    status: z.enum(["pending", "completed", "cancelled"]),
+  })
+  .strict();
 const sceneSchema = z
   .object({
     id,
@@ -133,13 +179,23 @@ export const storyboardSchema = z
           .object({
             id,
             assetId: id,
+            file: z
+              .string()
+              .regex(/^assets\/storyboard\/references\/[a-z0-9-]+\.png$/)
+              .optional(),
             name: z.string().min(1).max(200),
             category: note,
             description: note,
+            origin: z.enum(["user", "ai"]).optional(),
+            prompt: note.optional(),
+            basedOnReferenceIds: z.array(id).max(100).optional(),
+            requestId: id.optional(),
           })
           .strict(),
       )
       .max(2000),
+    aiRequests: z.array(aiImageRequestSchema).max(1000).default([]),
+    actionPlans: z.array(actionPlanSchema).max(1000).default([]),
     briefs: z
       .array(
         z
@@ -174,6 +230,18 @@ export const storyboardSchema = z
             message: `Unknown reference: ${value}`,
           });
       });
+    doc.references.forEach((reference) => {
+      if (
+        reference.file &&
+        reference.file !==
+          `assets/storyboard/references/${reference.id}.png`
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "Reference file path must match its stable ID",
+        });
+      link(reference.basedOnReferenceIds ?? []);
+    });
     doc.references.forEach((r) => check(r.id));
     doc.scenes.forEach((scene) => {
       check(scene.id);
@@ -220,6 +288,75 @@ export const storyboardSchema = z
       if (!doc.scenes.some((s) => s.id === b.sceneId))
         ctx.addIssue({ code: "custom", message: "Brief scene is missing" });
     });
+    const requestIds = new Set(doc.aiRequests.map((request) => request.id));
+    doc.actionPlans.forEach((action) => {
+      check(action.id);
+      const scene = doc.scenes.find((candidate) => candidate.id === action.sceneId);
+      if (!scene?.objects.some((object) => object.id === action.objectId))
+        ctx.addIssue({ code: "custom", message: "Motion plan story object is missing" });
+      if (!scene?.sets.some((candidate) => candidate.id === action.fromSetId))
+        ctx.addIssue({ code: "custom", message: "Motion plan starting Set is missing" });
+      if (action.toSetId && !scene?.sets.some((candidate) => candidate.id === action.toSetId))
+        ctx.addIssue({ code: "custom", message: "Motion plan destination Set is missing" });
+      action.poses.forEach((pose) => {
+        check(pose.id);
+        if (pose.referenceId) link([pose.referenceId]);
+      });
+    });
+    doc.aiRequests.forEach((request) => {
+      check(request.id);
+      const scene = doc.scenes.find((candidate) => candidate.id === request.sceneId);
+      const set = scene?.sets.find((candidate) => candidate.id === request.setId);
+      const representation = set?.representations.find(
+        (candidate) => candidate.id === request.representationId,
+      );
+      const object = scene?.objects.find((candidate) => candidate.id === request.objectId);
+      if (!scene || !set)
+        ctx.addIssue({ code: "custom", message: "AI image request Set is missing" });
+      if (!scene?.objects.some((object) => object.id === request.objectId))
+        ctx.addIssue({ code: "custom", message: "AI image request object is missing" });
+      if (representation?.objectId !== request.objectId)
+        ctx.addIssue({ code: "custom", message: "AI image request target changed" });
+      if (request.sourceReferenceId && !refs.has(request.sourceReferenceId))
+        ctx.addIssue({ code: "custom", message: "AI image request source is missing" });
+      if (
+        request.sourceReferenceId &&
+        !object?.referenceIds.includes(request.sourceReferenceId) &&
+        representation?.referenceId !== request.sourceReferenceId
+      )
+        ctx.addIssue({ code: "custom", message: "AI image request source is not linked to its object" });
+      if (
+        request.outputFile !==
+        `assets/storyboard/references/${request.outputReferenceId}.png`
+      )
+        ctx.addIssue({ code: "custom", message: "AI output path must match its reference ID" });
+      if (
+        request.status === "completed" &&
+        !refs.has(request.outputReferenceId)
+      )
+        ctx.addIssue({ code: "custom", message: "Completed AI image request has no output" });
+      if (request.status === "completed") {
+        const output = doc.references.find((reference) => reference.id === request.outputReferenceId);
+        if (
+          output?.origin !== "ai" ||
+          output.requestId !== request.id ||
+          output.file !== request.outputFile
+        )
+          ctx.addIssue({ code: "custom", message: "AI request output provenance does not match" });
+        if (
+          !set?.representations.some(
+            (candidate) => candidate.objectId === request.objectId && candidate.referenceId === request.outputReferenceId,
+          )
+        )
+          ctx.addIssue({ code: "custom", message: "AI output must add a new representation of the requested object" });
+      }
+    });
+    doc.references.forEach((reference) => {
+      if (reference.requestId && !requestIds.has(reference.requestId))
+        ctx.addIssue({ code: "custom", message: "Generated reference request is missing" });
+      if (reference.origin === "ai" && !reference.requestId)
+        ctx.addIssue({ code: "custom", message: "Generated reference needs its AI request ID" });
+    });
   });
 export type Storyboard = z.infer<typeof storyboardSchema>;
 export type StoryScene = Storyboard["scenes"][number];
@@ -235,6 +372,8 @@ export const emptyStoryboard = (
   composition,
   scenes: [],
   references: [],
+  aiRequests: [],
+  actionPlans: [],
   briefs: [],
 });
 export const newSet = (id: string, name: string): StorySet => ({
@@ -267,6 +406,7 @@ export const newScene = (id: string, name: string): StoryScene => ({
 export function sceneFingerprint(doc: Storyboard, scene: StoryScene) {
   const text = JSON.stringify({
     scene,
+    actionPlans: doc.actionPlans.filter((action) => action.sceneId === scene.id),
     references: doc.references,
     composition: doc.composition,
   });
@@ -317,8 +457,8 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
     "Timing is approximate unless linked to source audio. Sketches describe intent, not final artwork.",
     `Aspect ratio: ${format.width}:${format.height} (${format.width / format.height}). Total scene estimates: ${doc.scenes.reduce((sum, s) => sum + (s.duration ?? 0), 0)} seconds${doc.scenes.some((s) => s.duration === null) ? "; incomplete — some estimates unspecified" : ""}. All sketch/reference opacity is authoring presentation, not a final animation instruction.`,
     "",
-    "## Instructions for the external AI Director",
-    "Preserve original instructions and stable identities. Propose timing, camera and motion separately. Identify uncertainty; do not invent word timing. Return Scene and Set IDs with your suggestions. Images are in the full context package.",
+    "## Instructions for the AI Director",
+    "Preserve original instructions and stable identities. Propose timing, camera and motion separately. Identify uncertainty; do not invent word timing. Return Scene, Set, object, representation, reference and request IDs with suggestions. Reference files use project-relative paths in storyboard.json.",
   ];
   for (const scene of doc.scenes) {
     lines.push(
@@ -363,6 +503,10 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
         lines.push(
           `Tracing aid: ${set.tracing.referenceId}, editor opacity ${set.tracing.opacity}. This opacity is NOT an animation direction.`,
         );
+      for (const action of doc.actionPlans.filter((action) => action.sceneId === scene.id && action.fromSetId === set.id))
+        lines.push(
+          `Motion library set ${action.libraryActionName} (${action.type}; ${action.libraryActionId}) attached as plan ${action.id} for ${scene.objects.find((object) => object.id === action.objectId)?.name ?? action.objectId}: ${action.fromSetId} -> ${action.toSetId ?? "continues after final Set"}; starts around ${action.start ?? set.start ?? "unknown"}s; duration ${action.duration ?? "unspecified"}s; loop ${action.loop ? "yes" : "no"}; direction ${action.direction || "unspecified"}; view ${action.view || "unspecified"}; pose guidance ${action.poseGuidance || "AI may suggest poses"}; status ${action.status}. ${action.note}\n${action.poses.map((pose, index) => `  ${index + 1}. ${pose.name} [${pose.status}]${pose.referenceId ? ` · reference ${pose.referenceId}` : ""}: ${pose.note}`).join("\n")}`,
+        );
       for (const r of set.representations)
         lines.push(
           `- Representation ${r.id}: ${scene.objects.find((o) => o.id === r.objectId)?.name ?? "Unassigned sketch"} (${r.objectId ?? "no identity"}); ${r.visible ? "visible" : "hidden"}; zOrder ${r.zOrder}; top-left x=${r.x}%, y=${r.y}%, width=${r.width}%, height=${r.height}%; rotation ${r.rotation} degrees around bounds center; coordinateSpace ${r.coordinateSpace}. ${r.spatialNote} Text: ${r.text}; reference ${r.referenceId ?? "none"}.`,
@@ -386,8 +530,18 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
   lines.push("## The source references");
   doc.references.forEach((r) =>
     lines.push(
-      `- ${r.name} (${r.id}), ${r.category}: ${r.description}. Media ID ${r.assetId}; see package manifest for availability and file.`,
+      `- ${r.name} (${r.id}), ${r.category}: ${r.description}. Origin ${r.origin ?? "user"}; project file ${r.file ?? "not saved yet"}; source media ID ${r.assetId}; request ${r.requestId ?? "none"}.`,
     ),
   );
+  if (doc.aiRequests.length) {
+    lines.push("## AI image requests");
+    doc.aiRequests.forEach((request) => {
+      const targetScene = doc.scenes.find((candidate) => candidate.id === request.sceneId);
+      const targetObject = targetScene?.objects.find((candidate) => candidate.id === request.objectId);
+      lines.push(
+        `- ${request.kind} ${request.id} [${request.status}] for ${targetObject?.name ?? request.objectId} (${request.objectId}), Scene ${request.sceneId}, Set ${request.setId}, representation ${request.representationId}; source reference ${request.sourceReferenceId ?? "none"}; output reference ${request.outputReferenceId} at ${request.outputFile}. ${request.instruction}`,
+      );
+    });
+  }
   return lines.join("\n\n");
 }

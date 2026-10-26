@@ -24,15 +24,47 @@ export function changeTimelineClipRangeWithRipple(
   const oldEnd = clip.from + clip.durationInFrames;
   const newEnd = safeFrom + safeDuration;
   const delta = newEnd - oldEnd;
-  if (!ripple || !trim || delta === 0 || clip.componentId === "soundtrack")
+  if (!ripple || !trim || delta === 0 || clip.componentId === "soundtrack") {
+    let rangeDocument = document;
+    const scene = clip.sceneId
+      ? document.scenes?.find((item) => item.id === clip.sceneId)
+      : undefined;
+    const sceneEnd = scene ? scene.from + scene.durationInFrames : undefined;
+    if (trim && scene && sceneEnd !== undefined && newEnd > sceneEnd) {
+      const extension = newEnd - sceneEnd;
+      if (document.durationInFrames + extension > MAX_TIMELINE_DURATION_FRAMES)
+        throw new Error("The maximum project duration has been reached.");
+      const laterSceneIds = new Set(
+        document.scenes
+          ?.filter((item) => item.from >= sceneEnd)
+          .map((item) => item.id),
+      );
+      rangeDocument = {
+        ...document,
+        durationInFrames: document.durationInFrames + extension,
+        scenes: document.scenes?.map((item) =>
+          item.id === scene.id
+            ? { ...item, durationInFrames: item.durationInFrames + extension }
+            : laterSceneIds.has(item.id)
+              ? { ...item, from: item.from + extension }
+              : item,
+        ),
+        clips: document.clips.map((item) =>
+          item.sceneId && laterSceneIds.has(item.sceneId)
+            ? { ...item, from: item.from + extension }
+            : item,
+        ),
+      };
+    }
     return changeClipRangeWithDurationExtension(
-      document,
+      rangeDocument,
       clipId,
       safeFrom,
       newEnd,
       trim,
       behavior,
     );
+  }
 
   const sameScope = (candidate: (typeof document.clips)[number]) =>
     candidate.id !== clip.id && candidate.sceneId === clip.sceneId;

@@ -2,31 +2,44 @@ import { createServer as createViteServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import http from "node:http";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { discover, safeFile } from "@motion/project-loader";
 import { readEditor, saveEditor } from "./editor-store";
-import { readStoryboard, saveStoryboard, storyboardTiming } from "./storyboard-store";
+import {
+  readStoryboard,
+  saveStoryboard,
+  storyboardTiming,
+} from "./storyboard-store";
 import {
   publicMediaAvailability,
   readMediaRegistry,
   readMediaWithAvailability,
   registerMediaAsset,
+  registerPoseStudioPngs,
   removeMediaAsset,
 } from "./media-store";
 import { pickMediaFile } from "./audio-file-picker";
 import { createProject } from "./project-scaffold";
-import { streamRegisteredImage, streamRegisteredMedia } from "./media-stream";
+import {
+  streamRegisteredImage,
+  streamRegisteredMedia,
+  streamStoryboardReference,
+} from "./media-stream";
 import { probeAudioDuration } from "./audio-probe";
 import { probeVideo } from "./video-probe";
 import { resolveMedia } from "@motion/project-loader/media";
 import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
 import { transcribeAudioWithWhisper } from "./whisper-service";
 import { transcribeVideoClipAudio } from "./video-transcription";
-import {
-  readProjectSettings,
-  saveProjectCanvasSize,
-} from "./project-settings";
+import { readProjectSettings, saveProjectCanvasSize } from "./project-settings";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
 const mime: Record<string, string> = {
@@ -42,7 +55,7 @@ const mime: Record<string, string> = {
   ".mp4": "video/mp4",
 };
 const shellCsp = (preview: string) =>
-  `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://127.0.0.1:*; frame-src ${preview}; object-src 'none'; base-uri 'none'`;
+  `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:*; frame-src ${preview}; object-src 'none'; base-uri 'none'`;
 const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 export type ServerOptions = {
@@ -141,28 +154,88 @@ export async function startServers(
           isShell ? shellCsp(previewOrigin) : previewCsp,
         );
         res.setHeader("Cache-Control", "no-store");
-        const storyboardRoute = isShell && /^\/api\/storyboard\/([a-z0-9-]+)(?:\/(timing|media)\/??([a-z0-9-]+)?)?$/.exec(pathname);
+        const storyboardRoute =
+          isShell &&
+          /^\/api\/storyboard\/([a-z0-9-]+)(?:\/(timing|media)\/??([a-z0-9-]+)?)?$/.exec(
+            pathname,
+          );
         if (storyboardRoute) {
           const [, id, action, assetId] = storyboardRoute;
-          const project = (await getProjects()).find((p: { id: string }) => p.id === id);
+          const project = (await getProjects()).find(
+            (p: { id: string }) => p.id === id,
+          );
           if (!project?.manifest) throw new Error("Unknown storyboard project");
           await safeFile(projectsDir, `${id}/project.json`);
           const projectRoot = path.join(projectsDir, id);
           if (req.method === "GET") {
-            if (action === "media" && assetId) { await streamRegisteredMedia(projectRoot, assetId, req.headers.range, res); return; }
+            if (action === "media" && assetId) {
+              await streamStoryboardReference(
+                projectRoot,
+                assetId,
+                res,
+                new URL(req.url ?? "/", "http://localhost").searchParams.get(
+                  "assetId",
+                ) ?? undefined,
+              );
+              return;
+            }
             res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify(action === "timing" ? await storyboardTiming(projectRoot, project.manifest) : await readStoryboard(projectRoot, id)));
+            res.end(
+              JSON.stringify(
+                action === "timing"
+                  ? await storyboardTiming(projectRoot, project.manifest)
+                  : await readStoryboard(projectRoot, id),
+              ),
+            );
             return;
           }
-          if (req.method !== "PUT" || action) { res.writeHead(405).end(); return; }
-          if (built) { res.writeHead(409).end("Storyboard editing requires the live development workspace."); return; }
-          if (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json")) { res.writeHead(403).end("Only the studio shell can save storyboards"); return; }
+          if (req.method !== "PUT" || action) {
+            res.writeHead(405).end();
+            return;
+          }
+          if (built) {
+            res
+              .writeHead(409)
+              .end(
+                "Storyboard editing requires the live development workspace.",
+              );
+            return;
+          }
+          if (
+            req.headers.origin !== shellOrigin ||
+            !req.headers["content-type"]?.startsWith("application/json")
+          ) {
+            res
+              .writeHead(403)
+              .end("Only the studio shell can save storyboards");
+            return;
+          }
           let body = "";
-          for await (const chunk of req) { body += chunk.toString(); if (Buffer.byteLength(body) > 8_000_000) throw new Error("Storyboard request exceeds 8 MB"); }
+          for await (const chunk of req) {
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 8_000_000)
+              throw new Error("Storyboard request exceeds 8 MB");
+          }
           const input = JSON.parse(body);
-          if (!input || typeof input.revision !== "string" || Object.keys(input).some(k => !["document", "revision"].includes(k))) throw new Error("Invalid storyboard save request");
+          if (
+            !input ||
+            typeof input.revision !== "string" ||
+            Object.keys(input).some(
+              (k) => !["document", "revision"].includes(k),
+            )
+          )
+            throw new Error("Invalid storyboard save request");
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify(await saveStoryboard(projectRoot, id, input.document, input.revision)));
+          res.end(
+            JSON.stringify(
+              await saveStoryboard(
+                projectRoot,
+                id,
+                input.document,
+                input.revision,
+              ),
+            ),
+          );
           return;
         }
         const inspectionRoute =
@@ -419,7 +492,9 @@ export async function startServers(
             req.headers.origin !== shellOrigin ||
             !req.headers["content-type"]?.startsWith("application/json")
           ) {
-            res.writeHead(403).end("Only the studio shell can change Canvas settings");
+            res
+              .writeHead(403)
+              .end("Only the studio shell can change Canvas settings");
             return;
           }
           let body = "";
@@ -450,7 +525,10 @@ export async function startServers(
               input.height,
             );
           } catch (error) {
-            if (error instanceof Error && error.message.startsWith("CONFLICT:")) {
+            if (
+              error instanceof Error &&
+              error.message.startsWith("CONFLICT:")
+            ) {
               res.writeHead(409, { "Content-Type": "application/json" });
               res.end(JSON.stringify({ message: error.message }));
               return;
@@ -583,6 +661,8 @@ export async function startServers(
             route[3] === "thumbnail";
           const videoProbe =
             route.length === 4 && route[1] === "assets" && route[3] === "video";
+          const poseStudioImport =
+            route.length === 2 && route[1] === "pose-studio";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
@@ -596,7 +676,8 @@ export async function startServers(
             !soundtrackProbe &&
             !transcription &&
             !imageThumbnail &&
-            !videoProbe
+            !videoProbe &&
+            !poseStudioImport
           ) {
             res.writeHead(404).end("Unknown media operation");
             return;
@@ -607,6 +688,51 @@ export async function startServers(
           );
           if (!project?.manifest) {
             res.writeHead(404).end("Unknown project");
+            return;
+          }
+          if (poseStudioImport) {
+            if (req.method !== "POST") {
+              res.writeHead(405).end();
+              return;
+            }
+            if (
+              req.headers.origin !== shellOrigin ||
+              !req.headers["content-type"]?.startsWith("application/json")
+            ) {
+              res
+                .writeHead(403)
+                .end("Only the studio shell can import pose assets");
+              return;
+            }
+            const chunks: Buffer[] = [];
+            let size = 0;
+            for await (const chunk of req) {
+              const part = Buffer.from(chunk);
+              size += part.length;
+              if (size > 24_000_000)
+                throw new Error("Pose import request too large");
+              chunks.push(part);
+            }
+            const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+            if (
+              !input ||
+              typeof input !== "object" ||
+              Array.isArray(input) ||
+              Object.keys(input).some(
+                (key) => key !== "revision" && key !== "poses",
+              ) ||
+              typeof input.revision !== "string"
+            )
+              throw new Error(
+                "A media registry revision and pose PNG images are required.",
+              );
+            const saved = await registerPoseStudioPngs(
+              path.join(projectsDir, id),
+              input.revision,
+              input.poses,
+            );
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(saved));
             return;
           }
           if (transcription) {
@@ -727,22 +853,23 @@ export async function startServers(
             }
             try {
               const timelineStartSeconds = videoSource
-                ? (input.timelineStartFrame as number) /
-                  (input.fps as number)
+                ? (input.timelineStartFrame as number) / (input.fps as number)
                 : 0;
               if (videoSource) {
                 const video = await probeVideo(resolved.path);
                 const sourceEnd =
                   (input.sourceStartSeconds as number) +
                   (input.sourceDurationSeconds as number);
-                if (sourceEnd > video.durationInSeconds + 1 / (input.fps as number))
+                if (
+                  sourceEnd >
+                  video.durationInSeconds + 1 / (input.fps as number)
+                )
                   throw new Error(
                     "The selected video clip timing exceeds the registered video duration.",
                   );
               }
               const availableDuration =
-                (input.durationInFrames as number) /
-                  (input.fps as number) -
+                (input.durationInFrames as number) / (input.fps as number) -
                 timelineStartSeconds;
               const raw = videoSource
                 ? await (options.transcribeVideoAudio
@@ -758,14 +885,15 @@ export async function startServers(
                         undefined,
                         options.transcribeAudio,
                       ))
-                : await (options.transcribeAudio ??
-                    transcribeAudioWithWhisper)(resolved.path);
+                : await (options.transcribeAudio ?? transcribeAudioWithWhisper)(
+                    resolved.path,
+                  );
               const result = whisperResultToSubtitleTiming(
                 raw,
                 Math.min(
                   availableDuration,
                   videoSource
-                    ? input.sourceDurationSeconds as number
+                    ? (input.sourceDurationSeconds as number)
                     : availableDuration,
                 ),
               );

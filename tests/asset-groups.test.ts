@@ -81,6 +81,36 @@ test("asset group edits reorder and rename canonical members; removing a group k
   assert.deepEqual(removeVisualAssetGroup(edited, group.id).assetGroups, []);
 });
 
+test("Pose Studio imports retain their source character, action, sheet and pose IDs", () => {
+  const group = {
+    id: "imported-dance-group",
+    name: "Mina · Dance",
+    category: "characters" as const,
+    source: {
+      kind: "pose-studio" as const,
+      characterId: "character-mina",
+      sheetId: "sheet-mina",
+      comboId: "combo-dance",
+    },
+    members: [
+      {
+        id: "dance-pose-one",
+        assetId: "pose-image-one",
+        sourcePoseId: "pose-one",
+        label: "Pose 1",
+        role: "pose" as const,
+        offsetX: 0,
+        offsetY: 0,
+      },
+    ],
+  };
+  const reloaded = parseEditTimeline(
+    JSON.parse(JSON.stringify(addVisualAssetGroup(base, group))),
+  );
+  assert.deepEqual(reloaded.assetGroups?.[0].source, group.source);
+  assert.equal(reloaded.assetGroups?.[0].members[0].sourcePoseId, "pose-one");
+});
+
 test("project data rejects duplicate member identities and malformed media references", () => {
   assert.throws(
     () =>

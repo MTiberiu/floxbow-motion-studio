@@ -1,4 +1,14 @@
-import { readFile, writeFile, unlink, realpath, lstat } from "node:fs/promises";
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -13,13 +23,101 @@ import {
   sceneFingerprint,
   type Storyboard,
 } from "@motion/project-loader/storyboard";
+import { resolveMedia } from "@motion/project-loader/media";
 import { getSubtitleCues } from "@motion/lyrics-sync/subtitles";
 import { renderStoryboardSvg } from "@motion/project-loader/storyboard-svg";
 import { withProjectWriteLock } from "./project-write-lock";
 import { readEditor, renameWithTransientWindowsRetry } from "./editor-store";
+import { readMediaRegistry } from "./media-store";
 
 const digest = (text: string) =>
   createHash("sha256").update(text).digest("hex");
+const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+const maxReferenceBytes = 25 * 1024 * 1024;
+
+async function ensureProjectDirectory(root: string, relative: string) {
+  const base = await realpath(root);
+  let current = base;
+  for (const segment of relative.split(/[\\/]/)) {
+    current = path.join(current, segment);
+    try {
+      const entry = await lstat(current);
+      if (entry.isSymbolicLink() || !entry.isDirectory())
+        throw new Error("Storyboard asset folders must be real project folders.");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      await mkdir(current);
+    }
+    const resolved = await realpath(current);
+    const relativePath = path.relative(base, resolved);
+    if (relativePath.startsWith("..") || path.isAbsolute(relativePath))
+      throw new Error("Storyboard asset folder escapes the project.");
+    current = resolved;
+  }
+  return current;
+}
+
+async function verifyPng(file: string) {
+  const info = await stat(file);
+  if (!info.isFile() || info.size < pngSignature.length || info.size > maxReferenceBytes)
+    throw new Error("Storyboard reference must be a PNG under 25 MB.");
+  const handle = await open(file, "r");
+  try {
+    const signature = Buffer.alloc(pngSignature.length);
+    const { bytesRead } = await handle.read(signature, 0, signature.length, 0);
+    if (bytesRead !== signature.length || !signature.equals(pngSignature))
+      throw new Error("Storyboard reference is not a valid PNG image.");
+  } finally {
+    await handle.close();
+  }
+}
+
+async function persistReferenceFiles(root: string, input: Storyboard) {
+  if (!input.references.length) return input;
+  const registry = await readMediaRegistry(root);
+  const references = [];
+  for (const reference of input.references) {
+    const relative = `assets/storyboard/references/${reference.id}.png`;
+    const destination = path.join(root, relative);
+    let exists = false;
+    try {
+      const info = await lstat(destination);
+      if (info.isSymbolicLink() || !info.isFile())
+        throw new Error("Storyboard reference file must be a regular file.");
+      await safeFile(root, relative);
+      await verifyPng(destination);
+      exists = true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (!exists && reference.origin === "ai")
+      throw new Error(`Generated storyboard image is missing: ${relative}`);
+    if (!exists) {
+      const resolved = await resolveMedia(root, registry.registry, reference.assetId);
+      if (resolved.status !== "ready" || resolved.type !== "image")
+        throw new Error(
+          resolved.status === "invalid"
+            ? resolved.message
+            : `Reference image is unavailable: ${reference.name}`,
+        );
+      await verifyPng(resolved.path);
+      await ensureProjectDirectory(root, "assets/storyboard/references");
+      const temporary = `${destination}.${randomUUID()}.tmp`;
+      try {
+        await copyFile(resolved.path, temporary);
+        await verifyPng(temporary);
+        // The reference destination is newly created in a private project folder;
+        // copy it into place to avoid transient Windows rename locks from AV scanners.
+        await copyFile(temporary, destination);
+      } finally {
+        await unlink(temporary).catch(() => {});
+      }
+    }
+    references.push({ ...reference, file: relative });
+  }
+  return { ...input, references };
+}
+
 async function target(root: string) {
   const base = await realpath(root);
   const file = path.join(base, "storyboard.json");
@@ -69,7 +167,8 @@ export async function saveStoryboard(
   revision: string,
 ) {
   return withProjectWriteLock(root, async () => {
-    const document = storyboardSchema.parse(input);
+    const parsedDocument = storyboardSchema.parse(input);
+    const document = await persistReferenceFiles(root, parsedDocument);
     if (document.projectId !== projectId)
       throw new Error("Storyboard project identity mismatch");
     const manifest = manifestSchema.parse(
@@ -181,9 +280,11 @@ export async function resolveStoryboardContext(
     case "listStoryboardScenes":
       result = doc.scenes.map(({ id, name }) => ({ id, name }));
       break;
-    case "getStoryboardReference":
-      result = doc.references.find((r) => r.id === identity);
+    case "getStoryboardReference": {
+      const reference = doc.references.find((r) => r.id === identity);
+      result = reference && { ...reference, projectRelativeFile: reference.file ?? null };
       break;
+    }
     case "getStoryboardObject":
       result = doc.scenes
         .flatMap((s) => s.objects)
@@ -208,6 +309,13 @@ export async function resolveStoryboardContext(
         precedingSet: scene.sets[index - 1] ?? null,
         followingSet: scene.sets[index + 1] ?? null,
         references: doc.references,
+        aiImageRequests: doc.aiRequests.filter(
+          (request) => request.sceneId === scene.id && request.setId === set.id,
+        ),
+        motionPlans: doc.actionPlans.filter(
+          (plan) => plan.sceneId === scene.id && (plan.fromSetId === set.id || plan.toSetId === set.id),
+        ),
+        projectAssetRoot: ".",
         briefs: briefs(scene.id),
         sketchSource: `storyboard.json#${scene.id}/${set.id}`,
         renderedSketch: {

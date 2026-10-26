@@ -187,7 +187,7 @@ export async function loadReferenceImages(doc: Storyboard) {
   await Promise.all(
     doc.references.map(async (ref) => {
       const image = new Image();
-      image.src = `/api/storyboard/${doc.projectId}/media/${ref.assetId}`;
+      image.src = `/api/storyboard/${doc.projectId}/media/${ref.id}?assetId=${encodeURIComponent(ref.assetId)}`;
       try {
         await image.decode();
         images[ref.id] = image;
@@ -356,7 +356,7 @@ export async function exportStoryboard(
   for (const ref of doc.references) {
     if (!assets.has(ref.assetId)) {
       const response = await fetch(
-        `/api/storyboard/${doc.projectId}/media/${ref.assetId}`,
+        `/api/storyboard/${doc.projectId}/media/${ref.id}?assetId=${encodeURIComponent(ref.assetId)}`,
       );
       if (!response.ok) assets.set(ref.assetId, null);
       else {

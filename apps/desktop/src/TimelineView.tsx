@@ -83,6 +83,11 @@ type TrackDropPreview = {
   trackId?: string;
   newTrackPosition?: "top" | "bottom";
 };
+type SceneNameEditor = {
+  kind: "scene" | "moment";
+  id: string;
+  name: string;
+};
 
 const ZOOM_STEPS = [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 6, 8] as const;
 type ZoomAnchor = { fraction: number; clientX: number };
@@ -154,6 +159,7 @@ export type TimelineViewProps = {
     data: MediaAssetDragData,
     target: { frame: number; trackId: string },
   ) => void;
+  onImportPoseStudio?: (sceneId: string, startFrame: number) => void;
 };
 
 export function TimelineView({
@@ -188,6 +194,7 @@ export function TimelineView({
   onExportTiming,
   onExportDocument,
   onDropMedia,
+  onImportPoseStudio,
 }: TimelineViewProps) {
   const scroll = useRef<HTMLDivElement>(null);
   const ruler = useRef<HTMLDivElement>(null);
@@ -204,6 +211,8 @@ export function TimelineView({
   const [marquee, setMarquee] = useState<TimelineMarquee>();
   const [selectedSceneId, setSelectedSceneId] = useState("");
   const [sceneMomentsOpen, setSceneMomentsOpen] = useState(false);
+  const [sceneNameEditor, setSceneNameEditor] = useState<SceneNameEditor>();
+  const [timelineActionError, setTimelineActionError] = useState("");
   const operationRef = useRef(onTimelineOperation);
   operationRef.current = onTimelineOperation;
 
@@ -933,10 +942,8 @@ export function TimelineView({
 
   function addScene() {
     if (!document) return;
-    const name = window
-      .prompt("Scene name", `Scene ${(document.scenes?.length ?? 0) + 1}`)
-      ?.trim();
-    if (!name) return;
+    setTimelineActionError("");
+    const name = `Scene ${(document.scenes?.length ?? 0) + 1}`;
     const selected = document.clips.filter((clip) =>
       selectedClipIds.includes(clip.id),
     );
@@ -965,9 +972,17 @@ export function TimelineView({
       onEdit(next);
       setSelectedSceneId(id);
     } catch (error) {
-      window.alert(String(error));
+      setTimelineActionError(String(error));
     }
   }
+
+  const sceneForPoseImport =
+    document?.scenes?.find((scene) => scene.id === selectedSceneId) ??
+    document?.scenes?.find(
+      (scene) =>
+        frame >= scene.from && frame < scene.from + scene.durationInFrames,
+    ) ??
+    document?.scenes?.[0];
 
   return document ? (
     <div
@@ -990,6 +1005,24 @@ export function TimelineView({
           </small>
         </h3>
         <button
+          type="button"
+          className="timeline-scene-button"
+          title="Create a named section of the video Timeline."
+          onClick={addScene}
+        >
+          ＋ Scene
+        </button>
+        <button
+          type="button"
+          className="timeline-moments-button"
+          title="Moments are bookmarks inside the selected scene. They save a time and the character poses at that point."
+          disabled={!selectedSceneId}
+          aria-pressed={sceneMomentsOpen}
+          onClick={() => setSceneMomentsOpen((open) => !open)}
+        >
+          Moments
+        </button>
+        <button
           disabled={
             !components.some((component) => component.id === "subtitles")
           }
@@ -1008,6 +1041,34 @@ export function TimelineView({
         >
           {playing ? "Pause" : "Play"}
         </button>
+        {onImportPoseStudio && (
+          <button
+            type="button"
+            className="timeline-import-animation"
+            aria-label="Import animation"
+            title={
+              sceneForPoseImport
+                ? `Choose an animation for ${sceneForPoseImport.name}`
+                : "Create a scene before importing an animation"
+            }
+            disabled={!sceneForPoseImport}
+            onClick={() => {
+              if (!sceneForPoseImport) return;
+              setSelectedSceneId(sceneForPoseImport.id);
+              const sceneEnd =
+                sceneForPoseImport.from +
+                sceneForPoseImport.durationInFrames;
+              const startFrame =
+                frame >= sceneForPoseImport.from && frame < sceneEnd
+                  ? frame
+                  : sceneForPoseImport.from;
+              onSeek(startFrame);
+              onImportPoseStudio(sceneForPoseImport.id, startFrame);
+            }}
+          >
+            ＋ Import animation
+          </button>
+        )}
         {focusedTrackId && (
           <>
             <button
@@ -1125,6 +1186,61 @@ export function TimelineView({
           />
         </label>
       </div>
+      {sceneNameEditor && (
+        <form
+          className="timeline-scene-name-editor"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const name = sceneNameEditor.name.trim();
+            if (!name) return;
+            try {
+              onEdit((current) =>
+                sceneNameEditor.kind === "scene"
+                  ? renameTimelineScene(current, sceneNameEditor.id, name)
+                  : renameSceneMoment(current, sceneNameEditor.id, name),
+              );
+              setTimelineActionError("");
+              setSceneNameEditor(undefined);
+            } catch (error) {
+              setTimelineActionError(String(error));
+            }
+          }}
+        >
+          <label>
+            Rename {sceneNameEditor.kind}
+            <input
+              autoFocus
+              value={sceneNameEditor.name}
+              maxLength={100}
+              onChange={(event) =>
+                setSceneNameEditor({
+                  ...sceneNameEditor,
+                  name: event.currentTarget.value,
+                })
+              }
+            />
+          </label>
+          <button type="submit">Save name</button>
+          <button
+            type="button"
+            onClick={() => setSceneNameEditor(undefined)}
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+      {timelineActionError && (
+        <div className="timeline-action-error" role="alert">
+          {timelineActionError}
+          <button
+            type="button"
+            aria-label="Dismiss Timeline message"
+            onClick={() => setTimelineActionError("")}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div
         className="timeline-scroll"
         ref={scroll}
@@ -1233,18 +1349,9 @@ export function TimelineView({
           </div>
           <div className="scene-row" data-scene-row>
             <div className="track-label scene-label">
-              <span>SCENES</span>
-              <button type="button" onClick={addScene}>
-                + Scene
-              </button>
-              <button
-                type="button"
-                disabled={!selectedSceneId}
-                aria-expanded={sceneMomentsOpen}
-                onClick={() => setSceneMomentsOpen((open) => !open)}
-              >
-                Moments
-              </button>
+              <span title="Scenes group a section of the video Timeline.">
+                SCENES
+              </span>
             </div>
             <div className="scene-lane">
               {(document.scenes ?? []).map((scene) => (
@@ -1271,13 +1378,14 @@ export function TimelineView({
                   <button
                     type="button"
                     aria-label={`Rename ${scene.name}`}
+                    title="Rename scene"
                     onClick={(event) => {
                       event.stopPropagation();
-                      const name = window.prompt("Scene name", scene.name);
-                      if (!name?.trim()) return;
-                      onEdit((current) =>
-                        renameTimelineScene(current, scene.id, name),
-                      );
+                      setSceneNameEditor({
+                        kind: "scene",
+                        id: scene.id,
+                        name: scene.name,
+                      });
                     }}
                   >
                     …
@@ -1297,7 +1405,7 @@ export function TimelineView({
                           ),
                         );
                       } catch (error) {
-                        window.alert(String(error));
+                        setTimelineActionError(String(error));
                       }
                     }}
                   >
@@ -1318,7 +1426,7 @@ export function TimelineView({
                           ),
                         );
                       } catch (error) {
-                        window.alert(String(error));
+                        setTimelineActionError(String(error));
                       }
                     }}
                   >
@@ -1342,12 +1450,12 @@ export function TimelineView({
                 </span>
                 <button
                   type="button"
+                  title="Save a bookmark at the current playhead in this scene. Rename it later if needed."
                   onClick={() => {
-                    const name = window.prompt(
-                      "Scene Moment name",
-                      "New moment",
-                    );
-                    if (!name?.trim()) return;
+                    const count = (document.sceneMoments ?? []).filter(
+                      (moment) => moment.sceneId === selectedSceneId,
+                    ).length;
+                    const name = `Moment ${count + 1}`;
                     try {
                       onEdit((current) =>
                         createSceneMoment(
@@ -1357,8 +1465,9 @@ export function TimelineView({
                           name,
                         ),
                       );
+                      setTimelineActionError("");
                     } catch (error) {
-                      window.alert(String(error));
+                      setTimelineActionError(String(error));
                     }
                   }}
                 >
@@ -1407,19 +1516,13 @@ export function TimelineView({
                         <button
                           type="button"
                           aria-label={`Rename ${moment.name}`}
+                          title="Rename moment"
                           onClick={() => {
-                            const name = window.prompt(
-                              "Scene Moment name",
-                              moment.name,
-                            );
-                            if (!name?.trim()) return;
-                            try {
-                              onEdit((current) =>
-                                renameSceneMoment(current, moment.id, name),
-                              );
-                            } catch (error) {
-                              window.alert(String(error));
-                            }
+                            setSceneNameEditor({
+                              kind: "moment",
+                              id: moment.id,
+                              name: moment.name,
+                            });
                           }}
                         >
                           Rename

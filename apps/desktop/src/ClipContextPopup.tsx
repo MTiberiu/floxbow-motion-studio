@@ -8,6 +8,7 @@ import {
 import { createPortal } from "react-dom";
 import type { TimelineClip } from "@motion/sdk/timeline";
 import { EditorIconButton } from "./EditorIconButton";
+import { useMotionLibrary } from "./MotionLibrary";
 
 type Position = { x: number; y: number };
 
@@ -67,6 +68,8 @@ export function ClipContextPopup({
   );
   const [resettingImageSize, setResettingImageSize] = useState(false);
   const [activeTab, setActiveTab] = useState<"edit" | "ai-context">("edit");
+  const [selectedMotionId, setSelectedMotionId] = useState("");
+  const { library: motionLibrary } = useMotionLibrary();
 
   useEffect(() => {
     setPosition(clampPosition(initialPosition));
@@ -116,6 +119,20 @@ export function ClipContextPopup({
   const text = String(clip.content.text ?? "");
   const color =
     typeof clip.props.color === "string" ? clip.props.color : "#ffffff";
+  const selectedMotion = motionLibrary.find((item) => item.id === selectedMotionId);
+
+  function addMotionGuidance() {
+    if (!selectedMotion) return;
+    const guidance = [
+      `Reusable motion: ${selectedMotion.name} (${selectedMotion.type}).`,
+      selectedMotion.description,
+      selectedMotion.direction && `Direction: ${selectedMotion.direction}`,
+      selectedMotion.view && `View: ${selectedMotion.view}`,
+      selectedMotion.poseGuidance,
+      selectedMotion.poses.length > 0 && `Pose sequence: ${selectedMotion.poses.map((pose) => `${pose.name}${pose.note ? ` (${pose.note})` : ""}`).join(" → ")}`,
+    ].filter(Boolean).join("\n");
+    onVisualRequestChange([visualRequest.trim(), guidance].filter(Boolean).join("\n\n"));
+  }
 
   return createPortal(
     <div
@@ -317,6 +334,26 @@ export function ClipContextPopup({
               onVisualRequestChange(event.currentTarget.value)
             }
           />
+          <div className="clip-context-motion-guidance">
+            <label htmlFor="clip-motion-set">Reusable motion set</label>
+            <div>
+              <select
+                id="clip-motion-set"
+                aria-label="Reusable motion set"
+                value={selectedMotionId}
+                onChange={(event) => setSelectedMotionId(event.currentTarget.value)}
+              >
+                <option value="">Choose from Motion Library…</option>
+                {motionLibrary.map((motion) => (
+                  <option key={motion.id} value={motion.id}>{motion.name} · {motion.type}</option>
+                ))}
+              </select>
+              <button type="button" disabled={!selectedMotion} onClick={addMotionGuidance}>
+                Add to details
+              </button>
+            </div>
+            <small>Copies the motion and pose guidance into this project’s AI context.</small>
+          </div>
           <button
             className="clip-context-send"
             type="button"

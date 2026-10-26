@@ -51,7 +51,7 @@ Scenes are optional structural groups on the existing Timeline v1 document. They
 
 ## Editor workflow
 
-The Timeline keeps one Scenes row above ordinary tracks. Select clips and choose `+ Scene` to group those clips into a scene whose bounds cover their current ranges. With no clips selected, `+ Scene` appends a five-second empty scene. Select a scene to highlight its member clips. Rename a scene or use its one-second shorten/extend controls. Extending moves every later scene and its member clips by the same frame delta; their durations and scene-local clip timing stay unchanged. Project duration extends when content or a scene moves beyond its current end and does not shrink automatically.
+The Timeline keeps one Scenes row above ordinary tracks. Choose `+ Scene` to group selected clips into a scene whose bounds cover their current ranges; with no clips selected, it appends a five-second empty scene named `Scene N`. Select a scene to highlight its member clips. The toolbar's **Moments** control opens bookmarks for the selected scene. A scene is a named section of the video Timeline; a moment is a named point inside that section, used to jump back to a beat and remember active character poses. Rename controls use an inline editor rather than browser prompts. Use the scene's one-second shorten/extend controls to adjust its bounds. Extending moves every later scene and its member clips by the same frame delta; their durations and scene-local clip timing stay unchanged. Project duration extends when content or a scene moves beyond its current end and does not shrink automatically.
 
 The `Ripple On/Off` Timeline control applies to clip resize gestures. In Normal mode, only the edited clip changes. In Ripple mode, resizing shifts later clips in the same scene by the change in the edited clip's end frame; their durations remain unchanged. If moved content exceeds the scene end, that scene expands and later scenes move by the expansion amount. Shortening shifts downstream clips earlier while preserving the authored scene duration. The switch is a local editor preference and does not change project JSON.
 
@@ -61,7 +61,7 @@ Scene membership and timing are part of the canonical `edit-timeline.json`, so n
 
 ## Scene Moments
 
-`sceneMoments` is optional project metadata on the same Timeline JSON. Each moment is a named scene-local frame bookmark and may reference the pose-event IDs active on Character clips at that moment. It does not create duplicate clips or image files. In the Timeline, select a scene, open **Moments**, and add a bookmark at the playhead. Selecting a saved moment seeks to that frame and selects its referenced Character clips.
+`sceneMoments` is optional project metadata on the same Timeline JSON. Each moment is a named scene-local frame bookmark and may reference the pose-event IDs active on Character clips at that moment. It does not create duplicate clips or image files. In the Timeline, select a scene, open **Moments**, and add a bookmark at the playhead; it receives a default name such as `Moment 1`, which can be renamed later. Selecting a saved moment seeks to that frame and selects its referenced Character clips.
 
 ```json
 {
