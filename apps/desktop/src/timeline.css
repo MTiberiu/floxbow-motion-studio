@@ -1359,11 +1359,40 @@
   font-size: 17px;
   line-height: 1;
 }
-.text-context-popup > label {
+.clip-context-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 3px;
+  border: 1px solid #303d4c;
+  border-radius: 6px;
+  background: #151c24;
+}
+.clip-context-tabs button {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #aebdce;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.clip-context-tabs button[aria-selected="true"] {
+  border-color: #536981;
+  color: #e8eef6;
+  background: #283746;
+}
+.clip-context-tab-panel {
+  display: grid;
+  gap: 5px;
+}
+.clip-context-tab-panel > label {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-top: 7px;
+  margin-top: 3px;
   color: #b6c3d6;
 }
 .text-context-popup textarea {
@@ -1596,6 +1625,41 @@
 }
 .clip-context-image-actions {
   margin: 0 0 8px;
+}
+.clip-context-ai-heading {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 2px;
+}
+.clip-context-ai-heading span,
+.clip-context-ai-note,
+.clip-context-ai-status {
+  color: #9eafc3;
+  font-size: 10px;
+}
+.clip-context-send {
+  justify-self: start;
+  min-width: 64px;
+  padding: 6px 13px;
+  border: 1px solid #8ebc65;
+  border-radius: 5px;
+  color: #162015;
+  background: #c5f18a;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.clip-context-send:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+.clip-context-ai-note {
+  margin: 0;
+  line-height: 1.4;
+}
+.clip-context-ai-status {
+  min-height: 13px;
+  overflow-wrap: anywhere;
 }
 .preview-volume-control {
   display: inline-flex;

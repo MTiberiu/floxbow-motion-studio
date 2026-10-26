@@ -3133,6 +3133,26 @@ try {
       .getByTestId("canvas-interaction-layer")
       .boundingBox();
     expect(canvasBounds).toBeTruthy();
+    await textHitbox.click({ button: "right" });
+    const clipPopup = page.getByRole("dialog", { name: "Edit text clip" });
+    await expect(clipPopup).toBeVisible();
+    await expect(
+      clipPopup.getByRole("tab", { name: "Edit", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await clipPopup
+      .getByRole("tab", { name: "AI Visual Context", exact: true })
+      .click();
+    await expect(
+      clipPopup.getByLabel("AI visual context details"),
+    ).toBeVisible();
+    await expect(
+      clipPopup.getByRole("button", { name: "Send", exact: true }),
+    ).toBeVisible();
+    await expect(clipPopup).toContainText(
+      "Direct AI sending is not connected yet.",
+    );
+    await page.keyboard.press("Escape");
+    await expect(clipPopup).toBeHidden();
     const dragStart = await findCanvasHitPoint(textHitbox);
     expect(dragStart).toBeTruthy();
     await page.mouse.move(dragStart!.x, dragStart!.y);
