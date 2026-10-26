@@ -4,6 +4,8 @@ Open **Media Library → Organize** to work in a large visual workspace. It read
 
 The Organizer stores group metadata in optional `assetGroups` on the canonical `edit-timeline.json`. Each group has an ID, name, category and ordered members. Each member keeps its own stable ID, `assetId`, human-readable label, role (`alternative` or `pose`) and optional alignment offsets. Offsets are normalized composition percentages and are intended to keep differently cropped states aligned.
 
+Groups imported from Pose Sheet Studio also keep `source: { kind: "pose-studio", characterId, sheetId, comboId }`. Each imported pose member stores its original `sourcePoseId`, so the project JSON retains the link back to the reusable library action.
+
 ```json
 {
   "version": 1,

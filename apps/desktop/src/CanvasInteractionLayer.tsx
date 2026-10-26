@@ -120,6 +120,10 @@ export function CanvasInteractionLayer({
 }: CanvasInteractionLayerProps) {
   const root = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | undefined>(undefined);
+  const pendingTransform = useRef<
+    ReadonlyMap<string, CanvasTransform> | undefined
+  >(undefined);
+  const transformFrame = useRef<number | undefined>(undefined);
   const [mediaAspectRatios, setMediaAspectRatios] = useState<
     Record<string, number>
   >({});
@@ -198,6 +202,35 @@ export function CanvasInteractionLayer({
   const selectionBounds =
     selected.length > 0 ? boundsFor(selected, renderViewport) : undefined;
   const [snapGuides, setSnapGuides] = useState<CanvasSnapGuides>({});
+
+  function scheduleTransform(changes: ReadonlyMap<string, CanvasTransform>) {
+    pendingTransform.current = changes;
+    if (transformFrame.current !== undefined) return;
+    transformFrame.current = requestAnimationFrame(() => {
+      transformFrame.current = undefined;
+      const latest = pendingTransform.current;
+      pendingTransform.current = undefined;
+      if (latest) onTransform(latest);
+    });
+  }
+
+  function flushTransform(canceled: boolean) {
+    if (transformFrame.current !== undefined) {
+      cancelAnimationFrame(transformFrame.current);
+      transformFrame.current = undefined;
+    }
+    const latest = pendingTransform.current;
+    pendingTransform.current = undefined;
+    if (!canceled && latest) onTransform(latest);
+  }
+
+  useEffect(
+    () => () => {
+      if (transformFrame.current !== undefined)
+        cancelAnimationFrame(transformFrame.current);
+    },
+    [],
+  );
 
   function viewportSize(): CanvasViewportSize {
     const rect = root.current?.getBoundingClientRect();
@@ -686,13 +719,14 @@ export function CanvasInteractionLayer({
         current.checkpointed = true;
         onGestureStart();
       }
-      onTransform(changes);
+      scheduleTransform(changes);
     }
   }
 
   function end(event: PointerEvent<HTMLDivElement>, canceled = false) {
     const current = gesture.current;
     if (!current || current.pointerId !== event.pointerId) return;
+    flushTransform(canceled);
     if (current.mode === "marquee" && !canceled) {
       const here = point(event);
       const finalRect = {

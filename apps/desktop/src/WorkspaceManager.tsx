@@ -8,7 +8,7 @@ import {
 import { DockablePanel } from "./DockablePanel";
 import "./workspace.css";
 
-export type PanelId = "editor" | "lyrics-sync" | "capabilities" | "storyboard";
+export type PanelId = "editor" | "lyrics-sync" | "capabilities" | "storyboard" | "motion-library" | "pose-studio";
 export type PanelSize = { width: number; height: number };
 export type PanelRegistration = {
   id: PanelId;
@@ -25,6 +25,8 @@ export type DetachedTimelineIdentity = Readonly<{
 
 export const PANEL_REGISTRY: readonly PanelRegistration[] = [
   { id: "storyboard", title: "Storyboard", minSize: { width: 800, height: 500 }, preferredSize: { width: 1400, height: 900 }, overflow: "content-managed" },
+  { id: "motion-library", title: "Motion Library", minSize: { width: 700, height: 460 }, preferredSize: { width: 1040, height: 740 }, overflow: "content-managed" },
+  { id: "pose-studio", title: "Pose Studio", minSize: { width: 780, height: 520 }, preferredSize: { width: 1440, height: 900 }, overflow: "content-managed" },
   {
     id: "editor",
     title: "Editor",
@@ -53,6 +55,7 @@ type WorkspaceContextValue = {
   hiddenPanelIds: ReadonlySet<PanelId>;
   openedPanelIds: ReadonlySet<PanelId>;
   activatePanel: (id: PanelId) => void;
+  openPanel: (id: PanelId) => void;
   hidePanel: (id: PanelId) => void;
   detachedTimeline: DetachedTimelineIdentity | null;
   setDetachedTimeline: (identity: DetachedTimelineIdentity) => void;
@@ -107,6 +110,19 @@ export function WorkspaceManager({ children }: { children: ReactNode }) {
     setActivePanelId(id);
   }
 
+  function openPanel(id: PanelId) {
+    setHiddenPanelIds((current) => {
+      if (!current.has(id)) return current;
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+    setOpenedPanelIds((current) => {
+      if (current.has(id)) return current;
+      return new Set([...current, id]);
+    });
+  }
+
   function hidePanel(id: PanelId) {
     setHiddenPanelIds((current) => new Set([...current, id]));
     if (activePanelId !== id) return;
@@ -126,6 +142,7 @@ export function WorkspaceManager({ children }: { children: ReactNode }) {
         hiddenPanelIds,
         openedPanelIds,
         activatePanel,
+        openPanel,
         hidePanel,
         detachedTimeline,
         setDetachedTimeline: setDetachedTimelineState,

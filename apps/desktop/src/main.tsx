@@ -20,6 +20,8 @@ import "./style.css";
 import { TimelineEditor } from "./TimelineEditor";
 import { CapabilitiesExplorer } from "./CapabilitiesExplorer";
 import { StoryboardDesigner } from "./StoryboardDesigner";
+import { MotionLibrary } from "./MotionLibrary";
+import { PoseSheetStudio } from "./PoseSheetStudio";
 import { MediaPanel } from "./MediaPanel";
 import { DetachedTimelineWindow } from "./DetachedTimelineWindow";
 import {
@@ -250,8 +252,14 @@ function StudioShell() {
   }, []);
   useEffect(() => {
     if (!state) return;
-    if (state.projects.some((project) => project.id === selected && project.manifest)) return;
-    const fallback = state.projects.find((project) => project.manifest)?.id ?? "";
+    if (
+      state.projects.some(
+        (project) => project.id === selected && project.manifest,
+      )
+    )
+      return;
+    const fallback =
+      state.projects.find((project) => project.manifest)?.id ?? "";
     setSelected(fallback);
     if (fallback) localStorage.setItem("motion-project", fallback);
     else localStorage.removeItem("motion-project");
@@ -265,7 +273,11 @@ function StudioShell() {
   }
   async function createProject(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const id = projectName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const id = projectName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
     if (!id) {
       setCreateError("Enter a name using letters or numbers.");
       return;
@@ -281,7 +293,11 @@ function StudioShell() {
       const data: { project: ProjectRecord } = await response.json();
       // Ignore any older poll that began before this project was created.
       stateRequestGeneration.current++;
-      setState((current) => current ? { ...current, projects: [...current.projects, data.project] } : current);
+      setState((current) =>
+        current
+          ? { ...current, projects: [...current.projects, data.project] }
+          : current,
+      );
       select(id);
       setProjectName("");
       setCreateOpen(false);
@@ -304,7 +320,7 @@ function StudioShell() {
   }
   return (
     <div
-      className={`studio${workspace.activePanelId === "storyboard" ? " storyboard-mode" : ""}`}
+      className={`studio${workspace.activePanelId === "storyboard" ? " storyboard-mode" : ""}${workspace.activePanelId === "pose-studio" ? " pose-studio-mode" : ""}`}
       style={{ "--left-width": `${leftWidth}px` } as React.CSSProperties}
     >
       <header className="app-toolbar">
@@ -344,8 +360,15 @@ function StudioShell() {
             <button
               className="create-project-button"
               disabled={state?.built}
-              title={state?.built ? "Create projects from the live development workspace." : "Create a new project"}
-              onClick={() => { setCreateOpen((open) => !open); setCreateError(""); }}
+              title={
+                state?.built
+                  ? "Create projects from the live development workspace."
+                  : "Create a new project"
+              }
+              onClick={() => {
+                setCreateOpen((open) => !open);
+                setCreateError("");
+              }}
             >
               + Create
             </button>
@@ -364,7 +387,15 @@ function StudioShell() {
               {createError && <p role="alert">{createError}</p>}
               <div>
                 <button type="submit">Create project</button>
-                <button type="button" onClick={() => { setCreateOpen(false); setCreateError(""); }}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateOpen(false);
+                    setCreateError("");
+                  }}
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           )}
@@ -459,9 +490,26 @@ function StudioShell() {
                 <section className="empty-project-state">
                   <span className="eyebrow">A CLEAN WORKSPACE</span>
                   <h2>Create your first video project</h2>
-                  <p>{state.built ? "This built snapshot has no projects. Start the live development workspace to create source projects." : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}</p>
-                  <button disabled={state.built} onClick={() => { setCreateOpen(true); setCreateError(""); }}>Create Project</button>
-                  <button className="secondary-action" onClick={() => workspace.activatePanel("capabilities")}>Explore capabilities</button>
+                  <p>
+                    {state.built
+                      ? "This built snapshot has no projects. Start the live development workspace to create source projects."
+                      : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}
+                  </p>
+                  <button
+                    disabled={state.built}
+                    onClick={() => {
+                      setCreateOpen(true);
+                      setCreateError("");
+                    }}
+                  >
+                    Create Project
+                  </button>
+                  <button
+                    className="secondary-action"
+                    onClick={() => workspace.activatePanel("capabilities")}
+                  >
+                    Explore capabilities
+                  </button>
                 </section>
               ) : project?.error ? (
                 <div className="error" role="alert">
@@ -476,18 +524,42 @@ function StudioShell() {
                   built={state.built}
                   reload={reload}
                   active={active}
-                  requestPreviewReload={() => setReload((current) => current + 1)}
+                  requestPreviewReload={() =>
+                    setReload((current) => current + 1)
+                  }
                 />
               ) : (
                 <p>Discovering projects…</p>
               );
             }
             if (id === "lyrics-sync")
-              return <div className="auxiliary-view"><Lyrics key={selected} id={selected} /></div>;
+              return (
+                <div className="auxiliary-view">
+                  <Lyrics key={selected} id={selected} />
+                </div>
+              );
             if (id === "storyboard")
-              return m && state ? <StoryboardDesigner key={selected} manifest={m} active={active} built={state.built} /> : <p>Select or create a project to open Storyboard Designer.</p>;
+              return m && state ? (
+                <StoryboardDesigner
+                  key={selected}
+                  manifest={m}
+                  active={active}
+                  built={state.built}
+                />
+              ) : (
+                <p>Select or create a project to open Storyboard Designer.</p>
+              );
+            if (id === "motion-library") return <MotionLibrary />;
+            if (id === "pose-studio")
+              return (
+                <PoseSheetStudio manifest={m} built={state?.built ?? false} />
+              );
             if (id === "capabilities")
-              return <div className="auxiliary-view"><CapabilitiesExplorer /></div>;
+              return (
+                <div className="auxiliary-view">
+                  <CapabilitiesExplorer />
+                </div>
+              );
             const exhaustive: never = id;
             return exhaustive;
           }}
@@ -528,7 +600,8 @@ function WindowBootstrap() {
   }, []);
 
   if (!api || context?.role === "primary") return <App />;
-  if (context?.role === "panel") return <DetachedTimelineWindow context={context as PanelWindowContext} />;
+  if (context?.role === "panel")
+    return <DetachedTimelineWindow context={context as PanelWindowContext} />;
   if (error)
     return (
       <main className="panel-window-placeholder" role="alert">
@@ -536,7 +609,11 @@ function WindowBootstrap() {
         <p>{error}</p>
       </main>
     );
-  return <main className="panel-window-placeholder" aria-busy="true">Starting…</main>;
+  return (
+    <main className="panel-window-placeholder" aria-busy="true">
+      Starting…
+    </main>
+  );
 }
 
 createRoot(document.getElementById("root")!).render(<WindowBootstrap />);

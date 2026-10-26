@@ -20,6 +20,7 @@
     "test:editor:built": "node --import tsx scripts/test-editor.ts --built",
     "test:scene-acceptance": "tsx scripts/acceptance-scene-project.ts",
     "test:storyboard": "tsx scripts/storyboard-acceptance.ts",
+    "test:pose-studio": "tsx scripts/pose-studio-acceptance.ts",
     "validate": "tsx scripts/projects.ts validate",
     "create:project": "tsx scripts/projects.ts create",
     "render": "tsx packages/renderer/src/cli.ts",

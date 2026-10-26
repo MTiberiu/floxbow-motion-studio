@@ -1,9 +1,11 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { lstat, open, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { ServerResponse } from "node:http";
 import { readMediaRegistry } from "./media-store";
+import { readStoryboard } from "./storyboard-store";
 import { resolveMedia } from "@motion/project-loader/media";
+import { manifestSchema, safeFile } from "@motion/project-loader";
 
 export async function streamRegisteredMedia(
   projectRoot: string,
@@ -116,4 +118,54 @@ export async function streamRegisteredImage(
     "X-Content-Type-Options": "nosniff",
   });
   createReadStream(resolved.path).pipe(response);
+}
+
+/** Stream a project-local storyboard PNG by its validated reference identity. */
+export async function streamStoryboardReference(
+  projectRoot: string,
+  referenceId: string,
+  response: ServerResponse,
+  fallbackAssetId?: string,
+) {
+  const manifest = manifestSchema.parse(
+    JSON.parse(await readFile(await safeFile(projectRoot, "project.json"), "utf8")),
+  );
+  const snapshot = await readStoryboard(projectRoot, manifest.id);
+  const reference = snapshot.document.references.find((item) => item.id === referenceId);
+  if (!reference) {
+    if (fallbackAssetId) {
+      await streamRegisteredImage(projectRoot, fallbackAssetId, response);
+      return;
+    }
+    response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }).end("Storyboard reference not found.");
+    return;
+  }
+  if (reference.file) {
+    const file = await safeFile(projectRoot, reference.file);
+    const info = await lstat(file);
+    if (info.isSymbolicLink() || !info.isFile() || info.size > 25 * 1024 * 1024) {
+      response.writeHead(422, { "Content-Type": "text/plain; charset=utf-8" }).end("Invalid storyboard image file.");
+      return;
+    }
+    const handle = await open(file, "r");
+    try {
+      const signature = Buffer.alloc(8);
+      const read = await handle.read(signature, 0, 8, 0);
+      if (read.bytesRead !== 8 || !signature.equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+        response.writeHead(422, { "Content-Type": "text/plain; charset=utf-8" }).end("Invalid storyboard PNG.");
+        return;
+      }
+    } finally {
+      await handle.close();
+    }
+    response.writeHead(200, {
+      "Content-Type": "image/png",
+      "Content-Length": info.size,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    });
+    createReadStream(file).pipe(response);
+    return;
+  }
+  await streamRegisteredImage(projectRoot, reference.assetId, response);
 }

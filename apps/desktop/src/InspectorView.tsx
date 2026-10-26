@@ -73,6 +73,7 @@ export function InspectorView({
           (group) => group.id === clip.content.groupId,
         )
       : undefined;
+  const poseStudioAction = characterGroup?.source?.kind === "pose-studio";
   const characterPoseEvents =
     clip?.componentId === "character" && Array.isArray(clip.content.poseEvents)
       ? (clip.content.poseEvents as Array<{
@@ -166,180 +167,263 @@ export function InspectorView({
           </>
         ) : (
           <>
-            <h3>{definition?.name ?? clip.componentId}</h3>
-            <small data-testid="declared-fields">
-              {definition?.fields.map((field) => field.key).join(",") ??
-                "metadata pending"}
-            </small>
-            <small>{clip.id}</small>
+            <h3>
+              {poseStudioAction
+                ? "Pose animation"
+                : (definition?.name ?? clip.componentId)}
+            </h3>
+            {!poseStudioAction && (
+              <>
+                <small data-testid="declared-fields">
+                  {definition?.fields.map((field) => field.key).join(",") ??
+                    "metadata pending"}
+                </small>
+                <small>{clip.id}</small>
+              </>
+            )}
             {clip.componentId === "character" && document && (
               <section
                 className="character-inspector"
-                aria-label="Character poses"
+                aria-label={
+                  poseStudioAction ? "Pose animation" : "Character poses"
+                }
               >
-                <label>
-                  Character group
-                  <select
-                    aria-label="Character group"
-                    disabled={!canEditProperties}
-                    value={String(clip.content.groupId ?? "")}
-                    onChange={(event) => {
-                      const group = document.assetGroups?.find(
-                        (candidate) => candidate.id === event.target.value,
-                      );
-                      const firstPose = group?.members.find(
-                        (member) => member.role === "pose",
-                      );
-                      if (!group || !firstPose) return;
-                      onEdit((current) => ({
-                        ...current,
-                        clips: current.clips.map((candidate) =>
-                          candidate.id === clip.id
-                            ? {
-                                ...candidate,
-                                content: {
-                                  ...candidate.content,
-                                  groupId: group.id,
-                                  poseEvents: [
-                                    {
-                                      id: `pose-${crypto.randomUUID()}`,
-                                      atFrame: characterSceneStart,
-                                      memberId: firstPose.id,
-                                    },
-                                  ],
-                                },
-                              }
-                            : candidate,
-                        ),
-                      }));
-                    }}
+                {poseStudioAction ? (
+                  <div
+                    className="pose-animation-asset"
+                    data-testid="pose-animation-asset"
                   >
-                    {(document.assetGroups ?? [])
-                      .filter(
-                        (group) =>
-                          group.category === "characters" &&
-                          group.members.some(
+                    <strong>{characterGroup.name}</strong>
+                    <span>
+                      {
+                        characterGroup.members.filter(
+                          (member) => member.role === "pose",
+                        ).length
+                      }{" "}
+                      poses
+                      {typeof clip.content.cycleFrames === "number"
+                        ? ` · ${(clip.content.cycleFrames / manifest.fps).toFixed(2)} s per cycle`
+                        : ""}
+                    </span>
+                    <small>
+                      Repeats for the clip duration. Extend the clip to keep it
+                      playing.
+                    </small>
+                  </div>
+                ) : (
+                  <>
+                    <label>
+                      Character group
+                      <select
+                        aria-label="Character group"
+                        disabled={!canEditProperties}
+                        value={String(clip.content.groupId ?? "")}
+                        onChange={(event) => {
+                          const group = document.assetGroups?.find(
+                            (candidate) => candidate.id === event.target.value,
+                          );
+                          const firstPose = group?.members.find(
                             (member) => member.role === "pose",
-                          ),
-                      )
-                      .map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                {characterGroup && (
-                  <div className="character-pose-events">
-                    <strong>Pose changes</strong>
-                    {characterPoseEvents.map((poseEvent) => (
-                      <div className="character-pose-event" key={poseEvent.id}>
-                        <label>
-                          Scene time (seconds)
-                          <input
-                            aria-label={`Pose time ${poseEvent.id} (seconds)`}
-                            type="number"
-                            min={characterSceneStart / manifest.fps}
-                            max={(characterMaxFrame - 1) / manifest.fps}
-                            step={1 / manifest.fps}
-                            disabled={!canEditProperties}
-                            value={(poseEvent.atFrame / manifest.fps).toFixed(
-                              3,
-                            )}
-                            onChange={(event) => {
-                              const atFrame = Math.max(
-                                characterSceneStart,
-                                Math.min(
-                                  characterMaxFrame - 1,
-                                  secondsToFrame(
-                                    Number(event.target.value),
-                                    manifest.fps,
-                                  ),
-                                ),
-                              );
-                              onEdit((current) => ({
-                                ...current,
-                                clips: current.clips.map((candidate) => {
-                                  if (candidate.id !== clip.id)
-                                    return candidate;
-                                  const events = (
-                                    Array.isArray(candidate.content.poseEvents)
-                                      ? candidate.content.poseEvents
-                                      : []
-                                  ) as typeof characterPoseEvents;
-                                  return {
+                          );
+                          if (!group || !firstPose) return;
+                          onEdit((current) => ({
+                            ...current,
+                            clips: current.clips.map((candidate) =>
+                              candidate.id === clip.id
+                                ? {
                                     ...candidate,
                                     content: {
                                       ...candidate.content,
-                                      poseEvents: events
-                                        .map((item) =>
-                                          item.id === poseEvent.id
-                                            ? { ...item, atFrame }
-                                            : item,
-                                        )
-                                        .sort(
-                                          (left, right) =>
-                                            left.atFrame - right.atFrame,
-                                        ),
+                                      groupId: group.id,
+                                      poseEvents: [
+                                        {
+                                          id: `pose-${crypto.randomUUID()}`,
+                                          atFrame: characterSceneStart,
+                                          memberId: firstPose.id,
+                                        },
+                                      ],
                                     },
-                                  };
-                                }),
-                              }));
-                            }}
-                          />
-                        </label>
-                        <label>
-                          Pose image
-                          <select
-                            aria-label={`Pose image ${poseEvent.id}`}
-                            disabled={!canEditProperties}
-                            value={poseEvent.memberId}
-                            onChange={(event) =>
-                              onEdit((current) => ({
-                                ...current,
-                                clips: current.clips.map((candidate) => {
-                                  if (candidate.id !== clip.id)
-                                    return candidate;
-                                  const events = (
-                                    Array.isArray(candidate.content.poseEvents)
-                                      ? candidate.content.poseEvents
-                                      : []
-                                  ) as typeof characterPoseEvents;
-                                  return {
-                                    ...candidate,
-                                    content: {
-                                      ...candidate.content,
-                                      poseEvents: events.map((item) =>
-                                        item.id === poseEvent.id
-                                          ? {
-                                              ...item,
-                                              memberId: event.target.value,
-                                            }
-                                          : item,
-                                      ),
-                                    },
-                                  };
-                                }),
-                              }))
-                            }
+                                  }
+                                : candidate,
+                            ),
+                          }));
+                        }}
+                      >
+                        {(document.assetGroups ?? [])
+                          .filter(
+                            (group) =>
+                              group.category === "characters" &&
+                              group.members.some(
+                                (member) => member.role === "pose",
+                              ),
+                          )
+                          .map((group) => (
+                            <option key={group.id} value={group.id}>
+                              {group.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    {characterGroup && (
+                      <div className="character-pose-events">
+                        <strong>Pose changes</strong>
+                        {characterPoseEvents.map((poseEvent) => (
+                          <div
+                            className="character-pose-event"
+                            key={poseEvent.id}
                           >
-                            {characterGroup.members
-                              .filter((member) => member.role === "pose")
-                              .map((member) => (
-                                <option key={member.id} value={member.id}>
-                                  {member.label}
-                                </option>
-                              ))}
-                          </select>
-                        </label>
+                            <label>
+                              Scene time (seconds)
+                              <input
+                                aria-label={`Pose time ${poseEvent.id} (seconds)`}
+                                type="number"
+                                min={characterSceneStart / manifest.fps}
+                                max={(characterMaxFrame - 1) / manifest.fps}
+                                step={1 / manifest.fps}
+                                disabled={!canEditProperties}
+                                value={(
+                                  poseEvent.atFrame / manifest.fps
+                                ).toFixed(3)}
+                                onChange={(event) => {
+                                  const atFrame = Math.max(
+                                    characterSceneStart,
+                                    Math.min(
+                                      characterMaxFrame - 1,
+                                      secondsToFrame(
+                                        Number(event.target.value),
+                                        manifest.fps,
+                                      ),
+                                    ),
+                                  );
+                                  onEdit((current) => ({
+                                    ...current,
+                                    clips: current.clips.map((candidate) => {
+                                      if (candidate.id !== clip.id)
+                                        return candidate;
+                                      const events = (
+                                        Array.isArray(
+                                          candidate.content.poseEvents,
+                                        )
+                                          ? candidate.content.poseEvents
+                                          : []
+                                      ) as typeof characterPoseEvents;
+                                      return {
+                                        ...candidate,
+                                        content: {
+                                          ...candidate.content,
+                                          poseEvents: events
+                                            .map((item) =>
+                                              item.id === poseEvent.id
+                                                ? { ...item, atFrame }
+                                                : item,
+                                            )
+                                            .sort(
+                                              (left, right) =>
+                                                left.atFrame - right.atFrame,
+                                            ),
+                                        },
+                                      };
+                                    }),
+                                  }));
+                                }}
+                              />
+                            </label>
+                            <label>
+                              Pose image
+                              <select
+                                aria-label={`Pose image ${poseEvent.id}`}
+                                disabled={!canEditProperties}
+                                value={poseEvent.memberId}
+                                onChange={(event) =>
+                                  onEdit((current) => ({
+                                    ...current,
+                                    clips: current.clips.map((candidate) => {
+                                      if (candidate.id !== clip.id)
+                                        return candidate;
+                                      const events = (
+                                        Array.isArray(
+                                          candidate.content.poseEvents,
+                                        )
+                                          ? candidate.content.poseEvents
+                                          : []
+                                      ) as typeof characterPoseEvents;
+                                      return {
+                                        ...candidate,
+                                        content: {
+                                          ...candidate.content,
+                                          poseEvents: events.map((item) =>
+                                            item.id === poseEvent.id
+                                              ? {
+                                                  ...item,
+                                                  memberId: event.target.value,
+                                                }
+                                              : item,
+                                          ),
+                                        },
+                                      };
+                                    }),
+                                  }))
+                                }
+                              >
+                                {characterGroup.members
+                                  .filter((member) => member.role === "pose")
+                                  .map((member) => (
+                                    <option key={member.id} value={member.id}>
+                                      {member.label}
+                                    </option>
+                                  ))}
+                              </select>
+                            </label>
+                            <button
+                              type="button"
+                              aria-label={`Remove pose change ${poseEvent.id}`}
+                              disabled={
+                                !canEditProperties ||
+                                characterPoseEvents.length <= 1
+                              }
+                              onClick={() =>
+                                onEdit((current) => ({
+                                  ...current,
+                                  clips: current.clips.map((candidate) =>
+                                    candidate.id === clip.id
+                                      ? {
+                                          ...candidate,
+                                          content: {
+                                            ...candidate.content,
+                                            poseEvents:
+                                              characterPoseEvents.filter(
+                                                (item) =>
+                                                  item.id !== poseEvent.id,
+                                              ),
+                                          },
+                                        }
+                                      : candidate,
+                                  ),
+                                }))
+                              }
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
                         <button
                           type="button"
-                          aria-label={`Remove pose change ${poseEvent.id}`}
                           disabled={
                             !canEditProperties ||
-                            characterPoseEvents.length <= 1
+                            characterPoseEvents.at(-1)?.atFrame ===
+                              characterMaxFrame - 1
                           }
-                          onClick={() =>
+                          onClick={() => {
+                            const nextFrame = Math.max(
+                              characterSceneStart,
+                              (characterPoseEvents.at(-1)?.atFrame ??
+                                characterSceneStart - 1) + 1,
+                            );
+                            const poseMember = characterGroup.members.find(
+                              (member) => member.role === "pose",
+                            );
+                            if (!poseMember || nextFrame >= characterMaxFrame)
+                              return;
                             onEdit((current) => ({
                               ...current,
                               clips: current.clips.map((candidate) =>
@@ -348,68 +432,30 @@ export function InspectorView({
                                       ...candidate,
                                       content: {
                                         ...candidate.content,
-                                        poseEvents: characterPoseEvents.filter(
-                                          (item) => item.id !== poseEvent.id,
-                                        ),
+                                        poseEvents: [
+                                          ...(Array.isArray(
+                                            candidate.content.poseEvents,
+                                          )
+                                            ? candidate.content.poseEvents
+                                            : []),
+                                          {
+                                            id: `pose-${crypto.randomUUID()}`,
+                                            atFrame: nextFrame,
+                                            memberId: poseMember.id,
+                                          },
+                                        ],
                                       },
                                     }
                                   : candidate,
                               ),
-                            }))
-                          }
+                            }));
+                          }}
                         >
-                          Remove
+                          Add pose change
                         </button>
                       </div>
-                    ))}
-                    <button
-                      type="button"
-                      disabled={
-                        !canEditProperties ||
-                        characterPoseEvents.at(-1)?.atFrame ===
-                          characterMaxFrame - 1
-                      }
-                      onClick={() => {
-                        const nextFrame = Math.max(
-                          characterSceneStart,
-                          (characterPoseEvents.at(-1)?.atFrame ??
-                            characterSceneStart - 1) + 1,
-                        );
-                        const poseMember = characterGroup.members.find(
-                          (member) => member.role === "pose",
-                        );
-                        if (!poseMember || nextFrame >= characterMaxFrame)
-                          return;
-                        onEdit((current) => ({
-                          ...current,
-                          clips: current.clips.map((candidate) =>
-                            candidate.id === clip.id
-                              ? {
-                                  ...candidate,
-                                  content: {
-                                    ...candidate.content,
-                                    poseEvents: [
-                                      ...(Array.isArray(
-                                        candidate.content.poseEvents,
-                                      )
-                                        ? candidate.content.poseEvents
-                                        : []),
-                                      {
-                                        id: `pose-${crypto.randomUUID()}`,
-                                        atFrame: nextFrame,
-                                        memberId: poseMember.id,
-                                      },
-                                    ],
-                                  },
-                                }
-                              : candidate,
-                          ),
-                        }));
-                      }}
-                    >
-                      Add pose change
-                    </button>
-                  </div>
+                    )}
+                  </>
                 )}
               </section>
             )}

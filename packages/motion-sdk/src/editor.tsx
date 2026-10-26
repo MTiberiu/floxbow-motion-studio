@@ -3,6 +3,7 @@ import {
   type ComponentType,
   type ReactNode,
   useContext,
+  useMemo,
 } from "react";
 import {
   AbsoluteFill,
@@ -191,6 +192,9 @@ export const standaloneCharacterClipSchema = z
           )
           .max(2000)
           .default([]),
+        poseEventSpace: z.enum(["clip"]).optional(),
+        loop: z.boolean().optional(),
+        cycleFrames: z.number().int().positive().max(216_000).optional(),
       })
       .passthrough(),
     props: z
@@ -226,15 +230,24 @@ export function resolveCharacterPose(
   events: readonly { atFrame: number; memberId: string }[],
   sceneLocalStartFrame: number,
   clipFrame: number,
+  loopCycleFrames?: number,
 ) {
-  const localFrame = sceneLocalStartFrame + clipFrame;
-  const event = events
-    .filter((candidate) => candidate.atFrame <= localFrame)
-    .reduce<(typeof events)[number] | undefined>(
-      (latest, candidate) =>
-        !latest || candidate.atFrame > latest.atFrame ? candidate : latest,
-      undefined,
-    );
+  const playbackFrame =
+    loopCycleFrames && loopCycleFrames > 0
+      ? clipFrame % loopCycleFrames
+      : clipFrame;
+  const localFrame = sceneLocalStartFrame + playbackFrame;
+  let low = 0;
+  let high = events.length - 1;
+  let eventIndex = -1;
+  while (low <= high) {
+    const middle = (low + high) >>> 1;
+    if (events[middle].atFrame <= localFrame) {
+      eventIndex = middle;
+      low = middle + 1;
+    } else high = middle - 1;
+  }
+  const event = eventIndex >= 0 ? events[eventIndex] : undefined;
   return (
     group.members.find((candidate) => candidate.id === event?.memberId) ??
     group.members.find((candidate) => candidate.role === "pose") ??
@@ -876,11 +889,17 @@ function StandaloneCharacter({
     throw new Error(
       `Character group ${character.content.groupId} is unavailable. Repair its assetGroups entry in edit-timeline.json.`,
     );
+  const clipLocalEvents = character.content.poseEventSpace === "clip";
+  const cycleFrames = character.content.cycleFrames;
   const member = resolveCharacterPose(
     group,
     character.content.poseEvents,
-    sceneLocalStartFrame,
+    clipLocalEvents ? 0 : sceneLocalStartFrame,
     frame,
+    clipLocalEvents &&
+      (character.content.loop || group.source?.kind === "pose-studio")
+      ? cycleFrames
+      : undefined,
   );
   if (!member)
     throw new Error(`Character group ${group.name} contains no images.`);
@@ -1083,75 +1102,89 @@ export function TimelineComposition({
   imageSources?: Readonly<Record<string, string>>;
   videoSources?: Readonly<Record<string, string>>;
 }) {
-  const t = parseEditTimeline(timeline);
-  const registeredComponents = [
-    standaloneTextModule,
-    standaloneImageModule,
-    standaloneCharacterModule,
-    standaloneVideoModule,
-    ...components.filter(
-      (component) =>
-        component.id !== "text" &&
-        component.id !== "image" &&
-        component.id !== "character" &&
-        component.id !== "video",
-    ),
-  ];
+  const t = useMemo(() => parseEditTimeline(timeline), [timeline]);
+  const registeredComponents = useMemo(
+    () => [
+      standaloneTextModule,
+      standaloneImageModule,
+      standaloneCharacterModule,
+      standaloneVideoModule,
+      ...components.filter(
+        (component) =>
+          component.id !== "text" &&
+          component.id !== "image" &&
+          component.id !== "character" &&
+          component.id !== "video",
+      ),
+    ],
+    [components],
+  );
+  const renderTracks = useMemo(
+    () =>
+      visualTracksInRenderOrder(t).map((track) => ({
+        track,
+        clips: t.clips.filter((clip) => clip.trackId === track.id),
+      })),
+    [t],
+  );
+  const componentById = useMemo(
+    () =>
+      new Map(
+        registeredComponents.map((component) => [component.id, component]),
+      ),
+    [registeredComponents],
+  );
   return (
     <div
       data-flox-composition-root="true"
       style={{ position: "absolute", inset: 0, overflow: "hidden" }}
     >
       <AbsoluteFill style={{ background: "#000000" }}>
-        {visualTracksInRenderOrder(t).flatMap((track) =>
+        {renderTracks.flatMap(({ track, clips }) =>
           track.visible === false
             ? []
-            : t.clips
-                .filter((c) => c.trackId === track.id)
-                .map((clip) => {
-                  if (
-                    clip.componentId === "soundtrack" ||
-                    clip.componentId === "video-audio"
-                  )
-                    return null;
-                  const definition = registeredComponents.find(
-                    (c) => c.id === clip.componentId,
-                  );
-                  if (!definition)
-                    throw new Error(`Unknown component ${clip.componentId}`);
-                  const Element = definition.component;
-                  return (
-                    <Sequence
-                      key={clip.id}
-                      from={clip.from}
-                      durationInFrames={clip.durationInFrames}
-                      name={clip.label}
+            : clips.map((clip) => {
+                if (
+                  clip.componentId === "soundtrack" ||
+                  clip.componentId === "video-audio"
+                )
+                  return null;
+                const definition = componentById.get(clip.componentId);
+                if (!definition)
+                  throw new Error(`Unknown component ${clip.componentId}`);
+                const Element = definition.component;
+                return (
+                  <Sequence
+                    key={clip.id}
+                    from={clip.from}
+                    durationInFrames={clip.durationInFrames}
+                    name={clip.label}
+                  >
+                    <div
+                      data-flox-clip-id={clip.id}
+                      data-flox-track-id={track.id}
+                      data-flox-component-id={clip.componentId}
+                      style={{ display: "contents" }}
                     >
-                      <div
-                        data-flox-clip-id={clip.id}
-                        data-flox-track-id={track.id}
-                        data-flox-component-id={clip.componentId}
-                        style={{ display: "contents" }}
-                      >
-                        <FrameAwareComponent
-                          component={Element}
-                          clip={clip}
-                          imageSources={imageSources}
-                          videoSources={videoSources}
-                          assetGroups={t.assetGroups}
-                          sceneLocalStartFrame={
-                            clip.sceneId
-                              ? clip.from -
-                                (t.scenes?.find(
-                                  (scene) => scene.id === clip.sceneId,
-                                )?.from ?? clip.from)
-                              : 0
-                          }
-                        />
-                      </div>
-                    </Sequence>
-                  );
-                }),
+                      <FrameAwareComponent
+                        component={Element}
+                        clip={clip}
+                        imageSources={imageSources}
+                        videoSources={videoSources}
+                        assetGroups={t.assetGroups}
+                        sceneLocalStartFrame={
+                          clip.sceneId
+                            ? clip.from -
+                              (t.scenes?.find(
+                                (scene) => scene.id === clip.sceneId,
+                              )?.from ?? clip.from)
+                            : 0
+                        }
+                      />
+                    </div>
+                  </Sequence>
+                );
+              }),
         )}
       </AbsoluteFill>
     </div>
@@ -1166,8 +1199,11 @@ export function TimelineSoundtrackAudio({
   timeline?: EditTimeline;
   audioSources: Readonly<Record<string, string>>;
 }) {
-  if (!timeline) return null;
-  const document = parseEditTimeline(timeline);
+  const document = useMemo(
+    () => (timeline ? parseEditTimeline(timeline) : undefined),
+    [timeline],
+  );
+  if (!document) return null;
   return (
     <>
       {document.clips
@@ -1203,8 +1239,11 @@ export function TimelineVideoAudio({
   timeline?: EditTimeline;
   videoSources?: Readonly<Record<string, string>>;
 }) {
-  if (!timeline) return null;
-  const document = parseEditTimeline(timeline);
+  const document = useMemo(
+    () => (timeline ? parseEditTimeline(timeline) : undefined),
+    [timeline],
+  );
+  if (!document) return null;
   return (
     <>
       {document.clips

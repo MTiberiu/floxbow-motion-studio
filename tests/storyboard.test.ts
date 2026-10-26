@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -22,6 +22,16 @@ import { createProject } from "../scripts/project-scaffold";
 import { manifestSchema } from "@motion/project-loader";
 import { zipFiles } from "../apps/desktop/src/storyboard-export";
 import { renderStoryboardSvg } from "@motion/project-loader/storyboard-svg";
+import { starterMotionLibrary, motionLibrarySchema } from "../apps/desktop/src/motion-library";
+
+test("reusable motion library has stable built-in identities and supports variations", () => {
+  const parsed = motionLibrarySchema.parse(structuredClone(starterMotionLibrary));
+  assert.deepEqual(parsed.map((motion) => motion.name), ["Walk", "Run", "Jump", "Dance", "Idle"]);
+  assert.equal(new Set(parsed.map((motion) => motion.id)).size, parsed.length);
+  assert.equal(parsed.find((motion) => motion.type === "jump")?.poses.length, 3);
+  assert.deepEqual(parsed.map((motion) => motion.poses.map((pose) => pose.id)), structuredClone(starterMotionLibrary).map((motion) => motion.poses.map((pose) => pose.id)));
+});
+
 function fixture() {
   const doc = emptyStoryboard("story-test"),
     scene = newScene("scene-office", "Andrei and Oana");
@@ -143,6 +153,44 @@ test("storyboard atomic save/reload, conflict rejection, agent resolver and real
       ),
       project = path.join(root, "story-test"),
       doc = fixture();
+    doc.aiRequests.push({
+      id: "request-mug-revision",
+      kind: "revise",
+      sceneId: "scene-office",
+      setId: "set-3",
+      objectId: "obj-chair",
+      representationId: "rep-3",
+      sourceReferenceId: "ref-chair",
+      outputReferenceId: "generated-chair-v2",
+      outputFile: "assets/storyboard/references/generated-chair-v2.png",
+      instruction: "Keep the same chair identity; make it blue.",
+      status: "pending",
+    });
+    doc.actionPlans.push({
+      id: "motion-plan-walk",
+      libraryActionId: "library-walk",
+      libraryActionName: "Walk",
+      type: "walk",
+      sceneId: "scene-office",
+      objectId: "obj-chair",
+      fromSetId: "set-3",
+      toSetId: "set-4",
+      start: 6,
+      duration: 2,
+      loop: false,
+      direction: "left to right",
+      view: "side view",
+      poseGuidance: "Keep feet aligned.",
+      poses: [{ id: "walk-pose-one", name: "walk-1", note: "Lead foot forward", status: "needed", referenceId: null }],
+      note: "Move toward the chair.",
+      status: "planned",
+    });
+    const referenceFile = path.join(project, "chair.png");
+    await writeFile(referenceFile, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRz0AAAAASUVORK5CYII=", "base64"));
+    await writeFile(path.join(project, "media.json"), JSON.stringify({
+      version: 1,
+      assets: [{ id: "chair", type: "image", displayName: "Chair", source: { kind: "external-file", path: referenceFile } }],
+    }));
     const initial = await readStoryboard(project, manifest.id);
     assert.equal(initial.revision, "missing");
     const saved = await saveStoryboard(
@@ -151,9 +199,11 @@ test("storyboard atomic save/reload, conflict rejection, agent resolver and real
       doc,
       initial.revision,
     );
+    const restored = (await readStoryboard(project, manifest.id)).document;
+    assert.equal(restored.references[0].file, "assets/storyboard/references/ref-chair.png");
     assert.deepEqual(
-      (await readStoryboard(project, manifest.id)).document,
-      doc,
+      await readFile(path.join(project, "assets/storyboard/references/ref-chair.png")),
+      await readFile(referenceFile),
     );
     await assert.rejects(
       saveStoryboard(project, manifest.id, doc, "missing"),
@@ -170,6 +220,14 @@ test("storyboard atomic save/reload, conflict rejection, agent resolver and real
       (context.result as { followingSet: { id: string } }).followingSet.id,
       "set-4",
     );
+    assert.equal((context.result as { references: { file: string }[] }).references[0].file, "assets/storyboard/references/ref-chair.png");
+    assert.equal((context.result as { aiImageRequests: { id: string; outputFile: string }[] }).aiImageRequests[0].outputFile, "assets/storyboard/references/generated-chair-v2.png");
+    assert.equal((context.result as { motionPlans: { libraryActionId: string; objectId: string }[] }).motionPlans[0].libraryActionId, "library-walk");
+    const resolvedRepresentation = (context.result as { set: { representations: { objectId: string; x: number; y: number; width: number; height: number }[] } }).set.representations[0];
+    assert.deepEqual(
+      { objectId: resolvedRepresentation.objectId, x: resolvedRepresentation.x, y: resolvedRepresentation.y, width: resolvedRepresentation.width, height: resolvedRepresentation.height },
+      { objectId: "obj-chair", x: 10, y: 20, width: 30, height: 50 },
+    );
     assert.equal(context.revision, saved.revision);
     await assert.rejects(
       resolveStoryboardContext(root, "../escape", "listStoryboardScenes"),
@@ -183,6 +241,34 @@ test("storyboard atomic save/reload, conflict rejection, agent resolver and real
         "missing",
       ),
     );
+    const generated = structuredClone(restored);
+    const request = generated.aiRequests[0];
+    await mkdir(path.join(project, "assets/storyboard/references"), { recursive: true });
+    await writeFile(path.join(project, request.outputFile), await readFile(referenceFile));
+    generated.references.push({
+      id: request.outputReferenceId,
+      assetId: request.outputReferenceId,
+      file: request.outputFile,
+      name: "Chair AI revision",
+      category: "prop",
+      description: "Blue chair variant",
+      origin: "ai",
+      prompt: request.instruction,
+      basedOnReferenceIds: ["ref-chair"],
+      requestId: request.id,
+    });
+    const sourceRep = generated.scenes[0].sets[2].representations[0];
+    generated.scenes[0].sets[2].representations.push({
+      ...structuredClone(sourceRep),
+      id: "rep-chair-ai-v2",
+      zOrder: 1,
+      referenceId: request.outputReferenceId,
+      x: 78,
+    });
+    request.status = "completed";
+    const generatedSave = await saveStoryboard(project, manifest.id, generated, saved.revision);
+    assert.equal(generatedSave.document.references[1].file, request.outputFile);
+    assert.equal((await readStoryboard(project, manifest.id)).document.aiRequests[0].status, "completed");
     const file = path.join(project, "edit-timeline.json"),
       timeline = JSON.parse(await readFile(file, "utf8"));
     timeline.clips.push({
@@ -247,4 +333,68 @@ test("portrait spatial contract retains bounds, order, rotation and independent 
   assert.ok(
     !renderStoryboardSvg(doc, doc.scenes[0].sets[2]).includes("<script>"),
   );
+});
+
+test("AI image results keep request provenance and add a new representation of the same object", () => {
+  const doc = fixture();
+  doc.actionPlans.push({
+    id: "motion-plan-chair-walk",
+    libraryActionId: "library-walk",
+    libraryActionName: "Walk",
+    type: "walk",
+    sceneId: "scene-office",
+    objectId: "obj-chair",
+    fromSetId: "set-2",
+    toSetId: "set-3",
+    start: 3,
+    duration: 3,
+    loop: false,
+    direction: "left to right",
+    view: "side view",
+    poseGuidance: "Keep the character design stable.",
+    poses: [{ id: "walk-pose", name: "walk-1", note: "Lead foot forward", status: "needed", referenceId: null }],
+    note: "Keep the same chair and character design.",
+    status: "planned",
+  });
+  doc.aiRequests.push({
+    id: "request-chair-v2",
+    kind: "revise",
+    sceneId: "scene-office",
+    setId: "set-3",
+    objectId: "obj-chair",
+    representationId: "rep-3",
+    sourceReferenceId: "ref-chair",
+    outputReferenceId: "ai-chair-v2",
+    outputFile: "assets/storyboard/references/ai-chair-v2.png",
+    instruction: "Keep the object identity and make the chair blue.",
+    status: "pending",
+  });
+  const result = structuredClone(doc);
+  result.references.push({
+    id: "ai-chair-v2",
+    assetId: "ai-chair-v2",
+    file: "assets/storyboard/references/ai-chair-v2.png",
+    name: "Blue chair",
+    category: "prop",
+    description: "AI revision of the chair reference",
+    origin: "ai",
+    prompt: "Make the chair blue",
+    basedOnReferenceIds: ["ref-chair"],
+    requestId: "request-chair-v2",
+  });
+  const representation = structuredClone(result.scenes[0].sets[2].representations[0]);
+  representation.id = "rep-chair-v2";
+  representation.referenceId = "ai-chair-v2";
+  representation.x = 78;
+  representation.zOrder = 1;
+  result.scenes[0].sets[2].representations.push(representation);
+  result.aiRequests[0].status = "completed";
+  const completed = storyboardSchema.parse(result);
+  assert.equal(completed.scenes[0].sets[2].representations[1].objectId, "obj-chair");
+  assert.equal(completed.scenes[0].sets[0].representations[0].x, 10);
+  assert.match(directorBrief(completed, { name: "AI handoff", width: 1920, height: 1080, fps: 30 }), /ai-chair-v2\.png/);
+  assert.match(directorBrief(completed, { name: "AI handoff", width: 1920, height: 1080, fps: 30 }), /Motion library set Walk/);
+  const invalid = structuredClone(completed);
+  invalid.references.find((reference) => reference.id === "ai-chair-v2")!.requestId = "wrong-request";
+  assert.throws(() => storyboardSchema.parse(invalid), /Generated reference request is missing|AI request output provenance does not match/);
 });

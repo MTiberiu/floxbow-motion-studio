@@ -213,16 +213,19 @@ export function useEditorSession({
 
   useEffect(() => {
     if (!document || !dirty) return;
-    try {
-      localStorage.setItem(
-        draftKey,
-        JSON.stringify({ timeline: document, revision }),
-      );
-    } catch {
-      setError(
-        "Draft storage is full. Save the project or export your timeline.",
-      );
-    }
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({ timeline: document, revision }),
+        );
+      } catch {
+        setError(
+          "Draft storage is full. Save the project or export your timeline.",
+        );
+      }
+    }, 180);
+    return () => window.clearTimeout(timer);
   }, [document, dirty, revision]);
 
   const edit = useCallback(

@@ -13,9 +13,9 @@ import {
 } from "@motion/sdk/timeline-analysis";
 import {
   parseEditTimeline,
-  changeClipRange,
   fieldValue,
   validateField,
+  visualAssetGroupSchema,
   type EditTimeline,
   type EditableField,
 } from "@motion/sdk/timeline";
@@ -51,6 +51,7 @@ import {
 } from "./timeline-track-utils";
 import { useWorkspaceManager } from "./WorkspaceManager";
 import { clampTimelineHeight, DEFAULT_TIMELINE_HEIGHT } from "./editor-layout";
+import { addPoseStudioActionToTimeline } from "./pose-studio-import";
 import type {
   TimelineCommandEnvelope,
   TimelineCommandResult,
@@ -247,16 +248,16 @@ export function TimelineEditor({
     ? timelinePlaybackEnd(doc, playToProjectEnd)
     : manifest.durationInFrames;
   playPreviewRef.current = () => sessionRef.current.commands.play();
-  async function prepareVisualContext(options: {
-    clipId?: string;
-    copyToClipboard?: boolean;
-  } = {}) {
+  async function prepareVisualContext(
+    options: {
+      clipId?: string;
+      copyToClipboard?: boolean;
+    } = {},
+  ) {
     const request = visualRequest.trim();
     if (!doc || !request || !window.floxBowWindows) return;
     const contextClipId = options.clipId ?? selected;
-    const selectedClip = doc.clips.find(
-      (item) => item.id === contextClipId,
-    );
+    const selectedClip = doc.clips.find((item) => item.id === contextClipId);
     const captureFrame =
       options.clipId !== undefined ? (selectedClip?.from ?? frame) : frame;
     const surface = canvasSurface.current;
@@ -1024,6 +1025,123 @@ export function TimelineEditor({
     window.addEventListener("motion-add-image", addImage);
     return () => window.removeEventListener("motion-add-image", addImage);
   }, [manifest.id, manifest.width, manifest.height, workspace]);
+
+  useEffect(() => {
+    const requestSceneContext = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ requestId?: unknown; projectId?: unknown }>
+      ).detail;
+      if (
+        detail?.projectId !== manifest.id ||
+        typeof detail.requestId !== "string"
+      )
+        return;
+      const live = sessionRef.current;
+      const current = live.commands.getCurrentDocument();
+      if (live.snapshot.projectId !== manifest.id || !current) return;
+      window.dispatchEvent(
+        new CustomEvent("motion-scene-context", {
+          detail: {
+            requestId: detail.requestId,
+            projectId: manifest.id,
+            frame: live.snapshot.frame,
+            scenes: current.scenes ?? [],
+          },
+        }),
+      );
+    };
+    const importPoseAction = (event: Event) => {
+      const detail = (event as CustomEvent<Record<string, unknown>>).detail;
+      if (
+        detail?.projectId !== manifest.id ||
+        typeof detail.requestId !== "string"
+      )
+        return;
+      const requestId = detail.requestId;
+      const resultEvent = (success: boolean, message: string) =>
+        window.dispatchEvent(
+          new CustomEvent("motion-pose-import-result", {
+            detail: { projectId: manifest.id, requestId, success, message },
+          }),
+        );
+      void (async () => {
+        try {
+          const group = visualAssetGroupSchema.parse(detail.group);
+          if (
+            !Array.isArray(detail.steps) ||
+            typeof detail.speed !== "number" ||
+            typeof detail.startFrame !== "number" ||
+            (detail.sceneId !== undefined &&
+              typeof detail.sceneId !== "string") ||
+            typeof detail.label !== "string"
+          )
+            throw new Error("The pose action import details are incomplete.");
+          const mediaResponse = await fetch(
+            `/api/media/${encodeURIComponent(manifest.id)}`,
+          );
+          if (!mediaResponse.ok) throw new Error(await mediaResponse.text());
+          const media = (await mediaResponse.json()) as {
+            assets?: Array<{ id?: unknown; status?: unknown }>;
+          };
+          const readyAssets = new Set(
+            (media.assets ?? [])
+              .filter((asset) => asset.status === "ready")
+              .map((asset) => asset.id),
+          );
+          if (group.members.some((member) => !readyAssets.has(member.assetId)))
+            throw new Error(
+              "One or more imported pose images are not ready in the project Media Library.",
+            );
+          const live = sessionRef.current;
+          const current = live.commands.getCurrentDocument();
+          if (live.snapshot.projectId !== manifest.id || !current)
+            throw new Error(
+              "The project Timeline is not ready for this import.",
+            );
+          const imported = addPoseStudioActionToTimeline(current, {
+            group,
+            steps: detail.steps as Array<{
+              memberId: string;
+              durationMs: number;
+            }>,
+            speed: detail.speed,
+            ...(typeof detail.sceneId === "string"
+              ? { sceneId: detail.sceneId }
+              : {}),
+            startFrame: detail.startFrame,
+            label: detail.label,
+          });
+          sessionEdit(imported.timeline);
+          live.commands.selectClip(imported.clipId);
+          setNotice(
+            `${group.name} imported as an editable Character clip with ${imported.poseEventCount} pose changes.`,
+          );
+          workspace.activatePanel("editor");
+          resultEvent(
+            true,
+            `Imported ${group.name} into the project Timeline.`,
+          );
+        } catch (cause) {
+          const message =
+            cause instanceof Error ? cause.message : String(cause);
+          setError(message);
+          resultEvent(false, message);
+        }
+      })();
+    };
+    window.addEventListener(
+      "motion-request-scene-context",
+      requestSceneContext,
+    );
+    window.addEventListener("motion-import-pose-action", importPoseAction);
+    return () => {
+      window.removeEventListener(
+        "motion-request-scene-context",
+        requestSceneContext,
+      );
+      window.removeEventListener("motion-import-pose-action", importPoseAction);
+    };
+  }, [manifest.id, sessionEdit, workspace]);
 
   useEffect(() => {
     const addCharacter = (event: Event) => {
@@ -2203,12 +2321,13 @@ export function TimelineEditor({
   function changeRange(start: number, end: number) {
     if (!doc || !clip) return;
     edit(
-      changeClipRange(
+      changeTimelineClipRangeWithRipple(
         doc,
         clip.id,
         start,
-        end,
+        end - start,
         true,
+        rippleMode,
         resolveTimelineBehavior(clip.componentId, components),
       ),
     );
@@ -2798,6 +2917,22 @@ export function TimelineEditor({
                     );
                 }}
                 onSeek={seek}
+                onImportPoseStudio={(sceneId, startFrame) => {
+                  window.sessionStorage.setItem(
+                    "floxbow.pose-studio.import-request",
+                    JSON.stringify({
+                      projectId: manifest.id,
+                      sceneId,
+                      startFrame,
+                    }),
+                  );
+                  workspace.openPanel("pose-studio");
+                  window.dispatchEvent(
+                    new CustomEvent("motion-open-pose-studio-import", {
+                      detail: { projectId: manifest.id, sceneId, startFrame },
+                    }),
+                  );
+                }}
                 onClipContextMenu={(clipId, position) => {
                   setSelected(clipId);
                   setTextContextPopup({ clipId, position });
@@ -3085,7 +3220,7 @@ export function TimelineEditor({
                 const definitions = new Map(
                   components.map((item) => [item.id, item]),
                 );
-                const next = parseEditTimeline({
+                const next: EditTimeline = {
                   ...current,
                   clips: current.clips.map((clip) => {
                     const transform = changes.get(clip.id);
@@ -3094,7 +3229,7 @@ export function TimelineEditor({
                       ? applyCanvasTransform(clip, definition, transform)
                       : clip;
                   }),
-                });
+                };
                 if (gesture && !gesture.checkpointed) {
                   if (commands.getStateVersion() !== gesture.startVersion) {
                     gesture.canceled = true;
@@ -3346,6 +3481,22 @@ export function TimelineEditor({
                 onDropMedia={(data, target) =>
                   handleTimelineMediaDrop(data, target)
                 }
+                onImportPoseStudio={(sceneId, startFrame) => {
+                  window.sessionStorage.setItem(
+                    "floxbow.pose-studio.import-request",
+                    JSON.stringify({
+                      projectId: manifest.id,
+                      sceneId,
+                      startFrame,
+                    }),
+                  );
+                  workspace.openPanel("pose-studio");
+                  window.dispatchEvent(
+                    new CustomEvent("motion-open-pose-studio-import", {
+                      detail: { projectId: manifest.id, sceneId, startFrame },
+                    }),
+                  );
+                }}
                 onBeginClipGesture={beginClipGesture}
                 onTimelineOperation={(operation) => {
                   const operationError = performTimelineOperation(operation);

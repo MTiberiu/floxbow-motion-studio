@@ -70,6 +70,27 @@ test("character pose events resolve from scene-local time and retain stable asse
   assert.equal(parsed.clips[0].id, "character-clip");
 });
 
+test("large imported character sequences resolve the active pose without scanning every event", () => {
+  const events = Array.from({ length: 1_000 }, (_, atFrame) => ({
+    atFrame,
+    memberId: atFrame % 2 === 0 ? "neutral" : "talking",
+  }));
+  assert.equal(resolveCharacterPose(group, events, 0, 998)?.id, "neutral");
+  assert.equal(resolveCharacterPose(group, events, 0, 999)?.id, "talking");
+  assert.equal(resolveCharacterPose(group, events, 0, -1)?.id, "neutral");
+});
+
+test("looping Pose Studio clips resolve one clip-local pose cycle repeatedly", () => {
+  const events = [
+    { atFrame: 0, memberId: "neutral" },
+    { atFrame: 3, memberId: "talking" },
+  ];
+  assert.equal(resolveCharacterPose(group, events, 0, 0, 9)?.id, "neutral");
+  assert.equal(resolveCharacterPose(group, events, 0, 3, 9)?.id, "talking");
+  assert.equal(resolveCharacterPose(group, events, 0, 9, 9)?.id, "neutral");
+  assert.equal(resolveCharacterPose(group, events, 0, 12, 9)?.id, "talking");
+});
+
 test("character clips reject unknown groups, alternative-only states, and out-of-scene poses", () => {
   assert.throws(() =>
     parseEditTimeline({

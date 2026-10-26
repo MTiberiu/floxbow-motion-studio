@@ -20,6 +20,7 @@ import {
   readMediaWithAvailability,
   registerAudioAsset,
   registerMediaAsset,
+  registerPoseStudioPngs,
   removeMediaAsset,
 } from "../scripts/media-store";
 
@@ -502,6 +503,40 @@ test("external registry edits become visible and stale UI writes are rejected wi
       JSON.stringify(invalidEdit),
     );
     await assert.rejects(readMediaRegistry(projectRoot));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("Pose Studio imports transparent PNGs as project media and deduplicates identical images", async () => {
+  const directory = await tempDirectory("floxbow-pose-import-");
+  try {
+    const projectRoot = path.join(directory, "project");
+    await mkdir(path.join(projectRoot, "assets"), { recursive: true });
+    const initial = await readMediaRegistry(projectRoot);
+    const pngBase64 = pngFixture().toString("base64");
+    const imported = await registerPoseStudioPngs(
+      projectRoot,
+      initial.revision,
+      [
+        { poseId: "pose-one", displayName: "Mina · Pose 1", pngBase64 },
+        { poseId: "pose-two", displayName: "Mina · Pose 2", pngBase64 },
+      ],
+    );
+    assert.equal(imported.assets.length, 2);
+    assert.equal(imported.assets[0].assetId, imported.assets[1].assetId);
+    const snapshot = await readMediaWithAvailability(projectRoot);
+    assert.equal(snapshot.registry.assets.length, 1);
+    assert.equal(snapshot.registry.assets[0].type, "image");
+    assert.equal(snapshot.availability[0].status, "ready");
+    assert.deepEqual(
+      await readFile(
+        snapshot.availability[0].status === "ready"
+          ? snapshot.availability[0].path
+          : "",
+      ),
+      pngFixture(),
+    );
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -35,7 +35,7 @@ export function renderStoryboardSvg(input: Storyboard, requestedSet: StorySet) {
         body = `<text y="${h}" font-family="sans-serif" font-size="${h}" fill="${r.color}" stroke="none">${escape(r.text)}</text>`;
       if (r.kind === "reference") {
         const ref = doc.references.find((ref) => ref.id === r.referenceId)!;
-        body = `<image href="/api/storyboard/${doc.projectId}/media/${ref.assetId}" width="${w}" height="${h}" preserveAspectRatio="none"/>`;
+        body = `<image href="/api/storyboard/${doc.projectId}/media/${ref.id}" width="${w}" height="${h}" preserveAspectRatio="none"/>`;
       }
       return `<g id="${r.id}" transform="translate(${x + w / 2} ${y + h / 2}) rotate(${r.rotation}) translate(${-w / 2} ${-h / 2})" opacity="${r.opacity}" stroke="${r.color}" stroke-width="${r.thickness}" stroke-linecap="round" stroke-linejoin="round" fill="none">${body}</g>`;
     });

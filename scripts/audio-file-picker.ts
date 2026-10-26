@@ -4,6 +4,10 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const timeout = 120_000;
 
+export function parsePickerOutput(stdout: string) {
+  return stdout.replace(/^\uFEFF/, "").replace(/\r?\n$/, "");
+}
+
 async function run(command: string, args: string[]) {
   try {
     const result = await execFileAsync(command, args, {
@@ -11,7 +15,7 @@ async function run(command: string, args: string[]) {
       windowsHide: true,
       maxBuffer: 16_384,
     });
-    return result.stdout.trim();
+    return parsePickerOutput(result.stdout);
   } catch (error) {
     const code = (error as { code?: unknown }).code;
     if (code === 1 || code === 5) return "";
@@ -41,6 +45,7 @@ export async function pickMediaFile(
         : "MP4 video (*.mp4)|*.mp4";
   if (process.platform === "win32") {
     const script = [
+      "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
       "Add-Type -AssemblyName System.Windows.Forms",
       "$dialog = New-Object System.Windows.Forms.OpenFileDialog",
       `$dialog.Title = '${title}'`,

@@ -46,12 +46,24 @@ export const visualAssetGroupMemberSchema = z.object({
   role: z.enum(["alternative", "pose"]).default("alternative"),
   offsetX: z.number().min(-100).max(100).default(0),
   offsetY: z.number().min(-100).max(100).default(0),
+  /** Stable source pose identity when imported from a reusable pose library. */
+  sourcePoseId: id.optional(),
 });
 export const visualAssetGroupSchema = z.object({
   id,
   name: z.string().min(1).max(100),
   category: z.enum(["characters", "backgrounds", "props", "other"]),
   members: z.array(visualAssetGroupMemberSchema).min(1).max(100),
+  /** Provenance for explicitly imported reusable pose-library actions. */
+  source: z
+    .object({
+      kind: z.literal("pose-studio"),
+      characterId: id,
+      sheetId: id,
+      comboId: id,
+    })
+    .strict()
+    .optional(),
 });
 export const timelineTrackSchema = z.object({
   id,
@@ -182,8 +194,13 @@ export const editTimelineSchema = z
           const scene = c.sceneId
             ? (t.scenes ?? []).find((item) => item.id === c.sceneId)
             : undefined;
-          const sceneStart = scene ? c.from - scene.from : 0;
-          const maxFrame = scene ? scene.durationInFrames : c.durationInFrames;
+          const clipLocalEvents = c.content.poseEventSpace === "clip";
+          const sceneStart =
+            scene && !clipLocalEvents ? c.from - scene.from : 0;
+          const maxFrame =
+            clipLocalEvents || !scene
+              ? c.durationInFrames
+              : scene.durationInFrames;
           events.forEach((rawEvent, eventIndex) => {
             if (
               !rawEvent ||
