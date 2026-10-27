@@ -5,7 +5,7 @@
 **Target:** External coding agents working in local FloxBow projects; existing Electron / Remotion editor remains the visual surface.  
 **Initial base:** `dev` at the time this documentation branch was created. Verify source and open PRs before claiming current capabilities.
 
-## Start here
+**Persistent documentation branch:** `docs/ai-film-production-architecture` — use this branch for Manager/Director product notes; it is documentation-only and separate from `dev` and implementation branches. See [Branch ownership and cleanup](BRANCH-OWNERSHIP.md).\n\n## Start here
 
 The desired experience is strikingly simple: **a canvas, a timed story, and an AI coding agent that can turn the story into a directed film.** Timeline, Inspector, detached panes and manual editing are powerful *optional tools*, not the product's fundamental proposition.
 
@@ -20,7 +20,7 @@ Read these files in order:
 3. [03 — Director plan, API and data contracts](03-DIRECTOR-DATA-AND-API.md)
 4. [04 — Production scaffold and existing timeline integration](04-SCAFFOLD-AND-INTEGRATION.md)
 5. [05 — Director transcript, visual feedback and reusable motion](05-REVIEW-AND-MOTION.md)
-6. [06 — Developer investigation, decision questions and acceptance](06-DEVELOPER-REVIEW-TASK.md)
+6. [06 — Developer investigation, decision questions and acceptance](06-DEVELOPER-REVIEW-TASK.md)\n7. [07 — Current Director-first UI and hybrid shot product direction](07-CURRENT-PRODUCT-DIRECTION.md)\n8. [Branch ownership, known feature branches and cleanup policy](BRANCH-OWNERSHIP.md)
 
 ## Verified architecture anchors in `dev` (not new proposals)
 
