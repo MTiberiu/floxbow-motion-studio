@@ -102,6 +102,29 @@ const objectSchema = z
     referenceIds: z.array(id).max(500),
   })
   .strict();
+const annotationSchema = z
+  .object({
+    id,
+    sceneId: id,
+    setId: id,
+    objectId: id.nullable(),
+    targetReferenceId: id,
+    targetRepresentationId: id,
+    coordinateSpace: z.literal("image-percent"),
+    kind: z.enum(["point", "line", "polyline", "polygon", "rectangle"]),
+    points: z.array(z.tuple([z.number().min(0).max(100), z.number().min(0).max(100)])).max(500),
+    label: note,
+    instruction: note,
+    color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  })
+  .strict()
+  .superRefine((annotation, ctx) => {
+    const minimumPoints =
+      annotation.kind === "point" ? 1 :
+      annotation.kind === "line" || annotation.kind === "polyline" || annotation.kind === "rectangle" ? 2 : 3;
+    if (annotation.points.length < minimumPoints)
+      ctx.addIssue({ code: "custom", message: `${annotation.kind} annotation needs at least ${minimumPoints} points` });
+  });
 const actionPoseSchema = z.object({
   id,
   libraryPoseId: id.optional(),
@@ -179,6 +202,13 @@ export const storyboardSchema = z
           .object({
             id,
             assetId: id,
+            sha256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+            visualAssetId: id.optional(),
+            version: z.number().int().min(1).max(10000).optional(),
+            role: z.enum(["reference", "shot-image", "clean-background", "character", "prop", "element", "mask", "style-frame", "other"]).optional(),
+            width: z.number().int().min(1).max(32768).optional(),
+            height: z.number().int().min(1).max(32768).optional(),
+            hasAlpha: z.boolean().optional(),
             file: z
               .string()
               .regex(/^assets\/storyboard\/references\/[a-z0-9-]+\.png$/)
@@ -194,6 +224,7 @@ export const storyboardSchema = z
           .strict(),
       )
       .max(2000),
+    annotations: z.array(annotationSchema).max(10000).default([]),
     aiRequests: z.array(aiImageRequestSchema).max(1000).default([]),
     actionPlans: z.array(actionPlanSchema).max(1000).default([]),
     briefs: z
@@ -209,6 +240,29 @@ export const storyboardSchema = z
           .strict(),
       )
       .max(500),
+    review: z
+      .object({
+        scenes: z
+          .array(
+            z
+              .object({
+                sceneId: id,
+                fingerprint: z.string().min(1).max(100),
+                approvedAt: z.string().datetime(),
+              })
+              .strict(),
+          )
+          .max(200),
+        film: z
+          .object({
+            fingerprint: z.string().min(1).max(100),
+            approvedAt: z.string().datetime(),
+          })
+          .strict()
+          .nullable(),
+      })
+      .strict()
+      .default({ scenes: [], film: null }),
   })
   .strict()
   .superRefine((doc, ctx) => {
@@ -222,6 +276,7 @@ export const storyboardSchema = z
       seen.add(value);
     };
     const refs = new Set(doc.references.map((r) => r.id));
+    const visualVersions = new Set<string>();
     const link = (values: string[]) =>
       values.forEach((value) => {
         if (!refs.has(value))
@@ -241,6 +296,17 @@ export const storyboardSchema = z
           message: "Reference file path must match its stable ID",
         });
       link(reference.basedOnReferenceIds ?? []);
+      const visualAssetId = reference.visualAssetId ?? reference.id;
+      const version = reference.version ?? 1;
+      const versionKey = `${visualAssetId}:${version}`;
+      if (visualVersions.has(versionKey))
+        ctx.addIssue({ code: "custom", message: `Duplicate visual asset version: ${versionKey}` });
+      visualVersions.add(versionKey);
+      reference.basedOnReferenceIds?.forEach((parentId) => {
+        const parent = doc.references.find((candidate) => candidate.id === parentId);
+        if (parent && reference.visualAssetId && parent.visualAssetId && reference.visualAssetId !== parent.visualAssetId)
+          ctx.addIssue({ code: "custom", message: "Visual asset revision changed its stable identity" });
+      });
     });
     doc.references.forEach((r) => check(r.id));
     doc.scenes.forEach((scene) => {
@@ -287,6 +353,30 @@ export const storyboardSchema = z
       check(b.id);
       if (!doc.scenes.some((s) => s.id === b.sceneId))
         ctx.addIssue({ code: "custom", message: "Brief scene is missing" });
+    });
+    doc.annotations.forEach((annotation) => {
+      check(annotation.id);
+      const scene = doc.scenes.find((candidate) => candidate.id === annotation.sceneId);
+      const set = scene?.sets.find((candidate) => candidate.id === annotation.setId);
+      if (!set)
+        ctx.addIssue({ code: "custom", message: "Annotation target Set is missing" });
+      if (!refs.has(annotation.targetReferenceId))
+        ctx.addIssue({ code: "custom", message: "Annotation target image is missing" });
+      const target = set?.representations.find((representation) => representation.id === annotation.targetRepresentationId);
+      if (!target || target.referenceId !== annotation.targetReferenceId)
+        ctx.addIssue({ code: "custom", message: "Annotation target representation does not use the referenced image" });
+      if (annotation.objectId && !scene?.objects.some((object) => object.id === annotation.objectId))
+        ctx.addIssue({ code: "custom", message: "Annotation story object is missing" });
+      if (annotation.objectId && target?.objectId && annotation.objectId !== target.objectId)
+        ctx.addIssue({ code: "custom", message: "Annotation and target representation belong to different objects" });
+    });
+    const reviewedScenes = new Set<string>();
+    doc.review.scenes.forEach((approval) => {
+      if (reviewedScenes.has(approval.sceneId))
+        ctx.addIssue({ code: "custom", message: "Scene approval is duplicated" });
+      reviewedScenes.add(approval.sceneId);
+      if (!doc.scenes.some((scene) => scene.id === approval.sceneId))
+        ctx.addIssue({ code: "custom", message: "Approved scene is missing" });
     });
     const requestIds = new Set(doc.aiRequests.map((request) => request.id));
     doc.actionPlans.forEach((action) => {
@@ -354,8 +444,6 @@ export const storyboardSchema = z
     doc.references.forEach((reference) => {
       if (reference.requestId && !requestIds.has(reference.requestId))
         ctx.addIssue({ code: "custom", message: "Generated reference request is missing" });
-      if (reference.origin === "ai" && !reference.requestId)
-        ctx.addIssue({ code: "custom", message: "Generated reference needs its AI request ID" });
     });
   });
 export type Storyboard = z.infer<typeof storyboardSchema>;
@@ -372,9 +460,11 @@ export const emptyStoryboard = (
   composition,
   scenes: [],
   references: [],
+  annotations: [],
   aiRequests: [],
   actionPlans: [],
   briefs: [],
+  review: { scenes: [], film: null },
 });
 export const newSet = (id: string, name: string): StorySet => ({
   id,
@@ -404,12 +494,47 @@ export const newScene = (id: string, name: string): StoryScene => ({
 });
 /** Stable content fingerprint, not a security digest; excludes imported suggestions. */
 export function sceneFingerprint(doc: Storyboard, scene: StoryScene) {
-  const text = JSON.stringify({
+  const linkedReferences = sceneReferenceIds(
+    scene,
+    doc.actionPlans.filter((action) => action.sceneId === scene.id),
+    doc.annotations.filter((annotation) => annotation.sceneId === scene.id),
+  );
+  doc.actionPlans
+    .filter((action) => action.sceneId === scene.id)
+    .flatMap((action) => action.poses)
+    .forEach((pose) => {
+      if (pose.referenceId) linkedReferences.add(pose.referenceId);
+    });
+  const text = stableStringify({
     scene,
     actionPlans: doc.actionPlans.filter((action) => action.sceneId === scene.id),
-    references: doc.references,
+    aiRequests: doc.aiRequests.filter((request) => request.sceneId === scene.id),
+    annotations: doc.annotations.filter((annotation) => annotation.sceneId === scene.id),
+    references: doc.references
+      .filter((reference) => linkedReferences.has(reference.id))
+      .map(referenceFingerprint),
     composition: doc.composition,
   });
+  return contentFingerprint(text);
+}
+
+/** A stable content fingerprint for the full approved Director plan, excluding review metadata. */
+export function directorPlanFingerprint(doc: Storyboard) {
+  return contentFingerprint(
+    stableStringify({
+      projectId: doc.projectId,
+      composition: doc.composition,
+      scenes: doc.scenes,
+      references: doc.references.map(referenceFingerprint),
+      actionPlans: doc.actionPlans,
+      aiRequests: doc.aiRequests,
+      annotations: doc.annotations,
+      briefs: doc.briefs,
+    }),
+  );
+}
+
+function contentFingerprint(text: string) {
   let a = 2166136261,
     b = 5381;
   for (const char of text) {
@@ -417,6 +542,80 @@ export function sceneFingerprint(doc: Storyboard, scene: StoryScene) {
     b = Math.imul(b, 33) ^ char.charCodeAt(0);
   }
   return `${(a >>> 0).toString(16)}-${(b >>> 0).toString(16)}`;
+}
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+function referenceFingerprint(reference: Storyboard["references"][number]) {
+  // The host assigns this deterministic path during save; it is storage metadata.
+  const { file: _file, ...content } = reference;
+  return content;
+}
+
+export function sceneApprovalStatus(
+  doc: Storyboard,
+  scene: StoryScene,
+  changedAssetReferenceIds: string[] = [],
+) {
+  const approval = doc.review.scenes.find((item) => item.sceneId === scene.id);
+  if (!approval) return "not-approved" as const;
+  if (
+    changedAssetReferenceIds.some((id) =>
+      sceneReferenceIds(
+        scene,
+        doc.actionPlans.filter((action) => action.sceneId === scene.id),
+        doc.annotations.filter((annotation) => annotation.sceneId === scene.id),
+      ).has(id),
+    )
+  )
+    return "needs-review" as const;
+  return approval.fingerprint === sceneFingerprint(doc, scene)
+    ? ("approved" as const)
+    : ("needs-review" as const);
+}
+
+export function filmApprovalStatus(
+  doc: Storyboard,
+  changedAssetReferenceIds: string[] = [],
+) {
+  if (!doc.review.film) return "not-approved" as const;
+  if (changedAssetReferenceIds.length) return "needs-review" as const;
+  return doc.review.film.fingerprint === directorPlanFingerprint(doc)
+    ? ("approved" as const)
+    : ("needs-review" as const);
+}
+
+function sceneReferenceIds(
+  scene: StoryScene,
+  actionPlans: Storyboard["actionPlans"] = [],
+  annotations: Storyboard["annotations"] = [],
+) {
+  const linkedReferences = new Set<string>();
+  scene.objects.forEach((object) => object.referenceIds.forEach((id) => linkedReferences.add(id)));
+  scene.sets.forEach((set) => {
+    set.referenceIds.forEach((id) => linkedReferences.add(id));
+    if (set.tracing) linkedReferences.add(set.tracing.referenceId);
+    set.representations.forEach((representation) => {
+      if (representation.referenceId) linkedReferences.add(representation.referenceId);
+    });
+  });
+  actionPlans
+    .flatMap((action) => action.poses)
+    .forEach((pose) => {
+      if (pose.referenceId) linkedReferences.add(pose.referenceId);
+    });
+  annotations.forEach((annotation) => linkedReferences.add(annotation.targetReferenceId));
+  return linkedReferences;
 }
 export function timingWarnings(scene: StoryScene) {
   const warnings: string[] = [];
@@ -448,7 +647,11 @@ export type StoryFormat = {
   height: number;
   fps: number;
 };
-export function directorBrief(doc: Storyboard, format: StoryFormat) {
+export function directorBrief(
+  doc: Storyboard,
+  format: StoryFormat,
+  changedAssetReferenceIds: string[] = [],
+) {
   const lines = [
     `# ${format.name} — Director brief`,
     "",
@@ -456,6 +659,7 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
     `${format.width} × ${format.height}; ${format.fps} FPS. Project: ${doc.projectId}.`,
     "Timing is approximate unless linked to source audio. Sketches describe intent, not final artwork.",
     `Aspect ratio: ${format.width}:${format.height} (${format.width / format.height}). Total scene estimates: ${doc.scenes.reduce((sum, s) => sum + (s.duration ?? 0), 0)} seconds${doc.scenes.some((s) => s.duration === null) ? "; incomplete — some estimates unspecified" : ""}. All sketch/reference opacity is authoring presentation, not a final animation instruction.`,
+    `Whole-film approval: ${filmApprovalStatus(doc, changedAssetReferenceIds)}. An approved storyboard revision does not regenerate or overwrite Animator code.`,
     "",
     "## Instructions for the AI Director",
     "Preserve original instructions and stable identities. Propose timing, camera and motion separately. Identify uncertainty; do not invent word timing. Return Scene, Set, object, representation, reference and request IDs with suggestions. Reference files use project-relative paths in storyboard.json.",
@@ -464,6 +668,7 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
     lines.push(
       "",
       `# Scene: ${scene.name} (${scene.id})`,
+      `Scene approval: ${sceneApprovalStatus(doc, scene, changedAssetReferenceIds)}.`,
       "## The story",
       scene.description,
       `Estimated duration: ${scene.duration ?? "unspecified"} seconds. Timeline scene: ${scene.timelineSceneId ?? "unlinked"}.`,
@@ -512,6 +717,10 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
           `- Representation ${r.id}: ${scene.objects.find((o) => o.id === r.objectId)?.name ?? "Unassigned sketch"} (${r.objectId ?? "no identity"}); ${r.visible ? "visible" : "hidden"}; zOrder ${r.zOrder}; top-left x=${r.x}%, y=${r.y}%, width=${r.width}%, height=${r.height}%; rotation ${r.rotation} degrees around bounds center; coordinateSpace ${r.coordinateSpace}. ${r.spatialNote} Text: ${r.text}; reference ${r.referenceId ?? "none"}.`,
           `Pose: ${r.pose}\nInstructions: ${r.instructions}\nMotion: ${r.motion}`,
         );
+      for (const annotation of doc.annotations.filter((item) => item.sceneId === scene.id && item.setId === set.id))
+        lines.push(
+          `Visual annotation ${annotation.id} on reference ${annotation.targetReferenceId}, representation ${annotation.targetRepresentationId}${annotation.objectId ? ` for object ${annotation.objectId}` : ""}: ${annotation.kind} in image-percent coordinates ${JSON.stringify(annotation.points)}; ${annotation.label}. ${annotation.instruction}`,
+        );
       lines.push(
         "Audio/subtitle anchors (source time is separate from intended action time):",
       );
@@ -530,7 +739,7 @@ export function directorBrief(doc: Storyboard, format: StoryFormat) {
   lines.push("## The source references");
   doc.references.forEach((r) =>
     lines.push(
-      `- ${r.name} (${r.id}), ${r.category}: ${r.description}. Origin ${r.origin ?? "user"}; project file ${r.file ?? "not saved yet"}; source media ID ${r.assetId}; request ${r.requestId ?? "none"}.`,
+      `- ${r.name} (${r.id}), ${r.category}: ${r.description}. Origin ${r.origin ?? "user"}; project file ${r.file ?? "not saved yet"}; SHA-256 ${r.sha256 ?? "not saved yet"}; source media ID ${r.assetId}; request ${r.requestId ?? "none"}.`,
     ),
   );
   if (doc.aiRequests.length) {

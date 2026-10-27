@@ -39,5 +39,34 @@ export function renderStoryboardSvg(input: Storyboard, requestedSet: StorySet) {
       }
       return `<g id="${r.id}" transform="translate(${x + w / 2} ${y + h / 2}) rotate(${r.rotation}) translate(${-w / 2} ${-h / 2})" opacity="${r.opacity}" stroke="${r.color}" stroke-width="${r.thickness}" stroke-linecap="round" stroke-linejoin="round" fill="none">${body}</g>`;
     });
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>${escape(set.name)}</title><rect width="100%" height="100%" fill="white"/>${layers.join("")}</svg>`;
+  const annotations = doc.annotations
+    .filter((annotation) => annotation.setId === set.id)
+    .flatMap((annotation) => {
+      const target = set.representations.find(
+        (representation) => representation.id === annotation.targetRepresentationId && representation.visible,
+      );
+      if (!target) return [];
+      const x = (target.x * width) / 100,
+        y = (target.y * height) / 100,
+        w = (target.width * width) / 100,
+        h = (target.height * height) / 100,
+        points = annotation.points.map(([px, py]) => [x + (px * w) / 100, y + (py * h) / 100] as const),
+        [firstX, firstY] = points[0],
+        strokeWidth = Math.max(2, Math.max(width, height) * 0.002),
+        marker = Math.max(5, Math.max(width, height) * 0.006);
+      let shape = "";
+      if (annotation.kind === "point") shape = `<circle cx="${firstX}" cy="${firstY}" r="${marker}"/>`;
+      else if (annotation.kind === "rectangle") {
+        const [secondX, secondY] = points[1];
+        shape = `<rect x="${Math.min(firstX, secondX)}" y="${Math.min(firstY, secondY)}" width="${Math.abs(secondX - firstX)}" height="${Math.abs(secondY - firstY)}"/>`;
+      } else {
+        const path = points.map(([px, py], index) => `${index ? "L" : "M"}${px} ${py}`).join(" ");
+        shape = `<path d="${path}${annotation.kind === "polygon" ? " Z" : ""}"/>`;
+      }
+      const centerX = x + w / 2,
+        centerY = y + h / 2,
+        fontSize = Math.max(12, Math.max(width, height) * 0.016);
+      return [`<g id="${annotation.id}" transform="translate(${centerX} ${centerY}) rotate(${target.rotation}) translate(${-centerX} ${-centerY})" fill="none" stroke="${annotation.color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"><title>${escape(`${annotation.label}: ${annotation.instruction}`)}</title>${shape}<text x="${firstX}" y="${firstY - marker}" fill="${annotation.color}" stroke="none" font-family="sans-serif" font-size="${fontSize}">${escape(annotation.label)}</text></g>`];
+    });
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>${escape(set.name)}</title><rect width="100%" height="100%" fill="white"/>${layers.join("")}${annotations.join("")}</svg>`;
 }

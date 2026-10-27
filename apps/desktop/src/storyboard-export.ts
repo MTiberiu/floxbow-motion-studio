@@ -224,6 +224,7 @@ export async function sketchPng(
   set: StorySet,
   format: StoryFormat,
   images: Record<string, HTMLImageElement> = {},
+  annotations: Storyboard["annotations"] = [],
 ) {
   const canvas = document.createElement("canvas");
   canvas.width = format.width;
@@ -233,6 +234,41 @@ export async function sketchPng(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   set.representations.forEach((r) => paintRepresentation(ctx, r, images));
+  annotations.filter((annotation) => annotation.setId === set.id).forEach((annotation) => {
+    const target = set.representations.find((representation) => representation.id === annotation.targetRepresentationId && representation.visible);
+    if (!target) return;
+    const x = target.x * canvas.width / 100, y = target.y * canvas.height / 100;
+    const w = target.width * canvas.width / 100, h = target.height * canvas.height / 100;
+    const points = annotation.points.map(([px, py]) => [x + px * w / 100, y + py * h / 100] as const);
+    const [cx, cy] = [x + w / 2, y + h / 2];
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(target.rotation * Math.PI / 180);
+    ctx.translate(-cx, -cy);
+    ctx.strokeStyle = annotation.color;
+    ctx.fillStyle = annotation.color;
+    ctx.lineWidth = Math.max(2, Math.max(canvas.width, canvas.height) * 0.002);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    if (annotation.kind === "point") {
+      const [px, py] = points[0];
+      ctx.arc(px, py, Math.max(5, Math.max(canvas.width, canvas.height) * 0.006), 0, Math.PI * 2);
+    } else if (annotation.kind === "rectangle") {
+      const [x1, y1] = points[0], [x2, y2] = points[1];
+      ctx.rect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+    } else {
+      points.forEach(([px, py], index) => index ? ctx.lineTo(px, py) : ctx.moveTo(px, py));
+      if (annotation.kind === "polygon") ctx.closePath();
+    }
+    ctx.stroke();
+    if (annotation.label) {
+      const [px, py] = points[0];
+      ctx.font = `${Math.max(12, Math.max(canvas.width, canvas.height) * 0.016)}px sans-serif`;
+      ctx.fillText(annotation.label, px, py - Math.max(5, Math.max(canvas.width, canvas.height) * 0.006));
+    }
+    ctx.restore();
+  });
   return new Uint8Array(
     await (
       await new Promise<Blob>((resolve, reject) =>
@@ -349,7 +385,7 @@ export async function exportStoryboard(
   for (const scene of doc.scenes)
     for (const set of scene.sets) {
       const file = `sketches/${set.id}.png`;
-      files.push({ name: file, data: await sketchPng(set, format, images) });
+      files.push({ name: file, data: await sketchPng(set, format, images, doc.annotations) });
       mapping.push({ id: set.id, file, status: "ready" });
     }
   const assets = new Map<string, string | null>();
