@@ -4,6 +4,7 @@ const id = z
   .string()
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
   .max(120);
+const timelineIdentity = z.string().regex(/^[a-zA-Z0-9_-]+$/).max(100);
 const note = z.string().max(20000);
 const seconds = z.number().finite().min(0).max(86400);
 const coordinate = z.number().finite().min(-100000).max(100000);
@@ -35,6 +36,7 @@ export const representationSchema = z
     zOrder: z.number().int().min(0),
     spatialNote: note,
     referenceId: id.nullable(),
+    imageFit: z.enum(["contain", "cover", "stretch"]).optional(),
     kind: z.enum([
       "pencil",
       "rectangle",
@@ -59,6 +61,67 @@ export const representationSchema = z
     motion: note,
   })
   .strict();
+export type ImageFitMode = "contain" | "cover" | "stretch";
+export function imageBoundsInComposition(
+  target: { x: number; y: number; width: number; height: number },
+  imageWidth: number,
+  imageHeight: number,
+  compositionWidth: number,
+  compositionHeight: number,
+  fitMode: ImageFitMode = "contain",
+) {
+  const boxWidth = target.width * compositionWidth / 100;
+  const boxHeight = target.height * compositionHeight / 100;
+  if (![imageWidth, imageHeight, boxWidth, boxHeight, compositionWidth, compositionHeight]
+    .every(value => Number.isFinite(value) && value > 0)) {
+    return { x: target.x, y: target.y, width: target.width, height: target.height };
+  }
+  if (fitMode === "stretch") return { x: target.x, y: target.y, width: target.width, height: target.height };
+  const scale = fitMode === "cover"
+    ? Math.max(boxWidth / imageWidth, boxHeight / imageHeight)
+    : Math.min(boxWidth / imageWidth, boxHeight / imageHeight);
+  const width = imageWidth * scale;
+  const height = imageHeight * scale;
+  return {
+    x: (target.x * compositionWidth / 100 + (boxWidth - width) / 2) / compositionWidth * 100,
+    y: (target.y * compositionHeight / 100 + (boxHeight - height) / 2) / compositionHeight * 100,
+    width: width / compositionWidth * 100,
+    height: height / compositionHeight * 100,
+  };
+}
+/** Maps a point stored as source-image percentages into composition percentages. */
+export function imagePointToComposition(
+  target: { x: number; y: number; width: number; height: number },
+  point: readonly [number, number],
+  imageWidth: number,
+  imageHeight: number,
+  compositionWidth: number,
+  compositionHeight: number,
+  fitMode: ImageFitMode = "contain",
+) {
+  const bounds = imageBoundsInComposition(target, imageWidth, imageHeight, compositionWidth, compositionHeight, fitMode);
+  return [bounds.x + point[0] * bounds.width / 100, bounds.y + point[1] * bounds.height / 100] as const;
+}
+/** Maps a composition point back to the source image, undoing the target's rotation. */
+export function compositionPointToImage(
+  target: { x: number; y: number; width: number; height: number; rotation: number },
+  point: readonly [number, number],
+  imageWidth: number,
+  imageHeight: number,
+  compositionWidth: number,
+  compositionHeight: number,
+  fitMode: ImageFitMode = "contain",
+) {
+  const bounds = imageBoundsInComposition(target, imageWidth, imageHeight, compositionWidth, compositionHeight, fitMode);
+  const centerX = target.x + target.width / 2, centerY = target.y + target.height / 2;
+  const radians = -target.rotation * Math.PI / 180;
+  const dx = point[0] - centerX, dy = point[1] - centerY;
+  const localX = centerX + dx * Math.cos(radians) - dy * Math.sin(radians);
+  const localY = centerY + dx * Math.sin(radians) + dy * Math.cos(radians);
+  if (localX < target.x || localY < target.y || localX > target.x + target.width || localY > target.y + target.height) return null;
+  if (localX < bounds.x || localY < bounds.y || localX > bounds.x + bounds.width || localY > bounds.y + bounds.height) return null;
+  return [(localX - bounds.x) / bounds.width * 100, (localY - bounds.y) / bounds.height * 100] as const;
+}
 export const anchorSchema = z
   .object({
     cueId: z.string().max(200),
@@ -83,6 +146,9 @@ const setSchema = z
     transition: note,
     compositionNote: note,
     cameraNote: note,
+    // The approved key image for this shot is distinct from editable visual layers.
+    // Optional for backwards compatibility with existing storyboard.json files.
+    referenceImageId: id.nullable().optional(),
     referenceIds: z.array(id).max(500),
     tracing: z
       .object({ referenceId: id, opacity: z.number().min(0).max(1) })
@@ -116,6 +182,7 @@ const annotationSchema = z
     label: note,
     instruction: note,
     color: z.string().regex(/^#[0-9a-f]{6}$/i),
+    strokeWidth: z.number().min(1).max(16).optional(),
   })
   .strict()
   .superRefine((annotation, ctx) => {
@@ -169,6 +236,66 @@ const aiImageRequestSchema = z
       .regex(/^assets\/storyboard\/references\/[a-z0-9-]+\.png$/),
     instruction: note,
     status: z.enum(["pending", "completed", "cancelled"]),
+  })
+  .strict();
+export const storyboardImplementationOutputSchema = z.object({
+  id,
+  kind: z.enum(["image", "effect", "motion", "text", "transition"]),
+  name: z.string().min(1).max(200),
+  description: note,
+  // A code-created image is registered as a project reference so Storyboard
+  // can preview it. Effects can target either a Director layer or another
+  // declared output (for example, a shadow image with a drift effect).
+  assetReferenceId: id.nullable(),
+  targetElementId: id.nullable(),
+  startFrame: z.number().int().min(0).nullable(),
+  durationInFrames: z.number().int().positive().nullable(),
+}).strict().superRefine((output, ctx) => {
+  if (output.kind === "image" && !output.assetReferenceId)
+    ctx.addIssue({ code: "custom", message: "Animator image output needs a registered Storyboard image reference" });
+  if (output.kind === "effect" && !output.targetElementId)
+    ctx.addIssue({ code: "custom", message: "Animator effect output needs a target element ID" });
+  if ((output.startFrame === null) !== (output.durationInFrames === null))
+    ctx.addIssue({ code: "custom", message: "Animator output timing needs both a start frame and duration, or neither" });
+});
+
+export const storyboardCollaborationMessageSchema = z
+  .object({
+    id,
+    sceneId: id,
+    setId: id.nullable(),
+    targetKind: z.enum(["scene", "shot", "element", "annotation", "action"]),
+    targetId: id,
+    field: z.string().min(1).max(80),
+    author: z.enum(["director", "animator", "reviewer"]),
+    kind: z.enum([
+      "interpretation",
+      "question",
+      "proposal",
+      "decision",
+      "implementation",
+      "self-review",
+      "review-feedback",
+    ]),
+    outcome: z.enum([
+      "accepted",
+      "needs-clarification",
+      "alternative-proposed",
+      "blocked",
+      "implemented",
+      "self-checked",
+      "needs-revision",
+      "approved",
+    ]).optional(),
+    replyToId: id.nullable(),
+    message: note,
+    timelineClipIds: z.array(timelineIdentity).max(200),
+    componentIds: z.array(timelineIdentity).max(200),
+    sourceFiles: z.array(z.string().min(1).max(500)).max(200),
+    // Optional for compatibility with existing collaboration entries. New
+    // Animator implementation submissions should always declare their outputs.
+    outputs: z.array(storyboardImplementationOutputSchema).max(500).optional(),
+    createdAt: z.string().datetime(),
   })
   .strict();
 const sceneSchema = z
@@ -227,6 +354,7 @@ export const storyboardSchema = z
     annotations: z.array(annotationSchema).max(10000).default([]),
     aiRequests: z.array(aiImageRequestSchema).max(1000).default([]),
     actionPlans: z.array(actionPlanSchema).max(1000).default([]),
+    collaboration: z.array(storyboardCollaborationMessageSchema).max(20000).default([]),
     briefs: z
       .array(
         z
@@ -319,6 +447,7 @@ export const storyboardSchema = z
       scene.sets.forEach((set) => {
         check(set.id);
         link(set.referenceIds);
+        if (set.referenceImageId) link([set.referenceImageId]);
         if (set.tracing) link([set.tracing.referenceId]);
         set.representations.forEach((r, i) => {
           check(r.id);
@@ -367,8 +496,9 @@ export const storyboardSchema = z
         ctx.addIssue({ code: "custom", message: "Annotation target representation does not use the referenced image" });
       if (annotation.objectId && !scene?.objects.some((object) => object.id === annotation.objectId))
         ctx.addIssue({ code: "custom", message: "Annotation story object is missing" });
-      if (annotation.objectId && target?.objectId && annotation.objectId !== target.objectId)
-        ctx.addIssue({ code: "custom", message: "Annotation and target representation belong to different objects" });
+      // targetRepresentationId identifies the image coordinate surface;
+      // objectId identifies the semantic element the annotation is about.
+      // They may differ when an element is marked on a combined reference.
     });
     const reviewedScenes = new Set<string>();
     doc.review.scenes.forEach((approval) => {
@@ -445,12 +575,69 @@ export const storyboardSchema = z
       if (reference.requestId && !requestIds.has(reference.requestId))
         ctx.addIssue({ code: "custom", message: "Generated reference request is missing" });
     });
+    const messages = new Map(doc.collaboration.map((message) => [message.id, message]));
+    doc.collaboration.forEach((message) => {
+      check(message.id);
+      const scene = doc.scenes.find((candidate) => candidate.id === message.sceneId);
+      const set = scene?.sets.find((candidate) => candidate.id === message.setId);
+      const targetExists = message.targetKind === "scene"
+        ? scene?.id === message.targetId
+        : message.targetKind === "shot"
+          ? set?.id === message.targetId
+          : message.targetKind === "element"
+            ? !!set?.representations.some((item) => item.id === message.targetId)
+            : message.targetKind === "annotation"
+              ? doc.annotations.some((item) => item.id === message.targetId && item.sceneId === scene?.id && item.setId === set?.id)
+              : doc.actionPlans.some((item) => item.id === message.targetId && item.sceneId === scene?.id);
+      if (!scene || (message.setId && !set) || !targetExists)
+        ctx.addIssue({ code: "custom", path: ["collaboration"], message: `Collaboration target is missing: ${message.targetId}` });
+      if ((message.targetKind === "scene") !== (message.setId === null))
+        ctx.addIssue({ code: "custom", path: ["collaboration"], message: "Scene collaboration targets must not name a shot; shot-level targets must name one" });
+      if (message.replyToId) {
+        const parent = messages.get(message.replyToId);
+        if (!parent || doc.collaboration.indexOf(parent) >= doc.collaboration.indexOf(message) || parent.sceneId !== message.sceneId || parent.setId !== message.setId || parent.targetKind !== message.targetKind || parent.targetId !== message.targetId || parent.field !== message.field)
+          ctx.addIssue({ code: "custom", path: ["collaboration"], message: `Collaboration reply target is missing or mismatched: ${message.replyToId}` });
+      }
+      if (message.sourceFiles.some((file) => file.startsWith("/") || /^[a-zA-Z]:\//.test(file) || file.includes("\\") || file.split("/").includes("..")))
+        ctx.addIssue({ code: "custom", path: ["collaboration"], message: "Collaboration source files must be project-relative paths" });
+      if (message.kind === "implementation" && message.outputs?.length) {
+        if (!message.sourceFiles.length)
+          ctx.addIssue({ code: "custom", path: ["collaboration"], message: "Animator outputs must link to at least one project source file" });
+        for (const output of message.outputs) {
+          check(output.id);
+          if (output.assetReferenceId) link([output.assetReferenceId]);
+          if (output.targetElementId) {
+            const declared = doc.collaboration.some((candidate) =>
+              candidate.outputs?.some((item) => item.id === output.targetElementId),
+            );
+            const representation = doc.scenes.some((candidate) =>
+              candidate.sets.some((shot) => shot.id === output.targetElementId || shot.representations.some((layer) => layer.id === output.targetElementId)),
+            );
+            if (!declared && !representation)
+              ctx.addIssue({ code: "custom", path: ["collaboration"], message: `Animator output target is missing: ${output.targetElementId}` });
+          }
+        }
+      }
+    });
   });
 export type Storyboard = z.infer<typeof storyboardSchema>;
 export type StoryScene = Storyboard["scenes"][number];
 export type StorySet = StoryScene["sets"][number];
 export type Representation = z.infer<typeof representationSchema>;
 export type DrawingElement = z.infer<typeof drawingElementSchema>;
+export type StoryboardCollaborationMessage = z.infer<typeof storyboardCollaborationMessageSchema>;
+export type StoryboardImplementationOutput = z.infer<typeof storyboardImplementationOutputSchema>;
+/** Stable output IDs are derived from authored identity, never generated per render. */
+export function animatorOutputId(sceneId: string, shotId: string, stableKey: string) {
+  const slug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "item";
+  const source = `${sceneId}/${shotId}/${stableKey}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index++) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `anim-${slug(sceneId)}-${slug(shotId)}-${slug(stableKey)}-${(hash >>> 0).toString(36)}`;
+}
 export const emptyStoryboard = (
   projectId: string,
   composition = { width: 1920, height: 1080, fps: 30 },
@@ -463,6 +650,7 @@ export const emptyStoryboard = (
   annotations: [],
   aiRequests: [],
   actionPlans: [],
+  collaboration: [],
   briefs: [],
   review: { scenes: [], film: null },
 });
@@ -476,11 +664,54 @@ export const newSet = (id: string, name: string): StorySet => ({
   transition: "",
   compositionNote: "",
   cameraNote: "",
+  referenceImageId: null,
   referenceIds: [],
   tracing: null,
   representations: [],
   anchors: [],
 });
+/** Attach the approved key image and use it as the initial shot layer only when
+ * the Director has not supplied decomposed visual elements yet. */
+export function attachShotReferenceImage(set: StorySet, referenceId: string, representationId: string) {
+  set.referenceImageId = referenceId;
+  if (!set.referenceIds.includes(referenceId)) set.referenceIds.push(referenceId);
+  const autoLayer = set.representations.length === 1
+    && set.representations[0].layerName === "Shot reference · video image";
+  if (autoLayer) {
+    // Replacing the approved image also replaces its paired video layer while
+    // preserving the user's placement and the representation's stable ID.
+    set.representations[0].referenceId = referenceId;
+  } else if (set.representations.length === 0) {
+    set.representations.push({
+      id: representationId,
+      layerName: "Shot reference · video image",
+      objectId: null,
+      setId: set.id,
+      coordinateSpace: "composition-percent",
+      anchor: "top-left",
+      rotation: 0,
+      zOrder: 0,
+      spatialNote: "Approved shot reference used as the initial video image.",
+      referenceId,
+      kind: "reference",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      points: [],
+      color: "#24334b",
+      thickness: 4,
+      text: "",
+      visible: true,
+      opacity: 1,
+      locked: false,
+      pose: "",
+      instructions: "",
+      motion: "",
+      imageFit: "contain",
+    });
+  }
+}
 export const newScene = (id: string, name: string): StoryScene => ({
   id,
   name,
@@ -604,6 +835,7 @@ function sceneReferenceIds(
   scene.objects.forEach((object) => object.referenceIds.forEach((id) => linkedReferences.add(id)));
   scene.sets.forEach((set) => {
     set.referenceIds.forEach((id) => linkedReferences.add(id));
+    if (set.referenceImageId) linkedReferences.add(set.referenceImageId);
     if (set.tracing) linkedReferences.add(set.tracing.referenceId);
     set.representations.forEach((representation) => {
       if (representation.referenceId) linkedReferences.add(representation.referenceId);
@@ -662,7 +894,7 @@ export function directorBrief(
     `Whole-film approval: ${filmApprovalStatus(doc, changedAssetReferenceIds)}. An approved storyboard revision does not regenerate or overwrite Animator code.`,
     "",
     "## Instructions for the AI Director",
-    "Preserve original instructions and stable identities. Propose timing, camera and motion separately. Identify uncertainty; do not invent word timing. Return Scene, Set, object, representation, reference and request IDs with suggestions. Reference files use project-relative paths in storyboard.json.",
+    "Data model: each Scene is one scene in the film. Its ordered `sets` array is the sequence of Shots shown in the Storyboard UI; each Set record is one Shot, and its `id` is the stable shot ID (`setId` in related records). A Shot's `representations` are its visual layers, while `referenceImageId` is its approved key/reference image. Do not treat a Set as a location/set design or as a whole Scene. Preserve original instructions and stable identities. Propose timing, camera and motion separately. Identify uncertainty; do not invent word timing. Return Scene, Shot/Set, object, representation, reference and request IDs with suggestions. Reference files use project-relative paths in storyboard.json.",
   ];
   for (const scene of doc.scenes) {
     lines.push(
@@ -693,16 +925,17 @@ export function directorBrief(
     lines.push("## The sequence and motion");
     for (const set of scene.sets) {
       lines.push(
-        `### ${set.name} (${set.id})`,
+        `### Shot: ${set.name} (${set.id}; legacy data field: scene.sets, setId)`,
         set.description,
         `Approximate start ${set.start ?? "unknown"}s; duration ${set.duration ?? "unknown"}s; end ${set.start !== null && set.duration !== null ? set.start + set.duration : "unknown"}s.`,
         `Timing constraints: ${set.timing}`,
-        `Transition from previous Set: ${set.transition}`,
+        `Transition from previous shot: ${set.transition}`,
         `Sketch: sketches/${set.id}.png`,
-        `Set references: ${set.referenceIds.join(", ") || "none"}`,
+        `Shot references: ${set.referenceIds.join(", ") || "none"}`,
+        `Approved shot reference image: ${set.referenceImageId ?? "not selected"}. This is the Director's key visual for the shot; use it as the shot's visual asset when no decomposed layers are needed.`,
         `Composition: ${set.compositionNote}`,
         `Camera/framing: ${set.cameraNote || "unspecified; staging does not imply camera movement"}`,
-        `Previous Set: ${scene.sets[scene.sets.indexOf(set) - 1]?.id ?? "none"}; following Set: ${scene.sets[scene.sets.indexOf(set) + 1]?.id ?? "none"}`,
+        `Previous shot: ${scene.sets[scene.sets.indexOf(set) - 1]?.id ?? "none"}; following shot: ${scene.sets[scene.sets.indexOf(set) + 1]?.id ?? "none"}`,
       );
       if (set.tracing)
         lines.push(
@@ -714,12 +947,12 @@ export function directorBrief(
         );
       for (const r of set.representations)
         lines.push(
-          `- Representation ${r.id}: ${scene.objects.find((o) => o.id === r.objectId)?.name ?? "Unassigned sketch"} (${r.objectId ?? "no identity"}); ${r.visible ? "visible" : "hidden"}; zOrder ${r.zOrder}; top-left x=${r.x}%, y=${r.y}%, width=${r.width}%, height=${r.height}%; rotation ${r.rotation} degrees around bounds center; coordinateSpace ${r.coordinateSpace}. ${r.spatialNote} Text: ${r.text}; reference ${r.referenceId ?? "none"}.`,
+          `- Representation ${r.id}: ${scene.objects.find((o) => o.id === r.objectId)?.name ?? "Unassigned sketch"} (${r.objectId ?? "no identity"}); ${r.visible ? "visible" : "hidden"}; zOrder ${r.zOrder}; top-left x=${r.x}%, y=${r.y}%, width=${r.width}%, height=${r.height}%; rotation ${r.rotation} degrees around bounds center; coordinateSpace ${r.coordinateSpace}; image fit ${r.kind === "reference" ? r.imageFit ?? "contain" : "not applicable"}. ${r.spatialNote} Text: ${r.text}; reference ${r.referenceId ?? "none"}.`,
           `Pose: ${r.pose}\nInstructions: ${r.instructions}\nMotion: ${r.motion}`,
         );
       for (const annotation of doc.annotations.filter((item) => item.sceneId === scene.id && item.setId === set.id))
         lines.push(
-          `Visual annotation ${annotation.id} on reference ${annotation.targetReferenceId}, representation ${annotation.targetRepresentationId}${annotation.objectId ? ` for object ${annotation.objectId}` : ""}: ${annotation.kind} in image-percent coordinates ${JSON.stringify(annotation.points)}; ${annotation.label}. ${annotation.instruction}`,
+          `Visual annotation ${annotation.id} on reference ${annotation.targetReferenceId}, representation ${annotation.targetRepresentationId}${annotation.objectId ? ` for object ${annotation.objectId}` : ""}: ${annotation.kind} in image-percent coordinates ${JSON.stringify(annotation.points)}; border ${annotation.color}, width ${annotation.strokeWidth ?? 4}px; ${annotation.label}. ${annotation.instruction}`,
         );
       lines.push(
         "Audio/subtitle anchors (source time is separate from intended action time):",

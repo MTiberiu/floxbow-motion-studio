@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+  attachShotReferenceImage,
   emptyStoryboard,
   newScene,
   newSet,
@@ -24,9 +25,106 @@ import {
 } from "../scripts/storyboard-store";
 import { createProject } from "../scripts/project-scaffold";
 import { manifestSchema } from "@motion/project-loader";
-import { zipFiles } from "../apps/desktop/src/storyboard-export";
+import { containImageRect, zipFiles } from "../apps/desktop/src/storyboard-export";
+import { resolveStoryboardRecovery } from "../apps/desktop/src/storyboard-recovery";
 import { renderStoryboardSvg } from "@motion/project-loader/storyboard-svg";
 import { starterMotionLibrary, motionLibrarySchema } from "../apps/desktop/src/motion-library";
+import { compositionPointToImage, imageBoundsInComposition, imagePathData, imagePointToComposition, smoothImagePath } from "../apps/desktop/src/storyboard-annotation-geometry";
+import { mergeRecoveredAnnotations, repairRecoveredStoryboardText } from "../apps/desktop/src/storyboard-recovery";
+
+test("image feedback geometry stabilizes freehand and closes smooth areas", () => {
+  const handDrawn: [number, number][] = [[10, 10], [10.05, 10.02], [30, 12], [52, 35], [80, 10]];
+  const smoothed = smoothImagePath(handDrawn, 1, false);
+  assert.ok(smoothed.length > 4);
+  assert.deepEqual(smoothed[0], handDrawn[0]);
+  assert.deepEqual(smoothed.at(-1), handDrawn.at(-1));
+  assert.match(imagePathData(smoothed), /Q/);
+  assert.match(imagePathData([[10, 10], [80, 10], [50, 80]], true), /Z$/);
+});
+
+test("image feedback follows fit, fill and stretch placement across composition ratios", () => {
+  const target = { x: 0, y: 0, width: 100, height: 100 };
+  const landscape = imageBoundsInComposition(target, 1080, 1920, 1920, 1080, "contain");
+  assert.ok(Math.abs(landscape.x - 34.1796875) < 0.0001);
+  assert.equal(landscape.y, 0);
+  assert.ok(Math.abs(landscape.width - 31.640625) < 0.0001);
+  assert.equal(landscape.height, 100);
+  const fill = imageBoundsInComposition(target, 1080, 1920, 1920, 1080, "cover");
+  assert.equal(fill.x, 0);
+  assert.ok(fill.y < 0);
+  assert.equal(fill.width, 100);
+  assert.ok(fill.height > 100);
+  const stretch = imageBoundsInComposition(target, 1080, 1920, 1920, 1080, "stretch");
+  assert.deepEqual(stretch, target);
+  const portrait = imageBoundsInComposition(target, 1080, 1920, 1080, 1920, "contain");
+  assert.deepEqual(portrait, target);
+});
+
+test("image feedback uses the same fitted image rectangle for input and rendering", () => {
+  const target = { x: 0, y: 0, width: 100, height: 100, rotation: 0 };
+  const sourcePoint = [23, 71] as const;
+  const compositionPoint = imagePointToComposition(target, sourcePoint, 1080, 1920, 1920, 1080, "contain");
+  const restoredPoint = compositionPointToImage(target, compositionPoint, 1080, 1920, 1920, 1080, "contain");
+  assert.ok(restoredPoint);
+  assert.ok(Math.abs(restoredPoint[0] - sourcePoint[0]) < 0.000001);
+  assert.ok(Math.abs(restoredPoint[1] - sourcePoint[1]) < 0.000001);
+  assert.equal(compositionPointToImage(target, [10, 50], 1080, 1920, 1920, 1080, "contain"), null, "letterbox space must not accept image marks");
+  const portraitTarget = { x: 8, y: 10, width: 42, height: 78, rotation: 0 };
+  const portraitPoint = imagePointToComposition(portraitTarget, sourcePoint, 1080, 1920, 1920, 1080, "contain");
+  const restoredPortraitPoint = compositionPointToImage(portraitTarget, portraitPoint, 1080, 1920, 1920, 1080, "contain");
+  assert.ok(restoredPortraitPoint);
+  assert.ok(Math.abs(restoredPortraitPoint[0] - sourcePoint[0]) < 0.000001);
+  assert.ok(Math.abs(restoredPortraitPoint[1] - sourcePoint[1]) < 0.000001);
+});
+
+test("recovered annotations merge onto the current storyboard without replacing saved content", () => {
+  const latest = fixture();
+  latest.annotations.push({ id: "annotation-saved", sceneId: "scene-office", setId: "set-1", objectId: null, targetReferenceId: "ref-chair", targetRepresentationId: "rep-1", coordinateSpace: "image-percent", kind: "point", points: [[10, 20]], label: "Saved", instruction: "Keep", color: "#ff0000" });
+  const draft = structuredClone(latest);
+  draft.annotations.push({ id: "annotation-local", sceneId: "scene-office", setId: "set-1", objectId: null, targetReferenceId: "ref-chair", targetRepresentationId: "rep-1", coordinateSpace: "image-percent", kind: "rectangle", points: [[10, 20], [30, 40]], label: "Recovered", instruction: "Adjust", color: "#00ff00", strokeWidth: 6 });
+  const merged = mergeRecoveredAnnotations(latest, draft, () => "annotation-recovered", { width: 1920, height: 1080, fps: 30 });
+  assert.equal(merged.added, 1);
+  assert.deepEqual(merged.document.composition, { width: 1920, height: 1080, fps: 30 });
+  assert.deepEqual(merged.document.annotations.map(item => item.id), ["annotation-saved", "annotation-local"]);
+  assert.equal(merged.document.scenes[0].sets[0].representations[0].x, latest.scenes[0].sets[0].representations[0].x);
+  const changedDraft = structuredClone(draft);
+  changedDraft.scenes[0].name = "Unmerged scene edit";
+  const annotationOnly = mergeRecoveredAnnotations(latest, changedDraft, () => "unused");
+  assert.equal(annotationOnly.document.scenes[0].name, latest.scenes[0].name, "recovery must not replace newer saved scene data");
+  assert.equal(annotationOnly.document.annotations.find(item => item.id === "annotation-local")?.instruction, "Adjust");
+});
+
+test("stale browser storyboard drafts yield to the latest saved project document", () => {
+  const saved = fixture();
+  saved.scenes[0].sets.push(newSet("set-split-layers", "Split layers"));
+  const stale = fixture();
+  stale.scenes[0].sets[0].name = "Old combined image";
+  const result = resolveStoryboardRecovery(saved, "revision-new", stale, "revision-old");
+  assert.equal(result.document.scenes[0].sets[0].name, saved.scenes[0].sets[0].name);
+  assert.equal(result.discardLocalDraft, true);
+  const currentDraft = resolveStoryboardRecovery(saved, "same-revision", stale, "same-revision");
+  assert.equal(currentDraft.document.scenes[0].sets[0].name, "Old combined image");
+  assert.equal(currentDraft.discardLocalDraft, false);
+});
+
+test("recovered storyboard drafts repair mojibake without changing correct UTF-8 text", () => {
+  const damaged = "ÃŽntr-o noapte ploioasÄƒ, Mara aÈ™teaptÄƒ ultimul tramvai.";
+  const correct = "Într-o noapte ploioasă, Mara așteaptă ultimul tramvai.";
+  const repaired = repairRecoveredStoryboardText({ description: damaged, clean: correct });
+  assert.equal(repaired.repaired, true);
+  assert.equal(repaired.value.description, correct);
+  assert.equal(repaired.value.clean, correct);
+  assert.equal(repairRecoveredStoryboardText(correct).value, correct);
+});
+
+test("storyboard reference images preserve their aspect ratio inside the selected project frame", () => {
+  assert.deepEqual(containImageRect(1080, 1920, 1920, 1080), {
+    x: 656.25, y: 0, width: 607.5, height: 1080,
+  });
+  assert.deepEqual(containImageRect(1920, 1080, 1920, 1080), {
+    x: 0, y: 0, width: 1920, height: 1080,
+  });
+});
 
 test("reusable motion library has stable built-in identities and supports variations", () => {
   const parsed = motionLibrarySchema.parse(structuredClone(starterMotionLibrary));
@@ -117,6 +215,32 @@ test("storyboard validates continuity, identities, timing and reference relation
   doc.scenes[0].sets[1].id = doc.scenes[0].sets[0].id;
   assert.throws(() => storyboardSchema.parse(doc));
 });
+test("a shot keeps its approved key image separate from its editable layers", () => {
+  const doc = fixture();
+  doc.references.push({ id: "ref-chair-blue", assetId: "chair-blue", name: "Blue chair", category: "prop", description: "Revision" });
+  const shot = doc.scenes[0].sets[0];
+  shot.representations = [];
+  attachShotReferenceImage(shot, "ref-chair", "rep-approved-key-image");
+  assert.equal(storyboardSchema.parse(doc).scenes[0].sets[0].referenceImageId, "ref-chair");
+  assert.equal(shot.representations.length, 1);
+  assert.equal(shot.representations[0].referenceId, "ref-chair");
+  assert.deepEqual([shot.representations[0].x, shot.representations[0].y, shot.representations[0].width, shot.representations[0].height], [0, 0, 100, 100]);
+  shot.representations[0].x = 12;
+  attachShotReferenceImage(shot, "ref-chair-blue", "unused-representation-id");
+  assert.equal(shot.representations[0].id, "rep-approved-key-image");
+  assert.equal(shot.representations[0].referenceId, "ref-chair-blue");
+  assert.equal(shot.representations[0].x, 12, "replacing a key image keeps its saved composition placement");
+  shot.referenceImageId = "ref-chair";
+  attachShotReferenceImage(shot, "ref-chair", "unused-representation-id");
+  assert.equal(shot.representations.length, 1, "attaching a key image must not duplicate an existing layer");
+  const invalid = structuredClone(doc);
+  invalid.scenes[0].sets[0].referenceImageId = "missing-reference";
+  assert.throws(() => storyboardSchema.parse(invalid), /Unknown reference/);
+  const legacy = structuredClone(doc) as Record<string, unknown>;
+  const legacyScene = (legacy.scenes as Array<{ sets: Array<Record<string, unknown>> }>)[0];
+  delete legacyScene.sets[0].referenceImageId;
+  assert.doesNotThrow(() => storyboardSchema.parse(legacy));
+});
 test("brief preserves instructions, separates suggestions, marks stale source and uncertainty", () => {
   const doc = fixture(),
     scene = doc.scenes[0];
@@ -146,6 +270,8 @@ test("brief preserves instructions, separates suggestions, marks stale source an
     "Chair (obj-chair)",
     "Original appearance",
     "sketches/set-3.png",
+    "ordered `sets` array is the sequence of Shots",
+    "### Shot: Andrei trips (set-3; legacy data field: scene.sets, setId)",
   ])
     assert.ok(brief.includes(expected), expected);
 });
@@ -224,7 +350,10 @@ test("Director assets support direct agent revisions and precise image-space ann
     label: "Seat edge",
     instruction: "Keep this edge level when the chair rocks.",
     color: "#ff3344",
+    strokeWidth: 7,
   });
+  doc.scenes[0].objects.push({ id: "obj-cup", name: "Cup", category: "prop", description: "", instructions: "", referenceIds: [] });
+  doc.annotations[0].objectId = "obj-cup";
   assert.deepEqual(storyboardSchema.parse(doc).annotations, doc.annotations);
   const annotatedSvg = renderStoryboardSvg(doc, doc.scenes[0].sets[2]);
   assert.match(annotatedSvg, /id="annotation-chair-seat"/);
@@ -453,6 +582,9 @@ test("portrait spatial contract retains bounds, order, rotation and independent 
   doc.composition = { width: 1080, height: 1920, fps: 30 };
   const r = doc.scenes[0].sets[2].representations[0];
   Object.assign(r, {
+    kind: "reference",
+    referenceId: "ref-chair",
+    imageFit: "cover",
     x: 78,
     y: 82,
     width: 12,
@@ -462,6 +594,7 @@ test("portrait spatial contract retains bounds, order, rotation and independent 
   });
   const restored = storyboardSchema.parse(JSON.parse(JSON.stringify(doc)));
   assert.deepEqual(restored.scenes[0].sets[2].representations[0], r);
+  assert.equal(restored.scenes[0].sets[2].representations[0].imageFit, "cover");
   assert.equal(restored.scenes[0].sets[0].representations[0].x, 10);
   const svg = renderStoryboardSvg(restored, restored.scenes[0].sets[2]);
   assert.match(svg, /viewBox="0 0 1080 1920"/);

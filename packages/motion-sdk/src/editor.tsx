@@ -770,20 +770,13 @@ const imageFields: EditableField[] = [
   },
 ];
 
-function StandaloneImage({
-  clip,
-  imageSources,
-}: {
+export function StandaloneImageLayer({ clip, imageSource, nativeImage = false }: {
   clip: TimelineClip;
-  imageSources?: Readonly<Record<string, string>>;
+  imageSource: string;
+  /** Use a browser-native image outside Remotion's frame context, e.g. Storyboard. */
+  nativeImage?: boolean;
 }) {
-  const inheritedSources = useTimelineMediaSources().imageSources;
-  const sources = imageSources ?? inheritedSources;
   const image = standaloneImageClipSchema.parse(clip);
-  const source = sources?.[image.content.assetId];
-  if (!source && sources === undefined) return null;
-  if (!source)
-    throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
   const {
     x,
     y,
@@ -821,22 +814,41 @@ function StandaloneImage({
           opacity,
         }}
       >
-        <Img
+        {nativeImage ? <img
           data-image-asset-id={image.content.assetId}
-          src={source}
+          src={imageSource}
+          draggable={false}
           style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
+            position: "absolute", inset: 0, width: "100%", height: "100%",
             transform: flipHorizontal ? "scaleX(-1)" : undefined,
-            transformOrigin: "center",
-            objectFit: fit,
+            transformOrigin: "center", objectFit: fit,
           }}
-        />
+        /> : <Img
+          data-image-asset-id={image.content.assetId}
+          src={imageSource}
+          style={{
+            position: "absolute", inset: 0, width: "100%", height: "100%",
+            transform: flipHorizontal ? "scaleX(-1)" : undefined,
+            transformOrigin: "center", objectFit: fit,
+          }}
+        />}
       </div>
     </AbsoluteFill>
   );
+}
+
+function StandaloneImage({ clip, imageSources }: {
+  clip: TimelineClip;
+  imageSources?: Readonly<Record<string, string>>;
+}) {
+  const inheritedSources = useTimelineMediaSources().imageSources;
+  const sources = imageSources ?? inheritedSources;
+  const image = standaloneImageClipSchema.parse(clip);
+  const source = sources?.[image.content.assetId];
+  if (!source && sources === undefined) return null;
+  if (!source)
+    throw new Error(`Image asset ${image.content.assetId} is unavailable.`);
+  return <StandaloneImageLayer clip={clip} imageSource={source} />;
 }
 
 /** Core Image clips reference registered media IDs and share Canvas transforms. */

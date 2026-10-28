@@ -24,6 +24,7 @@ import {
   readMediaWithAvailability,
   registerMediaAsset,
   registerPoseStudioPngs,
+  registerStoryboardPngs,
   removeMediaAsset,
 } from "./media-store";
 import { pickMediaFile } from "./audio-file-picker";
@@ -179,7 +180,7 @@ export async function startServers(
               );
               return;
             }
-            res.setHeader("Content-Type", "application/json");
+            res.setHeader("Content-Type", "application/json; charset=utf-8");
             res.end(
               JSON.stringify(
                 action === "timing"
@@ -663,6 +664,8 @@ export async function startServers(
             route.length === 4 && route[1] === "assets" && route[3] === "video";
           const poseStudioImport =
             route.length === 2 && route[1] === "pose-studio";
+          const storyboardPublish =
+            route.length === 2 && route[1] === "storyboard-publish";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
@@ -677,7 +680,8 @@ export async function startServers(
             !transcription &&
             !imageThumbnail &&
             !videoProbe &&
-            !poseStudioImport
+            !poseStudioImport &&
+            !storyboardPublish
           ) {
             res.writeHead(404).end("Unknown media operation");
             return;
@@ -730,6 +734,51 @@ export async function startServers(
               path.join(projectsDir, id),
               input.revision,
               input.poses,
+            );
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(saved));
+            return;
+          }
+          if (storyboardPublish) {
+            if (req.method !== "POST") {
+              res.writeHead(405).end();
+              return;
+            }
+            if (
+              req.headers.origin !== shellOrigin ||
+              !req.headers["content-type"]?.startsWith("application/json")
+            ) {
+              res.writeHead(403).end("Only the studio shell can publish Storyboard images");
+              return;
+            }
+            const chunks: Buffer[] = [];
+            let size = 0;
+            for await (const chunk of req) {
+              const part = Buffer.from(chunk);
+              size += part.length;
+              if (size > 128_000) throw new Error("Storyboard image publish request too large");
+              chunks.push(part);
+            }
+            const input = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+            if (!input || typeof input !== "object" || Array.isArray(input) ||
+                Object.keys(input).some((key) => key !== "revision" && key !== "referenceIds") ||
+                typeof input.revision !== "string" || !Array.isArray(input.referenceIds) ||
+                input.referenceIds.some((referenceId: unknown) => typeof referenceId !== "string"))
+              throw new Error("A media registry revision and Storyboard image IDs are required.");
+            const savedStoryboard = await readStoryboard(path.join(projectsDir, id), id);
+            const referenceIds = [...new Set(input.referenceIds as string[])];
+            const references = referenceIds.map((referenceId) => {
+              const reference = savedStoryboard.document.references.find((item) => item.id === referenceId);
+              if (!reference || !reference.file)
+                throw new Error(`Storyboard image is not saved in the project: ${referenceId}`);
+              if (reference.file !== `assets/storyboard/references/${reference.id}.png`)
+                throw new Error(`Storyboard image path is invalid: ${referenceId}`);
+              return { id: reference.id, name: reference.name };
+            });
+            const saved = await registerStoryboardPngs(
+              path.join(projectsDir, id),
+              input.revision,
+              references,
             );
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify(saved));

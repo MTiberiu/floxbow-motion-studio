@@ -18,6 +18,7 @@ import {
 } from "@motion/project-loader";
 import {
   storyboardSchema,
+  storyboardCollaborationMessageSchema,
   emptyStoryboard,
   directorPlanFingerprint,
   filmApprovalStatus,
@@ -28,6 +29,7 @@ import {
 import { resolveMedia } from "@motion/project-loader/media";
 import { getSubtitleCues } from "@motion/lyrics-sync/subtitles";
 import { renderStoryboardSvg } from "@motion/project-loader/storyboard-svg";
+import { getStoryboardDirectiveCoverage } from "@motion/project-loader/storyboard-collaboration";
 import { withProjectWriteLock } from "./project-write-lock";
 import { readEditor, renameWithTransientWindowsRetry } from "./editor-store";
 import { readMediaRegistry } from "./media-store";
@@ -289,6 +291,24 @@ export async function saveStoryboard(
     return { document, revision: digest(text), assetDrift: [] as string[] };
   });
 }
+/** Appends one validated agent/reviewer entry without replacing the saved plan. */
+export async function appendStoryboardCollaboration(
+  root: string,
+  projectId: string,
+  input: unknown,
+) {
+  projectIdSchema.parse(projectId);
+  const projectRoot = path.dirname(await safeFile(root, `${projectId}/project.json`));
+  const current = await readStoryboard(projectRoot, projectId);
+  const message = storyboardCollaborationMessageSchema.parse(input);
+  if (message.kind === "implementation" && !message.outputs?.length)
+    throw new Error("Animator implementation entries must declare at least one output element or effect.");
+  const document = storyboardSchema.parse({
+    ...current.document,
+    collaboration: [...current.document.collaboration, message],
+  });
+  return saveStoryboard(projectRoot, projectId, document, current.revision);
+}
 export async function storyboardTiming(
   root: string,
   manifest: ProjectManifest,
@@ -300,6 +320,15 @@ export async function storyboardTiming(
     revision,
     cues: getSubtitleCues(timeline),
     scenes: timeline.scenes ?? [],
+    savedTimeline: {
+      fps: timeline.fps,
+      scenes: timeline.scenes ?? [],
+      clips: timeline.clips.filter((clip) => {
+        const metadata = (clip.content as Record<string, unknown>).storyboard;
+        return !!metadata && typeof metadata === "object" && !Array.isArray(metadata) &&
+          (metadata as Record<string, unknown>).owner === "director-plan";
+      }),
+    },
     audio: timeline.clips
       .filter((c) => ["soundtrack", "video-audio"].includes(c.componentId))
       .map((c) => ({
@@ -390,6 +419,13 @@ export async function resolveStoryboardContext(
         annotations: doc.annotations.filter(
           (annotation) => annotation.sceneId === scene.id && annotation.setId === set.id,
         ),
+        implementationCoverage: getStoryboardDirectiveCoverage(doc, {
+          sceneId: scene.id,
+          setId: set.id,
+        }),
+        collaboration: doc.collaboration.filter(
+          (message) => message.sceneId === scene.id && message.setId === set.id,
+        ),
         projectAssetRoot: ".",
         briefs: briefs(scene.id),
         sketchSource: `storyboard.json#${scene.id}/${set.id}`,
@@ -402,6 +438,12 @@ export async function resolveStoryboardContext(
       };
       break;
     }
+    case "getImplementationStatus":
+      result = getStoryboardDirectiveCoverage(doc, {
+        ...(identity ? { sceneId: identity } : {}),
+        ...(setId ? { setId } : {}),
+      });
+      break;
     default:
       throw new Error("Unknown storyboard operation");
   }

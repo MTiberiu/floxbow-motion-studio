@@ -96,6 +96,14 @@
 .canvas-format-control select {
   max-width: 150px;
 }
+.canvas-format-status {
+  color: #9dd6ad;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.canvas-format-status.is-saving {
+  color: #d5dce5;
+}
 .transcription-source-control select {
   max-width: 230px;
 }

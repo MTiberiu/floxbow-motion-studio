@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { probeVideo } from "./video-probe";
+import { safeFile } from "@motion/project-loader";
 import {
   emptyMediaRegistry,
   mediaAssetSchema,
@@ -31,6 +32,8 @@ export type MediaSnapshot = { registry: MediaRegistry; revision: string };
 
 const maxPoseStudioPngBytes = 2_000_000;
 const maxPoseStudioImportBytes = 16_000_000;
+
+export type StoryboardImageReference = { id: string; name: string };
 
 function hash(text: string) {
   return createHash("sha256").update(text).digest("hex");
@@ -301,6 +304,69 @@ export async function registerPoseStudioPngs(
   });
   const saved = uniqueAdded.length
     ? await persistMediaRegistry(root, registry, expectedRevision)
+    : current;
+  return { revision: saved.revision, assets: result };
+}
+
+/** Register saved Storyboard PNGs as ordinary project images for Timeline playback. */
+export async function registerStoryboardPngs(
+  projectRoot: string,
+  expectedRevision: string,
+  input: unknown,
+): Promise<{ revision: string; assets: Array<{ referenceId: string; assetId: string }> }> {
+  if (!Array.isArray(input) || input.length < 1 || input.length > 500)
+    throw new Error("Select between 1 and 500 saved Storyboard images to publish.");
+  const references = input.map((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error("A Storyboard image reference is invalid.");
+    const item = value as Record<string, unknown>;
+    if (Object.keys(item).some((key) => !["id", "name"].includes(key)) ||
+        typeof item.id !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.id) || item.id.length > 120 ||
+        typeof item.name !== "string" || !item.name.trim() || item.name.length > 200)
+      throw new Error("A Storyboard image reference has invalid fields.");
+    return { id: item.id, name: item.name.trim() };
+  });
+  if (new Set(references.map((reference) => reference.id)).size !== references.length)
+    throw new Error("Storyboard image reference IDs must be unique.");
+
+  const current = await readMediaRegistry(projectRoot);
+  if (current.revision !== expectedRevision)
+    throw new Error("CONFLICT: The project media registry changed. Reload it and publish again.");
+  const root = await realpath(projectRoot);
+  const assets = [...current.registry.assets];
+  const result: Array<{ referenceId: string; assetId: string }> = [];
+  let changed = false;
+  for (const reference of references) {
+    const assetId = `sb-ref-${createHash("sha256").update(reference.id).digest("hex").slice(0, 40)}`;
+    const relative = `assets/storyboard/references/${reference.id}.png`;
+    const candidatePath = path.join(root, relative);
+    const candidateInfo = await lstat(candidatePath);
+    if (candidateInfo.isSymbolicLink() || !candidateInfo.isFile())
+      throw new Error(`Saved Storyboard image is not a safe PNG file: ${reference.name}`);
+    const filePath = await safeFile(root, relative);
+    const fileInfo = await lstat(filePath);
+    if (fileInfo.isSymbolicLink() || !fileInfo.isFile() || fileInfo.size < 33 || fileInfo.size > 25 * 1024 * 1024)
+      throw new Error(`Saved Storyboard image is not a safe PNG file: ${reference.name}`);
+    const bytes = await readFile(filePath);
+    if (!bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) || bytes.toString("ascii", 12, 16) !== "IHDR")
+      throw new Error(`Saved Storyboard image is not a valid PNG file: ${reference.name}`);
+    const existing = assets.find((asset) => asset.id === assetId);
+    if (existing) {
+      if (existing.type !== "image" || existing.source.kind !== "external-file" || await realpath(existing.source.path) !== filePath)
+        throw new Error(`Storyboard image ID conflicts with another Media Library asset: ${reference.name}`);
+    } else {
+      assets.push(mediaAssetSchema.parse({
+        id: assetId,
+        type: "image",
+        displayName: reference.name.slice(0, 200),
+        source: { kind: "external-file", path: filePath },
+      }));
+      changed = true;
+    }
+    result.push({ referenceId: reference.id, assetId });
+  }
+  const saved = changed
+    ? await persistMediaRegistry(root, { ...current.registry, assets }, expectedRevision)
     : current;
   return { revision: saved.revision, assets: result };
 }

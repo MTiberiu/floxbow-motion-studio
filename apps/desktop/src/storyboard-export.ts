@@ -1,4 +1,6 @@
 import {
+  imageBoundsInComposition as getImageBoundsInComposition,
+  imagePointToComposition,
   directorBrief,
   storyboardSchema,
   type Storyboard,
@@ -31,6 +33,13 @@ export function timingContextText(timing: StoryTimingContext) {
         `${c.id}: ${c.start}–${c.end}s: ${c.text} (${c.status}; word timing ${c.wordTimingStatus}).\n${c.wordTimingStatus === "matches-text" ? (c.words?.map((w) => `${w.id}: ${w.text} ${w.start}–${w.end}s`).join("; ") ?? "No word timing") : "No trustworthy word-to-text mapping supplied."}`,
     ),
   ].join("\n\n");
+}
+export function containImageRect(imageWidth: number, imageHeight: number, boxWidth: number, boxHeight: number) {
+  if (![imageWidth, imageHeight, boxWidth, boxHeight].every(value => Number.isFinite(value) && value > 0))
+    return { x: 0, y: 0, width: Math.max(0, boxWidth), height: Math.max(0, boxHeight) };
+  const scale = Math.min(boxWidth / imageWidth, boxHeight / imageHeight);
+  const width = imageWidth * scale, height = imageHeight * scale;
+  return { x: (boxWidth - width) / 2, y: (boxHeight - height) / 2, width, height };
 }
 export function paintRepresentation(
   ctx: CanvasRenderingContext2D,
@@ -124,7 +133,20 @@ export function paintRepresentation(
   }
   if (r.kind === "reference") {
     const image = images[r.referenceId ?? ""];
-    if (image) ctx.drawImage(image, 0, 0, r.width, r.height);
+    if (image) {
+      const fitMode = representation.imageFit ?? "contain";
+      const fit = getImageBoundsInComposition(representation, image.naturalWidth, image.naturalHeight, ctx.canvas.width, ctx.canvas.height, fitMode);
+      const imageX = (fit.x - representation.x) * ctx.canvas.width / 100;
+      const imageY = (fit.y - representation.y) * ctx.canvas.height / 100;
+      const imageWidth = fit.width * ctx.canvas.width / 100;
+      const imageHeight = fit.height * ctx.canvas.height / 100;
+      if (fitMode === "cover") {
+        ctx.beginPath();
+        ctx.rect(0, 0, r.width, r.height);
+        ctx.clip();
+      }
+      ctx.drawImage(image, imageX, imageY, imageWidth, imageHeight);
+    }
     else {
       ctx.strokeRect(0, 0, r.width, r.height);
       ctx.font = "24px sans-serif";
@@ -233,32 +255,69 @@ export async function sketchPng(
   images = await rasterImages(set.representations, images);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  set.representations.forEach((r) => paintRepresentation(ctx, r, images));
+  const visibleRepresentations = set.representations.filter(representation => representation.visible);
+  if (visibleRepresentations.length === 0 && set.referenceImageId && images[set.referenceImageId]) {
+    // A key reference can be the complete shot image when the Director has not
+    // requested decomposed layers. Keep its source aspect ratio inside the
+    // actual project composition instead of stretching it to the preview box.
+    const image = images[set.referenceImageId];
+    const scale = Math.min(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+    const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+    ctx.drawImage(image, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+  }
+  visibleRepresentations.forEach((r) => paintRepresentation(ctx, r, images));
   annotations.filter((annotation) => annotation.setId === set.id).forEach((annotation) => {
     const target = set.representations.find((representation) => representation.id === annotation.targetRepresentationId && representation.visible);
     if (!target) return;
     const x = target.x * canvas.width / 100, y = target.y * canvas.height / 100;
     const w = target.width * canvas.width / 100, h = target.height * canvas.height / 100;
-    const points = annotation.points.map(([px, py]) => [x + px * w / 100, y + py * h / 100] as const);
+    const source = images[target.referenceId ?? ""];
+    // Do not paint source-image coordinates against the full placement frame if
+    // the source could not be loaded; that would make marks appear detached.
+    if (!source) return;
+    const points = annotation.points.map(point => {
+      const [xPercent, yPercent] = imagePointToComposition(target, point, source.naturalWidth, source.naturalHeight, canvas.width, canvas.height, target.imageFit ?? "contain");
+      return [xPercent * canvas.width / 100, yPercent * canvas.height / 100] as const;
+    });
     const [cx, cy] = [x + w / 2, y + h / 2];
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(target.rotation * Math.PI / 180);
     ctx.translate(-cx, -cy);
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
     ctx.strokeStyle = annotation.color;
     ctx.fillStyle = annotation.color;
-    ctx.lineWidth = Math.max(2, Math.max(canvas.width, canvas.height) * 0.002);
+    ctx.lineWidth = (annotation.strokeWidth ?? 4) * Math.max(1, Math.max(canvas.width, canvas.height) / 1920);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.beginPath();
     if (annotation.kind === "point") {
       const [px, py] = points[0];
-      ctx.arc(px, py, Math.max(5, Math.max(canvas.width, canvas.height) * 0.006), 0, Math.PI * 2);
+      const radius = Math.max(5, Math.max(canvas.width, canvas.height) * 0.006);
+      ctx.moveTo(px, py + radius * 1.8);
+      ctx.bezierCurveTo(px - radius * .1, py + radius * 1.45, px - radius, py + radius * .25, px - radius, py - radius * .45);
+      ctx.arc(px, py - radius * .45, radius, Math.PI, 0);
+      ctx.bezierCurveTo(px + radius, py + radius * .25, px + radius * .1, py + radius * 1.45, px, py + radius * 1.8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(px, py - radius * .45, radius * .3, 0, Math.PI * 2);
+      ctx.fillStyle = "#17191e";
+      ctx.fill();
+      ctx.fillStyle = annotation.color;
     } else if (annotation.kind === "rectangle") {
       const [x1, y1] = points[0], [x2, y2] = points[1];
       ctx.rect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
     } else {
-      points.forEach(([px, py], index) => index ? ctx.lineTo(px, py) : ctx.moveTo(px, py));
+      if (points.length > 0) ctx.moveTo(points[0][0], points[0][1]);
+      if (points.length === 2) ctx.lineTo(points[1][0], points[1][1]);
+      else for (let index = 1; index < points.length - 1; index++) {
+        const [px, py] = points[index], [nextX, nextY] = points[index + 1];
+        ctx.quadraticCurveTo(px, py, (px + nextX) / 2, (py + nextY) / 2);
+      }
+      if (points.length > 2) ctx.lineTo(points.at(-1)![0], points.at(-1)![1]);
       if (annotation.kind === "polygon") ctx.closePath();
     }
     ctx.stroke();

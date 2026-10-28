@@ -21,6 +21,7 @@ import {
   registerAudioAsset,
   registerMediaAsset,
   registerPoseStudioPngs,
+  registerStoryboardPngs,
   removeMediaAsset,
 } from "../scripts/media-store";
 
@@ -537,6 +538,35 @@ test("Pose Studio imports transparent PNGs as project media and deduplicates ide
       ),
       pngFixture(),
     );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("saved Storyboard reference PNGs become stable Timeline-ready project media", async () => {
+  const directory = await tempDirectory("floxbow-storyboard-publish-");
+  try {
+    const projectRoot = path.join(directory, "project");
+    const referenceDirectory = path.join(projectRoot, "assets", "storyboard", "references");
+    await mkdir(referenceDirectory, { recursive: true });
+    await writeFile(path.join(referenceDirectory, "ref-background.png"), pngFixture());
+    await writeFile(path.join(referenceDirectory, "ref-character.png"), pngFixture());
+    const initial = await readMediaRegistry(projectRoot);
+    const published = await registerStoryboardPngs(projectRoot, initial.revision, [
+      { id: "ref-background", name: "Clean background" },
+      { id: "ref-character", name: "Character cutout" },
+    ]);
+    assert.equal(published.assets.length, 2);
+    assert.notEqual(published.assets[0].assetId, published.assets[1].assetId);
+    const snapshot = await readMediaWithAvailability(projectRoot);
+    assert.equal(snapshot.registry.assets.length, 2);
+    assert.ok(snapshot.registry.assets.every(asset => asset.source.kind === "external-file" && asset.source.path.includes(`${path.sep}assets${path.sep}storyboard${path.sep}references${path.sep}`)));
+    assert.ok(snapshot.availability.every(asset => asset.status === "ready"));
+    const repeat = await registerStoryboardPngs(projectRoot, published.revision, [
+      { id: "ref-background", name: "Clean background" },
+    ]);
+    assert.equal(repeat.revision, published.revision);
+    assert.equal(repeat.assets[0].assetId, published.assets[0].assetId);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

@@ -2,6 +2,8 @@
 
 The two original demos now declare project-owned clips. No new animation framework is used. Arbitrary React source cannot safely be reverse-engineered into a timeline: editable components must opt into this small data contract.
 
+The saved Timeline is the project's playback source of truth: it owns clip IDs, component references, frame ranges, scene membership and renderable props. Director instructions and Animator/reviewer correspondence live in the separate optional Storyboard document and refer to Timeline work through stable scene, shot and clip IDs. After saving Timeline edits, **Sync from Video Editor** in Storyboard reads back timing and image placement for linked Director-owned clips; the user then saves Storyboard to keep the updated Director view. This explicit pull leaves notes, references, annotations and Animator-owned clips intact. An Animator can implement a custom effect in project code, register it as an editable component, then place/reference that component from Timeline data; arbitrary source code is not inferred as a clip.
+
 ## Author a project
 
 `npm run create:project -- my-video` creates an editable six-second subtitle project. For existing projects, add `"editTimeline": "edit-timeline.json"` to the manifest. The file is JSON validated by `@motion/sdk/timeline`; its FPS and duration must exactly match the manifest.

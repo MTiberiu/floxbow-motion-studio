@@ -8,6 +8,7 @@
     "./schema": "./src/schema.ts",
     "./media": "./src/media.ts",
     "./storyboard": "./src/storyboard.ts",
+    "./storyboard-collaboration": "./src/storyboard-collaboration.ts",
     "./storyboard-svg": "./src/storyboard-svg.ts"
   }
 }
