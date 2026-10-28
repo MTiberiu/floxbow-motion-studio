@@ -52,6 +52,9 @@ import {
 import { useWorkspaceManager } from "./WorkspaceManager";
 import { clampTimelineHeight, DEFAULT_TIMELINE_HEIGHT } from "./editor-layout";
 import { addPoseStudioActionToTimeline } from "./pose-studio-import";
+import { publishStoryboardToTimeline, storyboardReferenceIdsForScope, type StoryboardPublishScope } from "./storyboard-timeline";
+import type { Storyboard } from "@motion/project-loader/storyboard";
+import { CANVAS_FORMATS } from "./canvas-formats";
 import type {
   TimelineCommandEnvelope,
   TimelineCommandResult,
@@ -68,12 +71,6 @@ import {
 } from "@motion/lyrics-sync/subtitles";
 import "./timeline.css";
 
-const CANVAS_FORMATS = [
-  { id: "16:9", label: "16:9 · Landscape", width: 1920, height: 1080 },
-  { id: "9:16", label: "9:16 · Portrait", width: 1080, height: 1920 },
-  { id: "1:1", label: "1:1 · Square", width: 1080, height: 1080 },
-  { id: "21:9", label: "21:9 · Ultra-wide", width: 2560, height: 1080 },
-] as const;
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
   const a = document.createElement("a");
@@ -130,8 +127,72 @@ export function TimelineEditor({
     requestPreviewReload,
     sendPreview: send,
   });
+  const workspace = useWorkspaceManager();
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  useEffect(() => {
+    const handleStoryboardPublish = async (event: Event) => {
+      const detail = (event as CustomEvent<{
+        projectId?: string;
+        storyboard?: Storyboard;
+        scope?: StoryboardPublishScope;
+      }>).detail;
+      if (detail?.projectId !== manifest.id || !detail.storyboard || !detail.scope) return;
+      const scope = detail.scope;
+      try {
+        let current = sessionRef.current.commands.getCurrentDocument();
+        for (let attempt = 0; !current && attempt < 30; attempt++) {
+          await new Promise(resolve => window.setTimeout(resolve, 100));
+          current = sessionRef.current.commands.getCurrentDocument();
+        }
+        if (!current) throw new Error("Video Editor could not load its Timeline. Check the project before staging Storyboard clips.");
+        const mediaResponse = await fetch(`/api/media/${manifest.id}`);
+        if (!mediaResponse.ok) throw new Error(await mediaResponse.text());
+        const mediaCatalog = await mediaResponse.json() as { revision: string; assets: { id: string; status: string; displayName: string }[] };
+        const referenceIds = storyboardReferenceIdsForScope(detail.storyboard, scope);
+        const registered = referenceIds.length
+          ? await fetch(`/api/media/${encodeURIComponent(manifest.id)}/storyboard-publish`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ revision: mediaCatalog.revision, referenceIds }),
+            })
+          : null;
+        if (registered && !registered.ok) throw new Error(await registered.text());
+        const registeredAssets = registered
+          ? await registered.json() as { assets: Array<{ referenceId: string; assetId: string }> }
+          : { assets: [] };
+        const assetByReferenceId = new Map(registeredAssets.assets.map(asset => [asset.referenceId, asset.assetId]));
+        const media = new Map(detail.storyboard.references
+          .filter(reference => assetByReferenceId.has(reference.id))
+          .map(reference => [reference.id, {
+            assetId: assetByReferenceId.get(reference.id)!,
+            name: reference.name,
+            width: reference.width,
+            height: reference.height,
+          }] as const));
+        const result = publishStoryboardToTimeline({ document: current, storyboard: detail.storyboard, manifest, media, scope: detail.scope });
+        sessionRef.current.commands.edit(result.timeline);
+        const storyClips = result.timeline.clips.filter(clip => {
+          const metadata = (clip.content as Record<string, unknown>).storyboard as Record<string, unknown> | undefined;
+          return metadata?.owner === "director-plan" && (scope.kind === "film" || metadata.sceneId === scope.sceneId) && (scope.kind !== "shot" || metadata.setId === scope.setId);
+        });
+        if (storyClips.length) {
+          sessionRef.current.commands.selectClip(storyClips[0].id);
+          sessionRef.current.commands.seek(Math.min(...storyClips.map(clip => clip.from)));
+        }
+        const issues = [...result.conflicts, ...result.unsupported];
+        sessionRef.current.commands.setNotice(`Storyboard staged in the Video Editor draft: ${result.added} added, ${result.updated} updated, ${result.removed} removed, ${result.skipped} kept for review${issues.length ? ` · ${issues.length} item(s) need attention` : ""}. Save the Timeline when ready.`);
+        workspace.activatePanel("editor");
+        window.dispatchEvent(new CustomEvent("flox:storyboard:publish-result", { detail: { projectId: manifest.id, ok: true, ...result, issues } }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        sessionRef.current.commands.setError(message);
+        window.dispatchEvent(new CustomEvent("flox:storyboard:publish-result", { detail: { projectId: manifest.id, ok: false, message } }));
+      }
+    };
+    window.addEventListener("flox:storyboard:publish", handleStoryboardPublish);
+    return () => window.removeEventListener("flox:storyboard:publish", handleStoryboardPublish);
+  }, [manifest, workspace.activatePanel]);
   const playPreviewRef = useRef<() => void>(() => {});
   const sourceCommandId = useRef<string | null>(null);
   const clipGesture = useRef<
@@ -159,7 +220,6 @@ export function TimelineEditor({
   useEffect(() => {
     clipboard.current = undefined;
   }, [manifest.id]);
-  const workspace = useWorkspaceManager();
   const detachedTimeline = workspace.detachedTimeline;
   const [timelineTransportError, setTimelineTransportError] = useState("");
   const [assetOrganizerOpen, setAssetOrganizerOpen] = useState(false);
@@ -182,6 +242,7 @@ export function TimelineEditor({
     revision: "",
   });
   const [savingCanvasSettings, setSavingCanvasSettings] = useState(false);
+  const [canvasFormatStatus, setCanvasFormatStatus] = useState("");
   const [playToProjectEnd, setPlayToProjectEnd] = useState(
     () => localStorage.getItem("motion-preview-playback-end") === "project",
   );
@@ -503,6 +564,7 @@ export function TimelineEditor({
     const format = CANVAS_FORMATS.find((item) => item.id === formatId);
     if (!format || !canvasSettings.revision) return;
     setSavingCanvasSettings(true);
+    setCanvasFormatStatus("Saving Canvas format to project…");
     setError("");
     try {
       const response = await fetch(
@@ -531,9 +593,12 @@ export function TimelineEditor({
         height: result.manifest.height,
         revision: result.revision,
       });
-      setNotice(`Canvas format changed to ${format.id}.`);
+      setCanvasFormatStatus(
+        `${format.id} · ${format.width} × ${format.height} saved to project. No Timeline clip is needed.`,
+      );
       requestPreviewReload();
     } catch (settingsError) {
+      setCanvasFormatStatus("");
       setError(String(settingsError));
     } finally {
       setSavingCanvasSettings(false);
@@ -3008,6 +3073,13 @@ export function TimelineEditor({
               ))}
             </select>
           </label>
+          <span
+            className={`canvas-format-status${savingCanvasSettings ? " is-saving" : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            {canvasFormatStatus}
+          </span>
           <label className="transcription-source-control">
             Transcribe from
             <select

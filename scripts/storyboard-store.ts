@@ -2,7 +2,6 @@ import {
   copyFile,
   lstat,
   mkdir,
-  open,
   readFile,
   realpath,
   stat,
@@ -19,13 +18,18 @@ import {
 } from "@motion/project-loader";
 import {
   storyboardSchema,
+  storyboardCollaborationMessageSchema,
   emptyStoryboard,
+  directorPlanFingerprint,
+  filmApprovalStatus,
+  sceneApprovalStatus,
   sceneFingerprint,
   type Storyboard,
 } from "@motion/project-loader/storyboard";
 import { resolveMedia } from "@motion/project-loader/media";
 import { getSubtitleCues } from "@motion/lyrics-sync/subtitles";
 import { renderStoryboardSvg } from "@motion/project-loader/storyboard-svg";
+import { getStoryboardDirectiveCoverage } from "@motion/project-loader/storyboard-collaboration";
 import { withProjectWriteLock } from "./project-write-lock";
 import { readEditor, renameWithTransientWindowsRetry } from "./editor-store";
 import { readMediaRegistry } from "./media-store";
@@ -59,17 +63,36 @@ async function ensureProjectDirectory(root: string, relative: string) {
 
 async function verifyPng(file: string) {
   const info = await stat(file);
-  if (!info.isFile() || info.size < pngSignature.length || info.size > maxReferenceBytes)
+  if (!info.isFile() || info.size < 33 || info.size > maxReferenceBytes)
     throw new Error("Storyboard reference must be a PNG under 25 MB.");
-  const handle = await open(file, "r");
-  try {
-    const signature = Buffer.alloc(pngSignature.length);
-    const { bytesRead } = await handle.read(signature, 0, signature.length, 0);
-    if (bytesRead !== signature.length || !signature.equals(pngSignature))
-      throw new Error("Storyboard reference is not a valid PNG image.");
-  } finally {
-    await handle.close();
+  const bytes = await readFile(file);
+  if (
+    !bytes.subarray(0, pngSignature.length).equals(pngSignature) ||
+    bytes.readUInt32BE(8) !== 13 ||
+    bytes.toString("ascii", 12, 16) !== "IHDR" ||
+    ![0, 2, 3, 4, 6].includes(bytes[25])
+  )
+    throw new Error("Storyboard reference is not a valid PNG image.");
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  if (!width || !height || width > 32768 || height > 32768)
+    throw new Error("Storyboard PNG dimensions are invalid or too large.");
+  let hasAlpha = bytes[25] === 4 || bytes[25] === 6;
+  let endSeen = false;
+  for (let offset = 8; offset + 12 <= bytes.length;) {
+    const chunkLength = bytes.readUInt32BE(offset);
+    if (chunkLength > bytes.length - offset - 12)
+      throw new Error("Storyboard PNG has an incomplete chunk.");
+    if (bytes.toString("ascii", offset + 4, offset + 8) === "tRNS") hasAlpha = true;
+    const chunkType = bytes.toString("ascii", offset + 4, offset + 8);
+    offset += chunkLength + 12;
+    if (chunkType === "IEND") {
+      endSeen = true;
+      break;
+    }
   }
+  if (!endSeen) throw new Error("Storyboard PNG is missing its end marker.");
+  return { width, height, hasAlpha };
 }
 
 async function persistReferenceFiles(root: string, input: Storyboard) {
@@ -113,9 +136,56 @@ async function persistReferenceFiles(root: string, input: Storyboard) {
         await unlink(temporary).catch(() => {});
       }
     }
-    references.push({ ...reference, file: relative });
+    const imageInfo = await verifyPng(destination);
+    const sha256 = createHash("sha256").update(await readFile(destination)).digest("hex");
+    if (reference.sha256 && reference.sha256 !== sha256)
+      throw new Error(
+        `Storyboard image ${reference.id} changed in place. Add a new reference ID for each visual revision.`,
+      );
+    if (
+      (reference.width !== undefined && reference.width !== imageInfo.width) ||
+      (reference.height !== undefined && reference.height !== imageInfo.height) ||
+      (reference.hasAlpha !== undefined && reference.hasAlpha !== imageInfo.hasAlpha)
+    )
+      throw new Error(`Storyboard image ${reference.id} metadata does not match its file.`);
+    references.push({ ...reference, file: relative, sha256, ...imageInfo });
   }
   return { ...input, references };
+}
+
+async function hydrateReferenceHashes(root: string, input: Storyboard) {
+  const assetDrift: string[] = [];
+  const references = await Promise.all(
+    input.references.map(async (reference) => {
+      if (!reference.file) return reference;
+      let file: string;
+      try {
+        file = await safeFile(root, reference.file);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          if (reference.sha256) assetDrift.push(reference.id);
+          return reference;
+        }
+        throw error;
+      }
+      const info = await lstat(file);
+      if (info.isSymbolicLink() || !info.isFile())
+        throw new Error(`Storyboard reference ${reference.id} is not a regular file.`);
+      const imageInfo = await verifyPng(file);
+      const sha256 = createHash("sha256").update(await readFile(file)).digest("hex");
+      if (reference.sha256 && reference.sha256 !== sha256)
+        assetDrift.push(reference.id);
+      const metadataChanged =
+        (reference.width !== undefined && reference.width !== imageInfo.width) ||
+        (reference.height !== undefined && reference.height !== imageInfo.height) ||
+        (reference.hasAlpha !== undefined && reference.hasAlpha !== imageInfo.hasAlpha);
+      if (metadataChanged) assetDrift.push(reference.id);
+      return reference.sha256
+        ? reference
+        : { ...reference, sha256, ...imageInfo };
+    }),
+  );
+  return { document: { ...input, references }, assetDrift };
 }
 
 async function target(root: string) {
@@ -149,16 +219,20 @@ export async function readStoryboard(root: string, projectId: string) {
           fps: m.fps,
         }),
         revision: "missing",
+        assetDrift: [],
       };
     }
     throw e;
   }
   if (Buffer.byteLength(text) > 8_000_000)
     throw new Error("Storyboard exceeds 8 MB");
-  const document = storyboardSchema.parse(JSON.parse(text));
+  const { document, assetDrift } = await hydrateReferenceHashes(
+    root,
+    storyboardSchema.parse(JSON.parse(text)),
+  );
   if (document.projectId !== projectId)
     throw new Error("Storyboard project identity mismatch");
-  return { document, revision: digest(text) };
+  return { document, revision: digest(text), assetDrift };
 }
 export async function saveStoryboard(
   root: string,
@@ -214,8 +288,26 @@ export async function saveStoryboard(
     } finally {
       await unlink(temporary).catch(() => {});
     }
-    return { document, revision: digest(text) };
+    return { document, revision: digest(text), assetDrift: [] as string[] };
   });
+}
+/** Appends one validated agent/reviewer entry without replacing the saved plan. */
+export async function appendStoryboardCollaboration(
+  root: string,
+  projectId: string,
+  input: unknown,
+) {
+  projectIdSchema.parse(projectId);
+  const projectRoot = path.dirname(await safeFile(root, `${projectId}/project.json`));
+  const current = await readStoryboard(projectRoot, projectId);
+  const message = storyboardCollaborationMessageSchema.parse(input);
+  if (message.kind === "implementation" && !message.outputs?.length)
+    throw new Error("Animator implementation entries must declare at least one output element or effect.");
+  const document = storyboardSchema.parse({
+    ...current.document,
+    collaboration: [...current.document.collaboration, message],
+  });
+  return saveStoryboard(projectRoot, projectId, document, current.revision);
 }
 export async function storyboardTiming(
   root: string,
@@ -228,6 +320,15 @@ export async function storyboardTiming(
     revision,
     cues: getSubtitleCues(timeline),
     scenes: timeline.scenes ?? [],
+    savedTimeline: {
+      fps: timeline.fps,
+      scenes: timeline.scenes ?? [],
+      clips: timeline.clips.filter((clip) => {
+        const metadata = (clip.content as Record<string, unknown>).storyboard;
+        return !!metadata && typeof metadata === "object" && !Array.isArray(metadata) &&
+          (metadata as Record<string, unknown>).owner === "director-plan";
+      }),
+    },
     audio: timeline.clips
       .filter((c) => ["soundtrack", "video-audio"].includes(c.componentId))
       .map((c) => ({
@@ -315,6 +416,16 @@ export async function resolveStoryboardContext(
         motionPlans: doc.actionPlans.filter(
           (plan) => plan.sceneId === scene.id && (plan.fromSetId === set.id || plan.toSetId === set.id),
         ),
+        annotations: doc.annotations.filter(
+          (annotation) => annotation.sceneId === scene.id && annotation.setId === set.id,
+        ),
+        implementationCoverage: getStoryboardDirectiveCoverage(doc, {
+          sceneId: scene.id,
+          setId: set.id,
+        }),
+        collaboration: doc.collaboration.filter(
+          (message) => message.sceneId === scene.id && message.setId === set.id,
+        ),
         projectAssetRoot: ".",
         briefs: briefs(scene.id),
         sketchSource: `storyboard.json#${scene.id}/${set.id}`,
@@ -327,6 +438,12 @@ export async function resolveStoryboardContext(
       };
       break;
     }
+    case "getImplementationStatus":
+      result = getStoryboardDirectiveCoverage(doc, {
+        ...(identity ? { sceneId: identity } : {}),
+        ...(setId ? { setId } : {}),
+      });
+      break;
     default:
       throw new Error("Unknown storyboard operation");
   }
@@ -342,6 +459,16 @@ export async function resolveStoryboardContext(
       fps: manifest.fps,
     },
     aspectRatio: doc.composition.width / doc.composition.height,
+    directorPlan: {
+      fingerprint: directorPlanFingerprint(doc),
+      filmApproval: filmApprovalStatus(doc, snapshot.assetDrift),
+      changedAssetReferenceIds: snapshot.assetDrift,
+      sceneApprovals: doc.scenes.map((item) => ({
+        sceneId: item.id,
+        status: sceneApprovalStatus(doc, item, snapshot.assetDrift),
+      })),
+    },
+    changedAssetReferenceIds: snapshot.assetDrift,
     result,
   };
 }
