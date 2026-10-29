@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { CSSProperties, Dispatch, MouseEvent, RefObject, SetStateAction } from "react";
+import type { CSSProperties, Dispatch, KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent as ReactPointerEvent, RefObject, SetStateAction } from "react";
 import { parseEditTimeline, type EditTimeline, type TimelineClip } from "@motion/sdk/timeline";
 import { extendSubtitleClipToTimedWords, subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
 import type { CorrelationCue, CorrelationWord, DirectorBrief, MusicEvent, MusicEventSource, MusicLyricsMap, Report } from "./MusicAnalysis";
@@ -49,6 +49,9 @@ const PLOT_WIDTH = 1150;
 const SVG_WIDTH = 1280;
 const FULL_SVG_HEIGHT = 384;
 const COMPACT_SVG_HEIGHT = 124;
+// Manual timing edits are deliberately bounded so an absolute playhead value
+// can never turn into a multi-minute clip-relative word duration again.
+const MAX_MANUAL_WORD_DURATION_SECONDS = 15;
 
 export function MusicLyricsMapView(props: Props) {
   const {
@@ -62,9 +65,11 @@ export function MusicLyricsMapView(props: Props) {
   const [wordBoxesVisible, setWordBoxesVisible] = useState(true);
   const [wordGuidesVisible, setWordGuidesVisible] = useState(true);
   const [analysisTimelineOpen, setAnalysisTimelineOpen] = useState(false);
-  const [focusedTimingWordId, setFocusedTimingWordId] = useState<string | null>(null);
+  const [focusedTimingWordSelection, setFocusedTimingWordSelection] = useState<{ cueId: string; wordId: string } | null>(null);
   const [manuallySelectedCueId, setManuallySelectedCueId] = useState<string | null>(null);
-  const [wordContextMenu, setWordContextMenu] = useState<{ x: number; y: number; cueId: string; wordIndex: number; wordText: string; gap: number } | null>(null);
+  const [wordContextMenu, setWordContextMenu] = useState<{ x: number; y: number; cueId: string; wordId: string } | null>(null);
+  const [wordTextDraft, setWordTextDraft] = useState("");
+  const [newWordTextDraft, setNewWordTextDraft] = useState("");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const lyricsListRef = useRef<HTMLDivElement>(null);
   const [timelineStart, setTimelineStart] = useState(0);
@@ -81,6 +86,11 @@ export function MusicLyricsMapView(props: Props) {
   const [cueDrafts, setCueDrafts] = useState<Record<string, CorrelationCue>>({});
   const [cueDirtyIds, setCueDirtyIds] = useState<string[]>([]);
   const [timingDraftDirty, setTimingDraftDirty] = useState(false);
+  const seekRepeatRef = useRef<number | null>(null);
+  const seekAudioStartTimerRef = useRef<number | null>(null);
+  const seekRepeatTimeRef = useRef(0);
+  const scrubStartedPlaybackRef = useRef(false);
+  const invalidTimingRefreshAttempted = useRef(false);
   useEffect(() => {
     let current = true;
     void fetch(`/api/edit/${encodeURIComponent(projectId)}`).then(async response => {
@@ -107,13 +117,38 @@ export function MusicLyricsMapView(props: Props) {
   const visibleTracks = eventLanesVisible ? TRACKS : TRACKS.slice(0, 2);
   const xAt = (time: number) => PLOT_LEFT + ((time - visibleStart) / Math.max(visibleSpan, 0.001)) * PLOT_WIDTH;
   const visibleCues = (correlation?.cues ?? []).map(cue => cueDrafts[cue.id] ?? cue);
+  const hasOverlongMapWord = visibleCues.some(cue => cue.words.some(word => word.start !== null && word.end !== null && word.end - word.start > MAX_MANUAL_WORD_DURATION_SECONDS));
+  const invalidDraftCueIds = Object.entries(cueDrafts).filter(([, cue]) => cue.words.some(word => word.start !== null && word.end !== null && word.end - word.start > MAX_MANUAL_WORD_DURATION_SECONDS)).map(([cueId]) => cueId);
+  const invalidDraftCueKey = invalidDraftCueIds.join("|");
+  useEffect(() => {
+    if (!hasOverlongMapWord) {
+      invalidTimingRefreshAttempted.current = false;
+      return;
+    }
+    if (invalidTimingRefreshAttempted.current) return;
+    invalidTimingRefreshAttempted.current = true;
+    if (invalidDraftCueIds.length) {
+      setCueDrafts(current => Object.fromEntries(Object.entries(current).filter(([cueId]) => !invalidDraftCueIds.includes(cueId))));
+      setCueDirtyIds(current => current.filter(cueId => !invalidDraftCueIds.includes(cueId)));
+      setTimingDraftDirty(current => current && cueDirtyIds.some(cueId => !invalidDraftCueIds.includes(cueId)));
+    }
+    setTimingError("An outdated lyric map contains an invalid word duration. Refreshing it from the saved Timeline…");
+    void refreshAfterSave();
+  }, [hasOverlongMapWord, invalidDraftCueKey, refreshAfterSave]);
+  useEffect(() => {
+    if (!hasOverlongMapWord) setTimingError(current => current.startsWith("An outdated lyric map") ? "" : current);
+  }, [hasOverlongMapWord]);
   const activeCue = visibleCues.find(cue => playhead >= cue.start && playhead < cue.end) ?? null;
   const playbackCue = activeCue ?? cueAtGapMidpoint(visibleCues, playhead);
   const manuallySelectedCue = !audioPlaying ? visibleCues.find(cue => cue.id === manuallySelectedCueId) ?? null : null;
-  const timingCue = manuallySelectedCue ?? playbackCue;
-  const focusedTimingWord = timingCue?.words.find(word => word.id === focusedTimingWordId && word.start !== null && word.end !== null && playhead >= word.start && playhead < word.end) ?? null;
+  const focusedCue = focusedTimingWordSelection ? visibleCues.find(cue => cue.id === focusedTimingWordSelection.cueId && cue.words.some(word => word.id === focusedTimingWordSelection.wordId)) ?? null : null;
+  const timingCue = audioPlaying ? playbackCue : focusedCue ?? manuallySelectedCue ?? playbackCue;
+  const focusedTimingWord = timingCue && focusedTimingWordSelection && timingCue.id === focusedTimingWordSelection.cueId
+    ? timingCue.words.find(word => word.id === focusedTimingWordSelection.wordId) ?? null
+    : null;
   const activeTimingWord = timingCue?.words.filter(word => word.start !== null && word.end !== null && playhead >= word.start && playhead < word.end).sort((a, b) => (b.start ?? 0) - (a.start ?? 0))[0] ?? null;
-  const selectedTimingWordId = focusedTimingWord?.id ?? activeTimingWord?.id ?? null;
+  const selectedTimingWordId = audioPlaying ? activeTimingWord?.id ?? null : focusedTimingWord?.id ?? activeTimingWord?.id ?? null;
+  const activeTimingWordIndex = timingCue?.words.findIndex(word => word.id === activeTimingWord?.id) ?? -1;
   const timingCueIndex = timingCue ? visibleCues.findIndex(cue => cue.id === timingCue.id) : -1;
   useEffect(() => {
     if (!autoFollow || !audioPlaying || timingCueIndex < 0) return;
@@ -211,14 +246,65 @@ export function MusicLyricsMapView(props: Props) {
 
   const focusCue = (cue: CorrelationCue) => {
     setManuallySelectedCueId(cue.id);
+    setFocusedTimingWordSelection(null);
     seekTo(cue.start);
   };
 
-  const focusWord = (wordId: string) => {
-    setFocusedTimingWordId(wordId);
-    const cue = visibleCues.find(item => item.words.some(word => word.id === wordId));
-    if (cue) setManuallySelectedCueId(cue.id);
+  const focusWord = (cueId: string, wordId: string) => {
+    setFocusedTimingWordSelection({ cueId, wordId });
+    if (visibleCues.some(item => item.id === cueId && item.words.some(word => word.id === wordId))) setManuallySelectedCueId(cueId);
   };
+
+  const seekFromTimeline = (time: number) => {
+    setFocusedTimingWordSelection(null);
+    setManuallySelectedCueId(null);
+    seekTo(time);
+  };
+
+  const seekByFrame = (direction: -1 | 1, fromTime = playhead) => {
+    const frameSeconds = 1 / (draftTimeline?.fps ?? 30);
+    const nextTime = clampTime(fromTime + direction * frameSeconds, duration);
+    seekRepeatTimeRef.current = nextTime;
+    seekFromTimeline(nextTime);
+  };
+
+  const beginAudioScrub = () => {
+    const audio = audioRef.current;
+    if (!audio || !audio.paused || !audioUrl || !reportMatchesSelection) return;
+    scrubStartedPlaybackRef.current = true;
+    setAudioError("");
+    void audio.play().catch(reason => {
+      scrubStartedPlaybackRef.current = false;
+      setAudioError(reason instanceof Error ? reason.message : "Audio playback could not start.");
+    });
+  };
+
+  const endAudioScrub = () => {
+    if (scrubStartedPlaybackRef.current) audioRef.current?.pause();
+    scrubStartedPlaybackRef.current = false;
+  };
+
+  const beginSeekHold = (direction: -1 | 1) => {
+    if (!duration) return;
+    if (seekRepeatRef.current !== null) window.clearInterval(seekRepeatRef.current);
+    seekRepeatRef.current = null;
+    seekRepeatTimeRef.current = playhead;
+    seekByFrame(direction, seekRepeatTimeRef.current);
+    seekRepeatRef.current = window.setInterval(() => seekByFrame(direction, seekRepeatTimeRef.current), 33);
+    seekAudioStartTimerRef.current = window.setTimeout(beginAudioScrub, 140);
+  };
+
+  const endSeekHold = () => {
+    if (seekRepeatRef.current !== null) window.clearInterval(seekRepeatRef.current);
+    seekRepeatRef.current = null;
+    if (seekAudioStartTimerRef.current !== null) window.clearTimeout(seekAudioStartTimerRef.current);
+    seekAudioStartTimerRef.current = null;
+    endAudioScrub();
+  };
+  useEffect(() => () => {
+    if (seekRepeatRef.current !== null) window.clearInterval(seekRepeatRef.current);
+    if (seekAudioStartTimerRef.current !== null) window.clearTimeout(seekAudioStartTimerRef.current);
+  }, []);
 
   const updateCueDraft = (cue: CorrelationCue) => {
     setCueDrafts(current => ({ ...current, [cue.id]: cue }));
@@ -228,36 +314,84 @@ export function MusicLyricsMapView(props: Props) {
     setTimingError("");
   };
 
-  const editWord = (cue: CorrelationCue, wordIndex: number, requestedDelta: number) => {
+  const openWordActions = (cue: CorrelationCue, word: CorrelationWord, x: number, y: number) => {
+    setFocusedTimingWordSelection({ cueId: cue.id, wordId: word.id });
+    setManuallySelectedCueId(cue.id);
+    setWordTextDraft(word.text);
+    setNewWordTextDraft("");
+    setWordContextMenu({ x, y, cueId: cue.id, wordId: word.id });
+  };
+
+  const commitWordContent = (cue: CorrelationCue, content: ReturnType<typeof subtitleContentSchema.parse>, words: CorrelationWord[]) => {
+    if (!draftTimeline) return false;
+    const cueIndex = visibleCues.findIndex(item => item.id === cue.id);
+    const nextCue = cueIndex >= 0 ? visibleCues[cueIndex + 1] : null;
+    const editedEnd = Math.max(cue.end, ...words.map(word => word.end ?? cue.end));
+    // Keep any pre-existing neighboring overlap as-is, but never make it worse.
+    if (nextCue && editedEnd > Math.max(cue.end, nextCue.start) + .001) {
+      setTimingError("This change would push the lyric into the next subtitle. Make room there first.");
+      return false;
+    }
+    const overlongWord = words.find(word => word.start !== null && word.end !== null && word.end - word.start > MAX_MANUAL_WORD_DURATION_SECONDS);
+    if (overlongWord) {
+      setTimingError(`“${overlongWord.text}” would be longer than ${MAX_MANUAL_WORD_DURATION_SECONDS} seconds. No timing was changed.`);
+      return false;
+    }
+    const timeline = structuredClone(draftTimeline);
+    const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
+    if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return false; }
+    clip.content = content;
+    const adjusted = ensureSubtitleFits(timeline, clip);
+    if (!adjusted) { setTimingError("This word change would extend beyond the project duration."); return false; }
+    setDraftTimeline(adjusted);
+    updateCueDraft({ ...cue, text: content.text, end: Math.max(cue.end, ...words.map(word => word.end ?? cue.end)), words });
+    setTimingError("");
+    return true;
+  };
+
+  const editWord = (cue: CorrelationCue, wordId: string, requestedDelta: number) => {
     if (!draftTimeline) return;
     const timeline = structuredClone(draftTimeline);
     const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
     if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
     const content = subtitleContentSchema.parse(clip.content);
-    if (!content.words || !content.words[wordIndex]) { setTimingError("This lyric line has no editable word timing."); return; }
-    const word = content.words[wordIndex];
+    if (!content.words) { setTimingError("This lyric line has no editable word timing."); return; }
+    const timelineWordIndex = content.words.findIndex(entry => entry.id === wordId);
+    const cueWordIndex = cue.words.findIndex(entry => entry.id === wordId);
+    if (timelineWordIndex < 0 || cueWordIndex < 0) { setTimingError("This word no longer matches the saved Timeline timing. Refresh the song map before editing."); return; }
+    const word = content.words[timelineWordIndex]!;
     const delta = Math.round(requestedDelta * 1000) / 1000;
     if (word.end - word.start + delta < .04) { setTimingError("A word must remain at least 40 ms long."); return; }
-    content.words = content.words.map((entry, index) => index === wordIndex
+    if (word.end - word.start + delta > MAX_MANUAL_WORD_DURATION_SECONDS) {
+      setTimingError(`A manually timed word cannot be longer than ${MAX_MANUAL_WORD_DURATION_SECONDS} seconds. No timing was changed.`);
+      return;
+    }
+    content.words = content.words.map((entry, index) => index === timelineWordIndex
       ? { ...entry, end: roundMs(entry.end + delta) }
-      : index > wordIndex
+      : index > timelineWordIndex
         ? { ...entry, start: roundMs(entry.start + delta), end: roundMs(entry.end + delta) }
         : entry);
     clip.content = content;
     const adjusted = ensureSubtitleFits(timeline, clip);
     if (!adjusted) { setTimingError("This timing change would extend beyond the project duration."); return; }
-    setDraftTimeline(adjusted);
-    const words = cue.words.map((entry, index) => index === wordIndex
+    const words = cue.words.map((entry, index) => index === cueWordIndex
       ? { ...entry, end: entry.end === null ? null : roundMs(entry.end + delta) }
-      : index > wordIndex
+      : index > cueWordIndex
         ? { ...entry, start: entry.start === null ? null : roundMs(entry.start + delta), end: entry.end === null ? null : roundMs(entry.end + delta) }
         : entry);
     const nextEnd = Math.max(cue.end, ...words.map(entry => entry.end ?? cue.end));
+    const nextCue = visibleCues[visibleCues.findIndex(entry => entry.id === cue.id) + 1];
+    if (nextCue && nextEnd > Math.max(cue.end, nextCue.start) + .001) {
+      setTimingError("This change would push the lyric into the next subtitle. Make room there first.");
+      return;
+    }
+    setDraftTimeline(adjusted);
     updateCueDraft({ ...cue, end: nextEnd, words });
     setTimingError("");
   };
 
-  const addSpaceAfterWord = (cue: CorrelationCue, wordIndex: number, requestedDelta: number) => {
+  const addSpaceAfterWord = (cue: CorrelationCue, wordId: string, requestedDelta: number) => {
+    const wordIndex = cue.words.findIndex(word => word.id === wordId);
     if (!draftTimeline || wordIndex < 0 || wordIndex >= cue.words.length - 1) return;
     const word = cue.words[wordIndex];
     const nextWord = cue.words[wordIndex + 1];
@@ -269,25 +403,32 @@ export function MusicLyricsMapView(props: Props) {
     const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
     if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
     const content = subtitleContentSchema.parse(clip.content);
-    if (!content.words || content.words.length !== cue.words.length) { setTimingError("This lyric line no longer has matching editable word timing."); return; }
-    content.words = content.words.map((entry, index) => index > wordIndex
+    if (!content.words) { setTimingError("This lyric line no longer has matching editable word timing."); return; }
+    const timelineWordIndex = content.words.findIndex(entry => entry.id === wordId);
+    if (timelineWordIndex < 0 || !content.words.some(entry => entry.id === nextWord.id)) { setTimingError("This word pair no longer matches the saved Timeline. Refresh the song map before editing."); return; }
+    content.words = content.words.map((entry, index) => index > timelineWordIndex
       ? { ...entry, start: roundMs(entry.start + delta), end: roundMs(entry.end + delta) }
       : entry);
     clip.content = content;
     const adjusted = ensureSubtitleFits(timeline, clip);
     if (!adjusted) { setTimingError("This gap would extend beyond the project duration."); return; }
-    setDraftTimeline(adjusted);
     const words = cue.words.map((entry, index) => index > wordIndex
       ? { ...entry, start: entry.start === null ? null : roundMs(entry.start + delta), end: entry.end === null ? null : roundMs(entry.end + delta) }
       : entry);
     const nextEnd = Math.max(cue.end, ...words.map(entry => entry.end ?? cue.end));
+    const nextCue = visibleCues[visibleCues.findIndex(entry => entry.id === cue.id) + 1];
+    if (nextCue && nextEnd > Math.max(cue.end, nextCue.start) + .001) {
+      setTimingError("This pause would push the lyric into the next subtitle. Make room there first.");
+      return;
+    }
+    setDraftTimeline(adjusted);
     updateCueDraft({ ...cue, end: nextEnd, words });
     setTimingError("");
   };
 
-  const setWordStartHere = (wordId: string, time: number) => {
+  const setWordStartHere = (cueId: string, wordId: string, time: number) => {
     if (!draftTimeline) return;
-    const cue = visibleCues.find(item => item.words.some(word => word.id === wordId));
+    const cue = visibleCues.find(item => item.id === cueId && item.words.some(word => word.id === wordId));
     const wordIndex = cue?.words.findIndex(word => word.id === wordId) ?? -1;
     if (!cue || wordIndex < 0) return;
     const word = cue.words[wordIndex];
@@ -296,12 +437,21 @@ export function MusicLyricsMapView(props: Props) {
     const nextStart = Math.max(previousTimed?.end ?? 0, roundMs(time));
     const delta = roundMs(nextStart - word.start);
     if (!delta) return;
+    const cuePosition = visibleCues.findIndex(entry => entry.id === cue.id);
+    const nextCue = visibleCues[cuePosition + 1];
+    const lastTimedEnd = [...cue.words].reverse().find(entry => entry.end !== null)?.end;
+    if (nextCue && lastTimedEnd !== undefined && lastTimedEnd !== null && lastTimedEnd + delta > nextCue.start + .001) {
+      setTimingError("This word would push the lyric into the next subtitle. Move the next lyric first.");
+      return;
+    }
     const timeline = structuredClone(draftTimeline);
     const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
     if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
     const content = subtitleContentSchema.parse(clip.content);
-    if (!content.words || content.words.length !== cue.words.length) { setTimingError("This lyric line no longer has matching editable word timing."); return; }
-    content.words = content.words.map((entry, index) => index >= wordIndex
+    if (!content.words) { setTimingError("This lyric line no longer has matching editable word timing."); return; }
+    const timelineWordIndex = content.words.findIndex(entry => entry.id === wordId);
+    if (timelineWordIndex < 0) { setTimingError("This word no longer matches the saved Timeline timing. Refresh the song map before editing."); return; }
+    content.words = content.words.map((entry, index) => index >= timelineWordIndex
       ? { ...entry, start: roundMs(entry.start + delta), end: roundMs(entry.end + delta) }
       : entry);
     clip.content = content;
@@ -316,31 +466,188 @@ export function MusicLyricsMapView(props: Props) {
     setTimingError("");
   };
 
-  const setWordEndHere = (wordId: string, time: number) => {
+  const setWordEndHere = (cueId: string, wordId: string, time: number) => {
     if (!draftTimeline) return;
-    const cue = visibleCues.find(item => item.words.some(word => word.id === wordId));
+    const cue = visibleCues.find(item => item.id === cueId && item.words.some(word => word.id === wordId));
     const wordIndex = cue?.words.findIndex(word => word.id === wordId) ?? -1;
     if (!cue || wordIndex < 0) return;
     const word = cue.words[wordIndex];
     if (word.start === null || word.end === null) return;
-    const nextTimed = cue.words.slice(wordIndex + 1).find(entry => entry.start !== null);
-    const end = Math.min(roundMs(time), nextTimed?.start ?? Number.POSITIVE_INFINITY);
+    const end = roundMs(time);
+    if (!Number.isFinite(end)) { setTimingError("The playhead time is invalid. No timing was changed."); return; }
     if (end < word.start + .04) { setTimingError("A word must remain at least 40 ms long."); return; }
+    if (end - word.start > MAX_MANUAL_WORD_DURATION_SECONDS) {
+      setTimingError(`A manually timed word cannot be longer than ${MAX_MANUAL_WORD_DURATION_SECONDS} seconds. No timing was changed.`);
+      return;
+    }
+    const cuePosition = visibleCues.findIndex(entry => entry.id === cue.id);
+    const nextCue = visibleCues[cuePosition + 1];
+    const delta = roundMs(end - word.end);
+    const lastWordIndex = cue.words.length - 1;
+    const lastWord = cue.words[lastWordIndex];
+    const newLastEnd = lastWord && (delta > 0 || wordIndex === lastWordIndex) && lastWord.end !== null
+      ? roundMs(lastWord.end + delta)
+      : lastWord?.end ?? cue.end;
+    if (nextCue && newLastEnd > nextCue.start + .001) {
+      setTimingError("This word would push the lyric into the next subtitle. Move the next lyric first.");
+      return;
+    }
     const timeline = structuredClone(draftTimeline);
     const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
     if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
     const content = subtitleContentSchema.parse(clip.content);
-    if (!content.words || !content.words[wordIndex]) { setTimingError("This lyric line has no editable word timing."); return; }
-    const delta = roundMs(end - word.end);
-    content.words[wordIndex] = { ...content.words[wordIndex], end: roundMs(content.words[wordIndex].end + delta) };
+    if (!content.words) { setTimingError("This lyric line has no editable word timing."); return; }
+    const timelineWordIndex = content.words.findIndex(entry => entry.id === wordId);
+    if (timelineWordIndex < 0) { setTimingError("This word no longer matches the saved Timeline timing. Refresh the song map before editing."); return; }
+    // The playhead/correlation word uses absolute song seconds. Timeline word
+    // offsets are relative to clip.from, so convert explicitly before writing.
+    const clipStartSeconds = clip.from / timeline.fps;
+    const relativeEnd = roundMs(end - clipStartSeconds);
+    const storedWord = content.words[timelineWordIndex]!;
+    const relativeDelta = roundMs(relativeEnd - storedWord.end);
+    const storedAbsoluteStart = roundMs(clipStartSeconds + storedWord.start);
+    const storedAbsoluteEnd = roundMs(clipStartSeconds + storedWord.end);
+    if (Math.abs(storedAbsoluteStart - word.start) > .05 || Math.abs(storedAbsoluteEnd - word.end) > .05 || Math.abs(relativeDelta - delta) > .05) {
+      setTimingError("The lyric view and Timeline draft are out of sync. Reload the lyric timing before editing this word.");
+      return;
+    }
+    if (relativeEnd < storedWord.start + .04) { setTimingError("A word must remain at least 40 ms long."); return; }
+    if (relativeEnd > timeline.durationInFrames / timeline.fps - clipStartSeconds + .001) {
+      setTimingError("This end time is beyond the project duration. No timing was changed.");
+      return;
+    }
+    content.words = content.words.map((entry, index) => index === timelineWordIndex
+      ? { ...entry, end: relativeEnd }
+      : index > timelineWordIndex && relativeDelta > 0
+        ? { ...entry, start: roundMs(entry.start + relativeDelta), end: roundMs(entry.end + relativeDelta) }
+        : entry);
+    if (wordIndex === lastWordIndex) {
+      const lastEnd = Math.max(...content.words.map(entry => entry.end));
+      clip.durationInFrames = Math.max(1, Math.ceil(lastEnd * timeline.fps - 1e-8));
+    }
     clip.content = content;
     const adjusted = ensureSubtitleFits(timeline, clip);
     if (!adjusted) { setTimingError("This end time would extend beyond the project duration."); return; }
     setDraftTimeline(adjusted);
-    const words = cue.words.map((entry, index) => index === wordIndex ? { ...entry, end } : entry);
+    const words = cue.words.map((entry, index) => index === wordIndex
+      ? { ...entry, end: roundMs(clipStartSeconds + relativeEnd) }
+      : index > wordIndex && relativeDelta > 0
+        ? { ...entry, start: entry.start === null ? null : roundMs(entry.start + relativeDelta), end: entry.end === null ? null : roundMs(entry.end + relativeDelta) }
+        : entry);
     updateCueDraft({ ...cue, end: Math.max(cue.end, ...words.map(entry => entry.end ?? cue.end)), words });
     seekTo(end);
     setTimingError("");
+  };
+
+  const correctWordText = (cue: CorrelationCue, wordId: string, requestedText: string) => {
+    if (!draftTimeline) return false;
+    const nextText = requestedText.trim();
+    const cueIndex = cue.words.findIndex(word => word.id === wordId);
+    if (cueIndex < 0 || !nextText) return false;
+    const timeline = structuredClone(draftTimeline);
+    const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
+    if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return false; }
+    const content = subtitleContentSchema.parse(clip.content);
+    if (!content.words) return false;
+    const sourceIndex = content.words.findIndex(word => word.id === wordId);
+    if (sourceIndex < 0) { setTimingError("This word no longer matches the saved Timeline timing."); return false; }
+    const nextCueText = replaceTextToken(content.text, sourceIndex, nextText);
+    if (nextCueText === null) { setTimingError("The lyric text and word timing no longer match. Refresh the song map before editing."); return false; }
+    content.text = nextCueText;
+    content.words[sourceIndex] = { ...content.words[sourceIndex]!, text: nextText };
+    if (content.status !== "demo") content.status = "unverified";
+    const nextCueWords = cue.words.map(word => word.id === wordId ? { ...word, text: nextText } : word);
+    if (!commitWordContent(cue, content, nextCueWords)) return false;
+    setTimingMessage("Word text updated in the Timeline draft.");
+    return true;
+  };
+
+  const addWordAfter = (cue: CorrelationCue, wordId: string, requestedText: string) => {
+    if (!draftTimeline) return;
+    const text = requestedText.trim();
+    const cueIndex = cue.words.findIndex(word => word.id === wordId);
+    const selected = cue.words[cueIndex];
+    if (cueIndex < 0 || !selected || selected.start === null || selected.end === null || !text) return;
+    const timeline = structuredClone(draftTimeline);
+    const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
+    if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
+    const content = subtitleContentSchema.parse(clip.content);
+    if (!content.words) return;
+    const sourceIndex = content.words.findIndex(word => word.id === wordId);
+    if (sourceIndex < 0) { setTimingError("This word no longer matches the saved Timeline timing."); return; }
+    if ((content.text.match(/\S+/g) ?? []).length !== content.words.length) { setTimingError("The lyric text and word timing no longer match. Refresh the song map before adding a word."); return; }
+    const newStart = selected.end;
+    const newEnd = newStart + .35;
+    const nextWord = cue.words[cueIndex + 1];
+    const shift = nextWord?.start !== null && nextWord?.start !== undefined ? Math.max(0, newEnd - nextWord.start) : 0;
+    const relativeStart = Math.max(0, roundMs(newStart - cue.start));
+    const relativeEnd = roundMs(relativeStart + .35);
+    const id = `manual-word-${crypto.randomUUID()}`;
+    content.words = content.words.map((word, index) => index > sourceIndex && shift > 0
+      ? { ...word, start: roundMs(word.start + shift), end: roundMs(word.end + shift) }
+      : word);
+    content.words.splice(sourceIndex + 1, 0, { id, text, start: relativeStart, end: relativeEnd });
+    content.text = insertTextTokenAfter(content.text, sourceIndex, text);
+    if (content.status !== "demo") content.status = "unverified";
+    const newCueWord: CorrelationWord = { id, text, start: newStart, end: newEnd, beatOffsetSeconds: null, eventIds: [], preWordCueIds: [], vocalActivityOverlap: null };
+    const nextCueWords = cue.words.map((word, index) => index > cueIndex && shift > 0
+      ? { ...word, start: word.start === null ? null : roundMs(word.start + shift), end: word.end === null ? null : roundMs(word.end + shift) }
+      : word);
+    nextCueWords.splice(cueIndex + 1, 0, newCueWord);
+    if (commitWordContent(cue, content, nextCueWords)) {
+      setFocusedTimingWordSelection({ cueId: cue.id, wordId: id });
+      setManuallySelectedCueId(cue.id);
+      seekTo(newStart);
+      setWordContextMenu(null);
+      setTimingMessage("Word added to the Timeline draft. Adjust its timing, then save.");
+    }
+  };
+
+  const deleteWord = (cue: CorrelationCue, wordId: string) => {
+    if (!draftTimeline || cue.words.length <= 1) return;
+    const cueIndex = cue.words.findIndex(word => word.id === wordId);
+    const selected = cue.words[cueIndex];
+    if (cueIndex < 0 || !selected || selected.start === null || selected.end === null) return;
+    const timeline = structuredClone(draftTimeline);
+    const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
+    if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
+    const content = subtitleContentSchema.parse(clip.content);
+    if (!content.words) return;
+    const sourceIndex = content.words.findIndex(word => word.id === wordId);
+    if (sourceIndex < 0) { setTimingError("This word no longer matches the saved Timeline timing."); return; }
+    if ((content.text.match(/\S+/g) ?? []).length !== content.words.length) { setTimingError("The lyric text and word timing no longer match. Refresh the song map before deleting a word."); return; }
+    const duration = roundMs(selected.end - selected.start);
+    content.text = removeTextTokenAt(content.text, sourceIndex);
+    content.words = content.words.filter(word => word.id !== wordId).map(word => {
+      const index = content.words!.findIndex(entry => entry.id === word.id);
+      return index > sourceIndex ? { ...word, start: roundMs(word.start - duration), end: roundMs(word.end - duration) } : word;
+    });
+    if (content.status !== "demo") content.status = "unverified";
+    const nextCueWords = cue.words.filter(word => word.id !== wordId).map((word, index) => index >= cueIndex
+      ? { ...word, start: word.start === null ? null : roundMs(word.start - duration), end: word.end === null ? null : roundMs(word.end - duration) }
+      : word);
+    const nextSelected = nextCueWords[Math.max(0, cueIndex - 1)] ?? nextCueWords[0];
+    if (commitWordContent(cue, content, nextCueWords)) {
+      setWordContextMenu(null);
+      if (nextSelected?.start !== null && nextSelected?.start !== undefined) {
+        setFocusedTimingWordSelection({ cueId: cue.id, wordId: nextSelected.id });
+        seekTo(nextSelected.start);
+      } else setFocusedTimingWordSelection(null);
+      setTimingMessage("Word deleted from the Timeline draft. Save to apply the change.");
+    }
+  };
+
+  const verseShiftLimits = (cue: CorrelationCue) => {
+    if (!draftTimeline) return { minFrames: 0, maxFrames: 0 };
+    const clips = draftTimeline.clips.filter(item => item.componentId === "subtitles").sort((a, b) => a.from - b.from);
+    const index = clips.findIndex(item => item.id === cue.id);
+    const clip = clips[index];
+    if (!clip) return { minFrames: 0, maxFrames: 0 };
+    const previous = clips[index - 1];
+    const next = clips[index + 1];
+    const minFrom = Math.max(0, previous ? previous.from + previous.durationInFrames : 0);
+    const maxFrom = Math.min(draftTimeline.durationInFrames - clip.durationInFrames, next ? next.from - clip.durationInFrames : draftTimeline.durationInFrames - clip.durationInFrames);
+    return { minFrames: minFrom - clip.from, maxFrames: maxFrom - clip.from };
   };
 
   const shiftVerse = (cue: CorrelationCue, requestedDelta: number) => {
@@ -348,15 +655,26 @@ export function MusicLyricsMapView(props: Props) {
     const timeline = structuredClone(draftTimeline);
     const clip = timeline.clips.find(item => item.id === cue.id && item.componentId === "subtitles");
     if (!clip) { setTimingError("This lyric line no longer points to a Timeline subtitle clip."); return; }
-    const frameDelta = Math.round(requestedDelta * timeline.fps);
+    const bounds = verseShiftLimits(cue);
+    const requestedFrames = Math.sign(requestedDelta) * Math.max(1, Math.round(Math.abs(requestedDelta) * timeline.fps));
+    const frameDelta = Math.max(bounds.minFrames, Math.min(bounds.maxFrames, requestedFrames));
+    if (!frameDelta) return;
     const newFrom = clip.from + frameDelta;
-    if (newFrom < 0 || newFrom + clip.durationInFrames > timeline.durationInFrames) { setTimingError("This lyric line must stay within the project duration."); return; }
-    const delta = frameDelta / timeline.fps;
+    const cuePosition = visibleCues.findIndex(item => item.id === cue.id);
+    const previousCue = cuePosition > 0 ? visibleCues[cuePosition - 1] : null;
+    const nextCueIndex = cuePosition + 1;
+    const nextCue = visibleCues[nextCueIndex];
+    const newStart = newFrom / timeline.fps;
+    const newEnd = (newFrom + clip.durationInFrames) / timeline.fps;
+    if ((previousCue && newStart < previousCue.end - 1e-6) || (nextCue && newEnd > nextCue.start + 1e-6)) {
+      setTimingError("This lyric cannot move into the neighboring subtitle. Make room there first.");
+      return;
+    }
     clip.from = newFrom;
-    const adjusted = parseEditTimeline(timeline);
-    setDraftTimeline(adjusted);
+    setDraftTimeline(parseEditTimeline(timeline));
+    const delta = frameDelta / timeline.fps;
     updateCueDraft({ ...cue, start: roundMs(cue.start + delta), end: roundMs(cue.end + delta), words: cue.words.map(word => ({ ...word, start: word.start === null ? null : roundMs(word.start + delta), end: word.end === null ? null : roundMs(word.end + delta) })) });
-    seekTo(cue.start + delta + .015);
+    // Keep the playhead fixed: the lyric moves underneath the centered marker.
     setTimingError("");
   };
 
@@ -388,6 +706,16 @@ export function MusicLyricsMapView(props: Props) {
 
   const saveTimingDraft = async () => {
     if (!draftTimeline || !timingDraftDirty) return;
+    for (const cueId of cueDirtyIds) {
+      const clip = draftTimeline.clips.find(item => item.id === cueId && item.componentId === "subtitles");
+      if (!clip) { setTimingError("A changed lyric no longer has a matching Timeline clip. Reload the lyrics before saving."); return; }
+      const content = subtitleContentSchema.parse(clip.content);
+      const invalidWord = content.words?.find(word => !Number.isFinite(word.start) || !Number.isFinite(word.end) || word.start < 0 || word.end <= word.start || word.end - word.start > MAX_MANUAL_WORD_DURATION_SECONDS);
+      if (invalidWord) {
+        setTimingError(`“${invalidWord.text}” has an invalid or unusually long timing. Correct that word before saving; the Timeline was not changed.`);
+        return;
+      }
+    }
     setTimingSaving(true);
     setTimingError("");
     try {
@@ -409,10 +737,12 @@ export function MusicLyricsMapView(props: Props) {
   };
 
   const currentSection = report.structure.sections.find(section => playhead >= section.start && playhead < section.end);
+  const actionCue = wordContextMenu ? visibleCues.find(cue => cue.id === wordContextMenu.cueId) ?? null : null;
+  const actionWord = actionCue && wordContextMenu ? actionCue.words.find(word => word.id === wordContextMenu.wordId) ?? null : null;
   const nextCue = correlation?.cues.find(cue => cue.start > (timingCue?.start ?? playhead)) ?? null;
 
   return <div className="mlm-page">
-    <audio ref={audioRef} hidden preload="metadata" src={audioUrl || undefined} onTimeUpdate={event => { onAudioTimeUpdate(event.currentTarget.currentTime); if (audioPlaying) { setManuallySelectedCueId(null); setFocusedTimingWordId(null); } }} onPlay={() => { setAudioPlaying(true); setManuallySelectedCueId(null); setFocusedTimingWordId(null); }} onPause={() => setAudioPlaying(false)} onVolumeChange={event => setAudioVolume(event.currentTarget.volume)} onError={() => setAudioError("The selected audio file could not be loaded.")}/>
+    <audio ref={audioRef} hidden preload="metadata" src={audioUrl || undefined} onTimeUpdate={event => { onAudioTimeUpdate(event.currentTarget.currentTime); if (audioPlaying) { setManuallySelectedCueId(null); setFocusedTimingWordSelection(null); } }} onPlay={() => { setAudioPlaying(true); setManuallySelectedCueId(null); setFocusedTimingWordSelection(null); }} onPause={() => setAudioPlaying(false)} onVolumeChange={event => setAudioVolume(event.currentTarget.volume)} onError={() => setAudioError("The selected audio file could not be loaded.")}/>
     <section className="mlm-panel mlm-audio-overview">
       <div className="mlm-audio-strip"><div><span className="mlm-kicker">AUDIO</span><strong>{report.asset.displayName}</strong></div><div className="mlm-audio-facts"><span>{report.structure.bpm === null ? "BPM unavailable" : `${Math.round(report.structure.bpm)} BPM`}</span><span>{report.structure.beats.length} beats</span><span>{report.structure.sections.length} sections</span><span>{currentSection?.label ?? "No section"}</span><span>{formatTime(duration)}</span></div>
       </div>
@@ -433,17 +763,17 @@ export function MusicLyricsMapView(props: Props) {
               </div></details>
               <div className={`mlm-word-zoom${lyricView === "preview" ? " is-placeholder" : ""}`}><button aria-label="Zoom out words" title="Show more time" disabled={lyricView === "preview"} onClick={() => setWordZoom(1.5)}>−</button><span>{lyricView === "preview" ? "" : `${formatTime(visibleSpan)} view`}</span><button aria-label="Zoom in words" title="Show less time" disabled={lyricView === "preview"} onClick={() => setWordZoom(.67)}>+</button></div>
             </div>
-            <div className="mlm-alignment-transport"><button className="mlm-transport-play" onClick={toggleAudioPlayback} disabled={!audioUrl || !reportMatchesSelection} aria-label={audioPlaying ? "Pause soundtrack" : "Play soundtrack"}>{audioPlaying ? "Ⅱ" : "▶"}</button><time>{formatTime(playhead)} <span>/ {formatTime(duration)}</span></time><input aria-label="Seek soundtrack" type="range" min="0" max={duration || 1} step="0.01" value={Math.min(duration, playhead)} onChange={event => seekTo(Number(event.currentTarget.value))}/><label className="mlm-alignment-volume" title="Soundtrack volume"><span>Vol</span><input aria-label="Soundtrack volume" type="range" min="0" max="1" step="0.01" value={audioVolume} onChange={event => updateAudioVolume(Number(event.currentTarget.value))}/></label><button className="mlm-open-analysis" onClick={() => setAnalysisTimelineOpen(true)} aria-haspopup="dialog">Full analysis</button></div>
+            <div className="mlm-alignment-transport"><button className="mlm-transport-play" onClick={toggleAudioPlayback} disabled={!audioUrl || !reportMatchesSelection} aria-label={audioPlaying ? "Pause soundtrack" : "Play soundtrack"}>{audioPlaying ? "Ⅱ" : "▶"}</button><button className="mlm-seek-step" aria-label="Seek back one frame" title={`Back 1 frame (${(1000 / (draftTimeline?.fps ?? 30)).toFixed(0)} ms); hold to continue`} disabled={!duration} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginSeekHold(-1); }} onPointerUp={endSeekHold} onPointerCancel={endSeekHold} onLostPointerCapture={endSeekHold} onClick={event => { if (event.detail === 0) seekByFrame(-1); }}>←</button><time>{formatTime(playhead)} <span>/ {formatTime(duration)}</span></time><button className="mlm-seek-step" aria-label="Seek forward one frame" title={`Forward 1 frame (${(1000 / (draftTimeline?.fps ?? 30)).toFixed(0)} ms); hold to continue`} disabled={!duration} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginSeekHold(1); }} onPointerUp={endSeekHold} onPointerCancel={endSeekHold} onLostPointerCapture={endSeekHold} onClick={event => { if (event.detail === 0) seekByFrame(1); }}>→</button><input aria-label="Seek soundtrack" type="range" min="0" max={duration || 1} step="0.01" value={Math.min(duration, playhead)} onChange={event => seekFromTimeline(Number(event.currentTarget.value))}/><label className="mlm-alignment-volume" title="Soundtrack volume"><span>Vol</span><input aria-label="Soundtrack volume" type="range" min="0" max="1" step="0.01" value={audioVolume} onChange={event => updateAudioVolume(Number(event.currentTarget.value))}/></label><button className="mlm-open-analysis" onClick={() => setAnalysisTimelineOpen(true)} aria-haspopup="dialog">Full analysis</button></div>
           </div>
           <div className="mlm-lyric-stage">
             {lyricView === "preview" && <div className="mlm-lyric-status">{timingCue ? `${formatTime(timingCue.start)}–${formatTime(timingCue.end)} · ${(timingCue.alignment.wordTimingSource ?? "untimed").toUpperCase()} · ${timingCue.alignment.status.toUpperCase()}` : "INSTRUMENTAL / NO ACTIVE LYRIC"}</div>}
-            {lyricView === "preview" ? <><div className="mlm-lyric-main" aria-live="polite">{timingCue?.words.length ? timingCue.words.map(word => {
-              const isSung = word.end !== null && playhead >= word.end;
-              const isNow = word.start !== null && word.end !== null && playhead >= word.start && playhead < word.end;
-              return <span key={word.id} className={`mlm-lyric-token${isSung ? " sung" : isNow ? " now" : " future"}`} onClick={() => { if (word.start !== null) seekTo(word.start); }} title={word.start === null ? "No word time available" : `Seek to ${word.text} at ${formatTime(word.start)}`}>{word.text} </span>;
+            {lyricView === "preview" ? <><div className="mlm-lyric-main" aria-live="polite">{timingCue?.words.length ? timingCue.words.map((word, index) => {
+              const isSung = activeTimingWordIndex >= 0 ? index < activeTimingWordIndex : word.end !== null && playhead >= word.end;
+              const isNow = activeTimingWordIndex >= 0 ? index === activeTimingWordIndex : word.start !== null && word.end !== null && playhead >= word.start && playhead < word.end;
+              return <span key={word.id} className={`mlm-lyric-token${isSung ? " sung" : isNow ? " now" : " future"}`} onClick={() => { if (word.start !== null) { focusWord(timingCue.id, word.id); seekTo(word.start); } }} title={word.start === null ? "No word time available" : `Seek to ${word.text} at ${formatTime(word.start)}`}>{word.text} </span>;
             }) : timingCue ? <span>{timingCue.text}</span> : <span className="mlm-instrumental-mark">♪</span>}</div>
             <div className="mlm-lyric-next">{nextCue?.text ?? ""}</div></> : <>
-              <TimedWordRunway cues={visibleCues} audioRef={audioRef} audioPlaying={audioPlaying} playhead={playhead} duration={duration} visibleSpan={visibleSpan} correlationZoom={correlationZoom} wordBoxesVisible={wordBoxesVisible} wordGuidesVisible={wordGuidesVisible} seekTo={seekTo} selectWord={focusWord} setWordStartHere={setWordStartHere} setWordEndHere={setWordEndHere}/>
+              <TimedWordRunway cues={visibleCues} audioRef={audioRef} audioPlaying={audioPlaying} playhead={playhead} duration={duration} visibleSpan={visibleSpan} fps={draftTimeline?.fps ?? 30} correlationZoom={correlationZoom} wordBoxesVisible={wordBoxesVisible} wordGuidesVisible={wordGuidesVisible} seekTo={seekTo} seekFromTimeline={seekFromTimeline} beginAudioScrub={beginAudioScrub} endAudioScrub={endAudioScrub} selectWord={focusWord}/>
             </>}
           </div>
           <div className={`mlm-word-timing-panel${timingCue ? "" : " is-empty"}`}>
@@ -451,13 +781,13 @@ export function MusicLyricsMapView(props: Props) {
             <div className="mlm-timing-panel-title"><strong>Adjust word timing · {timingCue.text}</strong><span>Click a word to seek · Shift + / − for 10 ms</span></div>
             <div className="mlm-timing-word-controls">{timingCue.words.map((word, index) => {
               const isAtWord = selectedTimingWordId === word.id;
-              const timingState = word.start === null || word.end === null ? "untimed" : word.end <= playhead ? "sung" : word.start <= playhead ? "now" : "upcoming";
+              const timingState = word.start === null || word.end === null ? "untimed" : activeTimingWordIndex >= 0 ? index < activeTimingWordIndex ? "sung" : index === activeTimingWordIndex ? "now" : "upcoming" : word.end <= playhead ? "sung" : word.start <= playhead ? "now" : "upcoming";
               const nextTimedWord = timingCue.words[index + 1];
               const pauseAfter = word.end !== null && nextTimedWord?.start !== null && nextTimedWord?.start !== undefined ? Math.max(0, nextTimedWord.start - word.end) : 0;
-              return <Fragment key={word.id}><div className={`mlm-timing-word ${timingState}${isAtWord ? " is-selected" : ""}`} onClick={event => { if ((event.target as HTMLElement).closest("button:not(.mlm-timing-word-select)")) return; if (word.start !== null) { focusWord(word.id); seekTo(word.start); } }} onContextMenu={event => { if (word.start === null || word.end === null || !nextTimedWord || nextTimedWord.start === null) return; event.preventDefault(); setWordContextMenu({ x: event.clientX, y: event.clientY, cueId: timingCue.id, wordIndex: index, wordText: word.text, gap: Math.max(0, nextTimedWord.start - word.end) }); }}><button className="mlm-timing-word-select" disabled={word.start === null} title={word.start === null ? "No word time available" : `Seek to ${word.text} at ${formatTime(word.start)}`}>{word.text}</button><small>{word.start === null || word.end === null ? "Untimed" : `${formatTime(word.start)} · ${formatDuration(word.end - word.start)}`}</small><div><button disabled={word.start === null || !draftTimeline || timingSaving} aria-label={`Shorten ${word.text}`} title="Shorten by 100 ms (Shift: 10 ms)" onClick={event => { event.stopPropagation(); if (word.start !== null) { focusWord(word.id); seekTo(word.start); } editWord(timingCue, index, event.shiftKey ? -.01 : -.1); }}>−</button><button disabled={word.start === null || !draftTimeline || timingSaving} aria-label={`Lengthen ${word.text}`} title="Lengthen by 100 ms (Shift: 10 ms)" onClick={event => { event.stopPropagation(); if (word.start !== null) { focusWord(word.id); seekTo(word.start); } editWord(timingCue, index, event.shiftKey ? .01 : .1); }}>+</button></div></div>{pauseAfter >= .04 && <div className="mlm-timing-gap" style={{ "--gap-seconds": pauseAfter } as CSSProperties} title={`Pause · ${formatDuration(pauseAfter)}`} aria-label={`Pause ${formatDuration(pauseAfter)} after ${word.text}`}><span>{formatDuration(pauseAfter)}</span></div>}</Fragment>;
+              return <Fragment key={`${timingCue.id}:${word.id}`}><div className={`mlm-timing-word ${timingState}${isAtWord ? " is-selected" : ""}`} onClick={event => { if ((event.target as HTMLElement).closest("button:not(.mlm-timing-word-select)")) return; if (word.start !== null) { focusWord(timingCue.id, word.id); seekTo(word.start); } }} onContextMenu={event => { event.preventDefault(); openWordActions(timingCue, word, event.clientX, event.clientY); }}><button className="mlm-timing-word-select" disabled={word.start === null} title={word.start === null ? "No word time available" : `Seek to ${word.text} at ${formatTime(word.start)}`}>{word.text}</button><small>{word.start === null || word.end === null ? "Untimed" : `${formatTime(word.start)} · ${formatDuration(word.end - word.start)}`}</small><div><button disabled={word.start === null || !draftTimeline || timingSaving} aria-label={`Shorten ${word.text}`} title="Shorten by 100 ms (Shift: 10 ms)" onClick={event => { event.stopPropagation(); if (word.start !== null) { focusWord(timingCue.id, word.id); seekTo(word.start); } editWord(timingCue, word.id, event.shiftKey ? -.01 : -.1); }}>−</button><button disabled={word.start === null || !draftTimeline || timingSaving} aria-label={`Lengthen ${word.text}`} title="Lengthen by 100 ms (Shift: 10 ms)" onClick={event => { event.stopPropagation(); if (word.start !== null) { focusWord(timingCue.id, word.id); seekTo(word.start); } editWord(timingCue, word.id, event.shiftKey ? .01 : .1); }}>+</button><button aria-label={`More actions for ${word.text}`} title="Word actions" onClick={event => { event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect(); openWordActions(timingCue, word, rect.left, rect.bottom); }}>…</button></div></div>{pauseAfter >= .04 && <div className="mlm-timing-gap" style={{ "--gap-seconds": pauseAfter } as CSSProperties} title={`Pause · ${formatDuration(pauseAfter)}`} aria-label={`Pause ${formatDuration(pauseAfter)} after ${word.text}`}><span>{formatDuration(pauseAfter)}</span></div>}</Fragment>;
             })}</div>
-            {wordContextMenu && <div className="mlm-word-context-menu" role="menu" style={{ left: Math.max(8, Math.min(wordContextMenu.x, window.innerWidth - 252)), top: Math.max(8, Math.min(wordContextMenu.y, window.innerHeight - 115)) }} onContextMenu={event => event.preventDefault()}><strong>Space after “{wordContextMenu.wordText}”</strong><span>{wordContextMenu.gap > 0 ? `Current gap: ${formatDuration(wordContextMenu.gap)}` : "No pause between these words"}</span><button role="menuitem" disabled={!draftTimeline || timingSaving} onClick={() => { const cue = visibleCues.find(item => item.id === wordContextMenu.cueId); if (cue) addSpaceAfterWord(cue, wordContextMenu.wordIndex, .1); setWordContextMenu(null); }}>{wordContextMenu.gap > 0 ? "Add 100 ms more space" : "Add 100 ms space after"}</button>{wordContextMenu.gap > 0 && <button role="menuitem" disabled={!draftTimeline || timingSaving} onClick={() => { const cue = visibleCues.find(item => item.id === wordContextMenu.cueId); if (cue) addSpaceAfterWord(cue, wordContextMenu.wordIndex, -.1); setWordContextMenu(null); }}>Reduce space by 100 ms</button>}</div>}
-            <div className="mlm-verse-timing-controls"><span>Shift “{timingCue.text}”, keeping word lengths</span><button disabled={!draftTimeline || timingSaving} title="Move 100 ms earlier (Shift: 10 ms)" onClick={event => shiftVerse(timingCue, event.shiftKey ? -.01 : -.1)}>←</button><time>{formatTime(timingCue.start)}</time><button disabled={!draftTimeline || timingSaving} title="Move 100 ms later (Shift: 10 ms)" onClick={event => shiftVerse(timingCue, event.shiftKey ? .01 : .1)}>→</button></div>
+            {wordContextMenu && actionCue && actionWord && <div className="mlm-word-context-menu" role="menu" style={{ left: Math.max(8, Math.min(wordContextMenu.x, window.innerWidth - 316)), top: Math.max(8, Math.min(wordContextMenu.y, window.innerHeight - 410)) }} onContextMenu={event => event.preventDefault()}><strong>Word actions · “{actionWord.text}”</strong><span>Start/end use the playhead fixed at the timeline center.</span><label>Correct this word<input value={wordTextDraft} onChange={event => setWordTextDraft(event.currentTarget.value)} /></label><button role="menuitem" disabled={!draftTimeline || timingSaving || !wordTextDraft.trim() || wordTextDraft.trim() === actionWord.text} onClick={() => { if (correctWordText(actionCue, actionWord.id, wordTextDraft)) setWordContextMenu(null); }}>Save word text</button><button role="menuitem" disabled={!draftTimeline || timingSaving || actionWord.start === null || !actionCue.words[actionCue.words.findIndex(word => word.id === actionWord.id) + 1]} onClick={() => { addSpaceAfterWord(actionCue, actionWord.id, .1); setWordContextMenu(null); }}>Add space after</button><button role="menuitem" disabled={!draftTimeline || timingSaving || actionWord.start === null} onClick={() => { setWordStartHere(actionCue.id, actionWord.id, playhead); setWordContextMenu(null); }}>Set start at timeline center</button><button role="menuitem" disabled={!draftTimeline || timingSaving || actionWord.end === null} onClick={() => { setWordEndHere(actionCue.id, actionWord.id, playhead); setWordContextMenu(null); }}>Set end at timeline center</button><label>Add a missing word after<input value={newWordTextDraft} onChange={event => setNewWordTextDraft(event.currentTarget.value)} placeholder="Type the missing word" /></label><button role="menuitem" disabled={!draftTimeline || timingSaving || !newWordTextDraft.trim()} onClick={() => addWordAfter(actionCue, actionWord.id, newWordTextDraft)}>Add word after</button><button className="is-danger" role="menuitem" disabled={!draftTimeline || timingSaving || actionCue.words.length <= 1} onClick={() => deleteWord(actionCue, actionWord.id)}>Delete this word</button></div>}
+            <div className="mlm-verse-timing-controls"><span>Shift “{timingCue.text}”, keeping word lengths</span><button disabled={!draftTimeline || timingSaving || verseShiftLimits(timingCue).minFrames >= 0} title={`Move earlier; Shift: one frame (${((1 / (draftTimeline?.fps ?? 30)) * 1000).toFixed(0)} ms)`} onClick={event => shiftVerse(timingCue, event.shiftKey ? -1 / (draftTimeline?.fps ?? 30) : -.1)}>←</button><time>{formatTime(timingCue.start)}</time><button disabled={!draftTimeline || timingSaving || verseShiftLimits(timingCue).maxFrames <= 0} title={`Move later; Shift: one frame (${((1 / (draftTimeline?.fps ?? 30)) * 1000).toFixed(0)} ms)`} onClick={event => shiftVerse(timingCue, event.shiftKey ? 1 / (draftTimeline?.fps ?? 30) : .1)}>→</button></div>
             <div className="mlm-timing-actions"><button onClick={() => resetVerse(timingCue)} disabled={!cueDirtyIds.includes(timingCue.id) || timingSaving}>Reset this lyric</button>{timingDraftDirty && <><button onClick={discardTimingDraft} disabled={timingSaving}>Discard draft</button><button className="ma-primary" onClick={() => void saveTimingDraft()} disabled={timingSaving}>{timingSaving ? "Saving…" : "Save timing to Timeline"}</button></>}</div>
             {(timingError || timingMessage) && <div className={`mlm-timing-message${timingError ? " is-error" : ""}`} role={timingError ? "alert" : "status"}>{timingError || timingMessage}</div>}
             </>}
@@ -542,18 +872,22 @@ type TimedWordRunwayProps = {
   playhead: number;
   duration: number;
   visibleSpan: number;
+  fps: number;
   correlationZoom: number;
   wordBoxesVisible: boolean;
   wordGuidesVisible: boolean;
   seekTo: (time: number) => void;
-  selectWord: (wordId: string) => void;
-  setWordStartHere: (wordId: string, time: number) => void;
-  setWordEndHere: (wordId: string, time: number) => void;
+  seekFromTimeline: (time: number) => void;
+  beginAudioScrub: () => void;
+  endAudioScrub: () => void;
+  selectWord: (cueId: string, wordId: string) => void;
 };
 
-function TimedWordRunway({ cues, audioRef, audioPlaying, playhead, duration, visibleSpan, correlationZoom, wordBoxesVisible, wordGuidesVisible, seekTo, selectWord, setWordStartHere, setWordEndHere }: TimedWordRunwayProps) {
+function TimedWordRunway({ cues, audioRef, audioPlaying, playhead, duration, visibleSpan, fps, correlationZoom, wordBoxesVisible, wordGuidesVisible, seekTo, seekFromTimeline, beginAudioScrub, endAudioScrub, selectWord }: TimedWordRunwayProps) {
   const [displayTime, setDisplayTime] = useState(playhead);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; time: number; previous: { cueId: string; word: CorrelationWord } | null; next: { cueId: string; word: CorrelationWord } | null } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const dragRef = useRef<{ pointerId: number; x: number; time: number } | null>(null);
+  const audioStartTimerRef = useRef<number | null>(null);
   useEffect(() => {
     if (!audioPlaying) setDisplayTime(audioRef.current?.currentTime ?? playhead);
   }, [audioPlaying, audioRef, playhead]);
@@ -582,45 +916,57 @@ function TimedWordRunway({ cues, audioRef, audioPlaying, playhead, duration, vis
     const rect = event.currentTarget.getBoundingClientRect();
     const svgX = (event.clientX - rect.left) / rect.width * SVG_WIDTH;
     const ratio = Math.min(1, Math.max(0, (svgX - PLOT_LEFT) / PLOT_WIDTH));
-    seekTo(visibleStart + ratio * safeSpan);
+    seekFromTimeline(visibleStart + ratio * safeSpan);
   };
-  const handleContextMenu = (event: MouseEvent<SVGSVGElement>) => {
+  const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (event.button !== 1 || !duration) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, time: displayTime };
+    setIsPanning(true);
+    audioStartTimerRef.current = window.setTimeout(beginAudioScrub, 140);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
-    const svgX = (event.clientX - rect.left) / rect.width * SVG_WIDTH;
-    const ratio = Math.min(1, Math.max(0, (svgX - PLOT_LEFT) / PLOT_WIDTH));
-    const time = roundMs(visibleStart + ratio * safeSpan);
-    const allWords = cues.flatMap(cue => cue.words.filter(word => word.start !== null && word.end !== null).map(word => ({ cueId: cue.id, word }))).sort((a, b) => a.word.start! - b.word.start!);
-    const previous = [...allWords].reverse().find(entry => entry.word.start! <= time) ?? null;
-    const next = allWords.find(entry => entry.word.start! > time) ?? null;
-    setContextMenu({ x: event.clientX, y: event.clientY, time, previous, next });
+    const plotWidthInPixels = rect.width * PLOT_WIDTH / SVG_WIDTH;
+    const secondsPerPixel = safeSpan / Math.max(1, plotWidthInPixels);
+    // Dragging the strip left advances song time beneath the fixed center marker.
+    seekFromTimeline(clampTime(drag.time - (event.clientX - drag.x) * secondsPerPixel, duration));
   };
-  useEffect(() => {
-    if (!contextMenu) return;
-    const dismiss = (event: Event) => {
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest(".mlm-boundary-context-menu")) return;
-      setContextMenu(null);
-    };
-    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setContextMenu(null); };
-    window.addEventListener("pointerdown", dismiss);
-    window.addEventListener("keydown", escape);
-    return () => { window.removeEventListener("pointerdown", dismiss); window.removeEventListener("keydown", escape); };
-  }, [contextMenu]);
-  const words = cues.flatMap(cue => cue.words.filter(word => word.start !== null && word.end !== null && word.end > visibleStart && word.start < visibleEnd).map(word => {
+  const stopPointerDrag = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    setIsPanning(false);
+    if (audioStartTimerRef.current !== null) window.clearTimeout(audioStartTimerRef.current);
+    audioStartTimerRef.current = null;
+    endAudioScrub();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+  const handleRunwayKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (event.target !== event.currentTarget && !(event.target instanceof Element && event.target.closest(".mlm-word-runway-word"))) return;
+    event.preventDefault();
+    const step = 1 / fps;
+    seekFromTimeline(clampTime(displayTime + (event.key === "ArrowLeft" ? -step : step), duration));
+  };
+  const words = cues.flatMap(cue => cue.words.filter(word => word.start !== null && word.end !== null && word.end > word.start && word.end - word.start <= MAX_MANUAL_WORD_DURATION_SECONDS && word.end > visibleStart && word.start < visibleEnd).map(word => {
     const x = xAt(word.start!);
     const width = Math.max(1, xAt(word.end!) - x);
     const textWidth = Math.max(1, width - (wordBoxesVisible ? 12 : 4));
     const state = word.end! <= displayTime ? "sung" : word.start! <= displayTime ? "now" : "future";
-    return { word, x, width, textWidth, state };
+    return { cueId: cue.id, word, x, width, textWidth, state };
   }));
 
-  return <><svg className={`mlm-word-runway${wordBoxesVisible ? " has-word-boxes" : " is-clean"}`} viewBox={`0 0 ${SVG_WIDTH} 168`} preserveAspectRatio="none" role="img" aria-label="Timed lyric words stretched to their duration on the shared audio time scale" onClick={handleClick} onContextMenu={handleContextMenu}>
+  return <svg className={`mlm-word-runway${wordBoxesVisible ? " has-word-boxes" : " is-clean"}${audioPlaying ? " is-playing" : ""}${isPanning ? " is-panning" : ""}`} viewBox={`0 0 ${SVG_WIDTH} 168`} preserveAspectRatio="none" role="group" tabIndex={0} aria-label="Timed lyric words. Use the arrow keys to seek; hold the mouse wheel and drag to scroll." onClick={handleClick} onKeyDown={handleRunwayKeyDown} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={stopPointerDrag} onPointerCancel={stopPointerDrag} onLostPointerCapture={() => { if (audioStartTimerRef.current !== null) window.clearTimeout(audioStartTimerRef.current); audioStartTimerRef.current = null; endAudioScrub(); dragRef.current = null; setIsPanning(false); }}>
     <rect className="mlm-word-runway-bg" x="0" y="0" width={SVG_WIDTH} height="168"/>
     {wordGuidesVisible && makeTicks(visibleStart, visibleEnd, duration, correlationZoom).map(tick => <g key={`lyric-tick-${tick}`}><line className="mlm-word-runway-tick" x1={xAt(tick)} x2={xAt(tick)} y1="24" y2="145"/><text className="mlm-word-runway-time" x={xAt(tick) + 3} y="18">{formatTime(tick)}</text></g>)}
-    {words.map(({ word, x, width, textWidth, state }) => <g key={`runway-${word.id}`} className={`mlm-word-runway-word ${state}${wordBoxesVisible ? "" : " no-box"}`} role="button" tabIndex={0} aria-label={`${word.text}, ${formatTime(word.start!)} to ${formatTime(word.end!)}`} onClick={click => { click.stopPropagation(); selectWord(word.id); seekTo(word.start!); }} onKeyDown={key => { if (key.key === "Enter") { key.preventDefault(); selectWord(word.id); seekTo(word.start!); } }}><rect x={x} y="48" width={width} height="76" rx="5"/><text x={x + (wordBoxesVisible ? 6 : 2)} y="99" textLength={textWidth} lengthAdjust="spacingAndGlyphs">{word.text}</text><title>{`${word.text} · ${formatTime(word.start!)}–${formatTime(word.end!)}`}</title></g>)}
+    {words.map(({ cueId, word, x, width, textWidth, state }) => <g key={`runway-${cueId}-${word.id}`} className={`mlm-word-runway-word ${state}${wordBoxesVisible ? "" : " no-box"}`} role="button" tabIndex={0} aria-label={`${word.text}, ${formatTime(word.start!)} to ${formatTime(word.end!)}`} onClick={click => { click.stopPropagation(); selectWord(cueId, word.id); seekTo(word.start!); }} onKeyDown={key => { if (key.key === "Enter") { key.preventDefault(); selectWord(cueId, word.id); seekTo(word.start!); } }}><rect x={x} y="48" width={width} height="76" rx="5"/><text x={x + (wordBoxesVisible ? 6 : 2)} y="99" textLength={textWidth} lengthAdjust="spacingAndGlyphs">{word.text}</text><title>{`${word.text} · ${formatTime(word.start!)}–${formatTime(word.end!)}`}</title></g>)}
     {wordGuidesVisible && <line className="mlm-word-runway-playhead" x1={PLOT_LEFT + PLOT_WIDTH / 2} x2={PLOT_LEFT + PLOT_WIDTH / 2} y1="23" y2="145"/>}
-  </svg>{contextMenu && createPortal(<div className="mlm-boundary-context-menu" role="menu" style={{ left: Math.max(8, Math.min(contextMenu.x, window.innerWidth - 280)), top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - 150)) }} onContextMenu={event => event.preventDefault()}><strong>At {formatTime(contextMenu.time)}</strong>{contextMenu.previous && <button role="menuitem" onClick={() => { setWordEndHere(contextMenu.previous!.word.id, contextMenu.time); setContextMenu(null); }}>Set end of “{contextMenu.previous.word.text}” here</button>}{contextMenu.next && <button role="menuitem" onClick={() => { setWordStartHere(contextMenu.next!.word.id, contextMenu.time); setContextMenu(null); }}>Set start of “{contextMenu.next.word.text}” here</button>}{!contextMenu.previous && !contextMenu.next && <span>No timed word is close to this point.</span>}</div>, document.body)}</>;
+  </svg>;
 }
 
 function sectionAt(report: Report, time: number) {
@@ -654,7 +1000,32 @@ function titleCase(value: string) { return value.replace(/\b\w/g, letter => lett
 function formatTime(seconds: number) { const safe = Math.max(0, seconds); const minutes = Math.floor(safe / 60); return `${minutes}:${(safe % 60).toFixed(2).padStart(5, "0")}`; }
 function formatDuration(seconds: number) { return `${Math.max(0, seconds).toFixed(2)}s`; }
 
+function textTokenRange(text: string, tokenIndex: number) {
+  const matches = [...text.matchAll(/\S+/g)];
+  const match = matches[tokenIndex];
+  return match?.index === undefined ? null : { start: match.index, end: match.index + match[0].length };
+}
+
+function replaceTextToken(text: string, tokenIndex: number, replacement: string) {
+  const range = textTokenRange(text, tokenIndex);
+  return range ? `${text.slice(0, range.start)}${replacement}${text.slice(range.end)}` : null;
+}
+
+function insertTextTokenAfter(text: string, tokenIndex: number, inserted: string) {
+  const range = textTokenRange(text, tokenIndex);
+  return range ? `${text.slice(0, range.end)} ${inserted}${text.slice(range.end)}` : text;
+}
+
+function removeTextTokenAt(text: string, tokenIndex: number) {
+  const range = textTokenRange(text, tokenIndex);
+  if (!range) return text;
+  if (tokenIndex === 0) return text.slice(range.end).replace(/^\s+/, "");
+  const previous = textTokenRange(text, tokenIndex - 1);
+  return previous ? `${text.slice(0, previous.end)}${text.slice(range.end)}` : text;
+}
+
 function roundMs(seconds: number) { return Math.round(seconds * 1000) / 1000; }
+function clampTime(seconds: number, duration: number) { return Math.max(0, Math.min(duration, seconds)); }
 
 function ensureSubtitleFits(timeline: EditTimeline, clip: TimelineClip): EditTimeline | null {
   const index = timeline.clips.findIndex(item => item.id === clip.id);
