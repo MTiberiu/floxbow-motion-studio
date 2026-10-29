@@ -23,6 +23,8 @@ import { StoryboardDesigner } from "./StoryboardDesigner";
 import { MotionLibrary } from "./MotionLibrary";
 import { PoseSheetStudio } from "./PoseSheetStudio";
 import { MediaPanel } from "./MediaPanel";
+import { ProjectLibrary } from "./ProjectLibrary";
+import { MusicAnalysis } from "./MusicAnalysis";
 import { DetachedTimelineWindow } from "./DetachedTimelineWindow";
 import {
   WorkspaceManager,
@@ -213,14 +215,12 @@ function Lyrics({ id }: { id: string }) {
 function StudioShell() {
   const workspace = useWorkspaceManager();
   const [state, setState] = useState<State>();
-  const [selected, setSelected] = useState(
-    localStorage.getItem("motion-project") ?? "",
-  );
+  const [selected, setSelected] = useState("");
+  const [assetsOpen, setAssetsOpen] = useState(false);
+  const [projectDirty, setProjectDirty] = useState({ timeline: false, storyboard: false });
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [reload, setReload] = useState(0);
   const [error, setError] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [createError, setCreateError] = useState("");
   const [leftWidth, setLeftWidth] = useState(
     () => Number(localStorage.getItem("motion-left-width")) || 248,
   );
@@ -258,11 +258,11 @@ function StudioShell() {
       )
     )
       return;
-    const fallback =
-      state.projects.find((project) => project.manifest)?.id ?? "";
-    setSelected(fallback);
-    if (fallback) localStorage.setItem("motion-project", fallback);
-    else localStorage.removeItem("motion-project");
+    if (!selected) return;
+    setSelected("");
+    localStorage.removeItem("motion-project");
+    setAssetsOpen(false);
+    setProjectDirty({ timeline: false, storyboard: false });
   }, [state, selected]);
   const project = state?.projects.find((p) => p.id === selected);
   const m = project?.manifest;
@@ -270,41 +270,54 @@ function StudioShell() {
     setSelected(id);
     localStorage.setItem("motion-project", id);
     setReload(0);
+    setAssetsOpen(false);
+    setProjectDirty({ timeline: false, storyboard: false });
+    workspace.activatePanel("editor");
   }
-  async function createProject(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const id = projectName
+  async function createProject(name: string, width: number, height: number) {
+    const id = name
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
-    if (!id) {
-      setCreateError("Enter a name using letters or numbers.");
+    if (!id) throw new Error("Enter a name using letters or numbers.");
+    const response = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, width, height }),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const data: { project: ProjectRecord } = await response.json();
+    stateRequestGeneration.current++;
+    setState((current) => current
+      ? { ...current, projects: [...current.projects, data.project] }
+      : current);
+    select(id);
+  }
+  async function deleteProject(id: string) {
+    const response = await fetch(`/api/projects/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!response.ok) throw new Error(await response.text());
+    stateRequestGeneration.current++;
+    setState((current) => current
+      ? { ...current, projects: current.projects.filter((project) => project.id !== id) }
+      : current);
+  }
+  function requestProjectLibrary() {
+    if (projectDirty.timeline || projectDirty.storyboard) {
+      setLeaveDialogOpen(true);
       return;
     }
-    try {
-      setCreateError("");
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const data: { project: ProjectRecord } = await response.json();
-      // Ignore any older poll that began before this project was created.
-      stateRequestGeneration.current++;
-      setState((current) =>
-        current
-          ? { ...current, projects: [...current.projects, data.project] }
-          : current,
-      );
-      select(id);
-      setProjectName("");
-      setCreateOpen(false);
-      workspace.activatePanel("editor");
-    } catch (error) {
-      setCreateError(error instanceof Error ? error.message : String(error));
-    }
+    leaveProject();
+  }
+  function leaveProject() {
+    setLeaveDialogOpen(false);
+    setSelected("");
+    localStorage.removeItem("motion-project");
+    setAssetsOpen(false);
+    setProjectDirty({ timeline: false, storyboard: false });
+  }
+  function setDirty(kind: "timeline" | "storyboard", dirty: boolean) {
+    setProjectDirty((current) => current[kind] === dirty ? current : { ...current, [kind]: dirty });
   }
   function resizeLeft(e: React.PointerEvent<HTMLButtonElement>) {
     if (!resizing.current) return;
@@ -320,7 +333,7 @@ function StudioShell() {
   }
   return (
     <div
-      className={`studio${workspace.activePanelId === "storyboard" ? " storyboard-mode" : ""}${workspace.activePanelId === "pose-studio" ? " pose-studio-mode" : ""}`}
+      className={`studio${selected ? " project-open" : " library-open"}${assetsOpen ? " assets-open" : ""}${workspace.activePanelId === "storyboard" ? " storyboard-mode" : ""}${workspace.activePanelId === "pose-studio" ? " pose-studio-mode" : ""}`}
       style={{ "--left-width": `${leftWidth}px` } as React.CSSProperties}
     >
       <header className="app-toolbar">
@@ -333,118 +346,39 @@ function StudioShell() {
           </div>
         </div>
         <div className="toolbar-project">
-          <h1 className="toolbar-title">
-            {m?.name ?? "Discovering projects…"}
-          </h1>
+          <h1 className="toolbar-title">{selected ? (m?.name ?? "Loading project…") : "Project library"}</h1>
           <span className="dot" />
           <small>{state?.built ? "Built preview" : "Live development"}</small>
         </div>
-        <WorkspaceNavigation />
-        <button
+        {selected && <>
+          <button className="toolbar-button" onClick={() => setAssetsOpen((open) => !open)} aria-pressed={assetsOpen} title="Show or hide project resources">▤ Assets</button>
+          <button className="toolbar-button" onClick={requestProjectLibrary}>Projects</button>
+        </>}
+        {selected && <WorkspaceNavigation />}
+        {selected && <button
           className="toolbar-button"
           aria-label="Reload preview"
           title="Reload preview"
           onClick={() => setReload((r) => r + 1)}
         >
           ↻ Reload
-        </button>
+        </button>}
       </header>
+      {selected && <>
       <aside className="project-browser">
         <div className="browser-heading">
           <span>PROJECT BROWSER</span>
           <span className="browser-count">{state?.projects.length ?? 0}</span>
         </div>
         <div className="browser-scroll">
-          <div className="browser-section-heading">
-            <h3>Projects</h3>
-            <button
-              className="create-project-button"
-              disabled={state?.built}
-              title={
-                state?.built
-                  ? "Create projects from the live development workspace."
-                  : "Create a new project"
-              }
-              onClick={() => {
-                setCreateOpen((open) => !open);
-                setCreateError("");
-              }}
-            >
-              + Create
-            </button>
-          </div>
-          {createOpen && !state?.built && (
-            <form className="create-project-form" onSubmit={createProject}>
-              <label htmlFor="new-project-name">Project name</label>
-              <input
-                id="new-project-name"
-                autoFocus
-                maxLength={80}
-                placeholder="My video"
-                value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-              />
-              {createError && <p role="alert">{createError}</p>}
-              <div>
-                <button type="submit">Create project</button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCreateOpen(false);
-                    setCreateError("");
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
+          <div className="browser-section-heading"><h3>Project resources</h3></div>
           <nav>
-            {state?.projects.map((p, i) => (
-              <button
-                className={`project ${p.id === selected ? "active" : ""}`}
-                data-project-id={p.id}
-                onClick={() => select(p.id)}
-                key={p.id}
-              >
-                <span className="project-icon">
-                  {p.manifest?.type === "lyrics" ? "♫" : "◈"}
-                </span>
-                <span>
-                  {p.manifest?.name ?? p.id}
-                  <small>
-                    {p.error
-                      ? "Needs attention"
-                      : p.manifest?.type === "lyrics"
-                        ? "Lyrics & music"
-                        : "Explainer video"}
-                  </small>
-                </span>
-                <span className="project-number">0{i + 1}</span>
-              </button>
-            ))}
+            <div className="asset-list">
+              <div><span className="asset-icon">◈</span><span>Composition<small>{m?.entry ?? "Loading…"}</small></span></div>
+              <div><span className="asset-icon">▤</span><span>Timeline<small>{m?.editTimeline ?? "Code-only project"}</small></span></div>
+              <div><span className="asset-icon">♫</span><span>Lyrics &amp; subtitles<small>Timing and appearance</small></span></div>
+            </div>
           </nav>
-          <h3>Project details</h3>
-          <div className="asset-list">
-            <div>
-              <span className="asset-icon">◈</span>
-              <span>
-                Composition<small>{m?.entry ?? "No project selected"}</small>
-              </span>
-            </div>
-            <div>
-              <span className="asset-icon">▤</span>
-              <span>
-                Timeline<small>{m?.editTimeline ?? "Code-only project"}</small>
-              </span>
-            </div>
-            <div>
-              <span className="asset-icon">♫</span>
-              <span>
-                Lyrics &amp; subtitles<small>Timing and appearance</small>
-              </span>
-            </div>
-          </div>
           <MediaPanel
             key={selected}
             projectId={selected}
@@ -477,13 +411,14 @@ function StudioShell() {
         onPointerMove={resizeLeft}
         onPointerUp={stopResize}
       />
+      </>}
       <main className="workspace-main">
         {error && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
-        <WorkspacePanels
+        {!selected ? <ProjectLibrary projects={state?.projects ?? []} built={state?.built ?? false} loading={!state} onOpen={select} onCreate={createProject} onDelete={deleteProject} /> : <WorkspacePanels
           renderPanel={(id, active) => {
             if (id === "editor") {
               return state && !state.projects.some((item) => item.manifest) ? (
@@ -496,19 +431,10 @@ function StudioShell() {
                       : "Projects are yours to create. Reusable components and technical examples live separately in Capabilities Explorer."}
                   </p>
                   <button
-                    disabled={state.built}
-                    onClick={() => {
-                      setCreateOpen(true);
-                      setCreateError("");
-                    }}
-                  >
-                    Create Project
-                  </button>
-                  <button
                     className="secondary-action"
-                    onClick={() => workspace.activatePanel("capabilities")}
+                    onClick={requestProjectLibrary}
                   >
-                    Explore capabilities
+                    Back to projects
                   </button>
                 </section>
               ) : project?.error ? (
@@ -527,6 +453,7 @@ function StudioShell() {
                   requestPreviewReload={() =>
                     setReload((current) => current + 1)
                   }
+                  onDirtyChange={(dirty) => setDirty("timeline", dirty)}
                 />
               ) : (
                 <p>Discovering projects…</p>
@@ -538,6 +465,8 @@ function StudioShell() {
                   <Lyrics key={selected} id={selected} />
                 </div>
               );
+            if (id === "music-analysis")
+              return m ? <MusicAnalysis key={selected} manifest={m} active={active} /> : <p>Select or create a project to analyze its music.</p>;
             if (id === "storyboard")
               return m && state ? (
                 <StoryboardDesigner
@@ -545,6 +474,8 @@ function StudioShell() {
                   manifest={m}
                   active={active}
                   built={state.built}
+                  onDirtyChange={(dirty) => setDirty("storyboard", dirty)}
+                  onExitProject={requestProjectLibrary}
                 />
               ) : (
                 <p>Select or create a project to open Storyboard Designer.</p>
@@ -563,8 +494,9 @@ function StudioShell() {
             const exhaustive: never = id;
             return exhaustive;
           }}
-        />
+        />}
       </main>
+      {leaveDialogOpen && <div className="unsaved-exit-backdrop" role="presentation"><section className="unsaved-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="unsaved-exit-title"><span className="eyebrow">UNSAVED CHANGES</span><h2 id="unsaved-exit-title">Leave this project?</h2><p>{projectDirty.timeline && projectDirty.storyboard ? "The Timeline and Storyboard have unsaved changes." : projectDirty.timeline ? "The Timeline has unsaved changes." : "The Storyboard has unsaved changes."} If you return to projects now, these changes may be lost.</p><footer><button onClick={() => setLeaveDialogOpen(false)}>Stay in project</button><button className="unsaved-exit-confirm" onClick={leaveProject}>Leave without saving</button></footer></section></div>}
     </div>
   );
 }

@@ -1,8 +1,8 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { projectId } from "@motion/project-loader";
 
-export async function createProject(projectsDirectory: string, rawId: string) {
+export async function createProject(projectsDirectory: string, rawId: string, width = 1920, height = 1080) {
   const id = projectId.parse(rawId);
   await mkdir(projectsDirectory, { recursive: true });
   const target = path.join(projectsDirectory, id);
@@ -14,8 +14,8 @@ export async function createProject(projectsDirectory: string, rawId: string) {
       .map((part) => part[0].toUpperCase() + part.slice(1))
       .join(" "),
     type: "explainer",
-    width: 1920,
-    height: 1080,
+    width,
+    height,
     fps: 30,
     durationInFrames: 180,
     entry: "Composition.tsx",
@@ -48,6 +48,7 @@ export default function Video({ timeline, audioSources }: EditableVideoProps) {
     </Canvas>
   );
 }
+
 `,
     );
     await writeFile(
@@ -89,4 +90,17 @@ export default function Video({ timeline, audioSources }: EditableVideoProps) {
     await rm(target, { recursive: true, force: true });
     throw error;
   }
+}
+
+export async function removeProject(projectsDirectory: string, rawId: string) {
+  const id = projectId.parse(rawId);
+  const projectsRoot = await realpath(projectsDirectory);
+  const projectRoot = await realpath(path.join(projectsRoot, id));
+  if (
+    path.dirname(projectRoot) !== projectsRoot ||
+    path.basename(projectRoot) !== id
+  ) {
+    throw new Error("Project folder is outside the local projects directory");
+  }
+  await rm(projectRoot, { recursive: true, force: false });
 }

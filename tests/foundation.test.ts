@@ -21,9 +21,10 @@ import {
   toWords,
 } from "@motion/lyrics-sync";
 import { parseCapabilityRegistry } from "@motion/animations/registry";
-import { createProject } from "../scripts/project-scaffold";
+import { createProject, removeProject } from "../scripts/project-scaffold";
 import { parseEditTimeline } from "@motion/sdk/timeline";
 import { readEditor, saveEditor } from "../scripts/editor-store";
+import { apiRoutes } from "../apps/desktop/src/api-routes";
 const manifest = {
   id: "test-video",
   name: "Test",
@@ -35,6 +36,18 @@ const manifest = {
   entry: "Composition.tsx",
   sdkVersion: "0.1.0",
 };
+
+test("storyboard audio uses the registered-media stream route", () => {
+  const audioUrl = apiRoutes.media.assetStream(
+    "director-project",
+    "audio-c357a066-d1e2-4bec-9dd9-de22d04e",
+  );
+  assert.equal(
+    audioUrl,
+    "/api/media/director-project/assets/audio-c357a066-d1e2-4bec-9dd9-de22d04e/stream",
+  );
+  assert.equal(audioUrl.includes("/api/storyboard/"), false);
+});
 test("manifest rejects traversal, incompatible SDK and invalid dimensions", () => {
   assert.equal(manifestSchema.parse(manifest).id, "test-video");
   for (const patch of [
@@ -278,6 +291,24 @@ test("three scaffolded projects are independently discoverable and editable", as
       secondBefore.timeline,
     );
     assert.equal((await discover(projects)).length, 3);
+  } finally {
+    await rm(projects, { recursive: true, force: true });
+  }
+});
+
+test("project library scaffold keeps the selected canvas format and deletes only the chosen project", async () => {
+  const tempRoot = path.resolve(".test-tmp");
+  await mkdir(tempRoot, { recursive: true });
+  const projects = await mkdtemp(path.join(tempRoot, "motion-library-projects-"));
+  try {
+    const portrait = await createProject(projects, "library-portrait", 1080, 1920);
+    const sibling = await createProject(projects, "library-sibling", 1920, 1080);
+    assert.equal(portrait.width, 1080);
+    assert.equal(portrait.height, 1920);
+    await removeProject(projects, portrait.id);
+    await assert.rejects(stat(path.join(projects, portrait.id)));
+    assert.equal((await stat(path.join(projects, sibling.id))).isDirectory(), true);
+    await assert.rejects(removeProject(projects, "../outside"));
   } finally {
     await rm(projects, { recursive: true, force: true });
   }

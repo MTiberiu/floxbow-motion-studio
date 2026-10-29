@@ -36,6 +36,8 @@ import {
   getCanvasVisualElement,
 } from "@motion/sdk/canvas";
 import { InspectorView } from "./InspectorView";
+import { CodexLyricsBrief } from "./CodexLyricsBrief";
+import { copyTextToClipboard } from "./copy-to-clipboard";
 import { ClipContextPopup } from "./ClipContextPopup";
 import { readImageSize } from "./image-size";
 import { clipsForTrack } from "./timeline-focus";
@@ -64,6 +66,7 @@ import {
   exportSubtitles,
   createSubtitleClip,
   importSubtitles,
+  ensureKaraokeWordTimings,
   subtitleClips,
   subtitleTimingSchema,
   subtitlesToSRT,
@@ -86,6 +89,7 @@ export function TimelineEditor({
   active,
   reload,
   requestPreviewReload,
+  onDirtyChange,
 }: {
   manifest: ProjectManifest;
   previewOrigin: string;
@@ -93,12 +97,15 @@ export function TimelineEditor({
   active: boolean;
   reload: number;
   requestPreviewReload: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const iframe = useRef<HTMLIFrameElement>(null);
+  const previewReadyKey = useRef("");
+  const previewKeyRef = useRef("");
   const canvasSurface = useRef<HTMLDivElement>(null);
   const [visualRequest, setVisualRequest] = useState("");
   const [rightPanelTab, setRightPanelTab] = useState<
-    "inspector" | "visual-context"
+    "inspector" | "visual-context" | "codex-lyrics"
   >("inspector");
   const [visualContextBusy, setVisualContextBusy] = useState(false);
   const [visualContextStatus, setVisualContextStatus] = useState("");
@@ -108,6 +115,9 @@ export function TimelineEditor({
   }>();
   const send = useCallback(
     (type: string, payload: Record<string, unknown> = {}) => {
+      // A keyed iframe reload starts at about:blank (the shell origin) before
+      // navigating to the preview origin. Ignore messages until that load ends.
+      if (previewReadyKey.current !== previewKeyRef.current) return;
       iframe.current?.contentWindow?.postMessage(
         {
           channel: "motion-editor-v1",
@@ -284,6 +294,8 @@ export function TimelineEditor({
     undoCount,
     redoCount,
   } = snapshot;
+  previewKeyRef.current = `${reload}:${previewGeneration}:${previewOrigin}`;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const {
     edit: sessionEdit,
     selectClip: sessionSelectClip,
@@ -463,7 +475,7 @@ export function TimelineEditor({
         copiedText: string;
       };
       if (options.copyToClipboard !== false)
-        await window.floxBowWindows.copyVisualContext(saved.copiedText);
+        await copyTextToClipboard(saved.copiedText);
       setVisualContextPaths({
         screenshot: saved.screenshot,
         inspection: saved.inspection,
@@ -653,6 +665,7 @@ export function TimelineEditor({
   };
   useEffect(() => {
     const togglePlayback = (event: KeyboardEvent) => {
+      if (!active) return;
       if (event.code !== "Space" || event.repeat) return;
       const target = event.target;
       if (
@@ -670,7 +683,7 @@ export function TimelineEditor({
     };
     window.addEventListener("keydown", togglePlayback, true);
     return () => window.removeEventListener("keydown", togglePlayback, true);
-  }, []);
+  }, [active]);
   const checkpoint = () => {
     sourceCommandId.current = null;
     sessionCheckpoint();
@@ -789,11 +802,24 @@ export function TimelineEditor({
     return () => window.removeEventListener("resize", constrainTimeline);
   }, []);
   useEffect(() => {
-    const receive = (event: MessageEvent) =>
+    const receive = (event: MessageEvent) => {
+      const data = event.data;
+      if (
+        event.source === iframe.current?.contentWindow &&
+        event.origin === previewOrigin &&
+        data?.channel === "motion-editor-v1" &&
+        data.projectId === manifest.id &&
+        data.type === "ready"
+      ) {
+        previewReadyKey.current = previewKeyRef.current;
+        send("playback-boundary", { endFrame: playbackEndFrame });
+        send("master-volume", { volume: masterVolume });
+      }
       receivePreviewMessage(event, iframe.current?.contentWindow ?? null);
+    };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
-  }, [receivePreviewMessage]);
+  }, [manifest.id, masterVolume, playbackEndFrame, previewOrigin, receivePreviewMessage, send]);
 
   const timelineSnapshot = (
     identity: NonNullable<typeof detachedTimeline>,
@@ -2219,6 +2245,7 @@ export function TimelineEditor({
             : "Local Whisper transcription failed.",
         );
       const validatedTiming = subtitleTimingSchema.parse(result?.timing);
+      const karaokeTiming = ensureKaraokeWordTimings(validatedTiming);
       const counts = [
         result?.skippedSegments,
         result?.outOfRangeSegments,
@@ -2273,7 +2300,7 @@ export function TimelineEditor({
         existing[0];
       const trackId = subtitleTrackId(liveDocument, template?.trackId);
       const timing = importSubtitles(
-        JSON.stringify(validatedTiming),
+        JSON.stringify(karaokeTiming.timing),
         "json",
         liveDocument.durationInFrames / liveDocument.fps,
       );
@@ -2350,7 +2377,10 @@ export function TimelineEditor({
           ? `${result.outOfRangeSegments} segment${result.outOfRangeSegments === 1 ? " extends" : "s extend"} beyond the project duration and ${result.outOfRangeSegments === 1 ? "was" : "were"} not truncated.`
           : "",
         result.unusableWordTimings > 0
-          ? `Word timing was unusable in ${result.unusableWordTimings} segment${result.unusableWordTimings === 1 ? "" : "s"}; those captions were kept without karaoke timing.`
+          ? `Whisper word timing was invalid in ${result.unusableWordTimings} segment${result.unusableWordTimings === 1 ? "" : "s"}.`
+          : "",
+        karaokeTiming.estimatedWordTimings > 0
+          ? `Karaoke timing was estimated for ${karaokeTiming.estimatedWordTimings} caption${karaokeTiming.estimatedWordTimings === 1 ? "" : "s"}; review it against the audio.`
           : "",
         "Review Whisper's recognition before treating the text as correct.",
       ].filter(Boolean);
@@ -3232,7 +3262,15 @@ export function TimelineEditor({
           )}
           {notice && (
             <p className="editor-notice" role="status">
-              {notice}
+              <span>{notice}</span>
+              <button
+                type="button"
+                aria-label="Dismiss notification"
+                title="Dismiss notification"
+                onClick={() => setNotice("")}
+              >
+                ×
+              </button>
             </p>
           )}
         </div>
@@ -3257,9 +3295,14 @@ export function TimelineEditor({
             iframeRef={iframe}
             surfaceRef={canvasSurface}
             onPreviewLoad={() => {
-              send("hello");
-              send("playback-boundary", { endFrame: playbackEndFrame });
-              send("master-volume", { volume: masterVolume });
+              iframe.current?.contentWindow?.postMessage(
+                {
+                  channel: "motion-editor-v1",
+                  projectId: manifest.id,
+                  type: "hello",
+                },
+                "*",
+              );
             }}
             onSeek={seek}
             onPlay={() => playPreviewRef.current()}
@@ -3370,6 +3413,16 @@ export function TimelineEditor({
               >
                 AI visual context
               </button>
+              <button
+                id="codex-lyrics-tab"
+                type="button"
+                role="tab"
+                aria-selected={rightPanelTab === "codex-lyrics"}
+                aria-controls="codex-lyrics-panel"
+                onClick={() => setRightPanelTab("codex-lyrics")}
+              >
+                Codex lyrics
+              </button>
             </div>
             {rightPanelTab === "inspector" ? (
               <div
@@ -3420,7 +3473,7 @@ export function TimelineEditor({
                   }
                 />
               </div>
-            ) : (
+            ) : rightPanelTab === "visual-context" ? (
               <section
                 id="visual-context-panel"
                 className="visual-context-panel right-panel-content"
@@ -3473,6 +3526,15 @@ export function TimelineEditor({
                   </div>
                 )}
               </section>
+            ) : (
+              <div
+                id="codex-lyrics-panel"
+                className="right-panel-content"
+                role="tabpanel"
+                aria-labelledby="codex-lyrics-tab"
+              >
+                <CodexLyricsBrief manifest={manifest} />
+              </div>
             )}
           </section>
         </div>

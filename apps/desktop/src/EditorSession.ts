@@ -59,7 +59,7 @@ export type EditorSession = Readonly<{
   commands: EditorSessionCommands;
 }>;
 
-type Disk = { timeline: EditTimeline; revision: string };
+type Disk = { timeline: EditTimeline; revision: string; musicLyricsCorrelation?: { status: "updated" | "unchanged" | "stale"; message?: string } };
 
 export function useEditorSession({
   manifest,
@@ -298,7 +298,11 @@ export function useEditorSession({
       if (!mounted.current) return;
       if (documentRef.current === savedDocument) {
         setClean(disk);
-        setNotice("Saved to the project. Renders use these edits.");
+        setNotice(disk.musicLyricsCorrelation?.status === "updated"
+          ? "Saved to the project. Captions and Music × Lyrics results now use the updated subtitle timing."
+          : disk.musicLyricsCorrelation?.status === "stale"
+            ? `Saved to the project. Music × Lyrics results need refresh: ${disk.musicLyricsCorrelation.message ?? "correlation could not be rebuilt"}`
+            : "Saved to the project. Renders use these edits.");
       } else {
         revisionRef.current = disk.revision;
         setRevision(disk.revision);

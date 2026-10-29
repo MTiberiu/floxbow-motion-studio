@@ -13,6 +13,7 @@ import {
 import {
   subtitleContentSchema,
   subtitleWordTimingMatchesText,
+  splitSubtitleTextForKaraoke,
   subtitleTimelineBehavior,
 } from "./subtitles";
 export const subtitleFields: EditableField[] = [
@@ -187,6 +188,9 @@ function SubtitleText({
   const visible = p.animation === "none" ? 1 : Math.min(entrance, exit);
   const words = content.words;
   const karaokeMatches = p.karaoke && subtitleWordTimingMatchesText(content);
+  const karaokeTextParts = karaokeMatches
+    ? splitSubtitleTextForKaraoke(content.text)
+    : [];
   const anchorTransforms: Record<
     string,
     { translate: string; origin: string }
@@ -225,29 +229,38 @@ function SubtitleText({
           fontWeight: 700,
           lineHeight: 1.2,
           color: String(p.color),
-          whiteSpace: "pre-wrap",
           textShadow: "0 3px 12px #000",
           opacity: visible,
         }}
       >
-        {karaokeMatches
-          ? words!.map((w, i) => (
-              <span
-                key={w.id}
-                data-word={i}
-                data-active={frame / fps >= w.start && frame / fps < w.end}
-                style={{
-                  color:
-                    frame / fps >= w.start && frame / fps < w.end
-                      ? String(p.highlightColor)
-                      : String(p.color),
-                }}
-              >
-                {w.text}
-                {i < words!.length - 1 ? " " : ""}
-              </span>
-            ))
-          : content.text}
+        <div
+          style={{
+            width: "100%",
+            minWidth: 0,
+            whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {karaokeMatches
+            ? karaokeTextParts.map((part) => {
+                if (part.kind === "space")
+                  return <span key={`space-${part.index}`}>{part.text}</span>;
+                const word = words![part.index];
+                const active =
+                  frame / fps >= word.start && frame / fps < word.end;
+                return (
+                  <span
+                    key={word.id}
+                    data-word={part.index}
+                    data-active={active}
+                    style={{ color: active ? String(p.highlightColor) : String(p.color) }}
+                  >
+                    {part.text}
+                  </span>
+                );
+              })
+            : content.text}
+        </div>
       </div>
     </AbsoluteFill>
   );

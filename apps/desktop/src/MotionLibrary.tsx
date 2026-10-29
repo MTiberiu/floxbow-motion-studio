@@ -5,6 +5,7 @@ import {
   writeMotionLibrary,
   type MotionDefinition,
 } from "./motion-library";
+import { copyTextToClipboard } from "./copy-to-clipboard";
 import "./motion-library.css";
 
 const copy = <T,>(value: T): T => structuredClone(value);
@@ -98,7 +99,7 @@ export function MotionLibrary() {
       "Keep the supplied character identity and visual style consistent. Treat these as guidance; suggest additional poses if needed.",
     ].filter(Boolean).join("\n");
     try {
-      await navigator.clipboard.writeText(text);
+      await copyTextToClipboard(text);
       setNotice("Motion prompt copied. You can use it with any project or AI.");
     } catch {
       setNotice("Clipboard access is unavailable in this window. Open Motion Library in the app shell to copy prompts.");

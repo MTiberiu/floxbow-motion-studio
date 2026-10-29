@@ -7,7 +7,7 @@ import {
   manifestSchema,
 } from "@motion/project-loader";
 import { parseEditTimeline, type EditTimeline } from "@motion/sdk/timeline";
-import { subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
+import { extendSubtitleClipToTimedWords, subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
 import { standaloneTextClipSchema } from "@motion/sdk/editor";
 import { withProjectWriteLock } from "./project-write-lock";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -63,7 +63,8 @@ export async function saveEditor(
         timeline.durationInFrames < m.durationInFrames
       )
         throw new Error("Timeline duration cannot be shortened.");
-      const t = parseEditTimeline(timeline);
+      const parsed = parseEditTimeline(timeline);
+      const t = parseEditTimeline({ ...parsed, clips: parsed.clips.map(clip => extendSubtitleClipToTimedWords(clip, parsed.fps)) });
       if (t.fps !== m.fps || t.durationInFrames < m.durationInFrames)
         throw new Error(
           "Timeline FPS must match the project and duration cannot be shortened.",

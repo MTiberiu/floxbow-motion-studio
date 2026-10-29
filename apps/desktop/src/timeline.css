@@ -84,6 +84,88 @@
 .visual-context-paths code {
   overflow-wrap: anywhere;
 }
+.codex-lyrics-brief {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  color: #dce8f4;
+  font-size: 11px;
+}
+.codex-lyrics-brief > header {
+  display: grid;
+  gap: 4px;
+}
+.codex-lyrics-brief > header span,
+.codex-lyrics-brief > p,
+.codex-lyrics-paths > span,
+.codex-lyrics-copy-status {
+  color: #aebdce;
+}
+.codex-lyrics-brief > p {
+  margin: 0;
+  line-height: 1.45;
+}
+.codex-lyrics-brief > label {
+  color: #c5d2df;
+}
+.codex-lyrics-brief textarea,
+.codex-lyrics-brief pre {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #425069;
+  border-radius: 5px;
+  color: #e8eef6;
+  background: #101824;
+  font: inherit;
+  line-height: 1.45;
+}
+.codex-lyrics-brief textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+.codex-lyrics-paths {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.codex-lyrics-paths code {
+  overflow-wrap: anywhere;
+  color: #b8d6a1;
+}
+.codex-lyrics-brief > button {
+  justify-self: start;
+  padding: 7px 10px;
+  border: 1px solid #8ebc65;
+  border-radius: 5px;
+  color: #172114;
+  background: #c5f18a;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.codex-lyrics-brief > button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.codex-lyrics-copy-status {
+  min-height: 14px;
+}
+.codex-lyrics-brief details {
+  min-width: 0;
+  color: #c5d2df;
+}
+.codex-lyrics-brief summary {
+  cursor: pointer;
+}
+.codex-lyrics-brief pre {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .canvas-format-control,
 .transcription-source-control {
   display: inline-flex;
@@ -167,7 +249,10 @@
 .editor-notice {
   position: absolute;
   z-index: 15;
-  pointer-events: none;
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   top: 44px;
   left: 8px;
   max-width: min(640px, calc(100% - var(--inspector-width, 300px) - 28px));
@@ -181,6 +266,27 @@
   border: 1px solid #435144;
   border-radius: 3px;
   box-shadow: 0 3px 12px #0008;
+}
+.editor-notice > span {
+  flex: 1;
+  min-width: 0;
+}
+.editor-notice > button {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: -1px -6px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  color: inherit;
+  background: transparent;
+  font-size: 15px;
+  line-height: 16px;
+  cursor: pointer;
+}
+.editor-notice > button:hover {
+  background: #ffffff20;
 }
 .timeline-editor > .error {
   position: absolute;

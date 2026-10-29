@@ -1,6 +1,10 @@
 # Create a video
 
-The editor starts without bundled user videos. Click **Create Project** to make an empty project with an editable timeline and local `assets/`, `scenes/` and `timing/` folders. The same scaffold is available from the CLI:
+The desktop app opens to the **Project Library**. Search and organize local projects there, open a project to enter its workspace, or create one with a canvas format (16:9, 9:16, 1:1 or 21:9). Project cards use the first image clip on the saved Timeline as a thumbnail when one exists. Inside a project, use **Projects** to return to the library; the app warns before leaving when Timeline or Storyboard edits are unsaved. The **Assets** button opens the project's media panel when needed.
+
+In the Project Library, **Delete** permanently removes the selected project's entire folder, including its Timeline, Storyboard and local media. FloxBow asks for confirmation before deleting. Project creation, deletion and editing are available in the live development workspace; a built snapshot is read-only.
+
+Creating a project makes an empty project with an editable Timeline and local `assets/`, `scenes/` and `timing/` folders. The same scaffold is available from the CLI:
 
 ```sh
 npm run create:project -- my-video

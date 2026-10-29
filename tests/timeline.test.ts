@@ -310,17 +310,24 @@ test("subtitle text corrections preserve stable segment and word timing", () => 
   );
   assert.deepEqual(
     differentCount.words,
-    corrected.words,
-    "word IDs and timestamps remain available as timing evidence",
+    [
+      { id: "estimated-word-1-1", text: "Frame", start: 0.5, end: 1 },
+      { id: "estimated-word-1-2", text: "now", start: 1, end: 1.3 },
+      { id: "estimated-word-1-3", text: "follows", start: 1.3, end: 2 },
+      { id: "estimated-word-1-4", text: "time!", start: 2, end: 2.5 },
+    ],
+    "a changed word count gets proportional intervals over the existing word range",
   );
-  assert.equal(subtitleWordTimingMatchesText(differentCount), false);
+  assert.equal(subtitleWordTimingMatchesText(differentCount), true);
+  assert.equal(differentCount.wordTimingSource, "estimated");
   const laterSameCount = correctSubtitleText(differentCount, "Frame now!");
-  assert.deepEqual(laterSameCount.words, corrected.words);
+  assert.equal(laterSameCount.words?.length, 2);
   assert.equal(
     subtitleWordTimingMatchesText(laterSameCount),
-    false,
-    "stale intervals are not silently reassigned after an intervening word-count change",
+    true,
+    "estimated word labels remain available after later same-count corrections",
   );
+  assert.equal(laterSameCount.wordTimingSource, "estimated");
   assert.equal(correctedClip.from, source.from);
   assert.equal(correctedClip.durationInFrames, source.durationInFrames);
 });
@@ -540,8 +547,10 @@ test("project saves are validated, persistent and reject stale agent revisions",
     });
     const disk = await readEditor(directory, manifest);
     const next = changeClipRange(t, "lyric-1", 15, 180);
+    (next.clips[0]!.content as { words: Array<{ end: number }> }).words[2]!.end = 7.25;
     const saved = await saveEditor(directory, manifest, next, disk.revision);
     assert.equal(saved.timeline.clips[0].from, 15);
+    assert.equal(saved.timeline.clips[0].durationInFrames, 218, "caption clip extends to cover the saved final karaoke word");
     assert.notEqual(saved.revision, disk.revision);
     await assert.rejects(
       saveEditor(directory, manifest, t, disk.revision),

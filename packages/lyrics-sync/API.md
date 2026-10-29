@@ -50,11 +50,12 @@ import {
 - `subtitleContentSchema` and `subtitleTimingSchema` validate the persisted subtitle payloads.
 - `subtitleClips(data, timeline, trackId, props?)` converts seconds-based timing JSON into frame clips, rejecting out-of-project ranges.
 - `exportSubtitles(timeline)` exports subtitle semantics and timing without visual props.
-- `whisperResultToSubtitleTiming(result, durationSeconds)` converts the existing Whisper response's `segments` into `SubtitleTiming`. It returns `{ timing, skippedSegments, outOfRangeSegments, unusableWordTimings }`. Segment text and valid absolute segment boundaries are retained as received; valid Whisper word boundaries are converted to clip-relative seconds. Generated content is always `unverified`. This pure function does not run Whisper, reconcile lyrics, repair timestamps, or verify recognition.
+- `whisperResultToSubtitleTiming(result, durationSeconds)` converts the existing Whisper response's `segments` into `SubtitleTiming`. It returns `{ timing, skippedSegments, outOfRangeSegments, unusableWordTimings, estimatedWordTimings }`. Valid Whisper word boundaries are used when the number of timed words matches the visible tokens. Otherwise the subtitle's interval is divided across its words by token length and saved with `wordTimingSource: "estimated"`; directly used timings carry `wordTimingSource: "whisper"`. Generated content is always `unverified`. This pure function does not run Whisper, reconcile supplied lyrics, or verify acoustic alignment.
+- `ensureKaraokeWordTimings(timing)` upgrades legacy or current subtitle timing for karaoke display and returns the timing plus the number of captions that use estimates. Existing Whisper-aligned intervals are retained; missing or mismatched word lists receive proportional intervals with `wordTimingSource: "estimated"`.
 
 ## Reusable subtitle cues
 
-The cue API derives read-only data from the project's authoritative `EditTimeline`. It has no React, Electron, EditorSession, persistence, or registry dependency.
+The cue API derives read-only data from the project's authoritative `EditTimeline`. It has no React, Electron, EditorSession, persistence, or registry dependency. `getSubtitleCues()` returns absolute Timeline-second cue and word ranges while retaining stable clip/word IDs and `repeatOf`. Consumers use this adapter rather than holding their own copied subtitle times.
 
 ```ts
 import {
@@ -74,7 +75,7 @@ const heroCues = selectSubtitleCues(cues, {
 
 Public types are `SubtitlePresentation` (`caption | bubble | both | hidden`), `SubtitleConsumerId`, `SubtitleCueWord`, `SubtitleCue`, and `SubtitleCueSelection`. A cue contains the source clip `id`, text, absolute segment `start`/exclusive `end` in seconds, review `status`, optional `speakerId`, resolved `presentation`, optional `consumerIds`, optional absolute word times, and `wordTimingStatus` (`absent | matches-text | text-mismatch`). Cues are returned chronologically; overlaps and repeated segments stay independent.
 
-`getSubtitleCues(timeline: EditTimeline)` includes every subtitle clip, including hidden cues. `selectSubtitleCues(cues, {kind: "caption"})` returns only `caption` and `both` cues. `selectSubtitleCues(cues, {kind: "consumer", consumerId})` applies supplemental routing and returns all presentation modes, including hidden cues for nonvisual animation. Consumer code must honor `presentation` before drawing text.
+`getSubtitleCues(timeline: EditTimeline)` includes every subtitle clip, including hidden cues. `selectSubtitleCues(cues, {kind: "caption"})` returns only `caption` and `both` cues. `selectSubtitleCues(cues, {kind: "consumer", consumerId})` applies supplemental routing and returns all presentation modes, including hidden cues for nonvisual animation. Consumer code must honor `presentation` before drawing text. `extendSubtitleClipToTimedWords(clip, fps)` is used on Timeline save to extend the visible caption range when its last timed karaoke word is later than the current clip end; it preserves later clip positions and never shortens a cue.
 
 The routing fields have separate meanings:
 
@@ -100,7 +101,7 @@ Repeated choruses are separate segments with their own IDs and times. `content.r
 
 ### Direct Whisper import
 
-`whisperResultToSubtitleTiming` accepts the raw object returned by the existing OpenAI Whisper adapter. A segment is skipped if it has no usable text and finite `start`/`end` values, if `end <= start`, or if it extends beyond the supplied project duration. Overlong results above 3,000 segments fail instead of being truncated. No replacement timing is inferred. If a segment's word list contains invalid or out-of-segment intervals, its segment caption is kept and that segment's word timings are omitted; the returned count makes this visible. If Whisper supplies no words, the word-timing issue count stays zero. The caller can pass the returned `timing` to `subtitleClips` and must surface the counts to the user.
+`whisperResultToSubtitleTiming` accepts the raw object returned by the existing OpenAI Whisper adapter. A segment is skipped if it has no usable text and finite `start`/`end` values, if `end <= start`, or if it extends beyond the supplied project duration. Overlong results above 3,000 segments fail instead of being truncated. Invalid word intervals are counted in `unusableWordTimings`; captions remain and receive estimated word timing across the segment. Captions with no Whisper word list or a token-count mismatch are counted in `estimatedWordTimings`. The visible text and estimated intervals are not acoustically verified. The caller can pass the returned `timing` to `subtitleClips` and must surface the estimate count to the user.
 
 The editor's **Generate Subtitles** action selects only the asset ID from the existing soundtrack clip. The host resolves that ID through the Media Registry and runs Python/Whisper; local paths never enter the renderer. The response is bounded and validated before use. The editor converts it to frame clips and applies one EditorSession edit, so Undo and the existing save path remain authoritative. Existing subtitle clips require confirmation before replacement; other tracks and clips are preserved. Whisper output is a draft, including on successful transcription. Music recognition accuracy is not verified by this API.
 

@@ -1,7 +1,9 @@
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 import react from "@vitejs/plugin-react";
 import http from "node:http";
-import { randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { spawn, type ChildProcess } from "node:child_process";
 import {
   mkdir,
   readFile,
@@ -28,7 +30,7 @@ import {
   removeMediaAsset,
 } from "./media-store";
 import { pickMediaFile } from "./audio-file-picker";
-import { createProject } from "./project-scaffold";
+import { createProject, removeProject } from "./project-scaffold";
 import {
   streamRegisteredImage,
   streamRegisteredMedia,
@@ -41,6 +43,9 @@ import { whisperResultToSubtitleTiming } from "@motion/lyrics-sync/subtitles";
 import { transcribeAudioWithWhisper } from "./whisper-service";
 import { transcribeVideoClipAudio } from "./video-transcription";
 import { readProjectSettings, saveProjectCanvasSize } from "./project-settings";
+import { createMusicAnalysisReport, readMusicAnalysisReport, saveMusicAnalysisReport } from "./music-analysis-report";
+import { buildMusicLyricsMap, getLyricsSourceRevision, getMusicAnalysisSourceRevision, musicLyricsMapRevision, readMusicLyricsArtifacts, saveMusicLyricsArtifacts } from "./music-lyrics-map";
+import type { EditTimeline } from "@motion/sdk/timeline";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
 const mime: Record<string, string> = {
@@ -56,7 +61,7 @@ const mime: Record<string, string> = {
   ".mp4": "video/mp4",
 };
 const shellCsp = (preview: string) =>
-  `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' ws://127.0.0.1:*; frame-src ${preview}; object-src 'none'; base-uri 'none'`;
+  `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: ${preview}; connect-src 'self' ws://127.0.0.1:*; frame-src ${preview}; object-src 'none'; base-uri 'none'`;
 const previewCsp =
   "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'";
 export type ServerOptions = {
@@ -73,6 +78,13 @@ export type ServerOptions = {
     durationSeconds: number,
   ) => Promise<unknown>;
 };
+
+async function sha256File(filePath: string) {
+  const digest = createHash("sha256");
+  for await (const chunk of createReadStream(filePath)) digest.update(chunk as Buffer);
+  return digest.digest("hex");
+}
+
 export async function startServers(
   built = false,
   portOffset = 0,
@@ -82,6 +94,17 @@ export async function startServers(
   let shellOrigin = "";
   const servers: http.Server[] = [];
   const vites: ViteDevServer[] = [];
+  type MusicAnalysisJob = {
+    id: string;
+    projectId: string;
+    status: "queued" | "running" | "complete" | "failed" | "canceled";
+    stage: string;
+    message: string;
+    error?: string;
+    child?: ChildProcess;
+  };
+  const musicAnalysisJobs = new Map<string, MusicAnalysisJob>();
+  const activeMusicAnalysisByProject = new Map<string, string>();
   const getProjects = async () =>
     built
       ? JSON.parse(
@@ -584,6 +607,25 @@ export async function startServers(
             res.writeHead(405).end();
             return;
           }
+          if (req.method === "PUT" && result && typeof result === "object" && "timeline" in result && "revision" in result) {
+            const saved = result as { timeline: EditTimeline; revision: string };
+            try {
+              const projectRoot = path.join(projectsDir, id);
+              const music = await readMusicAnalysisReport(projectRoot);
+              if (music) {
+                const existing = await readMusicLyricsArtifacts(projectRoot);
+                const currentLyricsRevision = getLyricsSourceRevision(saved.timeline);
+                const stale = !existing.map || !existing.brief || existing.map.sources.lyrics.revision !== currentLyricsRevision || existing.map.sources.musicAnalysis.reportRevision !== getMusicAnalysisSourceRevision(music) || existing.brief.mapRevision !== musicLyricsMapRevision(existing.map);
+                if (stale) {
+                  const { map, brief } = buildMusicLyricsMap({ projectId: id, music, timeline: saved.timeline });
+                  await saveMusicLyricsArtifacts(projectRoot, map, brief);
+                  result = { ...saved, musicLyricsCorrelation: { status: "updated" } };
+                } else result = { ...saved, musicLyricsCorrelation: { status: "unchanged" } };
+              }
+            } catch (error) {
+              result = { ...saved, musicLyricsCorrelation: { status: "stale", message: error instanceof Error ? error.message : String(error) } };
+            }
+          }
           res.setHeader("Content-Type", "application/json");
           res.end(JSON.stringify(result));
           return;
@@ -592,11 +634,7 @@ export async function startServers(
           /^\/api\/media\/([a-z0-9-]+)\/assets\/([a-z0-9-]+)\/stream$/.exec(
             pathname,
           );
-        if (
-          !isShell &&
-          mediaStream &&
-          (req.method === "GET" || req.method === "HEAD")
-        ) {
+        if (mediaStream && (req.method === "GET" || req.method === "HEAD")) {
           const [, id, assetId] = mediaStream;
           const project = (await getProjects()).find(
             (candidate: { id: string }) => candidate.id === id,
@@ -666,6 +704,9 @@ export async function startServers(
             route.length === 2 && route[1] === "pose-studio";
           const storyboardPublish =
             route.length === 2 && route[1] === "storyboard-publish";
+          const musicAnalysis = route.length === 2 && route[1] === "music-analysis";
+          const musicLyricsMap = route.length === 2 && route[1] === "music-lyrics-map";
+          const musicAnalysisJob = route.length === 4 && route[1] === "music-analysis" && route[2] === "jobs";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
             ? decodeURIComponent(route[2])
@@ -681,7 +722,10 @@ export async function startServers(
             !imageThumbnail &&
             !videoProbe &&
             !poseStudioImport &&
-            !storyboardPublish
+            !storyboardPublish &&
+            !musicAnalysis &&
+            !musicLyricsMap &&
+            !musicAnalysisJob
           ) {
             res.writeHead(404).end("Unknown media operation");
             return;
@@ -693,6 +737,185 @@ export async function startServers(
           if (!project?.manifest) {
             res.writeHead(404).end("Unknown project");
             return;
+          }
+          if (musicAnalysis || musicAnalysisJob || musicLyricsMap) {
+            if (req.method !== "GET" && req.method !== "POST" && req.method !== "DELETE") {
+              res.writeHead(405).end();
+              return;
+            }
+            if (req.method !== "GET" && (req.headers.origin !== shellOrigin || !req.headers["content-type"]?.startsWith("application/json"))) {
+              res.writeHead(403, { "Content-Type": "application/json" }).end(JSON.stringify({ message: "Only the FloxBow shell can control Music Analysis." }));
+              return;
+            }
+            if (built) {
+              res.writeHead(409, { "Content-Type": "application/json" }).end(JSON.stringify({ message: "Music Analysis is available in the live development workspace." }));
+              return;
+            }
+            const projectRoot = path.join(projectsDir, id);
+            if (musicLyricsMap) {
+              if (req.method === "GET") {
+                const [artifacts, music] = await Promise.all([readMusicLyricsArtifacts(projectRoot), readMusicAnalysisReport(projectRoot)]);
+                let stale = false;
+                if (artifacts.map) {
+                  if (!music || !project.manifest?.editTimeline) stale = true;
+                  else {
+                    const current = await readEditor(projectRoot, project.manifest);
+                    stale = artifacts.map.sources.lyrics.revision !== getLyricsSourceRevision(current.timeline) || artifacts.map.sources.musicAnalysis.reportRevision !== getMusicAnalysisSourceRevision(music) || !artifacts.brief || artifacts.brief.mapRevision !== musicLyricsMapRevision(artifacts.map);
+                  }
+                }
+                res.setHeader("Content-Type", "application/json");
+                res.setHeader("Cache-Control", "no-store");
+                res.end(JSON.stringify({ ...artifacts, stale }));
+                return;
+              }
+              if (req.method !== "POST") { res.writeHead(405).end(); return; }
+              let body = "";
+              for await (const chunk of req) { body += chunk.toString(); if (Buffer.byteLength(body) > 1_000) throw new Error("Music × Lyrics request is too large."); }
+              if (body.trim() && body.trim() !== "{}") throw new Error("Music × Lyrics analysis uses the saved project Timeline and does not accept lyric copies.");
+              const music = await readMusicAnalysisReport(projectRoot);
+              if (!music) throw new Error("Run Analyze Music before building the full-song correlation.");
+              if (!project.manifest?.editTimeline) throw new Error("This project has no saved editable Timeline to read subtitle cues from.");
+              const source = await readEditor(projectRoot, project.manifest);
+              const { map, brief } = buildMusicLyricsMap({ projectId: id, music, timeline: source.timeline });
+              const saved = await saveMusicLyricsArtifacts(projectRoot, map, brief);
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ ...saved, stale: false }));
+              return;
+            }
+            if (musicAnalysis && req.method === "GET") {
+              const report = await readMusicAnalysisReport(projectRoot);
+              res.setHeader("Content-Type", "application/json");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(JSON.stringify({ report }));
+              return;
+            }
+            if (musicAnalysis && req.method === "POST") {
+              let body = "";
+              for await (const chunk of req) {
+                body += chunk.toString();
+                if (Buffer.byteLength(body) > 8_000) throw new Error("Music Analysis request is too large.");
+              }
+              const input = JSON.parse(body);
+              if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => key !== "assetId") || typeof input.assetId !== "string" || !/^[A-Za-z0-9_-]{1,160}$/.test(input.assetId))
+                throw new Error("Choose one registered audio asset to analyze.");
+              const activeId = activeMusicAnalysisByProject.get(id);
+              const existingJob = activeId ? musicAnalysisJobs.get(activeId) : undefined;
+              if (existingJob && (existingJob.status === "queued" || existingJob.status === "running")) {
+                res.writeHead(409, { "Content-Type": "application/json" }).end(JSON.stringify({ message: "Music Analysis is already running for this project." }));
+                return;
+              }
+              const registry = await readMediaRegistry(projectRoot);
+              const asset = registry.registry.assets.find(item => item.id === input.assetId);
+              if (!asset || asset.type !== "audio") throw new Error("Select a registered MP3 or WAV audio asset.");
+              const resolved = await resolveMedia(projectRoot, registry.registry, asset.id);
+              if (resolved.status !== "ready" || resolved.type !== "audio") {
+                res.writeHead(resolved.status === "missing" ? 404 : 422, { "Content-Type": "application/json" }).end(JSON.stringify({ message: resolved.status === "missing" ? "The selected audio file is missing." : resolved.status === "invalid" ? resolved.message : "The selected asset is not audio." }));
+                return;
+              }
+              const job: MusicAnalysisJob = { id: randomUUID(), projectId: id, status: "queued", stage: "queued", message: "Preparing analysis…" };
+              musicAnalysisJobs.set(job.id, job);
+              activeMusicAnalysisByProject.set(id, job.id);
+              const worker = path.join(root, "scripts", "music-analysis-worker.py");
+              void (async () => {
+                const isCanceled = () => job.status === "canceled";
+                try {
+                  job.status = "running";
+                  job.stage = "starting";
+                  job.message = "Starting the isolated analysis worker…";
+                  let python = process.env.STUDIO_MUSIC_ANALYSIS_PYTHON;
+                  if (!python) {
+                    const isolatedPython = path.join(root, ".studio", "music-analysis-runtime", "Scripts", "python.exe");
+                    try { await stat(isolatedPython); python = isolatedPython; } catch { python = "python"; }
+                  }
+                  const musicCache = path.join(root, ".studio", "music-analysis-cache");
+                  await mkdir(musicCache, { recursive: true });
+                  job.stage = "source-check";
+                  job.message = "Checking the selected audio file…";
+                  const sourceInfo = await stat(resolved.path);
+                  const sourceSha256 = await sha256File(resolved.path);
+                  const output: Buffer[] = [];
+                  let outputBytes = 0;
+                  let stderrBuffer = "";
+                  const child = spawn(python, [worker, resolved.path], { cwd: root, windowsHide: true, env: { ...process.env, FLOXBOW_MUSIC_CACHE: musicCache, FLOXBOW_MUSIC_SOURCE_SHA256: sourceSha256 }, stdio: ["ignore", "pipe", "pipe"] });
+                  job.child = child;
+                  child.stdout?.on("data", (chunk: Buffer) => {
+                    outputBytes += chunk.length;
+                    if (outputBytes > 32_000_000) { child.kill(); job.error = "Music Analysis returned more than 32 MB."; return; }
+                    output.push(Buffer.from(chunk));
+                  });
+                  child.stderr?.on("data", (chunk: Buffer) => {
+                    stderrBuffer += chunk.toString("utf8");
+                    const lines = stderrBuffer.split(/[\r\n]+/);
+                    stderrBuffer = lines.pop() ?? "";
+                    for (const line of lines) {
+                      try {
+                        const event = JSON.parse(line);
+                        if (event.type === "progress" && typeof event.stage === "string" && typeof event.message === "string") {
+                          job.stage = event.stage;
+                          job.message = event.message.slice(0, 500);
+                        }
+                      } catch {
+                        const percent = /(?:downloading|download|fetching)[^\n]*?(\d{1,3})%/i.exec(line)?.[1];
+                        if (percent) job.message = `Downloading model files… ${percent}%`;
+                        else if (/demix|separat|stems/i.test(line) && /\d{1,3}%/.test(line)) job.message = "Separating audio into stems…";
+                      }
+                    }
+                  });
+                  const exitCode: number = await new Promise((resolveExit, rejectExit) => {
+                    child.once("error", rejectExit);
+                    child.once("close", code => resolveExit(code ?? -1));
+                  });
+                  job.child = undefined;
+                  if (isCanceled()) return;
+                  if (job.error) throw new Error(job.error);
+                  const resultText = Buffer.concat(output).toString("utf8").trim();
+                  const workerResult = JSON.parse(resultText) as Record<string, unknown>;
+                  if (exitCode !== 0 || typeof workerResult.error === "string")
+                    throw new Error(typeof workerResult.error === "string" ? workerResult.error : `Analysis worker exited with code ${exitCode}.`);
+                  const finalInfo = await stat(resolved.path);
+                  const finalSha256 = await sha256File(resolved.path);
+                  if (sourceInfo.size !== finalInfo.size || sourceSha256 !== finalSha256)
+                    throw new Error("The selected audio changed during analysis. Run Music Analysis again.");
+                  const report = createMusicAnalysisReport({ projectId: id, assetId: asset.id, displayName: asset.displayName, fileSha256: sourceSha256, sizeBytes: sourceInfo.size, modifiedAt: sourceInfo.mtime, worker: workerResult });
+                  await saveMusicAnalysisReport(projectRoot, report);
+                  job.status = "complete";
+                  job.stage = "complete";
+                  job.message = report.status === "complete" ? "Music Analysis report saved." : "Report saved with some analysis unavailable.";
+                } catch (error) {
+                  if (isCanceled()) return;
+                  job.status = "failed";
+                  job.stage = "failed";
+                  job.error = error instanceof Error ? error.message : String(error);
+                  job.message = job.error;
+                } finally {
+                  if (activeMusicAnalysisByProject.get(id) === job.id) activeMusicAnalysisByProject.delete(id);
+                  const cleanup = setTimeout(() => musicAnalysisJobs.delete(job.id), 30 * 60 * 1000);
+                  cleanup.unref();
+                }
+              })();
+              res.writeHead(202, { "Content-Type": "application/json" }).end(JSON.stringify({ jobId: job.id }));
+              return;
+            }
+            if (musicAnalysisJob) {
+              const jobId = decodeURIComponent(route[3] ?? "");
+              const job = musicAnalysisJobs.get(jobId);
+              if (!job || job.projectId !== id) {
+                res.writeHead(404, { "Content-Type": "application/json" }).end(JSON.stringify({ message: "Music Analysis job not found." }));
+                return;
+              }
+              if (req.method === "DELETE") {
+                if (job.status === "queued" || job.status === "running") {
+                  job.status = "canceled";
+                  job.stage = "canceled";
+                  job.message = "Analysis canceled.";
+                  job.child?.kill();
+                }
+              }
+              res.setHeader("Content-Type", "application/json");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(JSON.stringify({ jobId: job.id, status: job.status, stage: job.stage, message: job.message, error: job.error }));
+              return;
+            }
           }
           if (poseStudioImport) {
             if (req.method !== "POST") {
@@ -1279,11 +1502,48 @@ export async function startServers(
           const input = JSON.parse(body);
           if (typeof input.id !== "string")
             throw new Error("Project ID is required");
-          const project = await createProject(projectsDir, input.id);
+          const width = input.width ?? 1920;
+          const height = input.height ?? 1080;
+          if (
+            !Number.isInteger(width) ||
+            !Number.isInteger(height) ||
+            width < 16 || width > 7680 ||
+            height < 16 || height > 7680
+          )
+            throw new Error("Canvas dimensions must be whole numbers between 16 and 7680 pixels.");
+          const project = await createProject(projectsDir, input.id, width, height);
           res.setHeader("Content-Type", "application/json");
           res.end(
             JSON.stringify({ project: { id: project.id, manifest: project } }),
           );
+          return;
+        }
+        if (isShell && pathname.startsWith("/api/projects/") && req.method === "DELETE") {
+          if (built) {
+            res.writeHead(409).end("Project deletion is available in the live development workspace.");
+            return;
+          }
+          if (req.headers.origin !== shellOrigin) {
+            res.writeHead(403).end("Only the studio shell can delete a project");
+            return;
+          }
+          const id = decodeURIComponent(pathname.slice("/api/projects/".length));
+          const project = (await getProjects()).find((candidate: { id: string }) => candidate.id === id);
+          if (!project) {
+            res.writeHead(404).end("Project not found");
+            return;
+          }
+          try {
+            await removeProject(projectsDir, id);
+          } catch (error) {
+            if (error instanceof Error && error.message.includes("outside the local projects directory")) {
+              res.writeHead(400).end(error.message);
+              return;
+            }
+            throw error;
+          }
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify({ id, deleted: true }));
           return;
         }
         if (req.method !== "GET" && req.method !== "HEAD") {
@@ -1398,6 +1658,12 @@ export async function startServers(
     url: shellOrigin + "/",
     previewOrigin,
     close: async () => {
+      for (const job of musicAnalysisJobs.values()) {
+        if (job.status === "queued" || job.status === "running") {
+          job.status = "canceled";
+          job.child?.kill();
+        }
+      }
       await Promise.all(vites.map((v) => v.close()));
       await Promise.all(
         servers.map(

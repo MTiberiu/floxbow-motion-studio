@@ -500,9 +500,19 @@ const env = Object.fromEntries(
   ),
 ) as Record<string, string>;
 env.STUDIO_URL = servers.url;
-
 let app: Awaited<ReturnType<typeof electron.launch>> | undefined;
 try {
+  const shellResponse = await fetch(servers.url);
+  const shellCsp = shellResponse.headers.get("content-security-policy") ?? "";
+  if (
+    !shellCsp.includes("media-src 'self' blob:") ||
+    !shellCsp.includes(servers.previewOrigin)
+  ) {
+    throw new Error(
+      `Shell CSP must allow local blob and preview-origin media. Received: ${shellCsp}`,
+    );
+  }
+
   app = await electron.launch({
     executablePath: electronPath as unknown as string,
     args: [path.join(root, "apps/desktop/electron/main.cjs")],
@@ -1308,6 +1318,17 @@ try {
     expect(audioRange.status).toBe(206);
     expect(audioRange.headers.get("content-type")).toBe("audio/wav");
     expect((await audioRange.arrayBuffer()).byteLength).toBe(64);
+
+    const storyboardAudioRange = await fetch(
+      new URL(
+        `/api/media/${id}/assets/${registeredMedia.assets[0].id}/stream`,
+        servers.url,
+      ),
+      { headers: { Range: "bytes=0-63" } },
+    );
+    expect(storyboardAudioRange.status).toBe(206);
+    expect(storyboardAudioRange.headers.get("content-type")).toBe("audio/wav");
+    expect((await storyboardAudioRange.arrayBuffer()).byteLength).toBe(64);
 
     const mediaUrl = new URL(`/api/media/${id}`, servers.url).toString();
     const publicState = await fetch(mediaUrl).then((response) =>
