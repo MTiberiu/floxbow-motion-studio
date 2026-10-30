@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import plate from '../assets/camera-valley-v1.png';
 import slope from '../assets/journey-near-slope-v1.png';
 import {cameraState,type Vec3} from './camera-state';
+import {LuminousBridge} from './LuminousBridge';
 const vertex=`varying vec2 vUv; varying vec3 world; void main(){vUv=uv;world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const mistVertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const mistFragment=`uniform float time;uniform float seed;varying vec2 vUv;
@@ -102,6 +103,7 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
    <meshBasicMaterial map={textures[1]} transparent alphaTest={.03} color="#554c41"
     toneMapped={false} side={THREE.DoubleSide} depthWrite={false}/>
   </mesh>
+  <LuminousBridge frame={frame}/>
   <mesh position={hero}><sphereGeometry args={[.045,20,12]}/><meshBasicMaterial color="#fff5d5" toneMapped={false}/></mesh>
   <mesh position={hero}><torusGeometry args={[.13,.005,8,64]}/><meshBasicMaterial color="#ffc278" transparent opacity={.8} toneMapped={false}/></mesh>
   <mesh position={hero}><planeGeometry args={[1.5,1.5]}/><shaderMaterial transparent depthWrite={false} blending={THREE.AdditiveBlending} vertexShader={vertex} fragmentShader={`varying vec2 vUv;void main(){float r=length(vUv-.5)*2.;float a=exp(-r*r*18.)*.3;gl_FragColor=vec4(1.,.35,.06,a);}`}/></mesh>
