@@ -7,7 +7,7 @@ import * as THREE from 'three';
  * All movement is derived from composition time, compatible with seek/render.
  */
 const palette=['#aa7148','#7e609c','#4b8494'];
-function FilmRoute({index,time}:{index:number;time:number}){
+function FilmRoute({index,time,fade}:{index:number;time:number;fade:number}){
  const geometry=useMemo(()=>{
   const points:THREE.Vector3[]=[];
   for(let i=0;i<=160;i++){
@@ -18,7 +18,7 @@ function FilmRoute({index,time}:{index:number;time:number}){
   return new THREE.BufferGeometry().setFromPoints(points);
  },[index]);
  return <line geometry={geometry} position={[-(time*1.9%8),0,.12]}>
-  <lineBasicMaterial color={palette[index]} transparent opacity={.37} depthWrite={false}/>
+  <lineBasicMaterial color={palette[index]} transparent opacity={.37*fade} depthWrite={false}/>
  </line>;
 }
 export function DistantFilmBackdrop({time}:{time:number}){
@@ -37,7 +37,7 @@ export function DistantFilmBackdrop({time}:{time:number}){
    <mesh position={[0,-9.75,0]}><planeGeometry args={[.86,.64]}/><meshBasicMaterial color="#8f6a4a" transparent opacity={.53*fade} depthWrite={false}/></mesh>
   </group>)}
   <group position={[0,-2,.15]}>
-   {[0,1,2].map(i=><group key={i}><FilmRoute index={i} time={time}/></group>)}
+   {[0,1,2].map(i=><group key={i}><FilmRoute index={i} time={time} fade={fade}/></group>)}
   </group>
  </group>;
 }
