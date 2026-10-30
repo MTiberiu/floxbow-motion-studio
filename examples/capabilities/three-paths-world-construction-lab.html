@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>FloxBow | World Construction Lab 01</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{background:#0b1019;color:#dbe9f1;font:14px system-ui;margin:0}.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 22px;border-bottom:1px solid #253345}.top strong{letter-spacing:.16em}.sub{color:#8fa9b7}.wrap{padding:18px;max-width:1500px;margin:auto}canvas{display:block;width:100%;aspect-ratio:16/9;background:#ecf1f1;border:1px solid #526473;border-radius:8px}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:15px;background:#131e2b;padding:14px;border:1px solid #2c3d50;border-radius:8px}input[type=range]{flex:1;min-width:190px;accent-color:#89dbe6}button{background:#214859;border:1px solid #47768a;border-radius:5px;color:#fff;padding:9px 15px;cursor:pointer}label{display:flex;gap:6px;align-items:center}small{color:#8eaab9}.info{color:#b8cbd5;line-height:1.7;margin-top:15px}.phase{color:#a7e4eb;font-weight:700;min-width:120px}
+</style></head><body><header class="top"><strong>FLOXBOW / WORLD CONSTRUCTION LAB</strong><span class="sub">Prototip 01 · 2D vector / world-space / fără audio</span></header><div class="wrap"><canvas id="world" width="1600" height="900"></canvas><div class="controls"><button id="play">▶ Redare</button><span id="clock">00:00</span><input id="seek" type="range" min="0" max="30" step=".0166667" value="0"/><span class="phase" id="phase">Cartografiere</span><label><input type="checkbox" id="grid" checked/> Grilă</label><label><input type="checkbox" id="construction" checked/> Fragmente</label></div><div class="info">Testează la 3, 10, 20 și 27 de secunde. Traseele sunt <b>sintetice</b>, doar pentru verificarea aspectului vizual; nu pretindem sincronizare cu piesa. Lumea este redesenată exclusiv din timpul ales, astfel încât seek înapoi și înainte să reproducă același cadru. Nu sunt atinse WAV, Timeline, subtitrări sau proiecte locale.</div></div>
+<script>
+(()=>{'use strict';
+const cv=document.getElementById('world'),ctx=cv.getContext('2d'),seek=document.getElementById('seek'),clock=document.getElementById('clock'),phase=document.getElementById('phase'),play=document.getElementById('play');
+const W=cv.width,H=cv.height, front=805,speed=54,TAU=Math.PI*2;
+let playing=false,last=0;
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const fract=x=>x-Math.floor(x);
+const hash=n=>fract(Math.sin(n*127.1+91.37)*43758.5453);
+const lerp=(a,b,f)=>a+(b-a)*f;
+function noise(x){const i=Math.floor(x),f=fract(x),u=f*f*(3-2*f);return lerp(hash(i),hash(i+1),u)}
+function ridge(wx,layer){const p=wx*.0018+layer*19.7;let v=noise(p*4.1)*.64+noise(p*10.4)*.27+noise(p*28)*.09;return Math.pow(v,1.6)}
+function lines(t,i){return 398+Math.sin(t*.49+i*1.9)*35+Math.sin(t*1.43+i*2.1)*14+Math.sin(t*.17+i*4)*45}
+const trails=['#df935b','#b67ad9','#62badc'];
+function line(x1,y1,x2,y2,color,width=1,alpha=1){ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.globalAlpha=1}
+function terrain(t,layer,alpha,fillColor,strokeColor){const rate=[.19,.39,.78][layer];const par=t*speed*rate, base=[520,605,785][layer],amp=[330,310,170][layer];
+  ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=front+22;x+=4){let y=base-ridge(x+par,layer)*amp;ctx.lineTo(x,y)}ctx.lineTo(front+20,H);ctx.closePath();ctx.globalAlpha=alpha;ctx.fillStyle=fillColor;ctx.fill();ctx.globalAlpha=1;
+  for(let j=0;j<5;j++){ctx.beginPath();for(let x=0;x<=front+20;x+=5){const top=base-ridge(x+par,layer)*amp, y=lerp(base+40,top,(j+1)/5);if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.strokeStyle=strokeColor;ctx.lineWidth=j===4?2.3:1;ctx.globalAlpha=alpha*(j===4?.72:.2);ctx.stroke();ctx.globalAlpha=1}
+}
+function draw(t){ctx.clearRect(0,0,W,H);ctx.fillStyle='#f1f4f2';ctx.fillRect(0,0,W,H);
+ // future grid
+ if(document.getElementById('grid').checked){for(let x=(t*speed)%64-64;x<W;x+=64)line(x,95,x,764,'#bfcbd1',1,.58);for(let y=95;y<765;y+=64)line(0,y,W,y,'#c1cbd0',1,.6)}
+ const reveal=front- (t<3?(3-t)*110:0),progress=clamp(t/12);
+ ctx.save();ctx.beginPath();ctx.rect(0,95,reveal,670);ctx.clip();
+ const sky=ctx.createLinearGradient(0,60,0,765);sky.addColorStop(0,'#152c40');sky.addColorStop(.58,'#8baeb8');sky.addColorStop(1,'#e4d9bc');ctx.fillStyle=sky;ctx.fillRect(0,95,reveal,670);
+ let halo=ctx.createRadialGradient(620,240,4,620,240,390);halo.addColorStop(0,'rgba(255,234,193,.42)');halo.addColorStop(1,'rgba(255,225,193,0)');ctx.fillStyle=halo;ctx.fillRect(0,95,reveal,670);
+ terrain(t,0,.88,'#8aabb4','#e8f8fa');terrain(t,1,.95,'#466f81','#bce4e8');
+ const lake=ctx.createLinearGradient(0,540,0,765);lake.addColorStop(0,'#68929a');lake.addColorStop(1,'#163e51');ctx.fillStyle=lake;ctx.fillRect(0,565,reveal,200);
+ for(let i=0;i<55;i++){const y=580+i*3.3,x=hash(i*39)*1100-(t*8)%1100;line(x,y,Math.min(reveal,x+25+hash(i*7)*140),y,'#c2e3da',.7,clamp(progress*.18+hash(i)*.35))}
+ terrain(t,2,.98,'#193f4b','#82b8bd');
+ // construction region: world-anchored point clusters, not giant blur masks
+ if(document.getElementById('construction').checked){const cell=16;for(let ix=0;ix<Math.ceil(reveal/cell);ix++){const wx=ix+Math.floor(t*speed/cell);const x=ix*cell+hash(wx*57)*8;const proximity=clamp((reveal-x)/160);if(proximity>.95)continue;for(let iy=7;iy<49;iy++){const v=hash(wx*131+iy*313),y=iy*cell+hash(wx*11+iy)*7;if(v>proximity*.85+.04){ctx.fillStyle=iy>32?'#8abec3':'#d4e9eb';ctx.globalAlpha=.15+.55*(1-proximity);ctx.fillRect(x,y,1.1+v*3.5,1.1+v*3.5)}}}ctx.globalAlpha=1}
+ ctx.restore();
+ // front plotted cross-section
+ if(document.getElementById('construction').checked){for(let i=0;i<90;i++){const age=hash(i*71)*.75;const x=reveal+(hash(i*19)-.5)*85;const y=95+hash(i*31+7)*670;const a=clamp(1-Math.abs(x-reveal)/65)*(.18+.36*hash(i*9));ctx.fillStyle=i%2?'#81b7c1':'#aec8cd';ctx.globalAlpha=a;ctx.fillRect(x,y,1+hash(i)*4,1+hash(i*31)*4)}ctx.globalAlpha=1}
+ // graph from marker to future, with sampled past tail
+ for(let k=0;k<3;k++){ctx.beginPath();for(let x=front-220;x<W;x+=4){const sec=clamp(t+(x-front)/speed,0,30),y=lines(sec,k);if(x===front-220)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.lineWidth=2.5;ctx.strokeStyle=trails[k];ctx.globalAlpha=.66;ctx.stroke();ctx.globalAlpha=1;
+ const y=lines(t,k);ctx.beginPath();ctx.arc(front,y,15,0,TAU);ctx.fillStyle='#f5f8f8';ctx.fill();ctx.lineWidth=3.2;ctx.strokeStyle=trails[k];ctx.stroke();ctx.beginPath();ctx.arc(front,y,3.8,0,TAU);ctx.fillStyle='#1e3642';ctx.fill()}
+ // framing
+ line(0,73,W,73,'#91a1a8',2);line(0,791,W,791,'#91a1a8',2);
+ for(let x=0;x<W;x+=50){ctx.fillStyle='#d0d8d9';ctx.fillRect(x-(t*speed)%50,44,21,11);ctx.fillRect(x-(t*speed)%50,807,21,11)}
+ ctx.font='14px ui-monospace,monospace';ctx.fillStyle='#2a4856';ctx.fillText('WORLD / VECTOR → FORM → MATERIAL',29,29);ctx.fillText('FUTURE / GRID',W-165,29);
+ clock.textContent='00:'+String(Math.floor(t)).padStart(2,'0');phase.textContent=t<5?'Cartografiere':t<12?'Geometrie':t<22?'Materializare':'Lume vie';
+}
+function tick(ms){if(playing){if(last)seek.value=String(Math.min(30,Number(seek.value)+(ms-last)/1000));if(Number(seek.value)>=30){playing=false;play.textContent='▶ Redare'}}last=ms;draw(Number(seek.value));requestAnimationFrame(tick)}
+play.addEventListener('click',()=>{playing=!playing;last=0;if(playing&&Number(seek.value)>=30)seek.value='0';play.textContent=playing?'❚❚ Pauză':'▶ Redare'});requestAnimationFrame(tick);
+})();
+</script></body></html>
