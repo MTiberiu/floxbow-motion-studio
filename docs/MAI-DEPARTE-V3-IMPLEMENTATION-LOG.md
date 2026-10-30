@@ -110,3 +110,13 @@ Append for each code change:
 - **Expected:** When the hole opens, visible landscape should already be advancing, and near banks continue their progression as the camera transitions fullscreen.
 - **Checks authored:** Frame-order invariance at nine seek locations, near/far speed ordering, and continuity at 8/13/15/23/27 seconds. Tests are committed but have not been run in this environment.
 - **Remaining:** Neither this shared motion function nor current CSS portal reconstructs a single fully shared physical valley. Painted bridge still embedded in image sources; actual bridge-free cleaned art and object-alpha layers remain required. Do not claim completion of that requirement.
+
+## 2026-10-30 — let the film tear leave the camera viewport
+
+- **Files:** `scenes/PortalAperture.ts`, `scenes/portal-aperture.test.ts`.
+- **Problem:** The previous portal radius (1.58 screen-scaled units) risked leaving parts of the film overlay at the edges when entering fullscreen. The border could seem to pop off rather than moving beyond the camera's view.
+- **Cause:** Aperture geometry was computed in a 2D CSS clip-path using a fixed growth multiplier, independent of final viewport coverage. A wide-screen perspective requires an opening larger than the viewport to hide its torn edges naturally.
+- **Change:** Increased the outward expansion allowance to 3.1 while preserving center alignment to the existing analytical frontier. The same polygon remains the edge stroke and cutout. Committed deterministic tests for open/close frames, direct seeking, and full-screen viewport coverage.
+- **Intended visible result:** During 8–15 s, the burnt lip expands past the image border rather than disappearing over the picture. During 23–27 s it returns in the opposite direction.
+- **Verified:** Source and tests committed. Tests were not executed here; no Electron visual certification.
+- **Not solved:** Opening remains 2D screen-space geometry rather than a real world-space membrane. The worlds still use separate compositing contexts and the original PNG bridge is not removed.
