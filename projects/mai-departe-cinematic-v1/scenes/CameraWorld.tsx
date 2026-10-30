@@ -8,6 +8,7 @@ import slope from '../assets/journey-near-slope-v1.png';
 import {cameraState,type Vec3} from './camera-state';
 import {LuminousBridge} from './LuminousBridge';
 import {WorldDepthRidges} from './WorldDepthRidges';
+import {revealMotion} from './reveal-motion';
 const vertex=`varying vec2 vUv; varying vec3 world; void main(){vUv=uv;world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const mistVertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const mistFragment=`uniform float time;uniform float seed;varying vec2 vUv;
@@ -66,6 +67,7 @@ function Rig({frame,orangeY}:{frame:number;orangeY:number}){
  },[camera,invalidate,frame,orangeY]);return null;
 }
 function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
+ const motion=revealMotion(time);
  const textures=useLoader(THREE.TextureLoader,[plate,slope]);
  // Loaded once; ThreeCanvas Suspense waits for texture readiness in Remotion.
  useLayoutEffect(()=>{textures.forEach(t=>{t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;});},[textures]);
@@ -81,8 +83,8 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
   <mesh position={[0,7,-36]}><planeGeometry args={[88,49.5]}/><shaderMaterial uniforms={plateUniforms} vertexShader={vertex} fragmentShader={worldPlate}/></mesh>
   <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.5,-6]}><planeGeometry args={[90,56,1,1]}/><shaderMaterial uniforms={uniforms} vertexShader={vertex} fragmentShader={water} transparent depthWrite={false}/></mesh>
   {/* Real depth separation with natural-alpha banks; camera cannot orbit these cards. */}
-  <mesh position={[-12-time*.12,0,-7]}><planeGeometry args={[30,16.88]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} color="#bc936d" toneMapped={false}/></mesh>
-  <mesh position={[18-time*.05,-1,-19]} rotation={[0,0,-.12]} scale={[-1,1,1]}><planeGeometry args={[29,16.3]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} side={THREE.DoubleSide} color="#917c69" toneMapped={false}/></mesh>
+  <mesh position={[-12+motion.worldOffset.middle*1.25,0,-7]}><planeGeometry args={[30,16.88]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} color="#bc936d" toneMapped={false}/></mesh>
+  <mesh position={[18+motion.worldOffset.far,-1,-19]} rotation={[0,0,-.12]} scale={[-1,1,1]}><planeGeometry args={[29,16.3]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} side={THREE.DoubleSide} color="#917c69" toneMapped={false}/></mesh>
   <WorldDepthRidges time={time}/>
   {/* The same world remains visible through the tear and after crossing it:
       two independently drifting mist planes at different physical depths. */}
@@ -98,12 +100,12 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
   </mesh>
   {/* Close silhouettes give the advance a readable optical-flow cue.
       Both use the existing natural-alpha bank artwork. */}
-  <mesh position={[-23-time*.22,-3,0]} rotation={[0,.08,0]}>
+  <mesh position={[-23+motion.worldOffset.near,-3,0]} rotation={[0,.08,0]}>
    <planeGeometry args={[25,14]}/>
    <meshBasicMaterial map={textures[1]} transparent alphaTest={.03} color="#514b42"
     toneMapped={false} depthWrite={false}/>
   </mesh>
-  <mesh position={[25-time*.18,-3,-2]} rotation={[0,-.10,0]} scale={[-1,1,1]}>
+  <mesh position={[25+motion.worldOffset.near*.82,-3,-2]} rotation={[0,-.10,0]} scale={[-1,1,1]}>
    <planeGeometry args={[25,14]}/>
    <meshBasicMaterial map={textures[1]} transparent alphaTest={.03} color="#554c41"
     toneMapped={false} side={THREE.DoubleSide} depthWrite={false}/>
