@@ -21,3 +21,12 @@ test('portal expands beyond full viewport and keeps a registered edge',()=>{
  assert.ok(Math.min(...xy.map(v=>v[1]))<0);
  assert.ok(Math.max(...xy.map(v=>v[1]))>1080);
 });
+
+test('burnt lip is visible only while portal contour is inside viewport',()=>{
+ const beginning=portalAperture(270,fps,speed,revealX);
+ const crossing=portalAperture(450,fps,speed,revealX);
+ assert.ok(beginning.edgeVisible);
+ assert.ok(crossing.coversViewport);
+ assert.equal(crossing.edgeVisible,false);
+ assert.equal(portalAperture(810,fps,speed,revealX).edgeVisible,false);
+});
