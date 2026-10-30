@@ -1,5 +1,6 @@
 import {useMemo} from 'react';
 import filmValley from '../assets/film-valley.png';
+import {revealMotion} from './reveal-motion';
 
 /**
  * Moving image on the already revealed film.
@@ -24,6 +25,7 @@ function fadeMask(from:number,to:number,fadeIn:number,fadeOut:number){
 }
 
 export function CinematicPlateV3({time}:{time:number}){
+ const motion=revealMotion(time);
  const glints=useMemo(()=>Array.from({length:132},(_,i)=>({
   x:70+rand(i*11+2)*890,y:650+rand(i*19+3)*280,
   r:.6+rand(i*31+6)*2.3,phase:rand(i*7+3)*6.28
@@ -31,7 +33,7 @@ export function CinematicPlateV3({time}:{time:number}){
  return <div aria-hidden="true" data-cinematic-parallax-v3="1"
   style={{position:'absolute',inset:0,overflow:'hidden',pointerEvents:'none',zIndex:20,background:'#172a30'}}>
   {bands.map((l,i)=>{
-   const forward=time*(3.6+l.depth*24);
+   const forward=l.name==='sky'?-motion.flow.sky:l.name==='far-ridges'?-motion.flow.far:l.name==='valley'?-motion.flow.middle:-motion.flow.near;
    const sway=Math.sin(time*.13+i*.65)*(.8+l.depth*6);
    const zoom=l.zoom+Math.min(.016,time*.0007*l.depth);
    const mask=fadeMask(l.from,l.to,l.fadeIn,l.fadeOut);
@@ -54,11 +56,11 @@ export function CinematicPlateV3({time}:{time:number}){
     <linearGradient id="worldV3Water"><stop stopColor="#d2c6a8" stopOpacity="0"/><stop offset=".5" stopColor="#f5dab2" stopOpacity=".64"/><stop offset="1" stopColor="#b6c9cf" stopOpacity="0"/></linearGradient>
    </defs>
    {Array.from({length:8},(_,i)=><ellipse key={i}
-    cx={350+i*218-time*(2.4+i*.38)} cy={390+i*43+Math.sin(time*.15+i)*7}
+    cx={350+i*218+motion.flow.far*(.5+i*.13)} cy={390+i*43+Math.sin(motion.mistPhase*1.35+i)*7}
     rx={260+i*12} ry={33+i*6} fill="url(#worldV3Fog)" opacity={.62}/>)}
    {glints.map((g,i)=>{
     const pulse=Math.pow(Math.max(0,Math.sin(time*(.6+rand(i*3)*.3)+g.phase)),5);
-    const x=g.x-time*2.7+Math.sin(time*.25+g.phase)*2;
+    const x=g.x+motion.flow.near*.15+Math.sin(time*.25+g.phase)*2;
     return <path key={i} d={`M${x} ${g.y}h${g.r*8}`}
      stroke="url(#worldV3Water)" strokeWidth={.5+pulse*1.2} opacity={pulse*.54}/>;
    })}
