@@ -1,5 +1,6 @@
-import { journeyRevealModule } from './scenes/JourneyReveal';
-import { journeyRevealLegacyModule } from './scenes/JourneyRevealLegacy';
+import {portalStudyLyrics as v4LyricsModule} from './scenes/portal-study/StudyLyrics';
+import {portalStudyModule as journeyRevealModule, portalStudyContinuation as journeyRevealLegacyModule} from './scenes/portal-study/PortalMaterialScene';
+
 import { burdenSceneModule } from './scenes/BurdenScene';
 import { phonePerformanceModule } from './scenes/PhonePerformance';
 import { Canvas } from "@motion/sdk";
@@ -19,7 +20,7 @@ export const editorComponents = [
   journeyRevealLegacyModule,
   burdenSceneModule,
   phonePerformanceModule,
-  directorLyricsModule,
+  v4LyricsModule,
   directorActorModule,
   directorAccentModule,
   directorPlateModule,

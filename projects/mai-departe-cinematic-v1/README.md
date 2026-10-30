@@ -19,3 +19,9 @@ The current local cinematic proof now uses an immutable arrival-time field for i
 ## Cinematic Camera Director (2026-10-30)
 
 The local cinematic clip now stages Overview → Follow Orange → World Fullscreen → Overview during seconds 8–27, without editing the saved Timeline. The prepared valley uses a new clean illustration, separate bank planes and perspective water; the original cinematic plate and Living Emulsion remain in overview. Start playback at 7 seconds; inspect fullscreen world at 18 and return at 27. See [camera-integration/README.md](camera-integration/README.md) for guarded installation, shot parameters, checks and 2.5D limitations. No render was performed.
+
+## Active preview: portal and paper reference (2026-10-30)
+
+The active preview now uses the simplified scene requested by the user: recovered scrolling dark/amber film → luminous organic portal → complete natural valley → the same composition interpreted in paper. It contains no floating actor cards, monitor props or second freestanding film. The two complete backgrounds are deliberately not separated into scenery pieces; the user will do that assembly. Forward camera speed follows the existing music-derived envelope. The material transition is at 16.533–30.533 s; after the study, the paper view holds. This is a reusable reference, not the finished full-song montage. All older source implementations remain available.
+
+See [the copy/integration guide and verification report](scenes/portal-study/README.md). The paper counterpart preserves composition but is not guaranteed pixel-identical. Existing soundtrack, subtitles, cue/word timing, verification, Timeline and source analysis are unchanged. No video export was run.
