@@ -30,3 +30,11 @@ test('burnt lip is visible only while portal contour is inside viewport',()=>{
  assert.equal(crossing.edgeVisible,false);
  assert.equal(portalAperture(810,fps,speed,revealX).edgeVisible,false);
 });
+
+test('opening does not declare fullscreen just because its bounding box is large',()=>{
+ for(const frame of [270,315,360,405,435,450]){
+  const p=portalAperture(frame,fps,speed,revealX);
+  assert.equal(p.edgeVisible,p.open>0&&!p.coversViewport);
+ }
+ assert.equal(portalAperture(450,fps,speed,revealX).coversViewport,true);
+});
