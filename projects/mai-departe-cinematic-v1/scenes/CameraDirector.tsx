@@ -1,36 +1,48 @@
 import type {ReactNode} from 'react';
 import {AbsoluteFill} from 'remotion';
 import {CameraWorld} from './CameraWorld';
-import {cameraState} from './camera-state';
-import {portalAperture} from './PortalAperture';
+import {riftPush} from './RiftPushTransition';
 
-/** A ragged, growing aperture: entering the photographed world THROUGH the film.
- * All geometry is derived from the current composition frame (stable on seeks).
- * The prepared 2.5D world sits behind the aperture; no global opacity dissolve.
+/**
+ * Reusable film <-> world travelling transition.
+ * Entry: photographic world drives a charred seam left-to-right, pushing film away.
+ * Exit: film returns from the left, pushing the same continuous world to the right.
+ * No growing CSS portal and no reset of the music-driven three-traveler timeline.
  */
-/** Wraps only the visual clip; Timeline subtitles/audio remain outside this camera. */
-export function CameraDirector({frame,orangeY,speed,revealX,fps,children}:{frame:number;orangeY:number;speed:number;revealX:number;fps:number;children:ReactNode}){
- const state=cameraState(frame);
- const portal=portalAperture(frame,fps,speed,revealX);
- return <AbsoluteFill style={{background:'#100e0d',overflow:'hidden'}} data-camera-shot={state.shot.shotType}>
-  <AbsoluteFill>{children}</AbsoluteFill>
-  {/* The camera advances BEHIND a growing irregular opening; film stays visible
-      outside the burned aperture. One time source, no cut disguised as fade. */}
-  <AbsoluteFill style={{
-   clipPath:portal.polygon,
-   opacity:portal.open===0?0:1,
-   pointerEvents:'none',
-   visibility:portal.open===0?'hidden':'visible',
-  }}>
-   <CameraWorld frame={frame} orangeY={orangeY}/>
-   <AbsoluteFill style={{background:'radial-gradient(ellipse at 50% 45%,transparent 40%,rgba(12,8,5,.32))',mixBlendMode:'multiply'}}/>
-  </AbsoluteFill>
-  {/* Physical charred lip follows precisely the same contour as the cutout. */}
-  {portal.edgeVisible&&<svg aria-hidden="true" viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
-   <polygon points={portal.edgePoints} fill="none" stroke="#0c0907" strokeWidth="31" opacity=".96" strokeLinejoin="round"/>
-   <polygon points={portal.edgePoints} fill="none" stroke="#382219" strokeWidth="17" opacity=".84" strokeLinejoin="round"/>
-   <polygon points={portal.edgePoints} fill="none" stroke="#916440" strokeWidth="5" opacity=".42" strokeLinejoin="round"/>
-   <polygon points={portal.edgePoints} fill="none" stroke="#efba76" strokeWidth="1.2" opacity=".29" strokeLinejoin="round"/>
+export function CameraDirector({frame,orangeY,speed,revealX,fps,children,accent=0}:{
+ frame:number;orangeY:number;speed:number;revealX:number;fps:number;children:ReactNode;accent?:number
+}){
+ const rift=riftPush(frame);
+ const showWorld=rift.phase!=='film';
+ const showFilm=rift.phase!=='world';
+ return <AbsoluteFill style={{background:'#100e0d',overflow:'hidden'}}
+   data-camera-shot={rift.phase} data-rift-progress={rift.progress.toFixed(3)}>
+  {showWorld&&<AbsoluteFill style={{clipPath:rift.worldClip,overflow:'hidden',pointerEvents:'none'}}>
+   <AbsoluteFill style={{transform:`translate3d(${rift.worldShift}px,0,0)`}}>
+    <CameraWorld frame={frame} orangeY={orangeY} accent={accent}/>
+   </AbsoluteFill>
+  </AbsoluteFill>}
+  {showFilm&&<AbsoluteFill style={{clipPath:rift.filmClip,overflow:'hidden'}}>
+   <AbsoluteFill style={{transform:`translate3d(${rift.filmShift}px,0,0)`}}>{children}</AbsoluteFill>
+  </AbsoluteFill>}
+  {/* A single actual separation contour is shared by both clips and the scorched lip.
+      Film grain, black char, thin heat and cinders follow the moving border. */}
+  {rift.active&&<svg aria-hidden="true" viewBox="0 0 1920 1080"
+   preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   <path d={rift.edgePath} stroke="#100907" strokeWidth="31" strokeLinejoin="round" fill="none" opacity=".9"/>
+   <path d={rift.edgePath} stroke="#39251b" strokeWidth="17" strokeLinejoin="round" fill="none" opacity=".9"/>
+   <path d={rift.edgePath} stroke="#bd6c35" strokeWidth="5" strokeLinejoin="round" fill="none" opacity=".62"/>
+   <path d={rift.edgePath} stroke="#ffe3ac" strokeWidth="1.8" strokeLinejoin="round" fill="none" opacity=".46"/>
+   {Array.from({length:47},(_,i)=>{
+    const y=65+(i*73.9)%935;
+    const x=rift.edgeX+Math.sin(i*2.17+frame*.07)*19;
+    const flicker=Math.max(0,Math.sin(i*4.2+frame*.17));
+    const side=rift.phase==='enter'?-1:1;
+    return <g key={i} opacity={.12+flicker*.46}>
+     <circle cx={x+side*(8+((i*17+frame*.55)%84))} cy={y+Math.sin(i*3.1+frame*.09)*11}
+      r={.7+(i%4)*.64} fill={i%3===0?'#ffcb88':'#bb6739'}/>
+    </g>;
+   })}
   </svg>}
  </AbsoluteFill>;
 }
