@@ -120,3 +120,13 @@ Append for each code change:
 - **Intended visible result:** During 8–15 s, the burnt lip expands past the image border rather than disappearing over the picture. During 23–27 s it returns in the opposite direction.
 - **Verified:** Source and tests committed. Tests were not executed here; no Electron visual certification.
 - **Not solved:** Opening remains 2D screen-space geometry rather than a real world-space membrane. The worlds still use separate compositing contexts and the original PNG bridge is not removed.
+
+## 2026-10-30 — portal char lip stays registered until outside the viewport
+
+- **Files:** `scenes/PortalAperture.ts`, `scenes/CameraDirector.tsx`, `scenes/portal-aperture.test.ts`.
+- **Observed problem:** During the push-through, the torn/charred ring vanished at an arbitrary portal-progress threshold (`open >= .96`), potentially creating a visibly digital pop just before fullscreen.
+- **Cause:** The film-edge draw decision used a fixed animation percentage, not whether the projected polygon had actually passed the screen boundaries.
+- **Modification:** The aperture now exposes `coversViewport` and `edgeVisible` derived from its computed polygon bounds; CameraDirector uses `edgeVisible` to retain the char lip while it intersects the viewport, then hides it only after the opening expands offscreen. Added repeatable seek assertions covering start, crossing and end.
+- **Intended result:** The spectator sees the charred film edge travel offscreen during the forward camera move rather than instantaneously switch off.
+- **Verified:** GitHub code and test source committed, not yet executed in a local Electron renderer. Bounding-extents check is a coarse visibility heuristic, not a full polygon/rectangle containment algorithm. It is not 3D membrane geometry.
+- **Remaining:** Bridge-free replacement art, alpha-separated mountains/banks and a physically coherent one-scene camera path are still outstanding.
