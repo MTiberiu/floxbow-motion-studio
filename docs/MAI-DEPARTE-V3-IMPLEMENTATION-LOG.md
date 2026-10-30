@@ -99,3 +99,14 @@ Append for each code change:
 - **Expected visual check:** At 9, 11, 13, 16 and 20 seconds the near banks should traverse the field faster than distant terrain; the underlying world image should not freeze when the camera shot changes.
 - **Verified:** Code committed. No Electron preview, screenshots or rendering benchmark available to this GitHub-only update.
 - **Remaining gap:** Image itself still contains the baked bridge and is not separated into clean object masks. This update does NOT meet those final art requirements; it is an intermediate optical-flow correction.
+
+## 2026-10-30 — shared forward-motion field and invariant tests
+
+- **Files:** `scenes/reveal-motion.ts`, `scenes/reveal-motion.test.ts`, `scenes/CinematicPlateV3.tsx`, `scenes/CameraWorld.tsx`.
+- **Observed problem:** The film-world image and the 3D camera scene computed independent ad hoc motion rates. Even when both moved, their phase or rhythm could disagree at the portal cut, making it appear that the environment stopped and restarted.
+- **Cause:** The film and world were authored separately, each calculating motion directly from time using unrelated multipliers, without a named shared film-to-world travel model.
+- **Change:** Added pure `revealMotion(time)` with a single monotonic `forward` distance and ordered sky/far/mid/near optical flow plus world-space bank offsets. Wired film depth bands and 3D bank cards to that same model without changing traveler guides or audio.
+- **Why:** Both views now consume a coherent movement signal. The perspective camera still follows the existing authored shot poses; this change synchronizes environmental flow, not the real project-camera geometry.
+- **Expected:** When the hole opens, visible landscape should already be advancing, and near banks continue their progression as the camera transitions fullscreen.
+- **Checks authored:** Frame-order invariance at nine seek locations, near/far speed ordering, and continuity at 8/13/15/23/27 seconds. Tests are committed but have not been run in this environment.
+- **Remaining:** Neither this shared motion function nor current CSS portal reconstructs a single fully shared physical valley. Painted bridge still embedded in image sources; actual bridge-free cleaned art and object-alpha layers remain required. Do not claim completion of that requirement.
