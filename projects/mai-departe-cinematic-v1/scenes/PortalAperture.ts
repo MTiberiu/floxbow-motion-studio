@@ -23,8 +23,17 @@ export function portalAperture(frame:number,fps:number,speed:number,revealX:numb
   const rx=expansion*110*rough,ry=expansion*166*rough;
   return {x:cx+Math.cos(a)*rx,y:cy+Math.sin(a)*ry};
  });
- const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
- const coversViewport=Math.min(...xs)<0&&Math.max(...xs)>100&&Math.min(...ys)<0&&Math.max(...ys)>100;
+ // Bounding boxes alone are incorrect for concave/elliptic apertures:
+ // all four actual viewport corners must lie inside the polygon.
+ const contains=(x:number,y:number)=>{
+  let inside=false;
+  for(let i=0,j=points.length-1;i<points.length;j=i++){
+   const a=points[i],b=points[j];
+   if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)inside=!inside;
+  }
+  return inside;
+ };
+ const coversViewport=[[0,0],[100,0],[100,100],[0,100]].every(([x,y])=>contains(x,y));
  // An edge is only drawn while its physical projected contour intersects the frame.
  const edgeVisible=travel>0&&!coversViewport;
  return {open:travel,coversViewport,edgeVisible,boundary,polygon:`polygon(${points.map(p=>`${p.x}% ${p.y}%`).join(',')})`,edgePoints:points.map(p=>`${p.x*19.2},${p.y*10.8}`).join(' '),cx,cy};
