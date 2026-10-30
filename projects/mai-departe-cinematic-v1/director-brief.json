@@ -1,0 +1,2075 @@
+{
+  "schemaVersion": 1,
+  "kind": "floxBow-director-brief",
+  "mapRevision": "3b34ee6049ea640fe9e22a3432ce3f48e02eceda95e482b490f2c0ad82f7dcd2",
+  "durationSeconds": 239.96,
+  "phrases": [
+    {
+      "id": "phrase-8e9d0a9109799dd5f2d3",
+      "start": 13.033333333333333,
+      "end": 14.633333333333333,
+      "text": "Am tot zis: „Mai stau un pic”,",
+      "sectionLabels": [
+        "intro",
+        "verse"
+      ],
+      "energyMean": 0.064913,
+      "dominantEvents": [
+        {
+          "time": 13.2354,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000605"
+        },
+        {
+          "time": 14.3732,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-30"
+        },
+        {
+          "time": 14.3615,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000610"
+        },
+        {
+          "time": 13.4211,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-25"
+        },
+        {
+          "time": 13.4095,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000606"
+        },
+        {
+          "time": 13.8739,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001057"
+        }
+      ],
+      "beatAnchors": [
+        13.44,
+        14.33
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-8e9d0a9109799dd5f2d3"
+    },
+    {
+      "id": "phrase-ad3f915fa770465bc256",
+      "start": 16.533333333333335,
+      "end": 18.3,
+      "text": "Și n-am mai schimbat nimic.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.0874386666666666,
+      "dominantEvents": [
+        {
+          "time": 17.0551,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000290"
+        },
+        {
+          "time": 17.949,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001062"
+        },
+        {
+          "time": 17.9839,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000293"
+        },
+        {
+          "time": 17.0202,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001061"
+        },
+        {
+          "time": 17.5078,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-38"
+        },
+        {
+          "time": 17.4846,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000617"
+        }
+      ],
+      "beatAnchors": [
+        17,
+        17.93
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-ad3f915fa770465bc256"
+    },
+    {
+      "id": "phrase-a5c6a3742e3670be2a9d",
+      "start": 20.133333333333333,
+      "end": 22.4,
+      "text": "Azi îmi spun: Mai poți un pas,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.0734315000000001,
+      "dominantEvents": [
+        {
+          "time": 20.4684,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000620"
+        },
+        {
+          "time": 20.6193,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000621"
+        },
+        {
+          "time": 20.48,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-45"
+        },
+        {
+          "time": 22.3724,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001067"
+        },
+        {
+          "time": 21.5713,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000625"
+        },
+        {
+          "time": 21.0373,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000623"
+        }
+      ],
+      "beatAnchors": [
+        20.6,
+        21.5,
+        22.38
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-a5c6a3742e3670be2a9d"
+    },
+    {
+      "id": "phrase-46aa8c46bfcdd9632eeb",
+      "start": 23.5,
+      "end": 29.233333333333334,
+      "text": "Fă-l cu tot ce ți-a rămas. Mi-am promis „Va fi mai bine”,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.09073785714285709,
+      "dominantEvents": [
+        {
+          "time": 24,
+          "source": "mix",
+          "category": "energy_rise",
+          "eventId": "mix-energy_rise-001554"
+        },
+        {
+          "time": 26.8655,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001076"
+        },
+        {
+          "time": 26,
+          "source": "mix",
+          "category": "energy_rise",
+          "eventId": "mix-energy_rise-001555"
+        },
+        {
+          "time": 26.4127,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001074"
+        },
+        {
+          "time": 24.172,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001070"
+        },
+        {
+          "time": 23.5566,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000627"
+        }
+      ],
+      "beatAnchors": [
+        24.16,
+        25.07,
+        25.96,
+        26.84,
+        27.73,
+        28.62
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-46aa8c46bfcdd9632eeb"
+    },
+    {
+      "id": "phrase-6ca2935177443b104556",
+      "start": 30.533333333333335,
+      "end": 32.666666666666664,
+      "text": "Și-am uitat apoi de mine.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.09086425000000009,
+      "dominantEvents": [
+        {
+          "time": 32.1596,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000012"
+        },
+        {
+          "time": 30.6736,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000639"
+        },
+        {
+          "time": 31.2657,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000641"
+        },
+        {
+          "time": 30.6155,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001084"
+        },
+        {
+          "time": 31.2773,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-76"
+        },
+        {
+          "time": 32.1829,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-80"
+        }
+      ],
+      "beatAnchors": [
+        31.25,
+        32.14
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-6ca2935177443b104556"
+    },
+    {
+      "id": "phrase-f64dd754974da46f7861",
+      "start": 33.96666666666667,
+      "end": 40.13333333333333,
+      "text": "Strâng facturile pe masă, N-am curaj să sun acasă.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.07939110000000013,
+      "dominantEvents": [
+        {
+          "time": 40.0544,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000019"
+        },
+        {
+          "time": 38.2897,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000017"
+        },
+        {
+          "time": 34.8067,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001503"
+        },
+        {
+          "time": 34.8067,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-90"
+        },
+        {
+          "time": 36.5482,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001504"
+        },
+        {
+          "time": 36.5482,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-96"
+        }
+      ],
+      "beatAnchors": [
+        34.77,
+        35.65,
+        36.52,
+        38.27,
+        39.16,
+        40.04
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-f64dd754974da46f7861"
+    },
+    {
+      "id": "phrase-55ee1503ff1458650463",
+      "start": 41.1,
+      "end": 43.46666666666667,
+      "text": "Când mă sună, mă prefac,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.09522074999999997,
+      "dominantEvents": [
+        {
+          "time": 41.3315,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000659"
+        },
+        {
+          "time": 41.8191,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001110"
+        },
+        {
+          "time": 43.3633,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001113"
+        },
+        {
+          "time": 42.4925,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001111"
+        },
+        {
+          "time": 41.8424,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-114"
+        },
+        {
+          "time": 42.7015,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000021"
+        }
+      ],
+      "beatAnchors": [
+        41.8,
+        42.69
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-55ee1503ff1458650463"
+    },
+    {
+      "id": "phrase-328955d852b56846eb1f",
+      "start": 44.56666666666667,
+      "end": 47.03333333333333,
+      "text": "Spun că-s bine, apoi tac.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.0903751999999999,
+      "dominantEvents": [
+        {
+          "time": 46.2193,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000024"
+        },
+        {
+          "time": 45.3486,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-127"
+        },
+        {
+          "time": 44.6636,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000667"
+        },
+        {
+          "time": 46.8695,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001122"
+        },
+        {
+          "time": 45.3254,
+          "source": "drums",
+          "category": "snare_like",
+          "eventId": "drums-snare_like-000023"
+        },
+        {
+          "time": 44.6752,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-124"
+        }
+      ],
+      "beatAnchors": [
+        45.32,
+        46.2
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-328955d852b56846eb1f"
+    },
+    {
+      "id": "phrase-11050e83d1ccc2a3899d",
+      "start": 48.333333333333336,
+      "end": 57.13333333333333,
+      "text": "Am zis „da” la ce n-am vrut, Timpul meu s-a tot pierdut. Nu-mi trece frica dacă stau,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.07973519444444443,
+      "dominantEvents": [
+        {
+          "time": 50.6195,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001507"
+        },
+        {
+          "time": 50.6195,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-147"
+        },
+        {
+          "time": 54.1141,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001142"
+        },
+        {
+          "time": 54.1141,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000032"
+        },
+        {
+          "time": 55.844,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001144"
+        },
+        {
+          "time": 49.7255,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000027"
+        }
+      ],
+      "beatAnchors": [
+        48.83,
+        49.71,
+        50.59,
+        52.34,
+        53.23,
+        54.09,
+        54.96,
+        55.83,
+        56.72
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-11050e83d1ccc2a3899d"
+    },
+    {
+      "id": "phrase-33d49ca44906b88a6160",
+      "start": 58.56666666666667,
+      "end": 60.733333333333334,
+      "text": "Știu măcar ce nu mai vreau.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.08315925000000002,
+      "dominantEvents": [
+        {
+          "time": 58.7349,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000701"
+        },
+        {
+          "time": 60.2326,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001154"
+        },
+        {
+          "time": 58.7465,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-174"
+        },
+        {
+          "time": 59.3734,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000704"
+        },
+        {
+          "time": 60.2558,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-179"
+        },
+        {
+          "time": 60.6737,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001155"
+        }
+      ],
+      "beatAnchors": [
+        59.34,
+        60.22
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-33d49ca44906b88a6160"
+    },
+    {
+      "id": "phrase-32efeb9ed990ecf8cb32",
+      "start": 62.266666666666666,
+      "end": 71.96666666666667,
+      "text": "N-am răspunsuri pentru tot, Dar fac astăzi tot ce pot. Nu rămân aici, nu mă las,",
+      "sectionLabels": [
+        "verse",
+        "chorus"
+      ],
+      "energyMean": 0.1136371547619048,
+      "dominantEvents": [
+        {
+          "time": 64.6095,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001164"
+        },
+        {
+          "time": 70.728,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000034"
+        },
+        {
+          "time": 62.4268,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000707"
+        },
+        {
+          "time": 71.5987,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000035"
+        },
+        {
+          "time": 65.8866,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000716"
+        },
+        {
+          "time": 64.18,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001162"
+        }
+      ],
+      "beatAnchors": [
+        62.85,
+        63.72,
+        64.59,
+        65.46,
+        66.33,
+        67.2,
+        68.08,
+        68.95,
+        70.71,
+        71.58
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-32efeb9ed990ecf8cb32"
+    },
+    {
+      "id": "phrase-6202c5aec7cea0bb5e39",
+      "start": 73.26666666666667,
+      "end": 75.53333333333333,
+      "text": "Mai departe, pas după pas.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.10495280000000022,
+      "dominantEvents": [
+        {
+          "time": 74.2342,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000043"
+        },
+        {
+          "time": 73.3518,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000042"
+        },
+        {
+          "time": 73.3518,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000730"
+        },
+        {
+          "time": 75.1166,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-219"
+        },
+        {
+          "time": 74.2458,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000735"
+        },
+        {
+          "time": 73.3518,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-212"
+        }
+      ],
+      "beatAnchors": [
+        73.33,
+        74.21,
+        75.09
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-6202c5aec7cea0bb5e39"
+    },
+    {
+      "id": "phrase-a5d739d415a918f5a5d1",
+      "start": 76.53333333333333,
+      "end": 79.03333333333333,
+      "text": "Nu rămân aici, chiar de-i greu,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.10421479999999975,
+      "dominantEvents": [
+        {
+          "time": 77.7288,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000051"
+        },
+        {
+          "time": 76.8464,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000050"
+        },
+        {
+          "time": 78.5995,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000052"
+        },
+        {
+          "time": 77.0902,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000327"
+        },
+        {
+          "time": 78.1468,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000743"
+        },
+        {
+          "time": 76.858,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-224"
+        }
+      ],
+      "beatAnchors": [
+        76.83,
+        77.71,
+        78.59
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-a5d739d415a918f5a5d1"
+    },
+    {
+      "id": "phrase-6b45216555d7da57ab16",
+      "start": 80.3,
+      "end": 89.7,
+      "text": "Îmi iau înapoi timpul meu. Nu rămân aici, nu mă las, Merg cu tot ce mi-a mai rămas.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.11547353492063493,
+      "dominantEvents": [
+        {
+          "time": 82.1058,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000061"
+        },
+        {
+          "time": 85.612,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000071"
+        },
+        {
+          "time": 86.0415,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000342"
+        },
+        {
+          "time": 83.4409,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000337"
+        },
+        {
+          "time": 82.129,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001510"
+        },
+        {
+          "time": 82.129,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-243"
+        }
+      ],
+      "beatAnchors": [
+        80.33,
+        81.21,
+        82.09,
+        82.96,
+        84.72,
+        85.59,
+        87.35,
+        88.22,
+        89.1
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-6b45216555d7da57ab16"
+    },
+    {
+      "id": "phrase-a68cb8635202c2c2c6c1",
+      "start": 90.83333333333333,
+      "end": 93.03333333333333,
+      "text": "Nu rămân aici, plec la drum,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.09717480000000016,
+      "dominantEvents": [
+        {
+          "time": 90.8597,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000082"
+        },
+        {
+          "time": 91.0919,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000350"
+        },
+        {
+          "time": 92.6012,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000084"
+        },
+        {
+          "time": 90.8481,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000772"
+        },
+        {
+          "time": 90.8597,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-268"
+        },
+        {
+          "time": 92.6244,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-273"
+        }
+      ],
+      "beatAnchors": [
+        90.84,
+        91.71,
+        92.59
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-a68cb8635202c2c2c6c1"
+    },
+    {
+      "id": "phrase-8d47ea147c28dbd6e232",
+      "start": 94.26666666666667,
+      "end": 99.66666666666667,
+      "text": "Fac ce pot cu ce am acum. Mi-au spus „nu” la interviu,",
+      "sectionLabels": [
+        "chorus",
+        "verse"
+      ],
+      "energyMean": 0.09784107142857115,
+      "dominantEvents": [
+        {
+          "time": 94.3543,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000087"
+        },
+        {
+          "time": 95.225,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000089"
+        },
+        {
+          "time": 98.708,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000095"
+        },
+        {
+          "time": 99.5788,
+          "source": "drums",
+          "category": "snare_like",
+          "eventId": "drums-snare_like-000096"
+        },
+        {
+          "time": 96.9665,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001218"
+        },
+        {
+          "time": 96.1074,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-285"
+        }
+      ],
+      "beatAnchors": [
+        94.33,
+        95.21,
+        96.07,
+        96.96,
+        98.7,
+        99.57
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-8d47ea147c28dbd6e232"
+    },
+    {
+      "id": "phrase-245f0a9757de57d406ad",
+      "start": 100.9,
+      "end": 103.43333333333334,
+      "text": "Mai încerc, nu-i prea târziu.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.10974560000000082,
+      "dominantEvents": [
+        {
+          "time": 100.9139,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001512"
+        },
+        {
+          "time": 100.9139,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-303"
+        },
+        {
+          "time": 103.0966,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-310"
+        },
+        {
+          "time": 103.0618,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000103"
+        },
+        {
+          "time": 101.8892,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000791"
+        },
+        {
+          "time": 101.3319,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000790"
+        }
+      ],
+      "beatAnchors": [
+        101.31,
+        102.18,
+        103.06
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-245f0a9757de57d406ad"
+    },
+    {
+      "id": "phrase-316fe15ad404905cd8a9",
+      "start": 104.43333333333334,
+      "end": 107.23333333333333,
+      "text": "Îmi fac timp și pentru mine,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.09581583333333359,
+      "dominantEvents": [
+        {
+          "time": 106.5448,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000111"
+        },
+        {
+          "time": 104.8033,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000108"
+        },
+        {
+          "time": 104.7917,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000796"
+        },
+        {
+          "time": 105.4418,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000799"
+        },
+        {
+          "time": 104.8149,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-317"
+        },
+        {
+          "time": 105.674,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001243"
+        }
+      ],
+      "beatAnchors": [
+        104.79,
+        105.66,
+        106.53
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-316fe15ad404905cd8a9"
+    },
+    {
+      "id": "phrase-b760b7c9802f1fb0c861",
+      "start": 108.3,
+      "end": 110.63333333333334,
+      "text": "Să învăț ce nu știu bine.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.09874980000000093,
+      "dominantEvents": [
+        {
+          "time": 110.0278,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000117"
+        },
+        {
+          "time": 110.0394,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000812"
+        },
+        {
+          "time": 110.0394,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-339"
+        },
+        {
+          "time": 109.157,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000116"
+        },
+        {
+          "time": 109.1686,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001251"
+        },
+        {
+          "time": 109.8188,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000811"
+        }
+      ],
+      "beatAnchors": [
+        109.14,
+        110.01
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-b760b7c9802f1fb0c861"
+    },
+    {
+      "id": "phrase-b5051fbce5ccba910d24",
+      "start": 111.5,
+      "end": 113.93333333333334,
+      "text": "Și când simt că nu mai pot,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.12657120000000005,
+      "dominantEvents": [
+        {
+          "time": 112.64,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000123"
+        },
+        {
+          "time": 111.9898,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000121"
+        },
+        {
+          "time": 111.6415,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000814"
+        },
+        {
+          "time": 112.431,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000817"
+        },
+        {
+          "time": 113.5224,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-351"
+        },
+        {
+          "time": 111.5487,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001257"
+        }
+      ],
+      "beatAnchors": [
+        111.75,
+        112.62,
+        113.49
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-b5051fbce5ccba910d24"
+    },
+    {
+      "id": "phrase-bef3cde3ab577354e1e4",
+      "start": 115.13333333333334,
+      "end": 117.46666666666667,
+      "text": "Sună a mei, nu spun tot.",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.11945675000000033,
+      "dominantEvents": [
+        {
+          "time": 117.0054,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001514"
+        },
+        {
+          "time": 117.0054,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-363"
+        },
+        {
+          "time": 115.2406,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000130"
+        },
+        {
+          "time": 117.4233,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001268"
+        },
+        {
+          "time": 116.9821,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000132"
+        },
+        {
+          "time": 116.9937,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000830"
+        }
+      ],
+      "beatAnchors": [
+        115.23,
+        116.1,
+        116.97
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-bef3cde3ab577354e1e4"
+    },
+    {
+      "id": "phrase-ce4b464961bdc6628dd3",
+      "start": 118.46666666666667,
+      "end": 120.73333333333333,
+      "text": "Mai greșesc, mai stau pe loc,",
+      "sectionLabels": [
+        "verse"
+      ],
+      "energyMean": 0.10385539999999978,
+      "dominantEvents": [
+        {
+          "time": 120.4651,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000139"
+        },
+        {
+          "time": 119.5944,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000137"
+        },
+        {
+          "time": 118.5263,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000831"
+        },
+        {
+          "time": 119.606,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000380"
+        },
+        {
+          "time": 120.4883,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-378"
+        },
+        {
+          "time": 119.5944,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001271"
+        }
+      ],
+      "beatAnchors": [
+        118.71,
+        119.58,
+        120.45
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-ce4b464961bdc6628dd3"
+    },
+    {
+      "id": "phrase-cedaee71f2ee91bf559f",
+      "start": 121.83333333333333,
+      "end": 126.8,
+      "text": "Schimb ce pot, n-aștept noroc. Nu-mi trece frica dacă stau,",
+      "sectionLabels": [
+        "verse",
+        "chorus"
+      ],
+      "energyMean": 0.09163980000000063,
+      "dominantEvents": [
+        {
+          "time": 122.2066,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000143"
+        },
+        {
+          "time": 123.9365,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000145"
+        },
+        {
+          "time": 125.678,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000146"
+        },
+        {
+          "time": 121.9744,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000841"
+        },
+        {
+          "time": 125.202,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000853"
+        },
+        {
+          "time": 123.0774,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001278"
+        }
+      ],
+      "beatAnchors": [
+        122.19,
+        123.05,
+        123.92,
+        125.66,
+        126.52
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-cedaee71f2ee91bf559f"
+    },
+    {
+      "id": "phrase-116018a9f3cf8012dcae",
+      "start": 128.36666666666667,
+      "end": 130.16666666666666,
+      "text": "Știu măcar ce nu mai vreau.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.08606074999999969,
+      "dominantEvents": [
+        {
+          "time": 130.0317,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001284"
+        },
+        {
+          "time": 128.5457,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000860"
+        },
+        {
+          "time": 128.7314,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000861"
+        },
+        {
+          "time": 129.1378,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000862"
+        },
+        {
+          "time": 128.5457,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-408"
+        },
+        {
+          "time": 129.1726,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000863"
+        }
+      ],
+      "beatAnchors": [
+        129.13,
+        130.02
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-116018a9f3cf8012dcae"
+    },
+    {
+      "id": "phrase-10af36a2227db78df9a9",
+      "start": 132.1,
+      "end": 141.8,
+      "text": "N-am răspunsuri pentru tot, Dar fac astăzi tot ce pot. Nu rămân aici, nu mă las,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.12272605357142878,
+      "dominantEvents": [
+        {
+          "time": 139.2152,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001312"
+        },
+        {
+          "time": 135.7206,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001296"
+        },
+        {
+          "time": 137.0326,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001302"
+        },
+        {
+          "time": 138.7741,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001310"
+        },
+        {
+          "time": 137.4621,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001304"
+        },
+        {
+          "time": 141.3979,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000150"
+        }
+      ],
+      "beatAnchors": [
+        132.64,
+        133.52,
+        134.4,
+        135.27,
+        136.14,
+        137.01,
+        137.89,
+        138.76,
+        139.64,
+        140.51,
+        141.39
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-10af36a2227db78df9a9"
+    },
+    {
+      "id": "phrase-b04ff1bf340ee010e04b",
+      "start": 142.86666666666667,
+      "end": 145.36666666666667,
+      "text": "Mai departe, pas după pas.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.13643360000000015,
+      "dominantEvents": [
+        {
+          "time": 144.0218,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000159"
+        },
+        {
+          "time": 145.3337,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000161"
+        },
+        {
+          "time": 144.8925,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000160"
+        },
+        {
+          "time": 143.1394,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000156"
+        },
+        {
+          "time": 144.9157,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001516"
+        },
+        {
+          "time": 144.9157,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-462"
+        }
+      ],
+      "beatAnchors": [
+        143.13,
+        144,
+        144.88
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-b04ff1bf340ee010e04b"
+    },
+    {
+      "id": "phrase-ce708fbee5f0631986b9",
+      "start": 146.63333333333333,
+      "end": 148.8,
+      "text": "Nu rămân aici, chiar de-i greu,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.12577625000000037,
+      "dominantEvents": [
+        {
+          "time": 146.6456,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000165"
+        },
+        {
+          "time": 147.5164,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000167"
+        },
+        {
+          "time": 146.6572,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-469"
+        },
+        {
+          "time": 148.3871,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000169"
+        },
+        {
+          "time": 147.9343,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000900"
+        },
+        {
+          "time": 148.3755,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000902"
+        }
+      ],
+      "beatAnchors": [
+        147.5,
+        148.38
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-ce708fbee5f0631986b9"
+    },
+    {
+      "id": "phrase-1ffe93db3807887a56d6",
+      "start": 150.16666666666666,
+      "end": 162.83333333333334,
+      "text": "Îmi iau înapoi timpul meu. Nu rămân aici, nu mă las, Merg cu tot ce mi-a mai rămas. Nu rămân aici, plec la drum,",
+      "sectionLabels": [
+        "chorus",
+        "bridge"
+      ],
+      "energyMean": 0.13220771666666659,
+      "dominantEvents": [
+        {
+          "time": 158.0234,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000193"
+        },
+        {
+          "time": 155.3995,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000186"
+        },
+        {
+          "time": 156.7115,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000191"
+        },
+        {
+          "time": 153.6464,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000182"
+        },
+        {
+          "time": 158.8941,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000194"
+        },
+        {
+          "time": 151.8933,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000176"
+        }
+      ],
+      "beatAnchors": [
+        151,
+        151.88,
+        152.75,
+        153.63,
+        154.51,
+        155.38,
+        157.13,
+        158,
+        158.88,
+        159.75,
+        161.5,
+        162.38
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-1ffe93db3807887a56d6"
+    },
+    {
+      "id": "phrase-95b519c3b68453e9bd87",
+      "start": 164.13333333333333,
+      "end": 170.26666666666668,
+      "text": "Fac ce pot cu ce am acum. Poate mâine tot mi-e greu,",
+      "sectionLabels": [
+        "bridge"
+      ],
+      "energyMean": 0.12393964285714232,
+      "dominantEvents": [
+        {
+          "time": 168.5188,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000215"
+        },
+        {
+          "time": 167.2069,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000212"
+        },
+        {
+          "time": 165.895,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000209"
+        },
+        {
+          "time": 164.1419,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000205"
+        },
+        {
+          "time": 166.7657,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000211"
+        },
+        {
+          "time": 165.0126,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000207"
+        }
+      ],
+      "beatAnchors": [
+        165,
+        165.87,
+        166.75,
+        167.62,
+        168.5,
+        169.36,
+        170.22
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-95b519c3b68453e9bd87"
+    },
+    {
+      "id": "phrase-8084b3f6aceeda54e1bb",
+      "start": 171.13333333333333,
+      "end": 183.76666666666668,
+      "text": "Dar mă țin de planul meu. Azi n-am tot ce mi-am dorit, Dar măcar nu m-am oprit. Nu rămân aici, nu mă las,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.08815255000000022,
+      "dominantEvents": [
+        {
+          "time": 182.5088,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001388"
+        },
+        {
+          "time": 178.991,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001372"
+        },
+        {
+          "time": 179.4322,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001374"
+        },
+        {
+          "time": 179.6528,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001375"
+        },
+        {
+          "time": 180.3029,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001378"
+        },
+        {
+          "time": 180.7441,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001380"
+        }
+      ],
+      "beatAnchors": [
+        171.99,
+        172.87,
+        173.72,
+        175.47,
+        176.34,
+        177.22,
+        178.97,
+        179.86,
+        180.73,
+        181.61,
+        182.49,
+        183.38
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-8084b3f6aceeda54e1bb"
+    },
+    {
+      "id": "phrase-cbe1f82e7c7b45ee0afb",
+      "start": 184.73333333333332,
+      "end": 190.9,
+      "text": "Mai departe, pas după pas. Nu rămân aici, chiar de-i greu,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.06716419999999985,
+      "dominantEvents": [
+        {
+          "time": 186.0151,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000222"
+        },
+        {
+          "time": 188.6505,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000228"
+        },
+        {
+          "time": 188.6621,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001528"
+        },
+        {
+          "time": 188.6621,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-598"
+        },
+        {
+          "time": 186.909,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000223"
+        },
+        {
+          "time": 188.221,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001527"
+        }
+      ],
+      "beatAnchors": [
+        185.12,
+        186,
+        186.89,
+        188.63,
+        189.51,
+        190.38
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-cbe1f82e7c7b45ee0afb"
+    },
+    {
+      "id": "phrase-9e30e63c0420fc84f4cd",
+      "start": 192.16666666666666,
+      "end": 194.5,
+      "text": "Îmi iau înapoi timpul meu.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.10811975000000018,
+      "dominantEvents": [
+        {
+          "time": 193.0159,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001403"
+        },
+        {
+          "time": 194.3394,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001409"
+        },
+        {
+          "time": 193.8982,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001407"
+        },
+        {
+          "time": 194,
+          "source": "mix",
+          "category": "energy_rise",
+          "eventId": "mix-energy_rise-001562"
+        },
+        {
+          "time": 193.2481,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001404"
+        },
+        {
+          "time": 193.0855,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-000982"
+        }
+      ],
+      "beatAnchors": [
+        193.01,
+        193.88
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-9e30e63c0420fc84f4cd"
+    },
+    {
+      "id": "phrase-fb9231d7a67fe2c38054",
+      "start": 195.63333333333333,
+      "end": 201.56666666666666,
+      "text": "Nu rămân aici, nu mă las, Merg cu tot ce mi-a mai rămas.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.1460667166666667,
+      "dominantEvents": [
+        {
+          "time": 196.0925,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001417"
+        },
+        {
+          "time": 196.5221,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000239"
+        },
+        {
+          "time": 195.6513,
+          "source": "drums",
+          "category": "hi_hat_like",
+          "eventId": "drums-hi_hat_like-000238"
+        },
+        {
+          "time": 198.7164,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000242"
+        },
+        {
+          "time": 195.6513,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001415"
+        },
+        {
+          "time": 196.3131,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001418"
+        }
+      ],
+      "beatAnchors": [
+        196.51,
+        197.39,
+        198.25,
+        199.14,
+        200.01,
+        200.89
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-fb9231d7a67fe2c38054"
+    },
+    {
+      "id": "phrase-8f4723e753fd76fbffbc",
+      "start": 202.5,
+      "end": 204.86666666666667,
+      "text": "Nu rămân aici, plec la drum,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.15164219999999914,
+      "dominantEvents": [
+        {
+          "time": 204.4053,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000256"
+        },
+        {
+          "time": 202.6522,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000251"
+        },
+        {
+          "time": 203.5345,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000253"
+        },
+        {
+          "time": 203.9409,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-001003"
+        },
+        {
+          "time": 204.4285,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-651"
+        },
+        {
+          "time": 202.6638,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-644"
+        }
+      ],
+      "beatAnchors": [
+        202.64,
+        203.52,
+        204.39
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-8f4723e753fd76fbffbc"
+    },
+    {
+      "id": "phrase-dc256bdc716581701274",
+      "start": 206.1,
+      "end": 210.36666666666667,
+      "text": "Fac ce pot cu ce am acum.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.13577137499999914,
+      "dominantEvents": [
+        {
+          "time": 209.6762,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001533"
+        },
+        {
+          "time": 209.6762,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-670"
+        },
+        {
+          "time": 209.6646,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000268"
+        },
+        {
+          "time": 206.1584,
+          "source": "drums",
+          "category": "drum_hit",
+          "eventId": "drums-drum_hit-000261"
+        },
+        {
+          "time": 207.0407,
+          "source": "drums",
+          "category": "kick_like",
+          "eventId": "drums-kick_like-000262"
+        },
+        {
+          "time": 207.9347,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001532"
+        }
+      ],
+      "beatAnchors": [
+        206.14,
+        207.02,
+        207.9,
+        208.77,
+        209.64
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-dc256bdc716581701274"
+    },
+    {
+      "id": "phrase-c72efbe46c11e9965bcf",
+      "start": 211.46666666666667,
+      "end": 214.83333333333334,
+      "text": "Nu e totul rezolvat,",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.07972585714285836,
+      "dominantEvents": [
+        {
+          "time": 214.0996,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000470"
+        },
+        {
+          "time": 212.6251,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-680"
+        },
+        {
+          "time": 212.6135,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-001022"
+        },
+        {
+          "time": 212.3349,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-001021"
+        },
+        {
+          "time": 212.3465,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-679"
+        },
+        {
+          "time": 213.2056,
+          "source": "bass",
+          "category": "bass_attack",
+          "eventId": "bass-bass_attack-000469"
+        }
+      ],
+      "beatAnchors": [
+        212.31,
+        213.19,
+        214.07
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-c72efbe46c11e9965bcf"
+    },
+    {
+      "id": "phrase-cbc9d81dcc05f14624a7",
+      "start": 216.66666666666666,
+      "end": 224.66666666666666,
+      "text": "Dar am sufletul împăcat.",
+      "sectionLabels": [
+        "chorus"
+      ],
+      "energyMean": 0.07326824999999992,
+      "dominantEvents": [
+        {
+          "time": 216.7583,
+          "source": "mix",
+          "category": "mix_impact",
+          "eventId": "mix-mix_impact-001535"
+        },
+        {
+          "time": 216.7583,
+          "source": "mix",
+          "category": "mix_accent",
+          "eventId": "mix-accent-686"
+        },
+        {
+          "time": 216.7351,
+          "source": "vocals",
+          "category": "vocal_accent",
+          "eventId": "vocals-vocal_accent-001026"
+        },
+        {
+          "time": 218.5578,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001450"
+        },
+        {
+          "time": 224,
+          "source": "mix",
+          "category": "energy_rise",
+          "eventId": "mix-energy_rise-001565"
+        },
+        {
+          "time": 223.9216,
+          "source": "other",
+          "category": "other_transient",
+          "eventId": "other-other_transient-001455"
+        }
+      ],
+      "beatAnchors": [
+        216.73,
+        217.64,
+        218.53,
+        219.39,
+        220.29,
+        221.19,
+        222.09,
+        223.01,
+        223.89
+      ],
+      "detailRef": "music-lyrics-map.json#phrase=phrase-cbc9d81dcc05f14624a7"
+    }
+  ]
+}

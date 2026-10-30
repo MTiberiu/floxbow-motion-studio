@@ -1,0 +1,1208 @@
+
+> ai-motion-studio@0.1.0 test
+> tsx --test tests/*.test.ts
+
+TAP version 13
+# Subtest: asset groups persist stable media references without creating Timeline clips
+ok 1 - asset groups persist stable media references without creating Timeline clips
+  ---
+  duration_ms: 37.119
+  type: 'test'
+  ...
+# Subtest: asset group edits reorder and rename canonical members; removing a group keeps clips
+ok 2 - asset group edits reorder and rename canonical members; removing a group keeps clips
+  ---
+  duration_ms: 3.3945
+  type: 'test'
+  ...
+# Subtest: Pose Studio imports retain their source character, action, sheet and pose IDs
+ok 3 - Pose Studio imports retain their source character, action, sheet and pose IDs
+  ---
+  duration_ms: 5.5154
+  type: 'test'
+  ...
+# Subtest: project data rejects duplicate member identities and malformed media references
+ok 4 - project data rejects duplicate member identities and malformed media references
+  ---
+  duration_ms: 14.119
+  type: 'test'
+  ...
+# Subtest: native picker output preserves Unicode paths and removes only its terminator
+ok 5 - native picker output preserves Unicode paths and removes only its terminator
+  ---
+  duration_ms: 3.7849
+  type: 'test'
+  ...
+# Subtest: soundtrack probing uses a real decoder and duration saves preserve existing timeline edits
+ok 6 - soundtrack probing uses a real decoder and duration saves preserve existing timeline edits
+  ---
+  duration_ms: 2838.4594
+  type: 'test'
+  ...
+# Subtest: audio duration probing reports malformed or undecodable sources clearly
+ok 7 - audio duration probing reports malformed or undecodable sources clearly
+  ---
+  duration_ms: 266.6301
+  type: 'test'
+  ...
+# Subtest: soundtrack timing and source stay fixed while allowing audio-row moves and deletion
+ok 8 - soundtrack timing and source stay fixed while allowing audio-row moves and deletion
+  ---
+  duration_ms: 1.6966
+  type: 'test'
+  ...
+# Subtest: moving a clip extends the saved Timeline duration and never shortens it
+ok 9 - moving a clip extends the saved Timeline duration and never shortens it
+  ---
+  duration_ms: 1.5826
+  type: 'test'
+  ...
+# Subtest: extended clip saves and reloads with matching project and Timeline durations
+ok 10 - extended clip saves and reloads with matching project and Timeline durations
+  ---
+  duration_ms: 81.4956
+  type: 'test'
+  ...
+# Subtest: editor atomic replacement retries transient Windows locks only
+ok 11 - editor atomic replacement retries transient Windows locks only
+  ---
+  duration_ms: 91.0709
+  type: 'test'
+  ...
+# Subtest: visual components declare a validated, serializable shared Canvas contract
+ok 12 - visual components declare a validated, serializable shared Canvas contract
+  ---
+  duration_ms: 20.5155
+  type: 'test'
+  ...
+# Subtest: Canvas resolves current canonical geometry and writes edits to declared JSON fields
+ok 13 - Canvas resolves current canonical geometry and writes edits to declared JSON fields
+  ---
+  duration_ms: 2.707
+  type: 'test'
+  ...
+# Subtest: track visibility and lock apply to shared Canvas elements
+ok 14 - track visibility and lock apply to shared Canvas elements
+  ---
+  duration_ms: 3.0756
+  type: 'test'
+  ...
+# Subtest: Canvas transform API enforces declared operations and field validation
+ok 15 - Canvas transform API enforces declared operations and field validation
+  ---
+  duration_ms: 40.9125
+  type: 'test'
+  ...
+# Subtest: shared resize metadata scales text size together with its geometry
+ok 16 - shared resize metadata scales text size together with its geometry
+  ---
+  duration_ms: 0.5711
+  type: 'test'
+  ...
+# Subtest: single-axis text resizing changes its layout box without changing font size
+ok 17 - single-axis text resizing changes its layout box without changing font size
+  ---
+  duration_ms: 0.3904
+  type: 'test'
+  ...
+# Subtest: Image Canvas contract allows intentional distortion by default
+ok 18 - Image Canvas contract allows intentional distortion by default
+  ---
+  duration_ms: 8.4404
+  type: 'test'
+  ...
+# Subtest: Canvas computes rotated bounds in composition percent space
+ok 19 - Canvas computes rotated bounds in composition percent space
+  ---
+  duration_ms: 1.682
+  type: 'test'
+  ...
+# Subtest: Canvas rotation geometry uses the rendered aspect ratio and keeps rotated anchors fixed
+ok 20 - Canvas rotation geometry uses the rendered aspect ratio and keeps rotated anchors fixed
+  ---
+  duration_ms: 3.8624
+  type: 'test'
+  ...
+# Subtest: Canvas core rejects resize changes that violate a declared aspect ratio
+ok 21 - Canvas core rejects resize changes that violate a declared aspect ratio
+  ---
+  duration_ms: 5.9912
+  type: 'test'
+  ...
+# Subtest: a module-owned subtitle opts into the same Canvas contract through metadata
+ok 22 - a module-owned subtitle opts into the same Canvas contract through metadata
+  ---
+  duration_ms: 6.9284
+  type: 'test'
+  ...
+# Subtest: Canvas move snaps selection edges and center to composition guides
+ok 23 - Canvas move snaps selection edges and center to composition guides
+  ---
+  duration_ms: 5.3508
+  type: 'test'
+  ...
+# Subtest: Shift axis lock keeps snapping on the unlocked movement axis only
+ok 24 - Shift axis lock keeps snapping on the unlocked movement axis only
+  ---
+  duration_ms: 1.1004
+  type: 'test'
+  ...
+# Subtest: character pose events resolve from scene-local time and retain stable asset identities
+ok 25 - character pose events resolve from scene-local time and retain stable asset identities
+  ---
+  duration_ms: 24.6606
+  type: 'test'
+  ...
+# Subtest: large imported character sequences resolve the active pose without scanning every event
+ok 26 - large imported character sequences resolve the active pose without scanning every event
+  ---
+  duration_ms: 0.6077
+  type: 'test'
+  ...
+# Subtest: looping Pose Studio clips resolve one clip-local pose cycle repeatedly
+ok 27 - looping Pose Studio clips resolve one clip-local pose cycle repeatedly
+  ---
+  duration_ms: 0.417
+  type: 'test'
+  ...
+# Subtest: character clips reject unknown groups, alternative-only states, and out-of-scene poses
+ok 28 - character clips reject unknown groups, alternative-only states, and out-of-scene poses
+  ---
+  duration_ms: 20.1024
+  type: 'test'
+  ...
+# Subtest: Codex lyrics brief derives project paths and embeds supplied lyrics
+ok 29 - Codex lyrics brief derives project paths and embeds supplied lyrics
+  ---
+  duration_ms: 2.5806
+  type: 'test'
+  ...
+# Subtest: Codex lyrics brief does not invent project paths when they are absent
+ok 30 - Codex lyrics brief does not invent project paths when they are absent
+  ---
+  duration_ms: 0.3664
+  type: 'test'
+  ...
+# Subtest: module index IDs and implementation statuses are consistent
+ok 31 - module index IDs and implementation statuses are consistent
+  ---
+  duration_ms: 16.5884
+  type: 'test'
+  ...
+# Subtest: entry points and module index link to existing local documentation
+ok 32 - entry points and module index link to existing local documentation
+  ---
+  duration_ms: 1561.2151
+  type: 'test'
+  ...
+# Subtest: timeline height clamps invalid and undersized saved values
+ok 33 - timeline height clamps invalid and undersized saved values
+  ---
+  duration_ms: 2.1468
+  type: 'test'
+  ...
+# Subtest: timeline height fits the viewport after resize
+ok 34 - timeline height fits the viewport after resize
+  ---
+  duration_ms: 0.2819
+  type: 'test'
+  ...
+# Subtest: stale paused preview frames cannot override the latest editor seek
+ok 35 - stale paused preview frames cannot override the latest editor seek
+  ---
+  duration_ms: 2.7286
+  type: 'test'
+  ...
+# Subtest: preview playback can advance after a seek
+ok 36 - preview playback can advance after a seek
+  ---
+  duration_ms: 0.2792
+  type: 'test'
+  ...
+# Subtest: visual context IPC captures bounded Canvas pixels and limits access to the primary window
+ok 37 - visual context IPC captures bounded Canvas pixels and limits access to the primary window
+  ---
+  duration_ms: 24.3229
+  type: 'test'
+  ...
+# Subtest: panel open contract is strict, bounded and rejects malformed identifiers
+ok 38 - panel open contract is strict, bounded and rejects malformed identifiers
+  ---
+  duration_ms: 1.6012
+  type: 'test'
+  ...
+# Subtest: storyboard clipboard is bounded and primary-shell-only
+ok 39 - storyboard clipboard is bounded and primary-shell-only
+  ---
+  duration_ms: 7.1065
+  type: 'test'
+  ...
+# Subtest: Timeline snapshots use a strict 1 MiB schema while control messages remain 4 KiB
+ok 40 - Timeline snapshots use a strict 1 MiB schema while control messages remain 4 KiB
+  ---
+  duration_ms: 122.3061
+  type: 'test'
+  ...
+# Subtest: Timeline snapshot IPC accepts legacy and scene-aware v1 documents
+ok 41 - Timeline snapshot IPC accepts legacy and scene-aware v1 documents
+  ---
+  duration_ms: 84.7004
+  type: 'test'
+  ...
+# Subtest: Timeline commands and acknowledgments require a scoped command ID and exact schema
+ok 42 - Timeline commands and acknowledgments require a scoped command ID and exact schema
+  ---
+  duration_ms: 55.0991
+  type: 'test'
+  ...
+# Subtest: only the primary opens the one fixed, sandboxed Timeline route
+ok 43 - only the primary opens the one fixed, sandboxed Timeline route
+  ---
+  duration_ms: 7.0062
+  type: 'test'
+  ...
+# Subtest: Timeline snapshots and commands relay only between the primary and the registered child
+ok 44 - Timeline snapshots and commands relay only between the primary and the registered child
+  ---
+  duration_ms: 17.3958
+  type: 'test'
+  ...
+# Subtest: primary or child attach closes only its registered Timeline instance
+ok 45 - primary or child attach closes only its registered Timeline instance
+  ---
+  duration_ms: 16.1656
+  type: 'test'
+  ...
+# Subtest: stale sessions are replaced and old window messages are rejected
+ok 46 - stale sessions are replaced and old window messages are rejected
+  ---
+  duration_ms: 6.1603
+  type: 'test'
+  ...
+# Subtest: main-frame route validation and native window guards reject navigation, popups and webviews
+ok 47 - main-frame route validation and native window guards reject navigation, popups and webviews
+  ---
+  duration_ms: 9.6954
+  type: 'test'
+  ...
+# Subtest: closing a child notifies the primary once and primary shutdown closes children silently
+ok 48 - closing a child notifies the primary once and primary shutdown closes children silently
+  ---
+  duration_ms: 2.3006
+  type: 'test'
+  ...
+# Subtest: failed panel loading closes the child and restores the primary Timeline
+ok 49 - failed panel loading closes the child and restores the primary Timeline
+  ---
+  duration_ms: 109.8738
+  type: 'test'
+  ...
+# Subtest: child renderer termination and unresponsiveness reattach without duplicate close events
+ok 50 - child renderer termination and unresponsiveness reattach without duplicate close events
+  ---
+  duration_ms: 5.3792
+  type: 'test'
+  ...
+# Subtest: main-frame route load failure restores Timeline while subframe failure is ignored
+ok 51 - main-frame route load failure restores Timeline while subframe failure is ignored
+  ---
+  duration_ms: 1.0624
+  type: 'test'
+  ...
+# Subtest: focused Timeline filters clips and rows to the selected object's track
+ok 52 - focused Timeline filters clips and rows to the selected object's track
+  ---
+  duration_ms: 3.4973
+  type: 'test'
+  ...
+# Subtest: storyboard audio uses the registered-media stream route
+ok 53 - storyboard audio uses the registered-media stream route
+  ---
+  duration_ms: 2.0697
+  type: 'test'
+  ...
+# Subtest: manifest rejects traversal, incompatible SDK and invalid dimensions
+ok 54 - manifest rejects traversal, incompatible SDK and invalid dimensions
+  ---
+  duration_ms: 17.5114
+  type: 'test'
+  ...
+# Subtest: discovery isolates malformed projects and detects added folders
+ok 55 - discovery isolates malformed projects and detects added folders
+  ---
+  duration_ms: 250.5892
+  type: 'test'
+  ...
+# Subtest: lyrics never invent timing and reconciliation preserves repeated occurrences
+ok 56 - lyrics never invent timing and reconciliation preserves repeated occurrences
+  ---
+  duration_ms: 25.9955
+  type: 'test'
+  ...
+# Subtest: timeline rejects reversed intervals, duplicate IDs and invalid repeats
+ok 57 - timeline rejects reversed intervals, duplicate IDs and invalid repeats
+  ---
+  duration_ms: 4.0399
+  type: 'test'
+  ...
+# Subtest: capability registry imports, docs, examples and references resolve
+ok 58 - capability registry imports, docs, examples and references resolve
+  ---
+  duration_ms: 425.2132
+  type: 'test'
+  ...
+# Subtest: Create Project scaffold creates a blank, valid editable project
+ok 59 - Create Project scaffold creates a blank, valid editable project
+  ---
+  duration_ms: 140.4455
+  type: 'test'
+  ...
+# Subtest: three scaffolded projects are independently discoverable and editable
+ok 60 - three scaffolded projects are independently discoverable and editable
+  ---
+  duration_ms: 436.0369
+  type: 'test'
+  ...
+# Subtest: project library scaffold keeps the selected canvas format and deletes only the chosen project
+ok 61 - project library scaffold keeps the selected canvas format and deletes only the chosen project
+  ---
+  duration_ms: 183.2523
+  type: 'test'
+  ...
+# Subtest: master preview volume accepts only finite normalized values
+ok 62 - master preview volume accepts only finite normalized values
+  ---
+  duration_ms: 1.7601
+  type: 'test'
+  ...
+# Subtest: Media Library drag data carries only a validated project-local asset reference
+ok 63 - Media Library drag data carries only a validated project-local asset reference
+  ---
+  duration_ms: 11.9117
+  type: 'test'
+  ...
+# Subtest: Media Library drag data supports a video asset without exposing its source path
+ok 64 - Media Library drag data supports a video asset without exposing its source path
+  ---
+  duration_ms: 0.4843
+  type: 'test'
+  ...
+# Subtest: Media Library drag data rejects paths, unknown fields and malformed IDs
+ok 65 - Media Library drag data rejects paths, unknown fields and malformed IDs
+  ---
+  duration_ms: 0.4065
+  type: 'test'
+  ...
+# Subtest: media registry validates versioned audio entries, absolute platform paths, and unique IDs
+ok 66 - media registry validates versioned audio entries, absolute platform paths, and unique IDs
+  ---
+  duration_ms: 15.8579
+  type: 'test'
+  ...
+# Subtest: host resolver recognizes registered MP4 assets while rejecting invalid headers
+ok 67 - host resolver recognizes registered MP4 assets while rejecting invalid headers
+  ---
+  duration_ms: 62.2002
+  type: 'test'
+  ...
+# Subtest: host resolver accepts valid MP3/WAV, reports missing and invalid sources, and never resolves an unregistered ID
+ok 68 - host resolver accepts valid MP3/WAV, reports missing and invalid sources, and never resolves an unregistered ID
+  ---
+  duration_ms: 250.11
+  type: 'test'
+  ...
+# Subtest: Windows absolute paths are portable in the schema and resolved only on a compatible host
+ok 69 - Windows absolute paths are portable in the schema and resolved only on a compatible host
+  ---
+  duration_ms: 8.634
+  type: 'test'
+  ...
+# Subtest: projects without media.json stay readable and registration persists a linked path without copying the source
+ok 70 - projects without media.json stay readable and registration persists a linked path without copying the source
+  ---
+  duration_ms: 296.5304
+  type: 'test'
+  ...
+# Subtest: PNG registration creates a stable image asset and never treats it as audio
+ok 71 - PNG registration creates a stable image asset and never treats it as audio
+  ---
+  duration_ms: 116.786
+  type: 'test'
+  ...
+# Subtest: removal deletes only the chosen registry entry and preserves other IDs and source files
+ok 72 - removal deletes only the chosen registry entry and preserves other IDs and source files
+  ---
+  duration_ms: 353.5883
+  type: 'test'
+  ...
+# Subtest: removing a missing source is safe and concurrent add/remove reports a revision conflict
+ok 73 - removing a missing source is safe and concurrent add/remove reports a revision conflict
+  ---
+  duration_ms: 595.5689
+  type: 'test'
+  ...
+# Subtest: external registry edits become visible and stale UI writes are rejected without losing the external edit
+ok 74 - external registry edits become visible and stale UI writes are rejected without losing the external edit
+  ---
+  duration_ms: 222.2587
+  type: 'test'
+  ...
+# Subtest: Pose Studio imports transparent PNGs as project media and deduplicates identical images
+ok 75 - Pose Studio imports transparent PNGs as project media and deduplicates identical images
+  ---
+  duration_ms: 211.3486
+  type: 'test'
+  ...
+# Subtest: saved Storyboard reference PNGs become stable Timeline-ready project media
+ok 76 - saved Storyboard reference PNGs become stable Timeline-ready project media
+  ---
+  duration_ms: 269.2938
+  type: 'test'
+  ...
+# Subtest: missing linked audio remains registered and becomes a visible missing status
+ok 77 - missing linked audio remains registered and becomes a visible missing status
+  ---
+  duration_ms: 228.0462
+  type: 'test'
+  ...
+# Subtest: partial report keeps unavailable musical structure explicitly empty
+ok 78 - partial report keeps unavailable musical structure explicitly empty
+  ---
+  duration_ms: 46.4174
+  type: 'test'
+  ...
+# Subtest: complete report retains All-In-One-Infer labels and timings
+ok 79 - complete report retains All-In-One-Infer labels and timings
+  ---
+  duration_ms: 71.2641
+  type: 'test'
+  ...
+# Subtest: a new project can save and reopen one atomic report
+ok 80 - a new project can save and reopen one atomic report
+  ---
+  duration_ms: 55.1496
+  type: 'test'
+  ...
+# Subtest: full-song correlation keeps canonical cue and word IDs, normalized times, and source references
+ok 81 - full-song correlation keeps canonical cue and word IDs, normalized times, and source references
+  ---
+  duration_ms: 131.0077
+  type: 'test'
+  ...
+# Subtest: lyrics source fingerprint changes with karaoke edits but ignores visual-only clip props
+ok 82 - lyrics source fingerprint changes with karaoke edits but ignores visual-only clip props
+  ---
+  duration_ms: 2.2012
+  type: 'test'
+  ...
+# Subtest: correlation rejects an audio report from another project
+ok 83 - correlation rejects an audio report from another project
+  ---
+  duration_ms: 3.0047
+  type: 'test'
+  ...
+# Subtest: same-frame seek does not leave playback waiting for a frame update
+ok 84 - same-frame seek does not leave playback waiting for a frame update
+  ---
+  duration_ms: 1.818
+  type: 'test'
+  ...
+# Subtest: changed-frame seek waits for the requested authoritative frame
+ok 85 - changed-frame seek waits for the requested authoritative frame
+  ---
+  duration_ms: 0.7652
+  type: 'test'
+  ...
+# Subtest: stale seeked reports cannot overwrite the requested editor frame
+ok 86 - stale seeked reports cannot overwrite the requested editor frame
+  ---
+  duration_ms: 1.2456
+  type: 'test'
+  ...
+# Subtest: play restarts at zero at the active content boundary
+ok 87 - play restarts at zero at the active content boundary
+  ---
+  duration_ms: 1.1105
+  type: 'test'
+  ...
+# Subtest: Pose Studio action import creates one scene Character clip with timed source pose events
+ok 88 - Pose Studio action import creates one scene Character clip with timed source pose events
+  ---
+  duration_ms: 36.9154
+  type: 'test'
+  ...
+# Subtest: Pose Studio imports always repeat one compact cycle for the clip duration
+ok 89 - Pose Studio imports always repeat one compact cycle for the clip duration
+  ---
+  duration_ms: 6.9144
+  type: 'test'
+  ...
+# Subtest: extending a looping imported action grows its scene and shifts later scenes
+ok 90 - extending a looping imported action grows its scene and shifts later scenes
+  ---
+  duration_ms: 5.741
+  type: 'test'
+  ...
+# Subtest: scene import rejects an action that cannot fit one complete pass
+ok 91 - scene import rejects an action that cannot fit one complete pass
+  ---
+  duration_ms: 1.3998
+  type: 'test'
+  ...
+# Subtest: pose grid creates up to 1,000 independent crop regions without copying image data
+ok 92 - pose grid creates up to 1,000 independent crop regions without copying image data
+  ---
+  duration_ms: 19.7551
+  type: 'test'
+  ...
+# Subtest: pose library validates character, single-pose, repeated combo and stable crop references
+ok 93 - pose library validates character, single-pose, repeated combo and stable crop references
+  ---
+  duration_ms: 103.567
+  type: 'test'
+  ...
+# Subtest: existing pose libraries gain default crop transforms and masks; edited masks round-trip
+ok 94 - existing pose libraries gain default crop transforms and masks; edited masks round-trip
+  ---
+  duration_ms: 6.985
+  type: 'test'
+  ...
+# Subtest: pose preview evaluation applies speed and loops without accumulated frame timers
+ok 95 - pose preview evaluation applies speed and loops without accumulated frame timers
+  ---
+  duration_ms: 2.9332
+  type: 'test'
+  ...
+# Subtest: Canvas format changes preserve project data and require a current revision
+ok 96 - Canvas format changes preserve project data and require a current revision
+  ---
+  duration_ms: 878.4453
+  type: 'test'
+  ...
+# Subtest: Canvas format rejects invalid dimensions without changing project JSON
+ok 97 - Canvas format rejects invalid dimensions without changing project JSON
+  ---
+  duration_ms: 357.5763
+  type: 'test'
+  ...
+# Subtest: Scene Moments save scene-local bookmarks linked to active character pose events
+ok 98 - Scene Moments save scene-local bookmarks linked to active character pose events
+  ---
+  duration_ms: 15.0135
+  type: 'test'
+  ...
+# Subtest: Scene Moment data rejects stale scene and character pose references
+ok 99 - Scene Moment data rejects stale scene and character pose references
+  ---
+  duration_ms: 4.3496
+  type: 'test'
+  ...
+# Subtest: standalone Image declares editable properties and the shared Canvas transform contract
+ok 100 - standalone Image declares editable properties and the shared Canvas transform contract
+  ---
+  duration_ms: 69.3086
+  type: 'test'
+  ...
+# Subtest: Image Inspector offers icon actions with hover descriptions
+ok 101 - Image Inspector offers icon actions with hover descriptions
+  ---
+  duration_ms: 63.3055
+  type: 'test'
+  ...
+# Subtest: Image selection and transforms use shared canonical Timeline v1 properties
+ok 102 - Image selection and transforms use shared canonical Timeline v1 properties
+  ---
+  duration_ms: 8.5637
+  type: 'test'
+  ...
+# Subtest: Image waits for the live media map during preview initialization
+ok 103 - Image waits for the live media map during preview initialization
+  ---
+  duration_ms: 6.7429
+  type: 'test'
+  ...
+# Subtest: standalone Text exposes the supported editable contract
+ok 104 - standalone Text exposes the supported editable contract
+  ---
+  duration_ms: 44.1284
+  type: 'test'
+  ...
+# Subtest: standalone Text rejects invalid externally authored project properties
+ok 105 - standalone Text rejects invalid externally authored project properties
+  ---
+  duration_ms: 10.4803
+  type: 'test'
+  ...
+# Subtest: legacy Timeline v1 remains valid and standalone text renders its saved props
+ok 106 - legacy Timeline v1 remains valid and standalone text renders its saved props
+  ---
+  duration_ms: 80.1813
+  type: 'test'
+  ...
+# Subtest: standalone Text animations render deterministically from clip-local frames
+ok 107 - standalone Text animations render deterministically from clip-local frames
+  ---
+  duration_ms: 7.6488
+  type: 'test'
+  ...
+# Subtest: standalone Video uses registered asset IDs and declares shared Canvas operations
+ok 108 - standalone Video uses registered asset IDs and declares shared Canvas operations
+  ---
+  duration_ms: 42.7593
+  type: 'test'
+  ...
+# Subtest: Video transform edits remain canonical Timeline v1 clip properties
+ok 109 - Video transform edits remain canonical Timeline v1 clip properties
+  ---
+  duration_ms: 13.5341
+  type: 'test'
+  ...
+# Subtest: detached video audio keeps a separate clip ID and the registered video asset reference
+ok 110 - detached video audio keeps a separate clip ID and the registered video asset reference
+  ---
+  duration_ms: 3.5364
+  type: 'test'
+  ...
+# Subtest: collaboration coverage follows existing stable shot IDs and reports unanswered direction
+ok 111 - collaboration coverage follows existing stable shot IDs and reports unanswered direction
+  ---
+  duration_ms: 37.0527
+  type: 'test'
+  ...
+# Subtest: animator questions, decisions, implementation and self-review stay linked to one directive
+ok 112 - animator questions, decisions, implementation and self-review stay linked to one directive
+  ---
+  duration_ms: 42.876
+  type: 'test'
+  ...
+# Subtest: collaboration rejects replies to unrelated targets and unsafe source paths
+ok 113 - collaboration rejects replies to unrelated targets and unsafe source paths
+  ---
+  duration_ms: 4.2788
+  type: 'test'
+  ...
+# Subtest: local animator handoff appends one validated response without replacing the plan
+not ok 114 - local animator handoff appends one validated response without replacing the plan
+  ---
+  duration_ms: 412.3701
+  type: 'test'
+  location: 'J:\\floxbow\\app\\tests\\storyboard-collaboration.test.ts:75:1'
+  failureType: 'testCodeFailure'
+  error: "EPERM: operation not permitted, rename 'C:\\Users\\munte\\AppData\\Local\\Packages\\sandbox.{17ce7e86-c515-406a-8199-a244db7826bb}\\AC\\Temp\\storyboard-collaboration-yoag4o\\projects\\collaboration-project\\storyboard.json.307953ce-3628-4952-b547-f96e8430edd8.tmp' -> 'C:\\Users\\munte\\AppData\\Local\\Packages\\sandbox.{17ce7e86-c515-406a-8199-a244db7826bb}\\AC\\Temp\\storyboard-collaboration-yoag4o\\projects\\collaboration-project\\storyboard.json'"
+  code: 'EPERM'
+  stack: |-
+    async rename (node:internal/fs/promises:778:10)
+    async renameWithTransientWindowsRetry (J:\floxbow\app\scripts\editor-store.ts:22:7)
+    async <anonymous> (J:\floxbow\app\scripts\storyboard-store.ts:287:7)
+    async withProjectWriteLock (J:\floxbow\app\scripts\project-write-lock.ts:15:12)
+    async TestContext.<anonymous> (J:\floxbow\app\tests\storyboard-collaboration.test.ts:89:23)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Storyboard image layers render through the Video Editor Remotion Image component
+ok 115 - Storyboard image layers render through the Video Editor Remotion Image component
+  ---
+  duration_ms: 65.059
+  type: 'test'
+  ...
+# Subtest: Animator output IDs are stable for a project shot and authored key
+ok 116 - Animator output IDs are stable for a project shot and authored key
+  ---
+  duration_ms: 2.8245
+  type: 'test'
+  ...
+# Subtest: Animator declares image assets and effects as a target-linked hierarchy
+ok 117 - Animator declares image assets and effects as a target-linked hierarchy
+  ---
+  duration_ms: 72.4582
+  type: 'test'
+  ...
+# Subtest: Animator image outputs need a registered image and effects need an element target
+ok 118 - Animator image outputs need a registered image and effects need an element target
+  ---
+  duration_ms: 6.1107
+  type: 'test'
+  ...
+# Subtest: Storyboard image placement adapts to the existing Video Editor image clip contract
+ok 119 - Storyboard image placement adapts to the existing Video Editor image clip contract
+  ---
+  duration_ms: 17.8232
+  type: 'test'
+  ...
+# Subtest: publishing a shot stages stable image clips and preserves existing Animator clips
+ok 120 - publishing a shot stages stable image clips and preserves existing Animator clips
+  ---
+  duration_ms: 19.882
+  type: 'test'
+  ...
+# Subtest: publishing two storyboard scenes includes every visible image element in each shot
+ok 121 - publishing two storyboard scenes includes every visible image element in each shot
+  ---
+  duration_ms: 9.0531
+  type: 'test'
+  ...
+# Subtest: publishing refuses to overwrite a modified Animator clip created from a Storyboard layer
+ok 122 - publishing refuses to overwrite a modified Animator clip created from a Storyboard layer
+  ---
+  duration_ms: 6.089
+  type: 'test'
+  ...
+# Subtest: Storyboard Stretch maps to the Video Editor's Fill mode without changing geometry
+ok 123 - Storyboard Stretch maps to the Video Editor's Fill mode without changing geometry
+  ---
+  duration_ms: 0.8562
+  type: 'test'
+  ...
+# Subtest: syncing a saved Timeline updates linked shot timing and image placement only
+ok 124 - syncing a saved Timeline updates linked shot timing and image placement only
+  ---
+  duration_ms: 3.935
+  type: 'test'
+  ...
+# Subtest: image feedback geometry stabilizes freehand and closes smooth areas
+ok 125 - image feedback geometry stabilizes freehand and closes smooth areas
+  ---
+  duration_ms: 3.971
+  type: 'test'
+  ...
+# Subtest: image feedback follows fit, fill and stretch placement across composition ratios
+ok 126 - image feedback follows fit, fill and stretch placement across composition ratios
+  ---
+  duration_ms: 1.7271
+  type: 'test'
+  ...
+# Subtest: image feedback uses the same fitted image rectangle for input and rendering
+ok 127 - image feedback uses the same fitted image rectangle for input and rendering
+  ---
+  duration_ms: 0.8377
+  type: 'test'
+  ...
+# Subtest: recovered annotations merge onto the current storyboard without replacing saved content
+ok 128 - recovered annotations merge onto the current storyboard without replacing saved content
+  ---
+  duration_ms: 2.2106
+  type: 'test'
+  ...
+# Subtest: stale browser storyboard drafts yield to the latest saved project document
+ok 129 - stale browser storyboard drafts yield to the latest saved project document
+  ---
+  duration_ms: 0.7242
+  type: 'test'
+  ...
+# Subtest: recovered storyboard drafts repair mojibake without changing correct UTF-8 text
+ok 130 - recovered storyboard drafts repair mojibake without changing correct UTF-8 text
+  ---
+  duration_ms: 1.0494
+  type: 'test'
+  ...
+# Subtest: storyboard reference images preserve their aspect ratio inside the selected project frame
+ok 131 - storyboard reference images preserve their aspect ratio inside the selected project frame
+  ---
+  duration_ms: 0.5773
+  type: 'test'
+  ...
+# Subtest: reusable motion library has stable built-in identities and supports variations
+ok 132 - reusable motion library has stable built-in identities and supports variations
+  ---
+  duration_ms: 16.7221
+  type: 'test'
+  ...
+# Subtest: storyboard validates continuity, identities, timing and reference relations
+ok 133 - storyboard validates continuity, identities, timing and reference relations
+  ---
+  duration_ms: 44.6603
+  type: 'test'
+  ...
+# Subtest: a shot keeps its approved key image separate from its editable layers
+ok 134 - a shot keeps its approved key image separate from its editable layers
+  ---
+  duration_ms: 8.6264
+  type: 'test'
+  ...
+# Subtest: brief preserves instructions, separates suggestions, marks stale source and uncertainty
+ok 135 - brief preserves instructions, separates suggestions, marks stale source and uncertainty
+  ---
+  duration_ms: 9.6693
+  type: 'test'
+  ...
+# Subtest: scene and whole-film approvals are scoped to the approved content revision
+ok 136 - scene and whole-film approvals are scoped to the approved content revision
+  ---
+  duration_ms: 10.8109
+  type: 'test'
+  ...
+# Subtest: Director assets support direct agent revisions and precise image-space annotations
+ok 137 - Director assets support direct agent revisions and precise image-space annotations
+  ---
+  duration_ms: 15.9665
+  type: 'test'
+  ...
+# Subtest: storyboard atomic save/reload, conflict rejection, agent resolver and real subtitle adapter
+not ok 138 - storyboard atomic save/reload, conflict rejection, agent resolver and real subtitle adapter
+  ---
+  duration_ms: 576.459
+  type: 'test'
+  location: 'J:\\floxbow\\app\\tests\\storyboard.test.ts:369:1'
+  failureType: 'testCodeFailure'
+  error: "EPERM: operation not permitted, rename 'C:\\Users\\munte\\AppData\\Local\\Packages\\sandbox.{17ce7e86-c515-406a-8199-a244db7826bb}\\AC\\Temp\\storyboard-test-6kO2E2\\story-test\\storyboard.json.d217a581-aa18-4f7d-a733-804960fb0fb0.tmp' -> 'C:\\Users\\munte\\AppData\\Local\\Packages\\sandbox.{17ce7e86-c515-406a-8199-a244db7826bb}\\AC\\Temp\\storyboard-test-6kO2E2\\story-test\\storyboard.json'"
+  code: 'EPERM'
+  stack: |-
+    async rename (node:internal/fs/promises:778:10)
+    async renameWithTransientWindowsRetry (J:\floxbow\app\scripts\editor-store.ts:22:7)
+    async <anonymous> (J:\floxbow\app\scripts\storyboard-store.ts:287:7)
+    async withProjectWriteLock (J:\floxbow\app\scripts\project-write-lock.ts:15:12)
+    async TestContext.<anonymous> (J:\floxbow\app\tests\storyboard.test.ts:433:22)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: portable ZIP directory points to exact bytes and rejects traversal
+ok 139 - portable ZIP directory points to exact bytes and rejects traversal
+  ---
+  duration_ms: 25.297
+  type: 'test'
+  ...
+# Subtest: portrait spatial contract retains bounds, order, rotation and independent representations
+ok 140 - portrait spatial contract retains bounds, order, rotation and independent representations
+  ---
+  duration_ms: 7.1082
+  type: 'test'
+  ...
+# Subtest: AI image results keep request provenance and add a new representation of the same object
+ok 141 - AI image results keep request provenance and add a new representation of the same object
+  ---
+  duration_ms: 4.5249
+  type: 'test'
+  ...
+# Subtest: shared clip copy preserves identity data and extends duration without copying media
+ok 142 - shared clip copy preserves identity data and extends duration without copying media
+  ---
+  duration_ms: 10.9901
+  type: 'test'
+  ...
+# Subtest: drag-copy duplicates every selected clip at its own Timeline position
+ok 143 - drag-copy duplicates every selected clip at its own Timeline position
+  ---
+  duration_ms: 1.7902
+  type: 'test'
+  ...
+# Subtest: soundtrack remains fixed for timing edits but can be deleted
+ok 144 - soundtrack remains fixed for timing edits but can be deleted
+  ---
+  duration_ms: 1.4632
+  type: 'test'
+  ...
+# Subtest: large gap analysis reports globally empty visual intervals without changing duration
+ok 145 - large gap analysis reports globally empty visual intervals without changing duration
+  ---
+  duration_ms: 1.3543
+  type: 'test'
+  ...
+# Subtest: preview playback end can avoid blank tail without changing export duration
+ok 146 - preview playback end can avoid blank tail without changing export duration
+  ---
+  duration_ms: 5.7899
+  type: 'test'
+  ...
+# Subtest: editor gap warnings locate visual clips and ignore soundtrack-only gaps
+ok 147 - editor gap warnings locate visual clips and ignore soundtrack-only gaps
+  ---
+  duration_ms: 13.9321
+  type: 'test'
+  ...
+# Subtest: editor review reports subtitle gaps down to a single frame
+ok 148 - editor review reports subtitle gaps down to a single frame
+  ---
+  duration_ms: 11.5993
+  type: 'test'
+  ...
+# Subtest: a background clip on another track suppresses normal subtitle spacing warnings
+ok 149 - a background clip on another track suppresses normal subtitle spacing warnings
+  ---
+  duration_ms: 74.9007
+  type: 'test'
+  ...
+# Subtest: an image covering the full interval between captions prevents a false gap warning
+ok 150 - an image covering the full interval between captions prevents a false gap warning
+  ---
+  duration_ms: 4.6847
+  type: 'test'
+  ...
+# Subtest: ripple duration edit moves downstream clips and expands following scenes safely
+ok 151 - ripple duration edit moves downstream clips and expands following scenes safely
+  ---
+  duration_ms: 62.0231
+  type: 'test'
+  ...
+# Subtest: normal mode changes only the edited clip
+ok 152 - normal mode changes only the edited clip
+  ---
+  duration_ms: 2.669
+  type: 'test'
+  ...
+# Subtest: ripple rejects locked downstream content and clips crossing the boundary
+ok 153 - ripple rejects locked downstream content and clips crossing the boundary
+  ---
+  duration_ms: 3.0958
+  type: 'test'
+  ...
+# Subtest: Timeline ruler labels every 10 seconds and adds subtle 5-second marks
+ok 154 - Timeline ruler labels every 10 seconds and adds subtle 5-second marks
+  ---
+  duration_ms: 3.5363
+  type: 'test'
+  ...
+# Subtest: Timeline ruler widens labels to readable intervals for long projects
+ok 155 - Timeline ruler widens labels to readable intervals for long projects
+  ---
+  duration_ms: 0.7364
+  type: 'test'
+  ...
+# Subtest: Timeline ruler returns no marks for invalid dimensions
+ok 156 - Timeline ruler returns no marks for invalid dimensions
+  ---
+  duration_ms: 0.4112
+  type: 'test'
+  ...
+# Subtest: scene resize ripples later scenes and their clips without stretching
+ok 157 - scene resize ripples later scenes and their clips without stretching
+  ---
+  duration_ms: 36.3063
+  type: 'test'
+  ...
+# Subtest: scene shortening rejects clips beyond the new boundary without mutating
+ok 158 - scene shortening rejects clips beyond the new boundary without mutating
+  ---
+  duration_ms: 3.9749
+  type: 'test'
+  ...
+# Subtest: scene edits preserve legacy projects and validate membership boundaries
+ok 159 - scene edits preserve legacy projects and validate membership boundaries
+  ---
+  duration_ms: 3.7578
+  type: 'test'
+  ...
+# Subtest: top-down conversion preserves legacy visual render order
+ok 160 - top-down conversion preserves legacy visual render order
+  ---
+  duration_ms: 9.9414
+  type: 'test'
+  ...
+# Subtest: visual track creation and reordering use top-down stacking without changing clips
+ok 161 - visual track creation and reordering use top-down stacking without changing clips
+  ---
+  duration_ms: 2.1758
+  type: 'test'
+  ...
+# Subtest: track kind distinguishes visual captions from soundtrack audio
+ok 162 - track kind distinguishes visual captions from soundtrack audio
+  ---
+  duration_ms: 0.3992
+  type: 'test'
+  ...
+# Subtest: empty audio tracks can be added and soundtrack can move between audio rows only
+ok 163 - empty audio tracks can be added and soundtrack can move between audio rows only
+  ---
+  duration_ms: 8.7875
+  type: 'test'
+  ...
+# Subtest: hidden visual tracks do not expose Canvas elements and locked tracks reject edits
+ok 164 - hidden visual tracks do not expose Canvas elements and locked tracks reject edits
+  ---
+  duration_ms: 3.4798
+  type: 'test'
+  ...
+# Subtest: clips cannot be moved into locked or audio tracks
+ok 165 - clips cannot be moved into locked or audio tracks
+  ---
+  duration_ms: 0.8119
+  type: 'test'
+  ...
+# Subtest: moving a video between visual tracks preserves its media, timing, and transforms
+ok 166 - moving a video between visual tracks preserves its media, timing, and transforms
+  ---
+  duration_ms: 1.6005
+  type: 'test'
+  ...
+# Subtest: Timeline Fit follows the live viewport and never uses a stale project duration scale
+ok 167 - Timeline Fit follows the live viewport and never uses a stale project duration scale
+  ---
+  duration_ms: 2.1711
+  type: 'test'
+  ...
+# Subtest: human-readable Timeline time converts through FPS without changing frame precision
+ok 168 - human-readable Timeline time converts through FPS without changing frame precision
+  ---
+  duration_ms: 3.8277
+  type: 'test'
+  ...
+# Subtest: timeline moves on frame boundaries and trimming keeps spoken word positions
+ok 169 - timeline moves on frame boundaries and trimming keeps spoken word positions
+  ---
+  duration_ms: 30.9763
+  type: 'test'
+  ...
+# Subtest: video left trims advance source time while right trims preserve it and reject overflow
+ok 170 - video left trims advance source time while right trims preserve it and reject overflow
+  ---
+  duration_ms: 2.8815
+  type: 'test'
+  ...
+# Subtest: timeline behavior metadata is serializable and dispatches only trusted built-ins
+ok 171 - timeline behavior metadata is serializable and dispatches only trusted built-ins
+  ---
+  duration_ms: 14.0186
+  type: 'test'
+  ...
+# Subtest: generic content with words and status is unchanged by range edits; subtitle behavior remains specialized
+ok 172 - generic content with words and status is unchanged by range edits; subtitle behavior remains specialized
+  ---
+  duration_ms: 5.2494
+  type: 'test'
+  ...
+# Subtest: subtitle timing is independent from styling; JSON/SRT/LRC preserve documented semantics
+ok 173 - subtitle timing is independent from styling; JSON/SRT/LRC preserve documented semantics
+  ---
+  duration_ms: 31.0723
+  type: 'test'
+  ...
+# Subtest: subtitle text corrections preserve stable segment and word timing
+ok 174 - subtitle text corrections preserve stable segment and word timing
+  ---
+  duration_ms: 3.1598
+  type: 'test'
+  ...
+# Subtest: subtitle cues separate speaker, visual presentation and consumer routing
+ok 175 - subtitle cues separate speaker, visual presentation and consumer routing
+  ---
+  duration_ms: 5.6181
+  type: 'test'
+  ...
+# Subtest: subtitle routing IDs validate and unknown assignments survive JSON interchange
+ok 176 - subtitle routing IDs validate and unknown assignments survive JSON interchange
+  ---
+  duration_ms: 18.0095
+  type: 'test'
+  ...
+# Subtest: subtitle renderer keeps legacy captions and suppresses bubble or hidden text
+ok 177 - subtitle renderer keeps legacy captions and suppresses bubble or hidden text
+  ---
+  duration_ms: 2.7104
+  type: 'test'
+  ...
+# Subtest: subtitle constructors and content parsing reject invalid clip data
+ok 178 - subtitle constructors and content parsing reject invalid clip data
+  ---
+  duration_ms: 2.6791
+  type: 'test'
+  ...
+# Subtest: declared property controls validate their values
+ok 179 - declared property controls validate their values
+  ---
+  duration_ms: 0.5819
+  type: 'test'
+  ...
+# Subtest: project saves are validated, persistent and reject stale agent revisions
+ok 180 - project saves are validated, persistent and reject stale agent revisions
+  ---
+  duration_ms: 98.1377
+  type: 'test'
+  ...
+# Subtest: version 1 save/reload preserves generic clip metadata without interpreting it
+ok 181 - version 1 save/reload preserves generic clip metadata without interpreting it
+  ---
+  duration_ms: 127.0542
+  type: 'test'
+  ...
+# Subtest: external project-file updates are readable and block saves based on an old revision
+ok 182 - external project-file updates are readable and block saves based on an old revision
+  ---
+  duration_ms: 31.791
+  type: 'test'
+  ...
+# Subtest: video transcription extracts only the requested source range and cleans temporary audio
+ok 183 - video transcription extracts only the requested source range and cleans temporary audio
+  ---
+  duration_ms: 47.602
+  type: 'test'
+  ...
+# Subtest: video transcription rejects invalid source timing before invoking extraction
+ok 184 - video transcription rejects invalid source timing before invoking extraction
+  ---
+  duration_ms: 0.9088
+  type: 'test'
+  ...
+# Subtest: word gravity uses the documented duration score and a smooth, ordered curve
+ok 185 - word gravity uses the documented duration score and a smooth, ordered curve
+  ---
+  duration_ms: 6.4212
+  type: 'test'
+  ...
+# Subtest: vocal features mark a long Whisper-timed word as a candidate without altering its source timing
+ok 186 - vocal features mark a long Whisper-timed word as a candidate without altering its source timing
+  ---
+  duration_ms: 49.8773
+  type: 'test'
+  ...
+# Subtest: estimated timing is explicitly labeled as partial evidence, not verified sustain
+ok 187 - estimated timing is explicitly labeled as partial evidence, not verified sustain
+  ---
+  duration_ms: 1.7901
+  type: 'test'
+  ...
+# Subtest: v2 vocal prosody separates voiced articulation from pauses and compares words within their verse
+ok 188 - v2 vocal prosody separates voiced articulation from pauses and compares words within their verse
+  ---
+  duration_ms: 4.0683
+  type: 'test'
+  ...
+# Subtest: all three phrase strategies are deterministic and preserve every timed word exactly once
+ok 189 - all three phrase strategies are deterministic and preserve every timed word exactly once
+  ---
+  duration_ms: 28.6847
+  type: 'test'
+  ...
+# Subtest: analysis and phrase-plan artifacts persist separately with source revisions
+ok 190 - analysis and phrase-plan artifacts persist separately with source revisions
+  ---
+  duration_ms: 163.8257
+  type: 'test'
+  ...
+# Subtest: Whisper observations become unverified subtitle timing without reconciliation
+ok 191 - Whisper observations become unverified subtitle timing without reconciliation
+  ---
+  duration_ms: 22.5276
+  type: 'test'
+  ...
+# Subtest: missing and invalid word timing gets an estimate while invalid segment timing is skipped
+ok 192 - missing and invalid word timing gets an estimate while invalid segment timing is skipped
+  ---
+  duration_ms: 1.0404
+  type: 'test'
+  ...
+# Subtest: legacy transcription responses get estimated karaoke timings in the editor
+ok 193 - legacy transcription responses get estimated karaoke timings in the editor
+  ---
+  duration_ms: 1.2963
+  type: 'test'
+  ...
+# Subtest: karaoke text retains exact spaces and line breaks around timed words
+ok 194 - karaoke text retains exact spaces and line breaks around timed words
+  ---
+  duration_ms: 0.794
+  type: 'test'
+  ...
+# Subtest: generated timing imports as editable frame clips while preserving unrelated clips
+ok 195 - generated timing imports as editable frame clips while preserving unrelated clips
+  ---
+  duration_ms: 14.9678
+  type: 'test'
+  ...
+1..195
+# tests 195
+# suites 0
+# pass 193
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12364.7669

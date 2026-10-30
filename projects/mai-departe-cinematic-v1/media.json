@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "audio-2d572c69-9bab-4d14-9392-1b9e951064aa",
+      "type": "audio",
+      "displayName": "Mai departe, pas după pas",
+      "source": {
+        "kind": "external-file",
+        "path": "C:\\FloxBowMedia\\Mai departe, pas după pas.wav"
+      }
+    }
+  ]
+}
