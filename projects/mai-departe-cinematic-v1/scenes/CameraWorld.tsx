@@ -25,15 +25,19 @@ void main(){
 }`;
 const worldPlate=`uniform sampler2D image;uniform float time;varying vec2 vUv;
 void main(){
- // Sky / distant massif / midground have distinct drift before the dolly starts.
- float distant=1.-smoothstep(.50,.77,vUv.y);
- float middle=smoothstep(.30,.52,vUv.y)*(1.-smoothstep(.70,.85,vUv.y));
- float near=1.-smoothstep(.25,.44,vUv.y);
- float speed=.00012+distant*.00013+middle*.00025+near*.00045;
- vec2 uv=vUv;
- uv.x=clamp(.5+(uv.x-.5)*.963-time*speed+sin(time*.15+uv.y*5.)*.0015,.003,.997);
- uv.y=clamp(.5+(uv.y-.5)*.963,.003,.997);
+ // UV y=1 is sky; y=0 is foreground. Keep the optical flow ordered by depth.
+ float sky=smoothstep(.75,.91,vUv.y);
+ float mountains=smoothstep(.39,.57,vUv.y)*(1.-smoothstep(.76,.94,vUv.y));
+ float near=1.-smoothstep(.24,.49,vUv.y);
+ float speed=.00007+mountains*.00012+near*.00042;
+ float push=time*.00019;
+ vec2 uv=vec2(.5+(vUv.x-.5)*(1.-min(.034,push)),-1.);
+ uv.y=.5+(vUv.y-.5)*(1.-min(.034,push));
+ uv.x-=time*speed*(1.-sky*.6);
+ uv.x+=sin(time*.12+vUv.y*3.)*.001*(1.-sky);
+ uv=clamp(uv,vec2(.004),vec2(.996));
  vec3 c=texture2D(image,uv).rgb;
+ // Defer colour grade to the image, avoiding synthetic gaming gloss.
  gl_FragColor=vec4(c,1.);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
@@ -78,8 +82,8 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
   <mesh position={[0,7,-36]}><planeGeometry args={[88,49.5]}/><shaderMaterial uniforms={plateUniforms} vertexShader={vertex} fragmentShader={worldPlate}/></mesh>
   <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.5,-6]}><planeGeometry args={[90,56,1,1]}/><shaderMaterial uniforms={uniforms} vertexShader={vertex} fragmentShader={water} transparent depthWrite={false}/></mesh>
   {/* Real depth separation with natural-alpha banks; camera cannot orbit these cards. */}
-  <mesh position={[-12,0,-7]}><planeGeometry args={[30,16.88]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} color="#bc936d" toneMapped={false}/></mesh>
-  <mesh position={[18,-1,-19]} rotation={[0,0,-.12]} scale={[-1,1,1]}><planeGeometry args={[29,16.3]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} side={THREE.DoubleSide} color="#917c69" toneMapped={false}/></mesh>
+  <mesh position={[-12-time*.12,0,-7]}><planeGeometry args={[30,16.88]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} color="#bc936d" toneMapped={false}/></mesh>
+  <mesh position={[18-time*.05,-1,-19]} rotation={[0,0,-.12]} scale={[-1,1,1]}><planeGeometry args={[29,16.3]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} side={THREE.DoubleSide} color="#917c69" toneMapped={false}/></mesh>
   <WorldDepthRidges time={time}/>
   {/* The same world remains visible through the tear and after crossing it:
       two independently drifting mist planes at different physical depths. */}
@@ -95,12 +99,12 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
   </mesh>
   {/* Close silhouettes give the advance a readable optical-flow cue.
       Both use the existing natural-alpha bank artwork. */}
-  <mesh position={[-23,-3,0]} rotation={[0,.08,0]}>
+  <mesh position={[-23-time*.22,-3,0]} rotation={[0,.08,0]}>
    <planeGeometry args={[25,14]}/>
    <meshBasicMaterial map={textures[1]} transparent alphaTest={.03} color="#514b42"
     toneMapped={false} depthWrite={false}/>
   </mesh>
-  <mesh position={[25,-3,-2]} rotation={[0,-.10,0]} scale={[-1,1,1]}>
+  <mesh position={[25-time*.18,-3,-2]} rotation={[0,-.10,0]} scale={[-1,1,1]}>
    <planeGeometry args={[25,14]}/>
    <meshBasicMaterial map={textures[1]} transparent alphaTest={.03} color="#554c41"
     toneMapped={false} side={THREE.DoubleSide} depthWrite={false}/>
