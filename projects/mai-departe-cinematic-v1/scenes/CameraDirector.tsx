@@ -25,6 +25,24 @@ export function CameraDirector({frame,orangeY,speed,revealX,fps,children,accent=
   {showFilm&&<AbsoluteFill style={{clipPath:rift.filmClip,overflow:'hidden'}}>
    <AbsoluteFill style={{transform:`translate3d(${rift.filmShift}px,0,0)`}}>{children}</AbsoluteFill>
   </AbsoluteFill>}
+  {/* Film rails are a stable camera-frame reference even when the world pushes
+      the old route plane away. These are not part of the moving landscape. */}
+  {showWorld&&<svg aria-hidden="true" viewBox="0 0 1920 1080"
+    preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+    <defs><linearGradient id="riftFilmRail" x1="0" y1="0" x2="0" y2="1">
+      <stop stopColor="#1b100c"/><stop offset=".5" stopColor="#3a2319"/><stop offset="1" stopColor="#130e0d"/>
+    </linearGradient></defs>
+    <rect width="1920" height="80" fill="url(#riftFilmRail)"/>
+    <rect y="805" width="1920" height="70" fill="url(#riftFilmRail)"/>
+    <path d="M0 80H1920 M0 805H1920" stroke="#976436" strokeWidth="3"/>
+    {Array.from({length:34},(_,i)=>{
+      const x=i*60-(frame*2%60);
+      return <g key={i} fill="#c18b54" opacity=".9">
+        <rect x={x} y="23" width="30" height="33" rx="5"/>
+        <rect x={x} y="827" width="30" height="28" rx="5"/>
+      </g>;
+    })}
+  </svg>}
   {/* A single actual separation contour is shared by both clips and the scorched lip.
       Film grain, black char, thin heat and cinders follow the moving border. */}
   {rift.active&&<svg aria-hidden="true" viewBox="0 0 1920 1080"
