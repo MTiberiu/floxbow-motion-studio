@@ -1,0 +1,13 @@
+{
+  "id": "mai-departe-cinematic-v1",
+  "name": "Mai Departe — White Stage / Emotional Motion Experiment",
+  "type": "lyrics",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "durationInFrames": 7199,
+  "entry": "Composition.tsx",
+  "sdkVersion": "0.1.0",
+  "editTimeline": "edit-timeline.json",
+  "timeline": "timing/lyrics.json"
+}

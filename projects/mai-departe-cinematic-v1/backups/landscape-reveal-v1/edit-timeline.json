@@ -1,0 +1,3023 @@
+{
+  "version": 1,
+  "fps": 30,
+  "durationInFrames": 7199,
+  "trackOrder": "top-down",
+  "scenes": [
+    {
+      "id": "s01-instrumental-open",
+      "name": "The weight before the first line",
+      "from": 0,
+      "durationInFrames": 391
+    },
+    {
+      "id": "s02-the-burden",
+      "name": "The loop, the work, the bills",
+      "from": 391,
+      "durationInFrames": 1265
+    },
+    {
+      "id": "s03-the-decision",
+      "name": "Fear gives way to a decision",
+      "from": 1656,
+      "durationInFrames": 1280
+    },
+    {
+      "id": "s04-rejection-and-return",
+      "name": "Rejection, then he begins again",
+      "from": 2936,
+      "durationInFrames": 1256
+    },
+    {
+      "id": "s05-keeps-going",
+      "name": "Forward, with what remains",
+      "from": 4192,
+      "durationInFrames": 840
+    },
+    {
+      "id": "s06-bridge",
+      "name": "Tomorrow may still be hard",
+      "from": 5032,
+      "durationInFrames": 416
+    },
+    {
+      "id": "s07-final-chorus",
+      "name": "He has not stopped",
+      "from": 5448,
+      "durationInFrames": 896
+    },
+    {
+      "id": "s08-outro",
+      "name": "Not solved; still at peace",
+      "from": 6344,
+      "durationInFrames": 855
+    }
+  ],
+  "tracks": [
+    {
+      "id": "captions",
+      "name": "Lyrics",
+      "kind": "visual"
+    },
+    {
+      "id": "director-actors",
+      "name": "Protagonist",
+      "kind": "visual"
+    },
+    {
+      "id": "director-effects",
+      "name": "Vocal curves & music accents",
+      "kind": "visual"
+    },
+    {
+      "id": "director-objects",
+      "name": "Story objects",
+      "kind": "visual"
+    },
+    {
+      "id": "director-plates",
+      "name": "White stage",
+      "kind": "visual"
+    },
+    {
+      "id": "visuals",
+      "name": "Visuals",
+      "kind": "visual"
+    },
+    {
+      "id": "audio",
+      "name": "Audio",
+      "kind": "audio"
+    }
+  ],
+  "clips": [
+    {
+      "id": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 391,
+      "durationInFrames": 48,
+      "content": {
+        "text": "Am tot zis: „Mai stau un pic”,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-1-estimated-word-1",
+            "text": "Am",
+            "start": 0,
+            "end": 0.237
+          },
+          {
+            "id": "whisper-1-estimated-word-2",
+            "text": "tot",
+            "start": 0.237,
+            "end": 0.444
+          },
+          {
+            "id": "whisper-1-estimated-word-3",
+            "text": "zis:",
+            "start": 0.444,
+            "end": 0.65
+          },
+          {
+            "id": "whisper-1-estimated-word-4",
+            "text": "„Mai",
+            "start": 0.65,
+            "end": 0.857
+          },
+          {
+            "id": "whisper-1-estimated-word-5",
+            "text": "stau",
+            "start": 0.857,
+            "end": 1.132
+          },
+          {
+            "id": "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-word-6",
+            "text": "un",
+            "start": 1.132,
+            "end": 1.425
+          },
+          {
+            "id": "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-word-7",
+            "text": "pic”,",
+            "start": 1.425,
+            "end": 1.567
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-line-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 496,
+      "durationInFrames": 53,
+      "content": {
+        "text": "Și n-am mai schimbat nimic.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-1-estimated-word-8",
+            "text": "Și",
+            "start": 0.005,
+            "end": 0.15
+          },
+          {
+            "id": "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-line-2-word-2",
+            "text": "n-am",
+            "start": 0.15,
+            "end": 0.511
+          },
+          {
+            "id": "whisper-1-estimated-word-10",
+            "text": "mai",
+            "start": 0.511,
+            "end": 0.728
+          },
+          {
+            "id": "whisper-1-estimated-word-11",
+            "text": "schimbat",
+            "start": 0.728,
+            "end": 1.306
+          },
+          {
+            "id": "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-line-2-word-5",
+            "text": "nimic.",
+            "start": 1.306,
+            "end": 1.734
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 604,
+      "durationInFrames": 68,
+      "content": {
+        "text": "Azi îmi spun: Mai poți un pas,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-word-1",
+            "text": "Azi",
+            "start": 0,
+            "end": 0.299
+          },
+          {
+            "id": "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-word-2",
+            "text": "îmi",
+            "start": 0.299,
+            "end": 0.597
+          },
+          {
+            "id": "whisper-2-word-2",
+            "text": "spun:",
+            "start": 0.597,
+            "end": 0.846
+          },
+          {
+            "id": "whisper-2-word-3",
+            "text": "Mai",
+            "start": 0.846,
+            "end": 1.078
+          },
+          {
+            "id": "whisper-2-word-4",
+            "text": "poți",
+            "start": 1.078,
+            "end": 1.327
+          },
+          {
+            "id": "whisper-2-word-5",
+            "text": "un",
+            "start": 1.327,
+            "end": 1.559
+          },
+          {
+            "id": "whisper-2-word-6",
+            "text": "pas,",
+            "start": 1.559,
+            "end": 2.266
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 705,
+      "durationInFrames": 105,
+      "content": {
+        "text": "Fă-l cu tot ce ți-a rămas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-1",
+            "text": "Fă-l",
+            "start": 0,
+            "end": 0.479
+          },
+          {
+            "id": "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-2",
+            "text": "cu",
+            "start": 0.479,
+            "end": 0.798
+          },
+          {
+            "id": "whisper-2-word-8",
+            "text": "tot",
+            "start": 0.798,
+            "end": 1.116
+          },
+          {
+            "id": "whisper-2-word-9",
+            "text": "ce",
+            "start": 1.116,
+            "end": 1.25
+          },
+          {
+            "id": "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-5",
+            "text": "ți-a",
+            "start": 1.25,
+            "end": 1.481
+          },
+          {
+            "id": "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-6",
+            "text": "rămas.",
+            "start": 1.481,
+            "end": 3.5
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 818,
+      "durationInFrames": 59,
+      "content": {
+        "text": "Mi-am promis „Va fi mai bine”,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-word-1",
+            "text": "Mi-am",
+            "start": 0,
+            "end": 0.169
+          },
+          {
+            "id": "whisper-3-estimated-word-3",
+            "text": "promis",
+            "start": 0.169,
+            "end": 0.72
+          },
+          {
+            "id": "whisper-3-estimated-word-4",
+            "text": "„Va",
+            "start": 0.72,
+            "end": 0.938
+          },
+          {
+            "id": "whisper-3-estimated-word-5",
+            "text": "fi",
+            "start": 0.938,
+            "end": 1.154
+          },
+          {
+            "id": "whisper-3-estimated-word-6",
+            "text": "mai",
+            "start": 1.154,
+            "end": 1.48
+          },
+          {
+            "id": "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-word-6",
+            "text": "bine”,",
+            "start": 1.48,
+            "end": 1.966
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 916,
+      "durationInFrames": 64,
+      "content": {
+        "text": "Și-am uitat apoi de mine.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2-word-1",
+            "text": "Și-am",
+            "start": 0,
+            "end": 0.45
+          },
+          {
+            "id": "whisper-3-estimated-word-10",
+            "text": "uitat",
+            "start": 0.45,
+            "end": 0.949
+          },
+          {
+            "id": "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2-word-3",
+            "text": "apoi",
+            "start": 0.949,
+            "end": 1.414
+          },
+          {
+            "id": "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2-word-4",
+            "text": "de",
+            "start": 1.414,
+            "end": 1.646
+          },
+          {
+            "id": "whisper-3-estimated-word-13",
+            "text": "mine.",
+            "start": 1.646,
+            "end": 2.133
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1019,
+      "durationInFrames": 90,
+      "content": {
+        "text": "Strâng facturile pe masă,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-word-1",
+            "text": "Strâng",
+            "start": 0,
+            "end": 0.362
+          },
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-word-2",
+            "text": "facturile",
+            "start": 0.362,
+            "end": 1.192
+          },
+          {
+            "id": "whisper-4-estimated-word-5",
+            "text": "pe",
+            "start": 1.192,
+            "end": 1.436
+          },
+          {
+            "id": "whisper-4-estimated-word-6",
+            "text": "masă,",
+            "start": 1.436,
+            "end": 2.985
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1131,
+      "durationInFrames": 73,
+      "content": {
+        "text": "N-am curaj să sun acasă.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-4-estimated-word-7",
+            "text": "N-am",
+            "start": 0.012,
+            "end": 0.546
+          },
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-2",
+            "text": "curaj",
+            "start": 0.546,
+            "end": 0.905
+          },
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-3",
+            "text": "să",
+            "start": 0.905,
+            "end": 1.048
+          },
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-4",
+            "text": "sun",
+            "start": 1.048,
+            "end": 1.264
+          },
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-5",
+            "text": "acasă.",
+            "start": 1.264,
+            "end": 2.415
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1233,
+      "durationInFrames": 71,
+      "content": {
+        "text": "Când mă sună, mă prefac,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-4-estimated-word-11",
+            "text": "Când",
+            "start": 0.021,
+            "end": 0.312
+          },
+          {
+            "id": "whisper-4-estimated-word-12",
+            "text": "mă",
+            "start": 0.312,
+            "end": 0.463
+          },
+          {
+            "id": "whisper-4-estimated-word-13",
+            "text": "sună,",
+            "start": 0.463,
+            "end": 0.874
+          },
+          {
+            "id": "whisper-4-estimated-word-14",
+            "text": "mă",
+            "start": 0.874,
+            "end": 1.258
+          },
+          {
+            "id": "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3-word-5",
+            "text": "prefac,",
+            "start": 1.258,
+            "end": 2.336
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1337,
+      "durationInFrames": 74,
+      "content": {
+        "text": "Spun că-s bine, apoi tac.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-1",
+            "text": "Spun",
+            "start": 0,
+            "end": 0.42
+          },
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-2",
+            "text": "că-s",
+            "start": 0.42,
+            "end": 0.546
+          },
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-3",
+            "text": "bine,",
+            "start": 0.546,
+            "end": 0.934
+          },
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-4",
+            "text": "apoi",
+            "start": 0.934,
+            "end": 1.294
+          },
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-5",
+            "text": "tac.",
+            "start": 1.294,
+            "end": 2.45
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1450,
+      "durationInFrames": 86,
+      "content": {
+        "text": "Am zis „da” la ce n-am vrut,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-5-estimated-word-5",
+            "text": "Am",
+            "start": 0.004,
+            "end": 0.164
+          },
+          {
+            "id": "whisper-5-estimated-word-6",
+            "text": "zis",
+            "start": 0.164,
+            "end": 0.41
+          },
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2-word-3",
+            "text": "„da”",
+            "start": 0.41,
+            "end": 0.491
+          },
+          {
+            "id": "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2-word-4",
+            "text": "la",
+            "start": 0.491,
+            "end": 0.631
+          },
+          {
+            "id": "whisper-5-estimated-word-8",
+            "text": "ce",
+            "start": 0.631,
+            "end": 0.984
+          },
+          {
+            "id": "whisper-5-estimated-word-9",
+            "text": "n-am",
+            "start": 0.984,
+            "end": 1.235
+          },
+          {
+            "id": "whisper-5-estimated-word-10",
+            "text": "vrut,",
+            "start": 1.235,
+            "end": 2.834
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1556,
+      "durationInFrames": 94,
+      "content": {
+        "text": "Timpul meu s-a tot pierdut.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-6-word-1",
+            "text": "Timpul",
+            "start": 0,
+            "end": 0.309
+          },
+          {
+            "id": "whisper-6-word-2",
+            "text": "meu",
+            "start": 0.309,
+            "end": 0.471
+          },
+          {
+            "id": "whisper-6-word-3",
+            "text": "s-a",
+            "start": 0.471,
+            "end": 0.819
+          },
+          {
+            "id": "whisper-6-word-4",
+            "text": "tot",
+            "start": 0.819,
+            "end": 0.962
+          },
+          {
+            "id": "whisper-6-word-5",
+            "text": "pierdut.",
+            "start": 0.962,
+            "end": 3.133
+          }
+        ],
+        "wordTimingSource": "whisper"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1656,
+      "durationInFrames": 58,
+      "content": {
+        "text": "Nu-mi trece frica dacă stau,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2-word-1",
+            "text": "Nu-mi",
+            "start": 0,
+            "end": 0.231111
+          },
+          {
+            "id": "corrected-subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2-word-2",
+            "text": "trece",
+            "start": 0.231111,
+            "end": 0.52
+          },
+          {
+            "id": "whisper-6-word-8",
+            "text": "frica",
+            "start": 0.52,
+            "end": 0.92
+          },
+          {
+            "id": "whisper-6-word-9",
+            "text": "dacă",
+            "start": 0.92,
+            "end": 1.34
+          },
+          {
+            "id": "whisper-6-word-10",
+            "text": "stau,",
+            "start": 1.34,
+            "end": 1.933333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1757,
+      "durationInFrames": 65,
+      "content": {
+        "text": "Știu măcar ce nu mai vreau.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352-word-1",
+            "text": "Știu",
+            "start": 0,
+            "end": 0.426667
+          },
+          {
+            "id": "corrected-subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352-word-2",
+            "text": "măcar",
+            "start": 0.426667,
+            "end": 0.96
+          },
+          {
+            "id": "whisper-7-estimated-word-4",
+            "text": "ce",
+            "start": 0.96,
+            "end": 1.12
+          },
+          {
+            "id": "whisper-7-estimated-word-5",
+            "text": "nu",
+            "start": 1.12,
+            "end": 1.28
+          },
+          {
+            "id": "whisper-7-estimated-word-6",
+            "text": "mai",
+            "start": 1.28,
+            "end": 1.52
+          },
+          {
+            "id": "corrected-subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352-word-6",
+            "text": "vreau.",
+            "start": 1.52,
+            "end": 2.144
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1868,
+      "durationInFrames": 104,
+      "content": {
+        "text": "N-am răspunsuri pentru tot,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-8-estimated-word-1",
+            "text": "N-am",
+            "start": 0,
+            "end": 0.186
+          },
+          {
+            "id": "corrected-subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0-word-2",
+            "text": "răspunsuri",
+            "start": 0.185,
+            "end": 0.834
+          },
+          {
+            "id": "whisper-8-estimated-word-4",
+            "text": "pentru",
+            "start": 0.834,
+            "end": 1.193
+          },
+          {
+            "id": "corrected-subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0-word-4",
+            "text": "tot,",
+            "start": 1.193,
+            "end": 3.466
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 1976,
+      "durationInFrames": 107,
+      "content": {
+        "text": "Dar fac astăzi tot ce pot.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-9-estimated-word-1",
+            "text": "Dar",
+            "start": 0,
+            "end": 0.096
+          },
+          {
+            "id": "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-2",
+            "text": "fac",
+            "start": 0.096,
+            "end": 0.417
+          },
+          {
+            "id": "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-3",
+            "text": "astăzi",
+            "start": 0.417,
+            "end": 1.29
+          },
+          {
+            "id": "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-4",
+            "text": "tot",
+            "start": 1.29,
+            "end": 2.11
+          },
+          {
+            "id": "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-5",
+            "text": "ce",
+            "start": 2.11,
+            "end": 2.746
+          },
+          {
+            "id": "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-6",
+            "text": "pot.",
+            "start": 2.746,
+            "end": 3.565
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2098,
+      "durationInFrames": 61,
+      "content": {
+        "text": "Nu rămân aici, nu mă las,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-10-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.1
+          },
+          {
+            "id": "corrected-subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389-word-2",
+            "text": "rămân",
+            "start": 0.1,
+            "end": 0.663636
+          },
+          {
+            "id": "corrected-subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389-word-3",
+            "text": "aici,",
+            "start": 0.663636,
+            "end": 1.114545
+          },
+          {
+            "id": "corrected-subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389-word-4",
+            "text": "nu",
+            "start": 1.114545,
+            "end": 1.34
+          },
+          {
+            "id": "whisper-10-word-4",
+            "text": "mă",
+            "start": 1.34,
+            "end": 1.66
+          },
+          {
+            "id": "whisper-10-word-5",
+            "text": "las,",
+            "start": 1.66,
+            "end": 2.033333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2198,
+      "durationInFrames": 68,
+      "content": {
+        "text": "Mai departe, pas după pas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-11-word-1",
+            "text": "Mai",
+            "start": 0,
+            "end": 0.28
+          },
+          {
+            "id": "whisper-11-word-2",
+            "text": "departe,",
+            "start": 0.28,
+            "end": 0.95
+          },
+          {
+            "id": "whisper-11-word-3",
+            "text": "pas",
+            "start": 0.95,
+            "end": 1.32
+          },
+          {
+            "id": "corrected-subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d-word-4",
+            "text": "după",
+            "start": 1.32,
+            "end": 1.68
+          },
+          {
+            "id": "whisper-11-word-5",
+            "text": "pas.",
+            "start": 1.68,
+            "end": 2.26
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2296,
+      "durationInFrames": 75,
+      "content": {
+        "text": "Nu rămân aici, chiar de-i greu,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-12-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.52
+          },
+          {
+            "id": "corrected-subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13-word-2",
+            "text": "rămân",
+            "start": 0.52,
+            "end": 1.064444
+          },
+          {
+            "id": "corrected-subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13-word-3",
+            "text": "aici,",
+            "start": 1.064444,
+            "end": 1.5
+          },
+          {
+            "id": "whisper-12-word-4",
+            "text": "chiar",
+            "start": 1.5,
+            "end": 1.82
+          },
+          {
+            "id": "corrected-subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13-word-5",
+            "text": "de-i",
+            "start": 1.82,
+            "end": 1.98
+          },
+          {
+            "id": "whisper-12-word-6",
+            "text": "greu,",
+            "start": 1.98,
+            "end": 2.48
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2409,
+      "durationInFrames": 98,
+      "content": {
+        "text": "Îmi iau înapoi timpul meu.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5-word-1",
+            "text": "Îmi",
+            "start": 0,
+            "end": 0.328
+          },
+          {
+            "id": "corrected-subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5-word-2",
+            "text": "iau",
+            "start": 0.328,
+            "end": 0.657
+          },
+          {
+            "id": "corrected-subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5-word-3",
+            "text": "înapoi",
+            "start": 0.657,
+            "end": 0.994
+          },
+          {
+            "id": "whisper-13-estimated-word-5",
+            "text": "timpul",
+            "start": 0.994,
+            "end": 1.65
+          },
+          {
+            "id": "whisper-13-estimated-word-6",
+            "text": "meu.",
+            "start": 1.65,
+            "end": 3.26
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2516,
+      "durationInFrames": 66,
+      "content": {
+        "text": "Nu rămân aici, nu mă las,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-14-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.12
+          },
+          {
+            "id": "corrected-subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96-word-2",
+            "text": "rămân",
+            "start": 0.12,
+            "end": 0.731111
+          },
+          {
+            "id": "corrected-subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96-word-3",
+            "text": "aici,",
+            "start": 0.731111,
+            "end": 1.22
+          },
+          {
+            "id": "whisper-14-word-4",
+            "text": "nu",
+            "start": 1.22,
+            "end": 1.46
+          },
+          {
+            "id": "whisper-14-word-5",
+            "text": "mă",
+            "start": 1.46,
+            "end": 1.7
+          },
+          {
+            "id": "whisper-14-word-6",
+            "text": "las,",
+            "start": 1.7,
+            "end": 2.2
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2605,
+      "durationInFrames": 86,
+      "content": {
+        "text": "Merg cu tot ce mi-a mai rămas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4-word-1",
+            "text": "Merg",
+            "start": 0,
+            "end": 0.4576
+          },
+          {
+            "id": "corrected-subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4-word-2",
+            "text": "cu",
+            "start": 0.4576,
+            "end": 0.6864
+          },
+          {
+            "id": "whisper-15-estimated-word-2",
+            "text": "tot",
+            "start": 0.6864,
+            "end": 1.0296
+          },
+          {
+            "id": "whisper-15-estimated-word-3",
+            "text": "ce",
+            "start": 1.0296,
+            "end": 1.2584
+          },
+          {
+            "id": "corrected-subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4-word-5",
+            "text": "mi-a",
+            "start": 1.2584,
+            "end": 1.8304
+          },
+          {
+            "id": "whisper-15-estimated-word-5",
+            "text": "mai",
+            "start": 1.8304,
+            "end": 2.1736
+          },
+          {
+            "id": "whisper-15-estimated-word-6",
+            "text": "rămas.",
+            "start": 2.1736,
+            "end": 2.86
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2725,
+      "durationInFrames": 66,
+      "content": {
+        "text": "Nu rămân aici, plec la drum,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-16-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.14
+          },
+          {
+            "id": "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-2",
+            "text": "rămân",
+            "start": 0.14,
+            "end": 0.613333
+          },
+          {
+            "id": "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-3",
+            "text": "aici,",
+            "start": 0.613333,
+            "end": 0.992
+          },
+          {
+            "id": "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-4",
+            "text": "plec",
+            "start": 0.992,
+            "end": 1.370667
+          },
+          {
+            "id": "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-5",
+            "text": "la",
+            "start": 1.370667,
+            "end": 1.56
+          },
+          {
+            "id": "whisper-16-word-5",
+            "text": "drum,",
+            "start": 1.56,
+            "end": 2.2
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2828,
+      "durationInFrames": 98,
+      "content": {
+        "text": "Fac ce pot cu ce am acum.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60-word-1",
+            "text": "Fac",
+            "start": 0,
+            "end": 0.216
+          },
+          {
+            "id": "corrected-subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60-word-2",
+            "text": "ce",
+            "start": 0.216,
+            "end": 0.36
+          },
+          {
+            "id": "whisper-17-word-2",
+            "text": "pot",
+            "start": 0.36,
+            "end": 0.66
+          },
+          {
+            "id": "whisper-17-word-3",
+            "text": "cu",
+            "start": 0.66,
+            "end": 0.8
+          },
+          {
+            "id": "whisper-17-word-4",
+            "text": "ce",
+            "start": 0.8,
+            "end": 1.18
+          },
+          {
+            "id": "whisper-17-word-5",
+            "text": "am",
+            "start": 1.18,
+            "end": 1.56
+          },
+          {
+            "id": "whisper-17-word-6",
+            "text": "acum.",
+            "start": 1.56,
+            "end": 3.24
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 2936,
+      "durationInFrames": 54,
+      "content": {
+        "text": "Mi-au spus „nu” la interviu,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-1",
+            "text": "Mi-au",
+            "start": 0,
+            "end": 0.3
+          },
+          {
+            "id": "whisper-18-estimated-word-2",
+            "text": "spus",
+            "start": 0.3,
+            "end": 0.6
+          },
+          {
+            "id": "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-3",
+            "text": "„nu”",
+            "start": 0.6,
+            "end": 0.8
+          },
+          {
+            "id": "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-4",
+            "text": "la",
+            "start": 0.8,
+            "end": 1
+          },
+          {
+            "id": "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-5",
+            "text": "interviu,",
+            "start": 1,
+            "end": 1.8
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3027,
+      "durationInFrames": 76,
+      "content": {
+        "text": "Mai încerc, nu-i prea târziu.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-19-estimated-word-1",
+            "text": "Mai",
+            "start": 0,
+            "end": 0.331304
+          },
+          {
+            "id": "corrected-subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677-word-2",
+            "text": "încerc,",
+            "start": 0.331304,
+            "end": 0.993913
+          },
+          {
+            "id": "whisper-19-estimated-word-3",
+            "text": "nu-i",
+            "start": 0.993913,
+            "end": 1.435652
+          },
+          {
+            "id": "corrected-subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677-word-4",
+            "text": "prea",
+            "start": 1.435652,
+            "end": 1.874725
+          },
+          {
+            "id": "corrected-subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677-word-5",
+            "text": "târziu.",
+            "start": 1.874725,
+            "end": 2.533333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3133,
+      "durationInFrames": 84,
+      "content": {
+        "text": "Îmi fac timp și pentru mine,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779-word-1",
+            "text": "Îmi",
+            "start": 0,
+            "end": 0.414
+          },
+          {
+            "id": "corrected-subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779-word-2",
+            "text": "fac",
+            "start": 0.414,
+            "end": 0.828
+          },
+          {
+            "id": "corrected-subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779-word-3",
+            "text": "timp",
+            "start": 0.828,
+            "end": 1.38
+          },
+          {
+            "id": "whisper-20-word-3",
+            "text": "și",
+            "start": 1.38,
+            "end": 1.64
+          },
+          {
+            "id": "whisper-20-word-4",
+            "text": "pentru",
+            "start": 1.64,
+            "end": 1.94
+          },
+          {
+            "id": "whisper-20-word-5",
+            "text": "mine,",
+            "start": 1.94,
+            "end": 2.8
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3249,
+      "durationInFrames": 70,
+      "content": {
+        "text": "Să învăț ce nu știu bine.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-21-word-1",
+            "text": "Să",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "id": "corrected-subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a-word-2",
+            "text": "învăț",
+            "start": 0.2,
+            "end": 0.933333
+          },
+          {
+            "id": "corrected-subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a-word-3",
+            "text": "ce",
+            "start": 0.933333,
+            "end": 1.226667
+          },
+          {
+            "id": "corrected-subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a-word-4",
+            "text": "nu",
+            "start": 1.226667,
+            "end": 1.52
+          },
+          {
+            "id": "whisper-21-word-3",
+            "text": "știu",
+            "start": 1.52,
+            "end": 1.62
+          },
+          {
+            "id": "whisper-21-word-4",
+            "text": "bine.",
+            "start": 1.62,
+            "end": 2.32
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3345,
+      "durationInFrames": 73,
+      "content": {
+        "text": "Și când simt că nu mai pot,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-22-word-1",
+            "text": "Și",
+            "start": 0,
+            "end": 0.36
+          },
+          {
+            "id": "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-2",
+            "text": "când",
+            "start": 0.36,
+            "end": 0.8
+          },
+          {
+            "id": "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-3",
+            "text": "simt",
+            "start": 0.8,
+            "end": 1.24
+          },
+          {
+            "id": "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-4",
+            "text": "că",
+            "start": 1.24,
+            "end": 1.46
+          },
+          {
+            "id": "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-5",
+            "text": "nu",
+            "start": 1.46,
+            "end": 1.68
+          },
+          {
+            "id": "whisper-22-word-4",
+            "text": "mai",
+            "start": 1.68,
+            "end": 1.98
+          },
+          {
+            "id": "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-7",
+            "text": "pot,",
+            "start": 1.98,
+            "end": 2.433333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3454,
+      "durationInFrames": 70,
+      "content": {
+        "text": "Sună a mei, nu spun tot.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-23-word-1",
+            "text": "Sună",
+            "start": 0,
+            "end": 0.4
+          },
+          {
+            "id": "corrected-subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b-word-2",
+            "text": "a",
+            "start": 0.4,
+            "end": 0.405
+          },
+          {
+            "id": "whisper-23-word-2",
+            "text": "mei,",
+            "start": 0.405,
+            "end": 1.22
+          },
+          {
+            "id": "corrected-subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b-word-4",
+            "text": "nu",
+            "start": 1.22,
+            "end": 1.42
+          },
+          {
+            "id": "corrected-subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b-word-5",
+            "text": "spun",
+            "start": 1.42,
+            "end": 1.82
+          },
+          {
+            "id": "whisper-23-word-5",
+            "text": "tot.",
+            "start": 1.82,
+            "end": 2.333333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3554,
+      "durationInFrames": 68,
+      "content": {
+        "text": "Mai greșesc, mai stau pe loc,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-24-word-1",
+            "text": "Mai",
+            "start": 0,
+            "end": 0.4
+          },
+          {
+            "id": "whisper-24-word-2",
+            "text": "greșesc,",
+            "start": 0.4,
+            "end": 1.04
+          },
+          {
+            "id": "whisper-24-word-3",
+            "text": "mai",
+            "start": 1.3,
+            "end": 1.4
+          },
+          {
+            "id": "whisper-24-word-4",
+            "text": "stau",
+            "start": 1.4,
+            "end": 1.66
+          },
+          {
+            "id": "whisper-24-word-5",
+            "text": "pe",
+            "start": 1.66,
+            "end": 1.98
+          },
+          {
+            "id": "whisper-24-word-6",
+            "text": "loc,",
+            "start": 1.98,
+            "end": 2.2666666666666666
+          }
+        ],
+        "wordTimingSource": "whisper"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3655,
+      "durationInFrames": 67,
+      "content": {
+        "text": "Schimb ce pot, n-aștept noroc.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-1",
+            "text": "Schimb",
+            "start": 0,
+            "end": 0.616364
+          },
+          {
+            "id": "whisper-25-estimated-word-2",
+            "text": "ce",
+            "start": 0.616364,
+            "end": 0.821818
+          },
+          {
+            "id": "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-3",
+            "text": "pot,",
+            "start": 0.821818,
+            "end": 1.104121
+          },
+          {
+            "id": "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-4",
+            "text": "n-aștept",
+            "start": 1.104121,
+            "end": 1.762828
+          },
+          {
+            "id": "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-5",
+            "text": "noroc.",
+            "start": 1.762828,
+            "end": 2.233333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3745,
+      "durationInFrames": 59,
+      "content": {
+        "text": "Nu-mi trece frica dacă stau,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa-word-1",
+            "text": "Nu-mi",
+            "start": 0,
+            "end": 0.328889
+          },
+          {
+            "id": "corrected-subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa-word-2",
+            "text": "trece",
+            "start": 0.328889,
+            "end": 0.74
+          },
+          {
+            "id": "whisper-26-word-3",
+            "text": "frica",
+            "start": 0.74,
+            "end": 1.12
+          },
+          {
+            "id": "whisper-26-word-4",
+            "text": "dacă",
+            "start": 1.12,
+            "end": 1.5
+          },
+          {
+            "id": "whisper-26-word-5",
+            "text": "stau,",
+            "start": 1.5,
+            "end": 1.9666666666666666
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3851,
+      "durationInFrames": 54,
+      "content": {
+        "text": "Știu măcar ce nu mai vreau.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-27-word-1",
+            "text": "Știu",
+            "start": 0,
+            "end": 0.5
+          },
+          {
+            "id": "corrected-subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3-word-2",
+            "text": "măcar",
+            "start": 0.5,
+            "end": 1
+          },
+          {
+            "id": "whisper-27-word-3",
+            "text": "ce",
+            "start": 1,
+            "end": 1.1
+          },
+          {
+            "id": "whisper-27-word-4",
+            "text": "nu",
+            "start": 1.1,
+            "end": 1.36
+          },
+          {
+            "id": "whisper-27-word-5",
+            "text": "mai",
+            "start": 1.36,
+            "end": 1.58
+          },
+          {
+            "id": "corrected-subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3-word-6",
+            "text": "vreau.",
+            "start": 1.58,
+            "end": 1.8
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 3963,
+      "durationInFrames": 104,
+      "content": {
+        "text": "N-am răspunsuri pentru tot,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-28-estimated-word-1",
+            "text": "N-am",
+            "start": 0,
+            "end": 0.425
+          },
+          {
+            "id": "corrected-subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c-word-2",
+            "text": "răspunsuri",
+            "start": 0.425,
+            "end": 0.905
+          },
+          {
+            "id": "whisper-28-estimated-word-3",
+            "text": "pentru",
+            "start": 0.905,
+            "end": 1.288
+          },
+          {
+            "id": "corrected-subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c-word-4",
+            "text": "tot,",
+            "start": 1.288,
+            "end": 3.436
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4070,
+      "durationInFrames": 122,
+      "content": {
+        "text": "Dar fac astăzi tot ce pot.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-29-word-1",
+            "text": "Dar",
+            "start": 0,
+            "end": 0.136
+          },
+          {
+            "id": "corrected-subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634-word-2",
+            "text": "fac",
+            "start": 0.136,
+            "end": 0.367
+          },
+          {
+            "id": "corrected-subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634-word-3",
+            "text": "astăzi",
+            "start": 0.367,
+            "end": 1.187
+          },
+          {
+            "id": "corrected-subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634-word-4",
+            "text": "tot",
+            "start": 1.187,
+            "end": 1.759
+          },
+          {
+            "id": "whisper-29-word-4",
+            "text": "ce",
+            "start": 1.759,
+            "end": 2.819
+          },
+          {
+            "id": "whisper-29-word-5",
+            "text": "pot.",
+            "start": 2.819,
+            "end": 4.054
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4192,
+      "durationInFrames": 62,
+      "content": {
+        "text": "Nu rămân aici, nu mă las,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-30-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.14
+          },
+          {
+            "id": "corrected-subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84-word-2",
+            "text": "rămân",
+            "start": 0.14,
+            "end": 0.728889
+          },
+          {
+            "id": "corrected-subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84-word-3",
+            "text": "aici,",
+            "start": 0.728889,
+            "end": 1.2
+          },
+          {
+            "id": "whisper-30-word-4",
+            "text": "nu",
+            "start": 1.2,
+            "end": 1.4
+          },
+          {
+            "id": "whisper-30-word-5",
+            "text": "mă",
+            "start": 1.4,
+            "end": 1.6
+          },
+          {
+            "id": "whisper-30-word-6",
+            "text": "las,",
+            "start": 1.6,
+            "end": 2.06
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4286,
+      "durationInFrames": 75,
+      "content": {
+        "text": "Mai departe, pas după pas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-31-word-1",
+            "text": "Mai",
+            "start": 0,
+            "end": 0.44
+          },
+          {
+            "id": "whisper-31-word-2",
+            "text": "departe,",
+            "start": 0.44,
+            "end": 1
+          },
+          {
+            "id": "whisper-31-word-3",
+            "text": "pas",
+            "start": 1,
+            "end": 1.5
+          },
+          {
+            "id": "corrected-subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751-word-4",
+            "text": "după",
+            "start": 1.5,
+            "end": 1.88
+          },
+          {
+            "id": "whisper-31-word-5",
+            "text": "pas.",
+            "start": 1.88,
+            "end": 2.48
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4399,
+      "durationInFrames": 65,
+      "content": {
+        "text": "Nu rămân aici, chiar de-i greu,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-32-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.16
+          },
+          {
+            "id": "corrected-subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17-word-2",
+            "text": "rămân",
+            "start": 0.16,
+            "end": 0.76
+          },
+          {
+            "id": "corrected-subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17-word-3",
+            "text": "aici,",
+            "start": 0.76,
+            "end": 1.24
+          },
+          {
+            "id": "whisper-32-word-4",
+            "text": "chiar",
+            "start": 1.24,
+            "end": 1.52
+          },
+          {
+            "id": "corrected-subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17-word-5",
+            "text": "de-i",
+            "start": 1.52,
+            "end": 1.7
+          },
+          {
+            "id": "whisper-32-word-6",
+            "text": "greu,",
+            "start": 1.7,
+            "end": 2.1666666666666665
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4505,
+      "durationInFrames": 94,
+      "content": {
+        "text": "Îmi iau înapoi timpul meu.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-33-word-1",
+            "text": "Îmi",
+            "start": 0,
+            "end": 0.285
+          },
+          {
+            "id": "corrected-subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f-word-2",
+            "text": "iau",
+            "start": 0.285,
+            "end": 0.75
+          },
+          {
+            "id": "corrected-subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f-word-3",
+            "text": "înapoi",
+            "start": 0.75,
+            "end": 1.096
+          },
+          {
+            "id": "whisper-33-word-5",
+            "text": "timpul",
+            "start": 1.096,
+            "end": 1.552
+          },
+          {
+            "id": "whisper-33-word-6",
+            "text": "meu.",
+            "start": 1.552,
+            "end": 3.133
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4605,
+      "durationInFrames": 74,
+      "content": {
+        "text": "Nu rămân aici, nu mă las,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-34-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.3
+          },
+          {
+            "id": "corrected-subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99-word-2",
+            "text": "rămân",
+            "start": 0.3,
+            "end": 0.877778
+          },
+          {
+            "id": "corrected-subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99-word-3",
+            "text": "aici,",
+            "start": 0.877778,
+            "end": 1.34
+          },
+          {
+            "id": "whisper-34-word-4",
+            "text": "nu",
+            "start": 1.34,
+            "end": 1.6
+          },
+          {
+            "id": "whisper-34-word-5",
+            "text": "mă",
+            "start": 1.6,
+            "end": 1.9
+          },
+          {
+            "id": "whisper-34-word-6",
+            "text": "las,",
+            "start": 1.9,
+            "end": 2.46
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4697,
+      "durationInFrames": 99,
+      "content": {
+        "text": "Merg cu tot ce mi-a mai rămas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-1",
+            "text": "Merg",
+            "start": 0,
+            "end": 0.247
+          },
+          {
+            "id": "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-2",
+            "text": "cu",
+            "start": 0.247,
+            "end": 0.375
+          },
+          {
+            "id": "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-3",
+            "text": "tot",
+            "start": 0.375,
+            "end": 0.724
+          },
+          {
+            "id": "whisper-35-estimated-word-3",
+            "text": "ce",
+            "start": 0.724,
+            "end": 1.029
+          },
+          {
+            "id": "whisper-35-estimated-word-4",
+            "text": "mi-a",
+            "start": 1.029,
+            "end": 1.47
+          },
+          {
+            "id": "whisper-35-estimated-word-5",
+            "text": "mai",
+            "start": 1.47,
+            "end": 1.931
+          },
+          {
+            "id": "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-7",
+            "text": "rămas.",
+            "start": 1.931,
+            "end": 3.27
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4820,
+      "durationInFrames": 65,
+      "content": {
+        "text": "Nu rămân aici, plec la drum,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-36-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.16
+          },
+          {
+            "id": "corrected-subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3-word-2",
+            "text": "rămân",
+            "start": 0.16,
+            "end": 0.675385
+          },
+          {
+            "id": "corrected-subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3-word-3",
+            "text": "aici,",
+            "start": 0.675385,
+            "end": 1.087692
+          },
+          {
+            "id": "corrected-subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3-word-4",
+            "text": "plec",
+            "start": 1.087692,
+            "end": 1.5
+          },
+          {
+            "id": "whisper-36-word-5",
+            "text": "la",
+            "start": 1.5,
+            "end": 1.66
+          },
+          {
+            "id": "whisper-36-word-6",
+            "text": "drum,",
+            "start": 1.66,
+            "end": 2.1666666666666665
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 4924,
+      "durationInFrames": 106,
+      "content": {
+        "text": "Fac ce pot cu ce am acum.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-37-word-1",
+            "text": "Fac",
+            "start": 0,
+            "end": 0.105
+          },
+          {
+            "id": "whisper-37-word-2",
+            "text": "ce",
+            "start": 0.105,
+            "end": 0.292
+          },
+          {
+            "id": "whisper-37-word-3",
+            "text": "pot",
+            "start": 0.292,
+            "end": 0.524
+          },
+          {
+            "id": "whisper-37-word-4",
+            "text": "cu",
+            "start": 0.524,
+            "end": 0.723
+          },
+          {
+            "id": "whisper-37-word-5",
+            "text": "ce",
+            "start": 0.723,
+            "end": 1.174
+          },
+          {
+            "id": "whisper-37-word-6",
+            "text": "am",
+            "start": 1.174,
+            "end": 1.475
+          },
+          {
+            "id": "whisper-37-word-7",
+            "text": "acum.",
+            "start": 1.475,
+            "end": 3.524
+          }
+        ],
+        "wordTimingSource": "whisper"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5032,
+      "durationInFrames": 76,
+      "content": {
+        "text": "Poate mâine tot mi-e greu,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-38-estimated-word-1",
+            "text": "Poate",
+            "start": 0,
+            "end": 0.662609
+          },
+          {
+            "id": "corrected-subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e-word-2",
+            "text": "mâine",
+            "start": 0.662609,
+            "end": 1.283804
+          },
+          {
+            "id": "corrected-subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e-word-3",
+            "text": "tot",
+            "start": 1.283804,
+            "end": 1.656522
+          },
+          {
+            "id": "whisper-38-estimated-word-3",
+            "text": "mi-e",
+            "start": 1.656522,
+            "end": 1.987826
+          },
+          {
+            "id": "whisper-38-estimated-word-4",
+            "text": "greu,",
+            "start": 1.987826,
+            "end": 2.533333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5134,
+      "durationInFrames": 90,
+      "content": {
+        "text": "Dar mă țin de planul meu.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-39-word-1",
+            "text": "Dar",
+            "start": 0,
+            "end": 0.22
+          },
+          {
+            "id": "whisper-39-word-2",
+            "text": "mă",
+            "start": 0.22,
+            "end": 0.72
+          },
+          {
+            "id": "corrected-subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097-word-3",
+            "text": "țin",
+            "start": 0.72,
+            "end": 1.249091
+          },
+          {
+            "id": "corrected-subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097-word-4",
+            "text": "de",
+            "start": 1.249091,
+            "end": 1.601818
+          },
+          {
+            "id": "corrected-subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097-word-5",
+            "text": "planul",
+            "start": 1.601818,
+            "end": 2.66
+          },
+          {
+            "id": "whisper-39-word-6",
+            "text": "meu.",
+            "start": 2.66,
+            "end": 3
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5240,
+      "durationInFrames": 90,
+      "content": {
+        "text": "Azi n-am tot ce mi-am dorit,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-1",
+            "text": "Azi",
+            "start": 0,
+            "end": 0.365727
+          },
+          {
+            "id": "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-2",
+            "text": "n-am",
+            "start": 0.365727,
+            "end": 0.731455
+          },
+          {
+            "id": "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-3",
+            "text": "tot",
+            "start": 0.731455,
+            "end": 1.097182
+          },
+          {
+            "id": "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-4",
+            "text": "ce",
+            "start": 1.097182,
+            "end": 1.341
+          },
+          {
+            "id": "whisper-40-estimated-word-3",
+            "text": "mi-am",
+            "start": 1.341,
+            "end": 2.086
+          },
+          {
+            "id": "whisper-40-estimated-word-4",
+            "text": "dorit,",
+            "start": 2.086,
+            "end": 2.98
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5347,
+      "durationInFrames": 79,
+      "content": {
+        "text": "Dar măcar nu m-am oprit.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-41-estimated-word-1",
+            "text": "Dar",
+            "start": 0,
+            "end": 0.396
+          },
+          {
+            "id": "corrected-subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433-word-2",
+            "text": "măcar",
+            "start": 0.396,
+            "end": 1.056
+          },
+          {
+            "id": "whisper-41-estimated-word-4",
+            "text": "nu",
+            "start": 1.056,
+            "end": 1.32
+          },
+          {
+            "id": "whisper-41-estimated-word-5",
+            "text": "m-am",
+            "start": 1.32,
+            "end": 1.848
+          },
+          {
+            "id": "whisper-41-estimated-word-6",
+            "text": "oprit.",
+            "start": 1.848,
+            "end": 2.633333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5448,
+      "durationInFrames": 65,
+      "content": {
+        "text": "Nu rămân aici, nu mă las,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-42-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "id": "corrected-subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783-word-2",
+            "text": "rămân",
+            "start": 0.2,
+            "end": 0.811111
+          },
+          {
+            "id": "corrected-subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783-word-3",
+            "text": "aici,",
+            "start": 0.811111,
+            "end": 1.3
+          },
+          {
+            "id": "whisper-42-word-4",
+            "text": "nu",
+            "start": 1.3,
+            "end": 1.54
+          },
+          {
+            "id": "whisper-42-word-5",
+            "text": "mă",
+            "start": 1.54,
+            "end": 1.78
+          },
+          {
+            "id": "whisper-42-word-6",
+            "text": "las,",
+            "start": 1.78,
+            "end": 2.1666666666666665
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5542,
+      "durationInFrames": 84,
+      "content": {
+        "text": "Mai departe, pas după pas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-43-word-1",
+            "text": "Mai",
+            "start": 0,
+            "end": 0.64
+          },
+          {
+            "id": "whisper-43-word-2",
+            "text": "departe,",
+            "start": 0.64,
+            "end": 1.18
+          },
+          {
+            "id": "whisper-43-word-3",
+            "text": "pas",
+            "start": 1.18,
+            "end": 1.7
+          },
+          {
+            "id": "corrected-subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b-word-4",
+            "text": "după",
+            "start": 1.7,
+            "end": 2.04
+          },
+          {
+            "id": "whisper-43-word-5",
+            "text": "pas.",
+            "start": 2.04,
+            "end": 2.8
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5645,
+      "durationInFrames": 82,
+      "content": {
+        "text": "Nu rămân aici, chiar de-i greu,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-44-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.64
+          },
+          {
+            "id": "corrected-subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c-word-2",
+            "text": "rămân",
+            "start": 0.64,
+            "end": 1.251111
+          },
+          {
+            "id": "corrected-subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c-word-3",
+            "text": "aici,",
+            "start": 1.251111,
+            "end": 1.74
+          },
+          {
+            "id": "whisper-44-word-4",
+            "text": "chiar",
+            "start": 1.74,
+            "end": 2
+          },
+          {
+            "id": "corrected-subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c-word-5",
+            "text": "de-i",
+            "start": 2,
+            "end": 2.14
+          },
+          {
+            "id": "whisper-44-word-6",
+            "text": "greu,",
+            "start": 2.14,
+            "end": 2.72
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5765,
+      "durationInFrames": 70,
+      "content": {
+        "text": "Îmi iau înapoi timpul meu.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-45-word-1",
+            "text": "Îmi",
+            "start": 0,
+            "end": 0.22
+          },
+          {
+            "id": "corrected-subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251-word-2",
+            "text": "iau",
+            "start": 0.22,
+            "end": 0.553333
+          },
+          {
+            "id": "corrected-subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251-word-3",
+            "text": "înapoi",
+            "start": 0.553333,
+            "end": 1.22
+          },
+          {
+            "id": "whisper-45-word-5",
+            "text": "timpul",
+            "start": 1.22,
+            "end": 1.72
+          },
+          {
+            "id": "whisper-45-word-6",
+            "text": "meu.",
+            "start": 1.72,
+            "end": 2.333333
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5869,
+      "durationInFrames": 81,
+      "content": {
+        "text": "Nu rămân aici, nu mă las,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-46-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.2
+          },
+          {
+            "id": "corrected-subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf-word-2",
+            "text": "rămân",
+            "start": 0.2,
+            "end": 0.855556
+          },
+          {
+            "id": "corrected-subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf-word-3",
+            "text": "aici,",
+            "start": 0.855556,
+            "end": 1.38
+          },
+          {
+            "id": "whisper-46-word-4",
+            "text": "nu",
+            "start": 1.38,
+            "end": 1.58
+          },
+          {
+            "id": "whisper-46-word-5",
+            "text": "mă",
+            "start": 1.58,
+            "end": 1.78
+          },
+          {
+            "id": "whisper-46-word-6",
+            "text": "las,",
+            "start": 1.78,
+            "end": 2.7
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 5960,
+      "durationInFrames": 87,
+      "content": {
+        "text": "Merg cu tot ce mi-a mai rămas.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-1",
+            "text": "Merg",
+            "start": 0,
+            "end": 0.410101
+          },
+          {
+            "id": "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-2",
+            "text": "cu",
+            "start": 0.410101,
+            "end": 0.615152
+          },
+          {
+            "id": "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-3",
+            "text": "tot",
+            "start": 0.615152,
+            "end": 0.922727
+          },
+          {
+            "id": "whisper-47-estimated-word-3",
+            "text": "ce",
+            "start": 0.922727,
+            "end": 1.186364
+          },
+          {
+            "id": "whisper-47-estimated-word-4",
+            "text": "mi-a",
+            "start": 1.186364,
+            "end": 1.713636
+          },
+          {
+            "id": "whisper-47-estimated-word-5",
+            "text": "mai",
+            "start": 1.713636,
+            "end": 2.109091
+          },
+          {
+            "id": "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-7",
+            "text": "rămas.",
+            "start": 2.109091,
+            "end": 2.9
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 6075,
+      "durationInFrames": 71,
+      "content": {
+        "text": "Nu rămân aici, plec la drum,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-48-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.3
+          },
+          {
+            "id": "corrected-subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a-word-2",
+            "text": "rămân",
+            "start": 0.3,
+            "end": 0.815385
+          },
+          {
+            "id": "corrected-subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a-word-3",
+            "text": "aici,",
+            "start": 0.815385,
+            "end": 1.227692
+          },
+          {
+            "id": "corrected-subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a-word-4",
+            "text": "plec",
+            "start": 1.227692,
+            "end": 1.64
+          },
+          {
+            "id": "whisper-48-word-5",
+            "text": "la",
+            "start": 1.64,
+            "end": 1.84
+          },
+          {
+            "id": "whisper-48-word-6",
+            "text": "drum,",
+            "start": 1.84,
+            "end": 2.36
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 6183,
+      "durationInFrames": 128,
+      "content": {
+        "text": "Fac ce pot cu ce am acum.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-49-word-1",
+            "text": "Fac",
+            "start": 0,
+            "end": 0.22
+          },
+          {
+            "id": "whisper-49-word-2",
+            "text": "ce",
+            "start": 0.22,
+            "end": 0.42
+          },
+          {
+            "id": "whisper-49-word-3",
+            "text": "pot",
+            "start": 0.42,
+            "end": 0.7
+          },
+          {
+            "id": "whisper-49-word-4",
+            "text": "cu",
+            "start": 0.7,
+            "end": 0.9
+          },
+          {
+            "id": "whisper-49-word-5",
+            "text": "ce",
+            "start": 0.9,
+            "end": 1.3
+          },
+          {
+            "id": "whisper-49-word-6",
+            "text": "am",
+            "start": 1.3,
+            "end": 1.62
+          },
+          {
+            "id": "whisper-49-word-7",
+            "text": "acum.",
+            "start": 1.62,
+            "end": 4.26
+          }
+        ],
+        "wordTimingSource": "whisper"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 6344,
+      "durationInFrames": 101,
+      "content": {
+        "text": "Nu e totul rezolvat,",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-50-word-1",
+            "text": "Nu",
+            "start": 0,
+            "end": 0.353
+          },
+          {
+            "id": "whisper-50-word-2",
+            "text": "e",
+            "start": 0.353,
+            "end": 0.516
+          },
+          {
+            "id": "whisper-50-word-3",
+            "text": "totul",
+            "start": 0.515,
+            "end": 1.265
+          },
+          {
+            "id": "corrected-subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb-word-4",
+            "text": "rezolvat,",
+            "start": 1.265,
+            "end": 3.346
+          }
+        ],
+        "wordTimingSource": "estimated"
+      },
+      "props": {}
+    },
+    {
+      "id": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4",
+      "trackId": "captions",
+      "componentId": "subtitles",
+      "label": "Subtitle",
+      "from": 6500,
+      "durationInFrames": 240,
+      "content": {
+        "text": "Dar am sufletul împăcat.",
+        "status": "unverified",
+        "words": [
+          {
+            "id": "whisper-51-word-1",
+            "text": "Dar",
+            "start": 0,
+            "end": 0.227
+          },
+          {
+            "id": "whisper-51-word-2",
+            "text": "am",
+            "start": 0.227,
+            "end": 0.681
+          },
+          {
+            "id": "whisper-51-word-3",
+            "text": "sufletul",
+            "start": 0.681,
+            "end": 3.706
+          },
+          {
+            "id": "whisper-51-word-4",
+            "text": "împăcat.",
+            "start": 3.706,
+            "end": 7.985
+          }
+        ],
+        "wordTimingSource": "whisper"
+      },
+      "props": {}
+    },
+    {
+      "id": "soundtrack-eb00b32d-68cb-4a2b-855d-dce770284fff",
+      "trackId": "audio",
+      "componentId": "soundtrack",
+      "label": "Soundtrack · Mai departe, pas după pas",
+      "from": 0,
+      "durationInFrames": 7199,
+      "content": {
+        "assetId": "audio-2d572c69-9bab-4d14-9392-1b9e951064aa"
+      },
+      "props": {}
+    },
+    {
+      "id": "director-continuous-journey",
+      "trackId": "director-actors",
+      "componentId": "director-journey-reveal",
+      "from": 0,
+      "durationInFrames": 7199,
+      "label": "Three paths · continuous landscape reveal",
+      "content": {},
+      "props": {
+        "horizon": 55,
+        "gain": 0.92,
+        "particles": 70
+      }
+    }
+  ]
+}

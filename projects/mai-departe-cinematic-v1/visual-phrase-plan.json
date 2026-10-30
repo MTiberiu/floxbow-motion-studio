@@ -1,0 +1,1989 @@
+{
+  "schemaVersion": 1,
+  "kind": "floxBow-visual-phrase-plan",
+  "plannerVersion": "visual-phrase-planner/1.0.0",
+  "projectId": "mai-departe-pas-dup-pas",
+  "durationSeconds": 239.96,
+  "sources": {
+    "musicRevision": "5600a0d64cd1f79905f0cab6f24e24167eb195fdd4d6cf068eb2ab0b6a6705fb",
+    "lyricsRevision": "9a4bafee762fcfbef22a9501ec61eefd309c315f296c92be2a52fcdaab96e227"
+  },
+  "algorithm": "hybrid",
+  "settings": {
+    "stretchThreshold": 2.8,
+    "minimumSustainSeconds": 0.85,
+    "syllableSeconds": 0.19,
+    "minimumWordBaselineSeconds": 0.13,
+    "pauseSplitSeconds": 0.38,
+    "targetGroupSeconds": 1.8,
+    "maxGroupWords": 5,
+    "targetWordsPerGroup": 3,
+    "musicInfluence": 0.35,
+    "eventDensityWeight": 0.025,
+    "energyWeight": 0.15,
+    "punctuationInfluence": 0.65,
+    "punctuationBoundaryStrength": 0.28,
+    "durationBalanceWeight": 0.7,
+    "wordCountWeight": 0.12,
+    "pauseBoundaryStrength": 0.9,
+    "shortGroupThreshold": 0.35,
+    "shortGroupPenalty": 0.7
+  },
+  "groups": [
+    {
+      "id": "phrase-1gowesk",
+      "cueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263",
+      "wordIds": [
+        "whisper-1-estimated-word-1",
+        "whisper-1-estimated-word-2",
+        "whisper-1-estimated-word-3"
+      ],
+      "start": 13.033333333333333,
+      "end": 13.683333333333334,
+      "text": "Am tot zis:",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1kftcdn",
+      "cueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263",
+      "wordIds": [
+        "whisper-1-estimated-word-4",
+        "whisper-1-estimated-word-5",
+        "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-word-6",
+        "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-word-7"
+      ],
+      "start": 13.683333333333334,
+      "end": 14.600333333333333,
+      "text": "„Mai stau un pic”,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1iro58o",
+      "cueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-line-2",
+      "wordIds": [
+        "whisper-1-estimated-word-8",
+        "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-line-2-word-2",
+        "whisper-1-estimated-word-10",
+        "whisper-1-estimated-word-11",
+        "corrected-subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263-line-2-word-5"
+      ],
+      "start": 16.538333333333334,
+      "end": 18.267333333333333,
+      "text": "Și n-am mai schimbat nimic.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-n2i3vx",
+      "cueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f",
+      "wordIds": [
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-word-1",
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-word-2",
+        "whisper-2-word-2"
+      ],
+      "start": 20.133333333333333,
+      "end": 20.979333333333333,
+      "text": "Azi îmi spun:",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-111bggf",
+      "cueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f",
+      "wordIds": [
+        "whisper-2-word-3",
+        "whisper-2-word-4",
+        "whisper-2-word-5",
+        "whisper-2-word-6"
+      ],
+      "start": 20.979333333333333,
+      "end": 22.39933333333333,
+      "text": "Mai poți un pas,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-k4bqa8",
+      "cueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2",
+      "wordIds": [
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-1",
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-2",
+        "whisper-2-word-8",
+        "whisper-2-word-9",
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-5"
+      ],
+      "start": 23.5,
+      "end": 24.981,
+      "text": "Fă-l cu tot ce ți-a",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1vv3o0h",
+      "cueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2",
+      "wordIds": [
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-6"
+      ],
+      "start": 24.981,
+      "end": 27,
+      "text": "rămas.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "corrected-subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f-line-2-word-6"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-111gaih",
+      "cueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e",
+      "wordIds": [
+        "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-word-1",
+        "whisper-3-estimated-word-3",
+        "whisper-3-estimated-word-4"
+      ],
+      "start": 27.266666666666666,
+      "end": 28.204666666666665,
+      "text": "Mi-am promis „Va",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-mdic3e",
+      "cueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e",
+      "wordIds": [
+        "whisper-3-estimated-word-5",
+        "whisper-3-estimated-word-6",
+        "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-word-6"
+      ],
+      "start": 28.204666666666665,
+      "end": 29.232666666666667,
+      "text": "fi mai bine”,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-qdfhr6",
+      "cueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2",
+      "wordIds": [
+        "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2-word-1",
+        "whisper-3-estimated-word-10",
+        "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2-word-3",
+        "corrected-subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e-line-2-word-4",
+        "whisper-3-estimated-word-13"
+      ],
+      "start": 30.533333333333335,
+      "end": 32.666333333333334,
+      "text": "Și-am uitat apoi de mine.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-138sa6a",
+      "cueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d",
+      "wordIds": [
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-word-1",
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-word-2",
+        "whisper-4-estimated-word-5"
+      ],
+      "start": 33.96666666666667,
+      "end": 35.40266666666667,
+      "text": "Strâng facturile pe",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1lo0sgk",
+      "cueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d",
+      "wordIds": [
+        "whisper-4-estimated-word-6"
+      ],
+      "start": 35.40266666666667,
+      "end": 36.95166666666667,
+      "text": "masă,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1x2vpg1",
+      "cueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2",
+      "wordIds": [
+        "whisper-4-estimated-word-7",
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-2",
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-3",
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-4",
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2-word-5"
+      ],
+      "start": 37.712,
+      "end": 40.115,
+      "text": "N-am curaj să sun acasă.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-ex851r",
+      "cueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3",
+      "wordIds": [
+        "whisper-4-estimated-word-11",
+        "whisper-4-estimated-word-12",
+        "whisper-4-estimated-word-13",
+        "whisper-4-estimated-word-14"
+      ],
+      "start": 41.121,
+      "end": 42.358000000000004,
+      "text": "Când mă sună, mă",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1icqy6w",
+      "cueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3",
+      "wordIds": [
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3-word-5"
+      ],
+      "start": 42.358000000000004,
+      "end": 43.436,
+      "text": "prefac,",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "corrected-subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3-word-5"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-3hoak7",
+      "cueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948",
+      "wordIds": [
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-1",
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-2",
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-3"
+      ],
+      "start": 44.56666666666667,
+      "end": 45.50066666666667,
+      "text": "Spun că-s bine,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1ftax8w",
+      "cueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948",
+      "wordIds": [
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-4",
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-word-5"
+      ],
+      "start": 45.50066666666667,
+      "end": 47.01666666666667,
+      "text": "apoi tac.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-a3x6d8",
+      "cueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2",
+      "wordIds": [
+        "whisper-5-estimated-word-5",
+        "whisper-5-estimated-word-6",
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2-word-3",
+        "corrected-subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2-word-4",
+        "whisper-5-estimated-word-8"
+      ],
+      "start": 48.33733333333333,
+      "end": 49.31733333333334,
+      "text": "Am zis „da” la ce",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-irty9p",
+      "cueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2",
+      "wordIds": [
+        "whisper-5-estimated-word-9",
+        "whisper-5-estimated-word-10"
+      ],
+      "start": 49.31733333333334,
+      "end": 51.16733333333334,
+      "text": "n-am vrut,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-mhsoo5",
+      "cueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501",
+      "wordIds": [
+        "whisper-6-word-1",
+        "whisper-6-word-2",
+        "whisper-6-word-3",
+        "whisper-6-word-4"
+      ],
+      "start": 51.86666666666667,
+      "end": 52.82866666666667,
+      "text": "Timpul meu s-a tot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1cmfvgn",
+      "cueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501",
+      "wordIds": [
+        "whisper-6-word-5"
+      ],
+      "start": 52.82866666666667,
+      "end": 54.99966666666667,
+      "text": "pierdut.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-6-word-5"
+      ],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1kazeq1",
+      "cueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2",
+      "wordIds": [
+        "corrected-subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2-word-1",
+        "corrected-subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2-word-2",
+        "whisper-6-word-8",
+        "whisper-6-word-9",
+        "whisper-6-word-10"
+      ],
+      "start": 55.2,
+      "end": 57.133333,
+      "text": "Nu-mi trece frica dacă stau,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-41ke1g",
+      "cueId": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352",
+      "wordIds": [
+        "corrected-subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352-word-1",
+        "corrected-subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352-word-2",
+        "whisper-7-estimated-word-4"
+      ],
+      "start": 58.56666666666667,
+      "end": 59.68666666666667,
+      "text": "Știu măcar ce",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-f3z1ui",
+      "cueId": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352",
+      "wordIds": [
+        "whisper-7-estimated-word-5",
+        "whisper-7-estimated-word-6",
+        "corrected-subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352-word-6"
+      ],
+      "start": 59.68666666666667,
+      "end": 60.71066666666667,
+      "text": "nu mai vreau.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-51el98",
+      "cueId": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0",
+      "wordIds": [
+        "whisper-8-estimated-word-1",
+        "corrected-subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0-word-2",
+        "whisper-8-estimated-word-4"
+      ],
+      "start": 62.266666666666666,
+      "end": 63.459666666666664,
+      "text": "N-am răspunsuri pentru",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-t40odn",
+      "cueId": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0",
+      "wordIds": [
+        "corrected-subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0-word-4"
+      ],
+      "start": 63.459666666666664,
+      "end": 65.73266666666666,
+      "text": "tot,",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "corrected-subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0-word-4"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-y7errx",
+      "cueId": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42",
+      "wordIds": [
+        "whisper-9-estimated-word-1",
+        "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-2",
+        "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-3"
+      ],
+      "start": 65.86666666666666,
+      "end": 67.15666666666667,
+      "text": "Dar fac astăzi",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-gc4le6",
+      "cueId": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42",
+      "wordIds": [
+        "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-4",
+        "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-5",
+        "corrected-subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42-word-6"
+      ],
+      "start": 67.15666666666667,
+      "end": 69.43166666666666,
+      "text": "tot ce pot.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1pem6md",
+      "cueId": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389",
+      "wordIds": [
+        "whisper-10-word-1",
+        "corrected-subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389-word-2",
+        "corrected-subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389-word-3"
+      ],
+      "start": 69.93333333333334,
+      "end": 71.04787833333334,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-kwdb44",
+      "cueId": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389",
+      "wordIds": [
+        "corrected-subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389-word-4",
+        "whisper-10-word-4",
+        "whisper-10-word-5"
+      ],
+      "start": 71.04787833333334,
+      "end": 71.96666633333334,
+      "text": "nu mă las,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1vodfhq",
+      "cueId": "subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d",
+      "wordIds": [
+        "whisper-11-word-1",
+        "whisper-11-word-2",
+        "whisper-11-word-3",
+        "corrected-subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d-word-4",
+        "whisper-11-word-5"
+      ],
+      "start": 73.26666666666667,
+      "end": 75.52666666666667,
+      "text": "Mai departe, pas după pas.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1nb29mp",
+      "cueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "wordIds": [
+        "whisper-12-word-1",
+        "corrected-subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13-word-2",
+        "corrected-subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13-word-3"
+      ],
+      "start": 76.53333333333333,
+      "end": 78.03333333333333,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-8vdbhy",
+      "cueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "wordIds": [
+        "whisper-12-word-4",
+        "corrected-subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13-word-5",
+        "whisper-12-word-6"
+      ],
+      "start": 78.03333333333333,
+      "end": 79.01333333333334,
+      "text": "chiar de-i greu,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-8xflca",
+      "cueId": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5",
+      "wordIds": [
+        "corrected-subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5-word-1",
+        "corrected-subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5-word-2",
+        "corrected-subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5-word-3",
+        "whisper-13-estimated-word-5"
+      ],
+      "start": 80.3,
+      "end": 81.95,
+      "text": "Îmi iau înapoi timpul",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-17ub14f",
+      "cueId": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5",
+      "wordIds": [
+        "whisper-13-estimated-word-6"
+      ],
+      "start": 81.95,
+      "end": 83.56,
+      "text": "meu.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-13-estimated-word-6"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-np6881",
+      "cueId": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96",
+      "wordIds": [
+        "whisper-14-word-1",
+        "corrected-subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96-word-2",
+        "corrected-subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96-word-3"
+      ],
+      "start": 83.86666666666666,
+      "end": 85.08666666666666,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1dwao7w",
+      "cueId": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96",
+      "wordIds": [
+        "whisper-14-word-4",
+        "whisper-14-word-5",
+        "whisper-14-word-6"
+      ],
+      "start": 85.08666666666666,
+      "end": 86.06666666666666,
+      "text": "nu mă las,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1lpc41i",
+      "cueId": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4",
+      "wordIds": [
+        "corrected-subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4-word-1",
+        "corrected-subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4-word-2",
+        "whisper-15-estimated-word-2",
+        "whisper-15-estimated-word-3"
+      ],
+      "start": 86.83333333333333,
+      "end": 88.09173333333332,
+      "text": "Merg cu tot ce",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1atpu51",
+      "cueId": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4",
+      "wordIds": [
+        "corrected-subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4-word-5",
+        "whisper-15-estimated-word-5",
+        "whisper-15-estimated-word-6"
+      ],
+      "start": 88.09173333333332,
+      "end": 89.69333333333333,
+      "text": "mi-a mai rămas.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-k06zbi",
+      "cueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "wordIds": [
+        "whisper-16-word-1",
+        "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-2",
+        "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-3"
+      ],
+      "start": 90.83333333333333,
+      "end": 91.82533333333333,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1cexcce",
+      "cueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "wordIds": [
+        "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-4",
+        "corrected-subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565-word-5",
+        "whisper-16-word-5"
+      ],
+      "start": 91.82533333333333,
+      "end": 93.03333333333333,
+      "text": "plec la drum,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1m9749d",
+      "cueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60",
+      "wordIds": [
+        "corrected-subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60-word-1",
+        "corrected-subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60-word-2",
+        "whisper-17-word-2"
+      ],
+      "start": 94.26666666666667,
+      "end": 94.92666666666666,
+      "text": "Fac ce pot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-axe6iu",
+      "cueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60",
+      "wordIds": [
+        "whisper-17-word-3",
+        "whisper-17-word-4",
+        "whisper-17-word-5"
+      ],
+      "start": 94.92666666666666,
+      "end": 95.82666666666667,
+      "text": "cu ce am",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-pn7446",
+      "cueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60",
+      "wordIds": [
+        "whisper-17-word-6"
+      ],
+      "start": 95.82666666666667,
+      "end": 97.50666666666666,
+      "text": "acum.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-17-word-6"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-za2de2",
+      "cueId": "subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87",
+      "wordIds": [
+        "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-1",
+        "whisper-18-estimated-word-2",
+        "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-3",
+        "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-4",
+        "corrected-subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87-word-5"
+      ],
+      "start": 97.86666666666666,
+      "end": 99.66666666666666,
+      "text": "Mi-au spus „nu” la interviu,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-9milbw",
+      "cueId": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677",
+      "wordIds": [
+        "whisper-19-estimated-word-1",
+        "corrected-subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677-word-2"
+      ],
+      "start": 100.9,
+      "end": 101.89391300000001,
+      "text": "Mai încerc,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1qg7zkj",
+      "cueId": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677",
+      "wordIds": [
+        "whisper-19-estimated-word-3",
+        "corrected-subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677-word-4",
+        "corrected-subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677-word-5"
+      ],
+      "start": 101.89391300000001,
+      "end": 103.433333,
+      "text": "nu-i prea târziu.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1s7i9bb",
+      "cueId": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779",
+      "wordIds": [
+        "corrected-subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779-word-1",
+        "corrected-subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779-word-2",
+        "corrected-subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779-word-3"
+      ],
+      "start": 104.43333333333334,
+      "end": 105.81333333333333,
+      "text": "Îmi fac timp",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-30nndg",
+      "cueId": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779",
+      "wordIds": [
+        "whisper-20-word-3",
+        "whisper-20-word-4",
+        "whisper-20-word-5"
+      ],
+      "start": 105.81333333333333,
+      "end": 107.23333333333333,
+      "text": "și pentru mine,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1ui4dms",
+      "cueId": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a",
+      "wordIds": [
+        "whisper-21-word-1",
+        "corrected-subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a-word-2",
+        "corrected-subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a-word-3"
+      ],
+      "start": 108.3,
+      "end": 109.526667,
+      "text": "Să învăț ce",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1c9azaa",
+      "cueId": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a",
+      "wordIds": [
+        "corrected-subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a-word-4",
+        "whisper-21-word-3",
+        "whisper-21-word-4"
+      ],
+      "start": 109.526667,
+      "end": 110.61999999999999,
+      "text": "nu știu bine.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-ktjf2w",
+      "cueId": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f",
+      "wordIds": [
+        "whisper-22-word-1",
+        "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-2",
+        "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-3",
+        "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-4"
+      ],
+      "start": 111.5,
+      "end": 112.96,
+      "text": "Și când simt că",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-lysk6v",
+      "cueId": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f",
+      "wordIds": [
+        "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-5",
+        "whisper-22-word-4",
+        "corrected-subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f-word-7"
+      ],
+      "start": 112.96,
+      "end": 113.933333,
+      "text": "nu mai pot,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-ayl4ja",
+      "cueId": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b",
+      "wordIds": [
+        "whisper-23-word-1",
+        "corrected-subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b-word-2",
+        "whisper-23-word-2"
+      ],
+      "start": 115.13333333333334,
+      "end": 116.35333333333334,
+      "text": "Sună a mei,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-hy9uih",
+      "cueId": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b",
+      "wordIds": [
+        "corrected-subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b-word-4",
+        "corrected-subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b-word-5",
+        "whisper-23-word-5"
+      ],
+      "start": 116.35333333333334,
+      "end": 117.46666633333334,
+      "text": "nu spun tot.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-iklz15",
+      "cueId": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5",
+      "wordIds": [
+        "whisper-24-word-1",
+        "whisper-24-word-2",
+        "whisper-24-word-3"
+      ],
+      "start": 118.46666666666667,
+      "end": 119.86666666666667,
+      "text": "Mai greșesc, mai",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1k2gnno",
+      "cueId": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5",
+      "wordIds": [
+        "whisper-24-word-4",
+        "whisper-24-word-5",
+        "whisper-24-word-6"
+      ],
+      "start": 119.86666666666667,
+      "end": 120.73333333333333,
+      "text": "stau pe loc,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1jdbf1s",
+      "cueId": "subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be",
+      "wordIds": [
+        "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-1",
+        "whisper-25-estimated-word-2",
+        "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-3",
+        "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-4",
+        "corrected-subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be-word-5"
+      ],
+      "start": 121.83333333333333,
+      "end": 124.06666633333333,
+      "text": "Schimb ce pot, n-aștept noroc.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-19fe8y2",
+      "cueId": "subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa",
+      "wordIds": [
+        "corrected-subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa-word-1",
+        "corrected-subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa-word-2",
+        "whisper-26-word-3",
+        "whisper-26-word-4",
+        "whisper-26-word-5"
+      ],
+      "start": 124.83333333333333,
+      "end": 126.8,
+      "text": "Nu-mi trece frica dacă stau,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-15g3dih",
+      "cueId": "subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3",
+      "wordIds": [
+        "whisper-27-word-1",
+        "corrected-subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3-word-2",
+        "whisper-27-word-3"
+      ],
+      "start": 128.36666666666667,
+      "end": 129.46666666666667,
+      "text": "Știu măcar ce",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-dn2tf8",
+      "cueId": "subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3",
+      "wordIds": [
+        "whisper-27-word-4",
+        "whisper-27-word-5",
+        "corrected-subtitle-whisper-1480c35a-88f4-4835-b484-60478083f8c3-word-6"
+      ],
+      "start": 129.46666666666667,
+      "end": 130.16666666666669,
+      "text": "nu mai vreau.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1wys0yh",
+      "cueId": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c",
+      "wordIds": [
+        "whisper-28-estimated-word-1",
+        "corrected-subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c-word-2",
+        "whisper-28-estimated-word-3"
+      ],
+      "start": 132.1,
+      "end": 133.388,
+      "text": "N-am răspunsuri pentru",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1mpr357",
+      "cueId": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c",
+      "wordIds": [
+        "corrected-subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c-word-4"
+      ],
+      "start": 133.388,
+      "end": 135.536,
+      "text": "tot,",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "corrected-subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c-word-4"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1rwwy7n",
+      "cueId": "subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634",
+      "wordIds": [
+        "whisper-29-word-1",
+        "corrected-subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634-word-2",
+        "corrected-subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634-word-3",
+        "corrected-subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634-word-4"
+      ],
+      "start": 135.66666666666666,
+      "end": 137.42566666666664,
+      "text": "Dar fac astăzi tot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-5kgl4v",
+      "cueId": "subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634",
+      "wordIds": [
+        "whisper-29-word-4"
+      ],
+      "start": 137.42566666666664,
+      "end": 138.48566666666665,
+      "text": "ce",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-29-word-4"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-5agzfw",
+      "cueId": "subtitle-whisper-35e9c333-de26-4eb5-93e2-66c8c213e634",
+      "wordIds": [
+        "whisper-29-word-5"
+      ],
+      "start": 138.48566666666665,
+      "end": 139.72066666666666,
+      "text": "pot.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-29-word-5"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-u1qkis",
+      "cueId": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84",
+      "wordIds": [
+        "whisper-30-word-1",
+        "corrected-subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84-word-2",
+        "corrected-subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84-word-3"
+      ],
+      "start": 139.73333333333332,
+      "end": 140.9333333333333,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-mv86zn",
+      "cueId": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84",
+      "wordIds": [
+        "whisper-30-word-4",
+        "whisper-30-word-5",
+        "whisper-30-word-6"
+      ],
+      "start": 140.9333333333333,
+      "end": 141.79333333333332,
+      "text": "nu mă las,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-19kzpra",
+      "cueId": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751",
+      "wordIds": [
+        "whisper-31-word-1",
+        "whisper-31-word-2"
+      ],
+      "start": 142.86666666666667,
+      "end": 143.86666666666667,
+      "text": "Mai departe,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-ppcth",
+      "cueId": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751",
+      "wordIds": [
+        "whisper-31-word-3",
+        "corrected-subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751-word-4",
+        "whisper-31-word-5"
+      ],
+      "start": 143.86666666666667,
+      "end": 145.34666666666666,
+      "text": "pas după pas.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-ywmpzg",
+      "cueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "wordIds": [
+        "whisper-32-word-1",
+        "corrected-subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17-word-2",
+        "corrected-subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17-word-3"
+      ],
+      "start": 146.63333333333333,
+      "end": 147.87333333333333,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-wtuel2",
+      "cueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "wordIds": [
+        "whisper-32-word-4",
+        "corrected-subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17-word-5",
+        "whisper-32-word-6"
+      ],
+      "start": 147.87333333333333,
+      "end": 148.79999999999998,
+      "text": "chiar de-i greu,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1wjju74",
+      "cueId": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f",
+      "wordIds": [
+        "whisper-33-word-1",
+        "corrected-subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f-word-2",
+        "corrected-subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f-word-3",
+        "whisper-33-word-5"
+      ],
+      "start": 150.16666666666666,
+      "end": 151.71866666666665,
+      "text": "Îmi iau înapoi timpul",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1fitkgo",
+      "cueId": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f",
+      "wordIds": [
+        "whisper-33-word-6"
+      ],
+      "start": 151.71866666666665,
+      "end": 153.29966666666667,
+      "text": "meu.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-33-word-6"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-dva0n7",
+      "cueId": "subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99",
+      "wordIds": [
+        "whisper-34-word-1",
+        "corrected-subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99-word-2",
+        "corrected-subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99-word-3"
+      ],
+      "start": 153.5,
+      "end": 154.84,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1eq6xge",
+      "cueId": "subtitle-whisper-9df60ac5-2cc1-40b8-8147-0735ab35fc99",
+      "wordIds": [
+        "whisper-34-word-4",
+        "whisper-34-word-5",
+        "whisper-34-word-6"
+      ],
+      "start": 154.84,
+      "end": 155.96,
+      "text": "nu mă las,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-vrc8z",
+      "cueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9",
+      "wordIds": [
+        "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-1",
+        "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-2",
+        "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-3"
+      ],
+      "start": 156.56666666666666,
+      "end": 157.29066666666665,
+      "text": "Merg cu tot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1p1v7wx",
+      "cueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9",
+      "wordIds": [
+        "whisper-35-estimated-word-3",
+        "whisper-35-estimated-word-4",
+        "whisper-35-estimated-word-5"
+      ],
+      "start": 157.29066666666665,
+      "end": 158.49766666666667,
+      "text": "ce mi-a mai",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1rxmuj2",
+      "cueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9",
+      "wordIds": [
+        "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-7"
+      ],
+      "start": 158.49766666666667,
+      "end": 159.83666666666667,
+      "text": "rămas.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "corrected-subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9-word-7"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-19po0rl",
+      "cueId": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3",
+      "wordIds": [
+        "whisper-36-word-1",
+        "corrected-subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3-word-2",
+        "corrected-subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3-word-3"
+      ],
+      "start": 160.66666666666666,
+      "end": 161.75435866666666,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-icxexq",
+      "cueId": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3",
+      "wordIds": [
+        "corrected-subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3-word-4",
+        "whisper-36-word-5",
+        "whisper-36-word-6"
+      ],
+      "start": 161.75435866666666,
+      "end": 162.83333333333331,
+      "text": "plec la drum,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-lohtwm",
+      "cueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52",
+      "wordIds": [
+        "whisper-37-word-1",
+        "whisper-37-word-2",
+        "whisper-37-word-3"
+      ],
+      "start": 164.13333333333333,
+      "end": 164.65733333333333,
+      "text": "Fac ce pot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1ew8smj",
+      "cueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52",
+      "wordIds": [
+        "whisper-37-word-4",
+        "whisper-37-word-5",
+        "whisper-37-word-6"
+      ],
+      "start": 164.65733333333333,
+      "end": 165.60833333333332,
+      "text": "cu ce am",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-ct91rn",
+      "cueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52",
+      "wordIds": [
+        "whisper-37-word-7"
+      ],
+      "start": 165.60833333333332,
+      "end": 167.65733333333333,
+      "text": "acum.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-37-word-7"
+      ],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-mybgy0",
+      "cueId": "subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e",
+      "wordIds": [
+        "whisper-38-estimated-word-1",
+        "corrected-subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e-word-2",
+        "corrected-subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e-word-3",
+        "whisper-38-estimated-word-3",
+        "whisper-38-estimated-word-4"
+      ],
+      "start": 167.73333333333332,
+      "end": 170.26666633333332,
+      "text": "Poate mâine tot mi-e greu,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1e218y9",
+      "cueId": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097",
+      "wordIds": [
+        "whisper-39-word-1",
+        "whisper-39-word-2",
+        "corrected-subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097-word-3"
+      ],
+      "start": 171.13333333333333,
+      "end": 172.38242433333332,
+      "text": "Dar mă țin",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-3k29nk",
+      "cueId": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097",
+      "wordIds": [
+        "corrected-subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097-word-4",
+        "corrected-subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097-word-5",
+        "whisper-39-word-6"
+      ],
+      "start": 172.38242433333332,
+      "end": 174.13333333333333,
+      "text": "de planul meu.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-f02oy1",
+      "cueId": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4",
+      "wordIds": [
+        "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-1",
+        "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-2",
+        "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-3"
+      ],
+      "start": 174.66666666666666,
+      "end": 175.76384866666666,
+      "text": "Azi n-am tot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1c6rh2",
+      "cueId": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4",
+      "wordIds": [
+        "corrected-subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4-word-4",
+        "whisper-40-estimated-word-3",
+        "whisper-40-estimated-word-4"
+      ],
+      "start": 175.76384866666666,
+      "end": 177.64666666666665,
+      "text": "ce mi-am dorit,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-hb62my",
+      "cueId": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433",
+      "wordIds": [
+        "whisper-41-estimated-word-1",
+        "corrected-subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433-word-2",
+        "whisper-41-estimated-word-4"
+      ],
+      "start": 178.23333333333332,
+      "end": 179.5533333333333,
+      "text": "Dar măcar nu",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-t21wxb",
+      "cueId": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433",
+      "wordIds": [
+        "whisper-41-estimated-word-5",
+        "whisper-41-estimated-word-6"
+      ],
+      "start": 179.5533333333333,
+      "end": 180.8666663333333,
+      "text": "m-am oprit.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-mqtz9p",
+      "cueId": "subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783",
+      "wordIds": [
+        "whisper-42-word-1",
+        "corrected-subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783-word-2",
+        "corrected-subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783-word-3"
+      ],
+      "start": 181.6,
+      "end": 182.9,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1k2p7zq",
+      "cueId": "subtitle-whisper-6ed689af-5a25-4afe-a63f-b16f6b707783",
+      "wordIds": [
+        "whisper-42-word-4",
+        "whisper-42-word-5",
+        "whisper-42-word-6"
+      ],
+      "start": 182.9,
+      "end": 183.76666666666665,
+      "text": "nu mă las,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-26rpqz",
+      "cueId": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b",
+      "wordIds": [
+        "whisper-43-word-1",
+        "whisper-43-word-2"
+      ],
+      "start": 184.73333333333332,
+      "end": 185.91333333333333,
+      "text": "Mai departe,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1y3ngpv",
+      "cueId": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b",
+      "wordIds": [
+        "whisper-43-word-3",
+        "corrected-subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b-word-4",
+        "whisper-43-word-5"
+      ],
+      "start": 185.91333333333333,
+      "end": 187.53333333333333,
+      "text": "pas după pas.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1nxk279",
+      "cueId": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c",
+      "wordIds": [
+        "whisper-44-word-1",
+        "corrected-subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c-word-2",
+        "corrected-subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c-word-3"
+      ],
+      "start": 188.16666666666666,
+      "end": 189.90666666666667,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-eqd2cg",
+      "cueId": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c",
+      "wordIds": [
+        "whisper-44-word-4",
+        "corrected-subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c-word-5",
+        "whisper-44-word-6"
+      ],
+      "start": 189.90666666666667,
+      "end": 190.88666666666666,
+      "text": "chiar de-i greu,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1x778xs",
+      "cueId": "subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251",
+      "wordIds": [
+        "whisper-45-word-1",
+        "corrected-subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251-word-2",
+        "corrected-subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251-word-3",
+        "whisper-45-word-5",
+        "whisper-45-word-6"
+      ],
+      "start": 192.16666666666666,
+      "end": 194.49999966666667,
+      "text": "Îmi iau înapoi timpul meu.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-p12cb8",
+      "cueId": "subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf",
+      "wordIds": [
+        "whisper-46-word-1",
+        "corrected-subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf-word-2",
+        "corrected-subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf-word-3",
+        "whisper-46-word-4",
+        "whisper-46-word-5"
+      ],
+      "start": 195.63333333333333,
+      "end": 197.41333333333333,
+      "text": "Nu rămân aici, nu mă",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-xhnzl3",
+      "cueId": "subtitle-whisper-c1ef3675-0536-4049-bb04-9bcd792633bf",
+      "wordIds": [
+        "whisper-46-word-6"
+      ],
+      "start": 197.41333333333333,
+      "end": 198.33333333333331,
+      "text": "las,",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-46-word-6"
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-ja3p1j",
+      "cueId": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e",
+      "wordIds": [
+        "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-1",
+        "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-2",
+        "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-3",
+        "whisper-47-estimated-word-3"
+      ],
+      "start": 198.66666666666666,
+      "end": 199.85303066666665,
+      "text": "Merg cu tot ce",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-fesb1z",
+      "cueId": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e",
+      "wordIds": [
+        "whisper-47-estimated-word-4",
+        "whisper-47-estimated-word-5",
+        "corrected-subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e-word-7"
+      ],
+      "start": 199.85303066666665,
+      "end": 201.56666666666666,
+      "text": "mi-a mai rămas.",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-13twmth",
+      "cueId": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a",
+      "wordIds": [
+        "whisper-48-word-1",
+        "corrected-subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a-word-2",
+        "corrected-subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a-word-3"
+      ],
+      "start": 202.5,
+      "end": 203.727692,
+      "text": "Nu rămân aici,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-kpu9em",
+      "cueId": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a",
+      "wordIds": [
+        "corrected-subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a-word-4",
+        "whisper-48-word-5",
+        "whisper-48-word-6"
+      ],
+      "start": 203.727692,
+      "end": 204.86,
+      "text": "plec la drum,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1l4bk1n",
+      "cueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f",
+      "wordIds": [
+        "whisper-49-word-1",
+        "whisper-49-word-2",
+        "whisper-49-word-3"
+      ],
+      "start": 206.1,
+      "end": 206.79999999999998,
+      "text": "Fac ce pot",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-bjqrvm",
+      "cueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f",
+      "wordIds": [
+        "whisper-49-word-4",
+        "whisper-49-word-5",
+        "whisper-49-word-6"
+      ],
+      "start": 206.79999999999998,
+      "end": 207.72,
+      "text": "cu ce am",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1wivvje",
+      "cueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f",
+      "wordIds": [
+        "whisper-49-word-7"
+      ],
+      "start": 207.72,
+      "end": 210.35999999999999,
+      "text": "acum.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-49-word-7"
+      ],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1vwxge5",
+      "cueId": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb",
+      "wordIds": [
+        "whisper-50-word-1",
+        "whisper-50-word-2",
+        "whisper-50-word-3"
+      ],
+      "start": 211.46666666666667,
+      "end": 212.73166666666665,
+      "text": "Nu e totul",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1e3qnqb",
+      "cueId": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb",
+      "wordIds": [
+        "corrected-subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb-word-4"
+      ],
+      "start": 212.73166666666665,
+      "end": 214.81266666666667,
+      "text": "rezolvat,",
+      "reasons": [
+        "punctuation boundary"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "estimated"
+    },
+    {
+      "id": "phrase-1nn15sm",
+      "cueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4",
+      "wordIds": [
+        "whisper-51-word-1",
+        "whisper-51-word-2"
+      ],
+      "start": 216.66666666666666,
+      "end": 217.34766666666667,
+      "text": "Dar am",
+      "reasons": [
+        "musical context influenced grouping"
+      ],
+      "sustainedWordIds": [],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1knpjsn",
+      "cueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4",
+      "wordIds": [
+        "whisper-51-word-3"
+      ],
+      "start": 217.34766666666667,
+      "end": 220.37266666666665,
+      "text": "sufletul",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-51-word-3"
+      ],
+      "confidence": "mixed"
+    },
+    {
+      "id": "phrase-1jtqqpq",
+      "cueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4",
+      "wordIds": [
+        "whisper-51-word-4"
+      ],
+      "start": 220.37266666666665,
+      "end": 224.65166666666667,
+      "text": "împăcat.",
+      "reasons": [
+        "sustained-word candidate",
+        "contains sustained-word candidate"
+      ],
+      "sustainedWordIds": [
+        "whisper-51-word-4"
+      ],
+      "confidence": "mixed"
+    }
+  ],
+  "metrics": {
+    "groupCount": 112,
+    "medianGroupSeconds": 1.244545500000001,
+    "singleWordGroups": 18,
+    "transitionsPerMinute": 28.004667444574096,
+    "sustainedWordsSeparated": 16,
+    "groupsCrossingVocalPauses": 11,
+    "shortTransitions": 0,
+    "estimatedGroups": 112
+  }
+}

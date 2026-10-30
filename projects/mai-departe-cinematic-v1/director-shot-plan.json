@@ -1,0 +1,1816 @@
+{
+  "schemaVersion": 1,
+  "kind": "floxBow-director-shot-plan",
+  "artDirection": "A clean white stage is the visual ground, never a photo or blurred image fill. Scenes and shots follow the lyric narrative. The bills in Strâng facturile pe masă fall as paper leaves on real musical accents and remain as a growing stack. The rejection remains on white, with cooler light; warmth returns as he tries again. Full-body poses keep the entire figure and his support visible; close emotion uses a separately generated mid-thigh portrait without cropping it in the composition. Thin sound contours respond to the saved Word Gravity, Phrase Emotional, Vocal Prosody/RMS and sourced music events; they are authored motion cues, not emotion classifiers.",
+  "sourceProjectId": "mai-departe-pas-dup-pas",
+  "durationSeconds": 239.96,
+  "scenes": [
+    {
+      "id": "s01-instrumental-open",
+      "name": "The weight before the first line",
+      "start": 0,
+      "end": 13.033333333333333,
+      "background": "white",
+      "tone": "cool"
+    },
+    {
+      "id": "s02-the-burden",
+      "name": "The loop, the work, the bills",
+      "start": 13.033333333333333,
+      "end": 55.2,
+      "background": "white",
+      "tone": "cool"
+    },
+    {
+      "id": "s03-the-decision",
+      "name": "Fear gives way to a decision",
+      "start": 55.2,
+      "end": 97.86666666666666,
+      "background": "white",
+      "tone": "neutral"
+    },
+    {
+      "id": "s04-rejection-and-return",
+      "name": "Rejection, then he begins again",
+      "start": 97.86666666666666,
+      "end": 139.73333333333332,
+      "background": "white",
+      "tone": "neutral"
+    },
+    {
+      "id": "s05-keeps-going",
+      "name": "Forward, with what remains",
+      "start": 139.73333333333332,
+      "end": 167.73333333333332,
+      "background": "white",
+      "tone": "warm"
+    },
+    {
+      "id": "s06-bridge",
+      "name": "Tomorrow may still be hard",
+      "start": 167.73333333333332,
+      "end": 181.6,
+      "background": "white",
+      "tone": "cool"
+    },
+    {
+      "id": "s07-final-chorus",
+      "name": "He has not stopped",
+      "start": 181.6,
+      "end": 211.46666666666667,
+      "background": "white",
+      "tone": "warm"
+    },
+    {
+      "id": "s08-outro",
+      "name": "Not solved; still at peace",
+      "start": 211.46666666666667,
+      "end": 239.96666666666667,
+      "background": "white",
+      "tone": "quiet"
+    }
+  ],
+  "shots": [
+    {
+      "id": "s01-instrumental-1",
+      "sceneId": "s01-instrumental-open",
+      "start": 0.18,
+      "end": 3.7,
+      "sourceCueId": null,
+      "lyric": null,
+      "action": null,
+      "pose": null,
+      "framing": "music-only",
+      "motion": "phrase-emotional",
+      "tone": "cool"
+    },
+    {
+      "id": "s01-instrumental-2",
+      "sceneId": "s01-instrumental-open",
+      "start": 3.7,
+      "end": 7.23,
+      "sourceCueId": null,
+      "lyric": null,
+      "action": null,
+      "pose": null,
+      "framing": "music-only",
+      "motion": "phrase-emotional",
+      "tone": "cool"
+    },
+    {
+      "id": "s01-instrumental-3",
+      "sceneId": "s01-instrumental-open",
+      "start": 7.23,
+      "end": 10.8,
+      "sourceCueId": null,
+      "lyric": null,
+      "action": null,
+      "pose": null,
+      "framing": "music-only",
+      "motion": "phrase-emotional",
+      "tone": "cool"
+    },
+    {
+      "id": "s01-instrumental-4",
+      "sceneId": "s01-instrumental-open",
+      "start": 10.8,
+      "end": 13.033333333333333,
+      "sourceCueId": null,
+      "lyric": null,
+      "action": null,
+      "pose": null,
+      "framing": "music-only",
+      "motion": "phrase-emotional",
+      "tone": "cool"
+    },
+    {
+      "id": "s02-hesitates",
+      "sceneId": "s02-the-burden",
+      "start": 13.033333333333333,
+      "end": 20.133333333333333,
+      "sourceCueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263",
+      "lyric": "Am tot zis: „Mai stau un pic”,",
+      "action": "hesitation",
+      "pose": "seated",
+      "framing": "wide",
+      "motion": "word-gravity",
+      "tone": "cool"
+    },
+    {
+      "id": "s02-one-step",
+      "sceneId": "s02-the-burden",
+      "start": 20.133333333333333,
+      "end": 27.266666666666666,
+      "sourceCueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f",
+      "lyric": "Azi îmi spun: Mai poți un pas,",
+      "action": "step",
+      "pose": "standing",
+      "framing": "wide",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s03-the-promise",
+      "sceneId": "s02-the-burden",
+      "start": 27.266666666666666,
+      "end": 33.96666666666667,
+      "sourceCueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e",
+      "lyric": "Mi-am promis „Va fi mai bine”,",
+      "action": "promise",
+      "pose": "seated",
+      "framing": "wide",
+      "motion": "word-gravity",
+      "tone": "cool"
+    },
+    {
+      "id": "s03-bills-fall",
+      "sceneId": "s02-the-burden",
+      "start": 33.96666666666667,
+      "end": 37.7,
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d",
+      "lyric": "Strâng facturile pe masă,",
+      "action": "bills",
+      "pose": "seated",
+      "framing": "wide",
+      "motion": "phrase-emotional",
+      "tone": "cool"
+    },
+    {
+      "id": "s03-cannot-call",
+      "sceneId": "s02-the-burden",
+      "start": 37.7,
+      "end": 41.1,
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2",
+      "lyric": "N-am curaj să sun acasă.",
+      "action": "cannot-call",
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s03-phone-rings",
+      "sceneId": "s02-the-burden",
+      "start": 41.1,
+      "end": 44.56666666666667,
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3",
+      "lyric": "Când mă sună, mă prefac,",
+      "action": "answer",
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s03-pretends",
+      "sceneId": "s02-the-burden",
+      "start": 44.56666666666667,
+      "end": 48.333333333333336,
+      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948",
+      "lyric": "Spun că-s bine, apoi tac.",
+      "action": "silence",
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s03-says-yes",
+      "sceneId": "s02-the-burden",
+      "start": 48.333333333333336,
+      "end": 51.86666666666667,
+      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2",
+      "lyric": "Am zis „da” la ce n-am vrut,",
+      "action": "consent",
+      "pose": "standing",
+      "framing": "wide",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s03-lost-time",
+      "sceneId": "s02-the-burden",
+      "start": 51.86666666666667,
+      "end": 55.2,
+      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501",
+      "lyric": "Timpul meu s-a tot pierdut.",
+      "action": "lost-time",
+      "pose": "close",
+      "framing": "close",
+      "motion": "word-gravity",
+      "tone": "cool"
+    },
+    {
+      "id": "s04-fear",
+      "sceneId": "s03-the-decision",
+      "start": 55.2,
+      "end": 58.56666666666667,
+      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2",
+      "lyric": "Nu-mi trece frica dacă stau,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s04-knows-no",
+      "sceneId": "s03-the-decision",
+      "start": 58.56666666666667,
+      "end": 62.266666666666666,
+      "sourceCueId": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352",
+      "lyric": "Știu măcar ce nu mai vreau.",
+      "action": null,
+      "pose": "standing",
+      "framing": "wide",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s04-no-answers",
+      "sceneId": "s03-the-decision",
+      "start": 62.266666666666666,
+      "end": 65.86666666666666,
+      "sourceCueId": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0",
+      "lyric": "N-am răspunsuri pentru tot,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s04-does-what-he-can",
+      "sceneId": "s03-the-decision",
+      "start": 65.86666666666666,
+      "end": 69.93333333333334,
+      "sourceCueId": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42",
+      "lyric": "Dar fac astăzi tot ce pot.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-chooses-to-leave",
+      "sceneId": "s03-the-decision",
+      "start": 69.93333333333334,
+      "end": 73.26666666666667,
+      "sourceCueId": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389",
+      "lyric": "Nu rămân aici, nu mă las,",
+      "action": null,
+      "pose": "standing",
+      "framing": "wide",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-step-after-step",
+      "sceneId": "s03-the-decision",
+      "start": 73.26666666666667,
+      "end": 76.53333333333333,
+      "sourceCueId": "subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d",
+      "lyric": "Mai departe, pas după pas.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-even-when-hard",
+      "sceneId": "s03-the-decision",
+      "start": 76.53333333333333,
+      "end": 76.53333333333333,
+      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-refrain-again",
+      "sceneId": "s03-the-decision",
+      "start": 76.53333333333333,
+      "end": 80.3,
+      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-time-back",
+      "sceneId": "s03-the-decision",
+      "start": 80.3,
+      "end": 83.86666666666666,
+      "sourceCueId": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5",
+      "lyric": "Îmi iau înapoi timpul meu.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-keeps-moving",
+      "sceneId": "s03-the-decision",
+      "start": 83.86666666666666,
+      "end": 86.83333333333333,
+      "sourceCueId": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96",
+      "lyric": "Nu rămân aici, nu mă las,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-what-remains",
+      "sceneId": "s03-the-decision",
+      "start": 86.83333333333333,
+      "end": 90.83333333333333,
+      "sourceCueId": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4",
+      "lyric": "Merg cu tot ce mi-a mai rămas.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-leaves-for-road",
+      "sceneId": "s03-the-decision",
+      "start": 90.83333333333333,
+      "end": 90.83333333333333,
+      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-refrain",
+      "sceneId": "s03-the-decision",
+      "start": 90.83333333333333,
+      "end": 94.26666666666667,
+      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s05-now",
+      "sceneId": "s03-the-decision",
+      "start": 94.26666666666667,
+      "end": 97.86666666666666,
+      "sourceCueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60",
+      "lyric": "Fac ce pot cu ce am acum.",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s06-no",
+      "sceneId": "s04-rejection-and-return",
+      "start": 97.86666666666666,
+      "end": 100.9,
+      "sourceCueId": "subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87",
+      "lyric": "Mi-au spus „nu” la interviu,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s07-tries-again",
+      "sceneId": "s04-rejection-and-return",
+      "start": 100.9,
+      "end": 104.43333333333334,
+      "sourceCueId": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677",
+      "lyric": "Mai încerc, nu-i prea târziu.",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s07-makes-time",
+      "sceneId": "s04-rejection-and-return",
+      "start": 104.43333333333334,
+      "end": 108.3,
+      "sourceCueId": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779",
+      "lyric": "Îmi fac timp și pentru mine,",
+      "action": null,
+      "pose": "seated",
+      "framing": "wide",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s07-learns",
+      "sceneId": "s04-rejection-and-return",
+      "start": 108.3,
+      "end": 111.5,
+      "sourceCueId": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a",
+      "lyric": "Să învăț ce nu știu bine.",
+      "action": null,
+      "pose": "seated",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "neutral"
+    },
+    {
+      "id": "s07-cant-anymore",
+      "sceneId": "s04-rejection-and-return",
+      "start": 111.5,
+      "end": 115.13333333333334,
+      "sourceCueId": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f",
+      "lyric": "Și când simt că nu mai pot,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s07-family-calls",
+      "sceneId": "s04-rejection-and-return",
+      "start": 115.13333333333334,
+      "end": 118.46666666666667,
+      "sourceCueId": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b",
+      "lyric": "Sună a mei, nu spun tot.",
+      "action": null,
+      "pose": "seated",
+      "framing": "wide",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s07-mistakes",
+      "sceneId": "s04-rejection-and-return",
+      "start": 118.46666666666667,
+      "end": 121.83333333333333,
+      "sourceCueId": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5",
+      "lyric": "Mai greșesc, mai stau pe loc,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s07-changes",
+      "sceneId": "s04-rejection-and-return",
+      "start": 121.83333333333333,
+      "end": 124.83333333333333,
+      "sourceCueId": "subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be",
+      "lyric": "Schimb ce pot, n-aștept noroc.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s08-fear-again",
+      "sceneId": "s04-rejection-and-return",
+      "start": 124.83333333333333,
+      "end": 132.1,
+      "sourceCueId": "subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa",
+      "lyric": "Nu-mi trece frica dacă stau,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s08-no-answers-again",
+      "sceneId": "s04-rejection-and-return",
+      "start": 132.1,
+      "end": 139.73333333333332,
+      "sourceCueId": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c",
+      "lyric": "N-am răspunsuri pentru tot,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s11-keeps-going",
+      "sceneId": "s05-keeps-going",
+      "start": 139.73333333333332,
+      "end": 142.86666666666667,
+      "sourceCueId": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84",
+      "lyric": "Nu rămân aici, nu mă las,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-further",
+      "sceneId": "s05-keeps-going",
+      "start": 142.86666666666667,
+      "end": 146.63333333333333,
+      "sourceCueId": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751",
+      "lyric": "Mai departe, pas după pas.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-even-hard-again",
+      "sceneId": "s05-keeps-going",
+      "start": 146.63333333333333,
+      "end": 146.63333333333333,
+      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-refrain",
+      "sceneId": "s05-keeps-going",
+      "start": 146.63333333333333,
+      "end": 150.16666666666666,
+      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-takes-back-time",
+      "sceneId": "s05-keeps-going",
+      "start": 150.16666666666666,
+      "end": 156.56666666666666,
+      "sourceCueId": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f",
+      "lyric": "Îmi iau înapoi timpul meu.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-with-what-remains",
+      "sceneId": "s05-keeps-going",
+      "start": 156.56666666666666,
+      "end": 160.66666666666666,
+      "sourceCueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9",
+      "lyric": "Merg cu tot ce mi-a mai rămas.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-leaves-again",
+      "sceneId": "s05-keeps-going",
+      "start": 160.66666666666666,
+      "end": 164.13333333333333,
+      "sourceCueId": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3",
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s09-can-now",
+      "sceneId": "s05-keeps-going",
+      "start": 164.13333333333333,
+      "end": 167.73333333333332,
+      "sourceCueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52",
+      "lyric": "Fac ce pot cu ce am acum.",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s10-tomorrow",
+      "sceneId": "s06-bridge",
+      "start": 167.73333333333332,
+      "end": 171.13333333333333,
+      "sourceCueId": "subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e",
+      "lyric": "Poate mâine tot mi-e greu,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s10-holds-plan",
+      "sceneId": "s06-bridge",
+      "start": 171.13333333333333,
+      "end": 174.66666666666666,
+      "sourceCueId": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097",
+      "lyric": "Dar mă țin de planul meu.",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "phrase-emotional",
+      "tone": "neutral"
+    },
+    {
+      "id": "s10-not-all-yet",
+      "sceneId": "s06-bridge",
+      "start": 174.66666666666666,
+      "end": 178.23333333333332,
+      "sourceCueId": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4",
+      "lyric": "Azi n-am tot ce mi-am dorit,",
+      "action": null,
+      "pose": "seated",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "cool"
+    },
+    {
+      "id": "s10-has-not-stopped",
+      "sceneId": "s06-bridge",
+      "start": 178.23333333333332,
+      "end": 184.73333333333332,
+      "sourceCueId": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433",
+      "lyric": "Dar măcar nu m-am oprit.",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-further",
+      "sceneId": "s07-final-chorus",
+      "start": 184.73333333333332,
+      "end": 188.16666666666666,
+      "sourceCueId": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b",
+      "lyric": "Mai departe, pas după pas.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-even-hard",
+      "sceneId": "s07-final-chorus",
+      "start": 188.16666666666666,
+      "end": 192.16666666666666,
+      "sourceCueId": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c",
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-time-back",
+      "sceneId": "s07-final-chorus",
+      "start": 192.16666666666666,
+      "end": 198.66666666666666,
+      "sourceCueId": "subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251",
+      "lyric": "Îmi iau înapoi timpul meu.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-with-what-remains",
+      "sceneId": "s07-final-chorus",
+      "start": 198.66666666666666,
+      "end": 202.5,
+      "sourceCueId": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e",
+      "lyric": "Merg cu tot ce mi-a mai rămas.",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-leaves-road",
+      "sceneId": "s07-final-chorus",
+      "start": 202.5,
+      "end": 206.1,
+      "sourceCueId": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a",
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "pose": "walking",
+      "framing": "medium",
+      "motion": "word-gravity",
+      "tone": "warm"
+    },
+    {
+      "id": "s11-now",
+      "sceneId": "s07-final-chorus",
+      "start": 206.1,
+      "end": 211.46666666666667,
+      "sourceCueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f",
+      "lyric": "Fac ce pot cu ce am acum.",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "combined",
+      "tone": "warm"
+    },
+    {
+      "id": "s12-not-solved",
+      "sceneId": "s08-outro",
+      "start": 211.46666666666667,
+      "end": 216.66666666666666,
+      "sourceCueId": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb",
+      "lyric": "Nu e totul rezolvat,",
+      "action": null,
+      "pose": "close",
+      "framing": "close",
+      "motion": "vocal-prosody",
+      "tone": "cool"
+    },
+    {
+      "id": "s12-peace",
+      "sceneId": "s08-outro",
+      "start": 216.66666666666666,
+      "end": 224.8,
+      "sourceCueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4",
+      "lyric": "Dar am sufletul împăcat.",
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "quiet"
+    },
+    {
+      "id": "s08-outro-music-1",
+      "sceneId": "s08-outro",
+      "start": 224.8,
+      "end": 228.45,
+      "sourceCueId": null,
+      "lyric": null,
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "quiet"
+    },
+    {
+      "id": "s08-outro-music-2",
+      "sceneId": "s08-outro",
+      "start": 228.45,
+      "end": 239.96666666666667,
+      "sourceCueId": null,
+      "lyric": null,
+      "action": null,
+      "pose": "standing",
+      "framing": "medium",
+      "motion": "phrase-emotional",
+      "tone": "quiet"
+    }
+  ],
+  "audioTransitions": [
+    {
+      "time": 0.17,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 5.9211,
+      "intensity": 0.6789,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 13.19,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 15.2555,
+      "intensity": 0.6858,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 22.4073,
+      "intensity": 0.5251,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 29.5358,
+      "intensity": 0.7559,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 32.1596,
+      "intensity": 0.5845,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 34.7835,
+      "intensity": 0.5866,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 34.8067,
+      "intensity": 0.6932,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 36.5482,
+      "intensity": 0.6758,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 38.2897,
+      "intensity": 0.722,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 39.16,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 40.0544,
+      "intensity": 0.7223,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 40.0776,
+      "intensity": 0.6081,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 46.2193,
+      "intensity": 0.8253,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 47.0901,
+      "intensity": 0.4846,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 47.1133,
+      "intensity": 0.867,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 49.7255,
+      "intensity": 0.6515,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 50.5963,
+      "intensity": 0.5376,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 50.6195,
+      "intensity": 0.9527,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 53.22,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 54.1141,
+      "intensity": 0.825,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 54.1257,
+      "intensity": 0.5424,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 69.83,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 70.728,
+      "intensity": 0.5914,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 71.5987,
+      "intensity": 0.4901,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 73.3518,
+      "intensity": 0.5368,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 74.2342,
+      "intensity": 0.7282,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 76.4169,
+      "intensity": 0.7111,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 76.8464,
+      "intensity": 0.5433,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 77.7288,
+      "intensity": 0.5862,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 78.5995,
+      "intensity": 0.458,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 79.2729,
+      "intensity": 0.6121,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 79.9115,
+      "intensity": 0.6871,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 82.1058,
+      "intensity": 0.945,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 82.129,
+      "intensity": 0.516,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 85.612,
+      "intensity": 0.6789,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 86.7033,
+      "intensity": 0.5207,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 88.2358,
+      "intensity": 0.481,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 90.4185,
+      "intensity": 0.4601,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 90.8597,
+      "intensity": 0.8541,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 93.2746,
+      "intensity": 0.7053,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 93.9131,
+      "intensity": 0.5592,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 94.32,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 94.3543,
+      "intensity": 0.7915,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 95.225,
+      "intensity": 0.7549,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 98.708,
+      "intensity": 0.6479,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 99.5788,
+      "intensity": 0.5705,
+      "category": "snare_like",
+      "source": "drums"
+    },
+    {
+      "time": 100.2405,
+      "intensity": 0.5953,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 100.9139,
+      "intensity": 0.5238,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 103.7235,
+      "intensity": 0.8162,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 104.1531,
+      "intensity": 0.4981,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 104.8033,
+      "intensity": 0.6051,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 106.5448,
+      "intensity": 0.6285,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 107.8567,
+      "intensity": 0.6922,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 107.8799,
+      "intensity": 0.719,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 108.27,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 108.2863,
+      "intensity": 0.5636,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 110.0278,
+      "intensity": 0.6067,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 111.3397,
+      "intensity": 0.6603,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 111.9898,
+      "intensity": 0.5224,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 112.64,
+      "intensity": 0.664,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 114.1609,
+      "intensity": 0.7885,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 114.8111,
+      "intensity": 0.6514,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 115.2406,
+      "intensity": 0.5165,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 116.9821,
+      "intensity": 0.4667,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 117.0054,
+      "intensity": 0.5188,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 118.2941,
+      "intensity": 0.6529,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 119.5944,
+      "intensity": 0.5172,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 120.4651,
+      "intensity": 0.9229,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 122.2066,
+      "intensity": 0.7924,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 123.9365,
+      "intensity": 0.6977,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 125.678,
+      "intensity": 0.5868,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 126.51,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 140.51,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 140.5272,
+      "intensity": 0.5818,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 141.3979,
+      "intensity": 0.5846,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 141.8391,
+      "intensity": 0.6657,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 142.4893,
+      "intensity": 0.5294,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 142.7098,
+      "intensity": 0.6409,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 143.1394,
+      "intensity": 0.5928,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 143.151,
+      "intensity": 0.5099,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 144.0218,
+      "intensity": 0.8465,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 144.8925,
+      "intensity": 0.7502,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 144.9157,
+      "intensity": 0.5531,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 145.3337,
+      "intensity": 0.7794,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 146.0071,
+      "intensity": 0.5476,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 146.2044,
+      "intensity": 0.6453,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 146.6456,
+      "intensity": 0.8982,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 147.5164,
+      "intensity": 0.4806,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 148.8283,
+      "intensity": 0.5264,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 150.1402,
+      "intensity": 0.705,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 151.8933,
+      "intensity": 0.7775,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 153.2053,
+      "intensity": 0.4633,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 153.6464,
+      "intensity": 0.799,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 153.867,
+      "intensity": 0.5071,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 154.5,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 155.3995,
+      "intensity": 0.8664,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 155.8407,
+      "intensity": 0.5105,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 156.7115,
+      "intensity": 0.8337,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 157.141,
+      "intensity": 0.4655,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 158.0234,
+      "intensity": 1,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 158.8941,
+      "intensity": 0.7942,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 158.9174,
+      "intensity": 0.626,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 159.9971,
+      "intensity": 0.5332,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 160.2061,
+      "intensity": 0.5178,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 160.6473,
+      "intensity": 0.9005,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 161.518,
+      "intensity": 0.4667,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 162.3888,
+      "intensity": 0.5293,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 163.5149,
+      "intensity": 0.5697,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 164.1419,
+      "intensity": 0.7738,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 165.0126,
+      "intensity": 0.6793,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 165.4538,
+      "intensity": 0.6466,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 165.895,
+      "intensity": 0.822,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 166.3245,
+      "intensity": 0.4728,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 166.7657,
+      "intensity": 0.6879,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 167.2069,
+      "intensity": 0.8638,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 168.5188,
+      "intensity": 0.9263,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 171.11,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 171.1311,
+      "intensity": 0.823,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 174.6141,
+      "intensity": 0.6787,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 178.1203,
+      "intensity": 0.9546,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 184.053,
+      "intensity": 0.6048,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 184.4825,
+      "intensity": 0.5002,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 184.6915,
+      "intensity": 0.4711,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 184.7147,
+      "intensity": 0.8667,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 186.0151,
+      "intensity": 0.8891,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 186.0383,
+      "intensity": 0.7266,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 186.909,
+      "intensity": 0.8129,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 186.9206,
+      "intensity": 0.7357,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 187.5592,
+      "intensity": 0.6775,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 188.012,
+      "intensity": 0.572,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 188.2093,
+      "intensity": 0.5689,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 188.221,
+      "intensity": 0.757,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 188.6505,
+      "intensity": 0.8555,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 188.6621,
+      "intensity": 0.8182,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 189.5329,
+      "intensity": 0.4779,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 190.4036,
+      "intensity": 0.7341,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 191.077,
+      "intensity": 0.6419,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 191.7272,
+      "intensity": 1,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 196.51,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 196.5221,
+      "intensity": 0.7807,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 198.4958,
+      "intensity": 0.558,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 198.7164,
+      "intensity": 0.7038,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 200.0283,
+      "intensity": 0.5099,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 200.899,
+      "intensity": 0.4644,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 202.2226,
+      "intensity": 0.5713,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 202.6522,
+      "intensity": 0.6143,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 203.5345,
+      "intensity": 0.6069,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 204.4053,
+      "intensity": 0.625,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 205.0786,
+      "intensity": 0.8896,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 206.1584,
+      "intensity": 0.7385,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 207.0407,
+      "intensity": 0.6948,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 207.9115,
+      "intensity": 0.5103,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 207.9347,
+      "intensity": 0.5807,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 209.6646,
+      "intensity": 0.886,
+      "category": "drum_hit",
+      "source": "drums"
+    },
+    {
+      "time": 209.6762,
+      "intensity": 0.997,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 210.5469,
+      "intensity": 0.7003,
+      "category": "kick_like",
+      "source": "drums"
+    },
+    {
+      "time": 210.5585,
+      "intensity": 0.7423,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 216.7583,
+      "intensity": 0.9138,
+      "category": "mix_impact",
+      "source": "mix"
+    },
+    {
+      "time": 224.8,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    },
+    {
+      "time": 239.93,
+      "intensity": 0,
+      "category": "section_change",
+      "source": "mix"
+    }
+  ]
+}
