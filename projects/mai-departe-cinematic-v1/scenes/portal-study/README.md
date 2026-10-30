@@ -1,11 +1,11 @@
 # Portal → cinematic valley → paper: reusable reference shot
 
-This is the narrowed, user-requested reference scene, not the final four-minute montage. It replaces the active V4 floating panels and unrelated actor/monitor props. Original implementations remain on disk. The preview retains the existing duration/audio/captions; after this study the paper background holds. Do not interpret that hold as a finished edit.
+This is the narrowed, user-requested reference scene, not the final four-minute montage. It replaces the active V4 floating panels and unrelated actor/monitor props. Original implementations remain on disk. The preview retains the existing duration/audio/captions; after the return the globally timed paper film continues. Do not interpret that hold as a finished edit.
 
 ## Contents and timing
 
 - `RestoredFilmHub.tsx`: recovered amber/dark scrolling film treatment, the original globally timed curves, and the existing living emulsion. The film covers the frame; there is no freestanding rectangle in the world.
-- `PortalMaterialScene.tsx`: one ThreeCanvas, one fixed background plane, a forward camera, local water shimmer, and a shader that develops the paper material across immutable image coordinates. A growing organic aperture and its luminous edge share one contour; it covers all four corners before the film overlay is removed.
+- `PortalMaterialScene.tsx`: one ThreeCanvas, one fixed background plane, a forward camera, local water shimmer, and a shader that develops the paper material across immutable image coordinates. Entry advances through the existing left-side arrival-field opening: the original film surface is projected past the camera without a second entrance aperture. RiftBoundary uses that same field for layered filaments, soft occlusion and light. Lens displacement adds a restrained spatial distortion. On return, the paper film itself supplies the sole rift contour. Its frontier enters the view and aligns using the saved exit envelope (52.333–54.967 s). The same underlying paper world stays visible on the other side. No closed return aperture, duplicate contour or duplicated landscape is composited.
 - `study-state.ts` / `music-camera.json`: absolute frame evaluation; music-weighted speed knots copied from the first excursion of the analysis-derived camera cue sheet. Entry uses the saved first-excursion times. Material change uses saved cue starts at frame 496 (16.533333 s) and frame 916 (30.533333 s). Camera settles by the end of the first excursion; there is no cumulative integration.
 - `assets/camera-valley-v1.png` (two folders above): original complete cinematic landscape.
 - `assets/camera-valley-paper-v1.png`: generated material-edit counterpart, 1672 × 941. Prompt: retain the original camera, mountain outlines, bridge, castle, trees, shore and sun; replace materials with layered ivory/kraft paper, folded facets, fine cut trees, amber grazing light and paper-ribbon water. No new objects or framing.
@@ -14,7 +14,7 @@ The paired image preserves the broad composition, but generated details are **no
 
 ## Copy / integration
 
-Copy this directory and the two image assets. Within this project it reuses `motion-guides.json`, `DirectorComponents`, `DarkFilmAtmosphere`, `FilmLifeOverlay`, `LivingEmulsion` and `emulsion-field`; retain those alongside it. No dependency installation or shared application edits are needed.
+Copy this directory and the two image assets. Within this project it reuses `motion-guides.json`, `DirectorComponents`, `DarkFilmAtmosphere`, `FilmLifeOverlay`, `emulsion-field`; retain those alongside it. No dependency installation or shared application edits are needed.
 
 The active Composition registers the two study modules against the existing clip IDs and uses `StudyLyrics` only for preview contrast. Saved lyrics, cues, verification and Timeline are unchanged. `integration.json` contains a checksummed Composition payload. Installer refuses unknown contents and creates an exclusive backup; it does not blindly overwrite another edit.
 
@@ -31,7 +31,7 @@ npm test
 npm run dev
 ```
 
-In the player inspect 2 s (scrolling film), 7 s (portal), 12 s (clean natural world), 23–26 s (material development), 35 s (paper), then seek back to 7 s. Rendering/export was not requested and was not run.
+In the player inspect 2 s (scrolling film), 7 s (portal), 12 s (clean natural world), 23–26 s (material development), 35 s (paper), 53–54 s (return rift), 56 s (paper film), then seek back to 6 s. Rendering/export was not requested and was not run.
 
 ## Verification and known repository failures
 
@@ -40,3 +40,9 @@ The study's TypeScript compile passes. Electron inspection confirmed natural/pap
 Repository validation passes. Global `npm run typecheck` reports existing TS2307 missing imports in `examples/capabilities/film-reveal-v1/JourneyReveal.tsx`, and TS2322 Three.js `<line>`/SVG conflicts in the luminous-gateway example and old project `DistantFilmBackdrop`, `JourneyConstruction`, `JourneyWorld`, `LuminousBridge`, `LuminousGateway` files. These are outside the active study, and were not changed.
 
 `npm test`: 193/195 pass. Failures: `tests/storyboard-collaboration.test.ts:75` and `tests/storyboard.test.ts:369`, both `EPERM: operation not permitted, rename` of a temporary `storyboard.json.*.tmp` onto `storyboard.json` in the Windows temporary test directory. Reproduce with `npm test`; expected atomic save succeeds. No shared application fix attempted.
+
+## Rift traversal correction
+
+The prior closed entrance outline is removed. New `RiftBoundary.tsx` is project-local; the existing shared-with-this-project LivingEmulsion source is not edited. Five local tests pass, including inverse-projection checks that all frame corners lie inside the original opening before its surface is removed, and forward return/seek reset checks. Electron inspection covered entry at 6–9 s, return at 53–54 s and backward seek. This is a composited portal illusion with a forward Three.js camera, not a volumetric simulation or a physically reconstructed landscape. No export was run.
+
+The return opening extends beyond the top/bottom of the frame until the film rails arrive; it has no visible rectangular endpoints. The paper frontier and its mask share one field and one transform.

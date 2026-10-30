@@ -1,8 +1,8 @@
 import { DarkFilmAtmosphere } from './DarkFilmAtmosphere';
 import valley from '../../assets/camera-valley-v1.png';
 import paperValley from '../../assets/camera-valley-paper-v1.png';
-import {buildEmulsion} from '../emulsion-field';
-import {LivingEmulsion} from '../LivingEmulsion';
+import {buildEmulsion,frontierX} from '../emulsion-field';
+import {RiftBoundary} from './RiftBoundary';
 import { FilmLifeOverlay } from './FilmLifeOverlay';
 
 import { AbsoluteFill, useVideoConfig } from 'remotion';
@@ -26,7 +26,7 @@ function guideValue(time: number, key: (typeof keys)[number]) {
   return first[key] + (second[key] - first[key]) * (position - index);
 }
 
-export function RestoredFilmHub({ clip, frame = 0, paper = false }: { clip: TimelineClip; frame?: number; paper?: boolean }) {
+export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1 }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number }) {
   const { fps } = useVideoConfig();
   const time = frame / fps;
   const horizon = Number(clip.props.horizon ?? 55);
@@ -41,11 +41,15 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false }: { clip: Time
   const y = (seconds: number, path: number) => 450 - guideValue(seconds, keys[path]) * scales[path] * gain;
   const offset = time * speed;
   const {maskImage, edge: boundary, area} = buildEmulsion(time, speed, revealX);
+  const extendedEdge=`M${frontierX(time,82,speed,revealX)},0 ${boundary.replace(/^M/,'L')} L${frontierX(time,800,speed,revealX)},1080`;
+  const opening=paper?`M0,0 ${extendedEdge.replace(/^M/,'L')} L0,1080Z`:area;
+  const outside=`url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><path d="M0,0H1920V1080H0Z ${opening}" fill="white" fill-rule="evenodd"/></svg>`)}")`;
 
   return (
     <>
-    <AbsoluteFill style={{ background: paper ? '#dfcdb0' : 'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)' }} data-journey-time={time}>
-      <AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}><img src={paper?paperValley:valley} style={{width:'100%',height:'100%',objectFit:'cover'}}/></AbsoluteFill>
+    <AbsoluteFill data-journey-time={time}>
+      <AbsoluteFill style={{background:paper?'#dfcdb0':'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)',maskImage:openWorld?outside:undefined,WebkitMaskImage:openWorld?outside:undefined,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}/>
+      {!openWorld&&<AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}><img src={paper?paperValley:valley} style={{width:'100%',height:'100%',objectFit:'cover'}}/></AbsoluteFill>}
       <FilmLifeOverlay time={time} amount={0.75} />
       <DarkFilmAtmosphere time={time} intensity={1} />
       {/* The untraveled film is not a flat stationary backdrop: grain stays
@@ -117,17 +121,17 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false }: { clip: Time
 
           </g>
         ))}
-        <LivingEmulsion time={time} speed={speed} revealX={revealX} edge={boundary}/>
-        <path d="M0 80 H1920 M0 805 H1920" stroke="#a66732" strokeWidth="3" />
+        <RiftBoundary time={time} speed={speed} revealX={revealX} edge={paper?extendedEdge:boundary} intensity={crossing}/>
+        <path opacity={rails} d="M0 80 H1920 M0 805 H1920" stroke="#a66732" strokeWidth="3" />
         {Array.from({ length: 35 }, (_, index) => {
           const x = index * 60 - (offset % 60);
-          return <g key={`sprocket-${index}`} fill="#d3d9dc"><rect x={x} y="50" width="28" height="18" rx="4" /><rect x={x} y="820" width="25" height="14" rx="3" /></g>;
+          return <g opacity={rails} key={`sprocket-${index}`} fill="#d3d9dc"><rect x={x} y="50" width="28" height="18" rx="4" /><rect x={x} y="820" width="25" height="14" rx="3" /></g>;
         })}
       </svg>
-      <div aria-hidden="true" style={{position:'absolute',left:0,right:0,top:0,height:80,background:'linear-gradient(#160e0a,#412416 46%,#120e0e)',borderBottom:'3px solid #bb7b44',opacity:.97,pointerEvents:'none'}}/>
-      <div aria-hidden="true" style={{position:'absolute',left:0,right:0,top:805,height:70,background:'linear-gradient(#2d1b12,#0e0b0b)',borderTop:'3px solid #bb7b44',opacity:.97,pointerEvents:'none'}}/>
+      <div aria-hidden="true" style={{position:'absolute',left:0,right:0,top:0,height:80,background:'linear-gradient(#160e0a,#412416 46%,#120e0e)',borderBottom:'3px solid #bb7b44',opacity:.97*rails,pointerEvents:'none'}}/>
+      <div aria-hidden="true" style={{position:'absolute',left:0,right:0,top:805,height:70,background:'linear-gradient(#2d1b12,#0e0b0b)',borderTop:'3px solid #bb7b44',opacity:.97*rails,pointerEvents:'none'}}/>
       <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
-        {Array.from({length:35},(_,i)=>{const x=i*60-(offset%60);return <g key={i} fill="#ba8751"><rect x={x} y="23" width="30" height="33" rx="5"/><rect x={x} y="827" width="30" height="28" rx="5"/></g>;})}
+        {Array.from({length:35},(_,i)=>{const x=i*60-(offset%60);return <g key={i} opacity={rails} fill="#ba8751"><rect x={x} y="23" width="30" height="33" rx="5"/><rect x={x} y="827" width="30" height="28" rx="5"/></g>;})}
         {Array.from({length:110},(_,i)=>{const x=seed(i*13+1)*1920,y=82+seed(i*17+3)*720;return <circle key={i} cx={x} cy={y} r={.4+seed(i*7)*1.6} fill="#dba56f" opacity={.07+seed(i*3)*.17}/>;})}
       </svg>
     </AbsoluteFill>

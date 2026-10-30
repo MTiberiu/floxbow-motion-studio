@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import protectedSources from './protected-sources.json';
-import {studyState,portalOutline} from './study-state';
+import {studyState} from './study-state';
+import {frontierX} from '../emulsion-field';
 test('soundtrack metadata, timeline, lyrics and analysis sources are byte-identical',()=>{
  for(const source of protectedSources){const data=fs.readFileSync(new URL('../../'+source.file,import.meta.url));assert.equal(crypto.createHash('sha256').update(data).digest('hex').toUpperCase(),source.sha256);}
 });
@@ -20,14 +21,20 @@ test('seeking backwards does not retain the paper material or camera position',(
  const before=studyState(210);studyState(1050);assert.deepEqual(studyState(210),before);
  assert.equal(studyState(210).paper,0);assert.equal(studyState(1050).paper,1);
 });
-test('portal encloses all frame corners before removal, without exposing film edges',()=>{
- const polygon=portalOutline(.999,10.8);
+test('entry travels through the existing frontier, with every corner inside its opening before removal',()=>{
+ const s=studyState(324);
  for(const [x,y] of [[0,0],[1920,0],[1920,1080],[0,1080]]){
-  let inside=false;
-  for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
-   const a=polygon[i],b=polygon[j];
-   if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside;
-  }
-  assert.ok(inside);
+  const localX=(x-s.entryX)/s.entryScale;
+  const localY=(y-s.entryY)/s.entryScale/1.2342857143;
+  assert.ok(localY>82&&localY<800);
+  assert.ok(localX>0&&localX<frontierX(s.time,localY,1920/55,1000-6.5*1920/55));
  }
+});
+test('forward return reaches the paper hub and seeking to entry clears it',()=>{
+ assert.equal(studyState(48*30).returning,0);
+ assert.equal(studyState(56*30).returning,1);
+ assert.equal(studyState(56*30).returnX,0);
+ assert.ok(studyState(53*30).returnX>studyState(54*30).returnX);
+ assert.equal(studyState(6*30).returning,0);
+ assert.ok(studyState(54*30).position[2]<studyState(52*30).position[2]);
 });
