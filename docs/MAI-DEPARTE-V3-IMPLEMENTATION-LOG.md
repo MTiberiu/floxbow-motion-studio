@@ -140,3 +140,13 @@ Append for each code change:
 - **Desired result:** A burnt rupture that genuinely passes out of the camera frame rather than popping away when its bounding rectangle happens to be large enough.
 - **Verified:** Commits published to branch; tests are source-added but not executed here. Full scene still requires Electron review and image-source work.
 - **Still missing:** This is robust 2D aperture containment, not a physically 3D torn film surface. Original photographic bridge remains baked in both valley plates.
+
+## 2026-10-30 — distant film in world space and full-film production reset
+
+- **Files:** `scenes/DistantFilmBackdrop.tsx`, `scenes/CameraWorld.tsx`, `docs/MAI-DEPARTE-FULL-FILM-PRODUCTION-PLAN.md`.
+- **Problem:** Our work was stuck on the same 20–30 seconds; film identity vanished after the portal, and distant film would have appeared as another compositing overlay.
+- **Cause:** CameraWorld's layering had no world-space film object and previous milestones only refined the existing 0–30s proof.
+- **Change:** A real Three.js film-plane backdrop now sits behind the z-separated ridge meshes (z=-34), with route lines and moving perforations, visible during approximate 14–24s. It is allowed to be occluded by geometry. A production document now specifies contiguous shot batches through roughly 180s rather than another string of microscopic style edits.
+- **Expected outcome:** Film seems physically distant behind mountains when the flight reveals the right viewpoint; future shot production becomes complete 25–50s passages.
+- **Verification:** GitHub code committed, not built or viewed in Electron. Visibility and painterly integration are not confirmed.
+- **Limitations:** Film backdrop uses procedural line tracks rather than the song-specific curves; this is environmental symbolism, not a second synchronized route timeline. Need scene QA and eventually reuse actual guide curves. Film backdrop currently only exists in the existing 0–30s camera clip; it does not yet extend runtime coverage.
