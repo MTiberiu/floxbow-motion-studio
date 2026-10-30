@@ -130,3 +130,13 @@ Append for each code change:
 - **Intended result:** The spectator sees the charred film edge travel offscreen during the forward camera move rather than instantaneously switch off.
 - **Verified:** GitHub code and test source committed, not yet executed in a local Electron renderer. Bounding-extents check is a coarse visibility heuristic, not a full polygon/rectangle containment algorithm. It is not 3D membrane geometry.
 - **Remaining:** Bridge-free replacement art, alpha-separated mountains/banks and a physically coherent one-scene camera path are still outstanding.
+
+## 2026-10-30 — correct portal visibility with real polygon containment
+
+- **Files:** `scenes/PortalAperture.ts`, `scenes/portal-aperture.test.ts`.
+- **Observed problem:** The film edge could still disappear while a dark corner remained: the preceding `coversViewport` only checked whether a polygon's min/max x/y exceeded the screen rectangle.
+- **Cause:** A bounding box crossing all four screen edges does not imply the polygon itself contains all four viewport corners (particularly for a roughly elliptical, serrated aperture). So `edgeVisible` could flip too soon.
+- **Change:** Implemented deterministic even/odd point-in-polygon testing for each of the four screen corners; the charred lip is suppressed only when all four points are enclosed by the actual outline. Extended aperture test coverage for intermediate shot frames.
+- **Desired result:** A burnt rupture that genuinely passes out of the camera frame rather than popping away when its bounding rectangle happens to be large enough.
+- **Verified:** Commits published to branch; tests are source-added but not executed here. Full scene still requires Electron review and image-source work.
+- **Still missing:** This is robust 2D aperture containment, not a physically 3D torn film surface. Original photographic bridge remains baked in both valley plates.
