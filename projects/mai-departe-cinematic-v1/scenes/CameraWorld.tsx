@@ -31,8 +31,7 @@ void main(){
  float near=1.-smoothstep(.24,.49,vUv.y);
  float speed=.00007+mountains*.00012+near*.00042;
  float push=time*.00019;
- vec2 uv=vec2(.5+(vUv.x-.5)*(1.-min(.034,push)),-1.);
- uv.y=.5+(vUv.y-.5)*(1.-min(.034,push));
+ vec2 uv=vec2(.5)+ (vUv-vec2(.5))*(1.-min(.034,push));
  uv.x-=time*speed*(1.-sky*.6);
  uv.x+=sin(time*.12+vUv.y*3.)*.001*(1.-sky);
  uv=clamp(uv,vec2(.004),vec2(.996));
