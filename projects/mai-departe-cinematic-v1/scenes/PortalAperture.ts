@@ -23,5 +23,5 @@ export function portalAperture(frame:number,fps:number,speed:number,revealX:numb
   const rx=expansion*110*rough,ry=expansion*166*rough;
   return {x:cx+Math.cos(a)*rx,y:cy+Math.sin(a)*ry};
  });
- return {open:travel,boundary,polygon:`polygon(${points.map(p=>`${p.x}% ${p.y}%`).join(',')})`,edgePoints:points.map(p=>`${p.x*19.2},${p.y*10.8}`).join(' '),cx,cy};
+ const coversViewport=travel>=.999;\n return {open:travel,coversViewport,boundary,polygon:`polygon(${points.map(p=>`${p.x}% ${p.y}%`).join(',')})`,edgePoints:points.map(p=>`${p.x*19.2},${p.y*10.8}`).join(' '),cx,cy};
 }
