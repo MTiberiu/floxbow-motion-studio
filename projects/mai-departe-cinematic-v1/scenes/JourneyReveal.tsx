@@ -20,11 +20,36 @@ function guideValue(time: number, key: (typeof keys)[number]) {
   return first[key] + (second[key] - first[key]) * (position - index);
 }
 
-function buildWorldMask(revealX: number, pathY: number[]) {
+// World-anchored material reveal. The mask is evaluated afresh for every frame:
+// seeking backwards gives the same result as playing forwards. The seeded flecks
+// are material fragments; they are not a blurred curtain over the scenery.
+function buildWorldMask(revealX: number, pathY: number[], offset: number) {
+  const cell = 21;
+  const left = Math.max(0, revealX - 145);
+  const right = Math.min(1920, revealX + 48);
+  const worldCellStart = Math.floor((left + offset) / cell);
+  const worldCellEnd = Math.ceil((right + offset) / cell);
+  const fragments: string[] = [];
+  const hash = (n: number) => seed(n * 13.37 + 91);
+  for (let wx = worldCellStart; wx <= worldCellEnd; wx++) {
+    const x = wx * cell - offset;
+    for (let row = 4; row <= 38; row++) {
+      const y = row * cell;
+      const r = hash(wx * 109 + row * 379);
+      const stagger = (hash(wx * 67 + row * 47) - 0.5) * 27;
+      const advance = revealX - (x + stagger);
+      const nearTrail = Math.max(0, ...pathY.map((path) => 1 - Math.abs(y - path) / 145));
+      const coverage = clamp((advance + 80) / 185 + nearTrail * 0.19, 0, 1);
+      if (r > coverage) continue;
+      const size = 5 + hash(wx * 157 + row * 211) * 19;
+      const opacity = clamp(0.24 + coverage * 0.83, 0, 1);
+      fragments.push(`<ellipse cx="${(x + stagger).toFixed(1)}" cy="${(y + (hash(wx * 83 + row * 19) - .5) * 11).toFixed(1)}" rx="${size.toFixed(1)}" ry="${(size * (.42 + r * .45)).toFixed(1)}" fill="white" opacity="${opacity.toFixed(2)}"/>`);
+    }
+  }
   const emitters = pathY.map((y) =>
-    `<ellipse cx="${revealX - 105}" cy="${y.toFixed(2)}" rx="170" ry="110" fill="url(#sprayReveal)"/>`,
+    `<ellipse cx="${revealX - 74}" cy="${y.toFixed(2)}" rx="84" ry="58" fill="url(#sprayReveal)"/>`,
   ).join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><linearGradient id="pastReveal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="white"/><stop offset=".75" stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></linearGradient><radialGradient id="sprayReveal"><stop stop-color="white"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient></defs><rect x="0" y="90" width="${revealX}" height="705" fill="url(#pastReveal)"/>${emitters}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><linearGradient id="materialEdge" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><radialGradient id="sprayReveal"><stop stop-color="white" stop-opacity=".83"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient></defs><rect x="0" y="90" width="${Math.max(0, revealX - 145)}" height="705" fill="white"/><rect x="${Math.max(0,revealX - 145)}" y="90" width="110" height="705" fill="url(#materialEdge)" opacity=".7"/>${fragments.join('')}${emitters}</svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -41,8 +66,8 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
   const revealX = centerX - trailPixels;
   const scales = [32, 50, 46];
   const y = (seconds: number, path: number) => 450 - guideValue(seconds, keys[path]) * scales[path] * gain;
-  const maskImage = buildWorldMask(revealX, keys.map((_, path) => y(time, path)));
   const offset = time * speed;
+  const maskImage = buildWorldMask(revealX, keys.map((_, path) => y(time, path)), offset);
 
   return (
     <AbsoluteFill style={{ background: '#fff' }} data-journey-time={time}>
