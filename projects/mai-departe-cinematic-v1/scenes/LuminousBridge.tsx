@@ -33,7 +33,7 @@ export function LuminousBridge({frame}:{frame:number}){
   }
   return points;
  },[]);
- return <group data-bridge-build={build}>
+ return <group>
   {pieces.slice(0,active).map((geometry,i)=><line key={i} geometry={geometry}>
    <lineBasicMaterial color={i%3===0?'#f4d6a1':'#bf8f59'} transparent opacity={.35+.4*build} depthWrite={false}/>
   </line>)}
