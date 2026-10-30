@@ -77,3 +77,14 @@ Append for each code change:
 - **Visible outcome expected:** The scenery already visible behind the existing reveal edge advances continuously, with progressively faster motion toward the water/near region. The film mask still protects the unrevealed area.
 - **Verification:** Changes committed to GitHub. Not validated with local Electron or test renderer.
 - **Limit:** These are **depth bands of the same PNG**, NOT true alpha-isolated mountains or a perspective-reconstructed scene. Baked original bridge remains. We cannot safely claim the image has been separated into physical objects.
+
+## 2026-10-30 — genuine Z-separated ridge geometry in CameraWorld
+
+- **Files:** `projects/mai-departe-cinematic-v1/scenes/WorldDepthRidges.tsx`, `CameraWorld.tsx`
+- **Observed problem:** The camera approach felt like a zoom over a single image, because most of the middle distance existed only as texture pixels.
+- **Cause:** `CameraWorld` used a full-size camera-valley photograph at z=-36 and two near bank cutouts. There were few intermediate occluding shapes for perspective motion to reveal.
+- **Change:** Added three procedurally profiled terrain-silhouette meshes placed at independent actual z=-32/-23/-14, with restrained misted colors and frame-dependent collective sway. They are rendered in the existing perspective canvas. Camera translation creates different apparent movement naturally through perspective, not CSS layer scale.
+- **Why this implementation:** Geometry-based silhouettes give independently verifiable depth while leaving the current illustrated assets intact until proper clean art exists. Avoids overriding local media or making unverified assumptions that an asset has an alpha channel.
+- **Expected visible outcome:** During camera forward travel, nearer ridge silhouettes translate and change apparent size faster than distant ones, between the painted valley and near banks. No claim of full reconstruction.
+- **Verified:** GitHub source changes committed. Not compiled, benchmarked or inspected in Electron in this environment.
+- **Still missing:** Clean bridge-free base art and genuinely separated photorealistic terrain alpha masks. Existing valley photo and generated silhouettes may differ in painterly style; developer should visually inspect and adjust geometry/opacity as needed.
