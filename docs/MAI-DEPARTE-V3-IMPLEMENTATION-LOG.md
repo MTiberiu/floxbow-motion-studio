@@ -58,3 +58,12 @@ Append for each code change:
 - **Visible outcome:**
 - **Verified:**
 - **Still missing:**
+
+## 2026-10-30 — ordered luminous bridge construction
+
+- **Files:** `projects/mai-departe-cinematic-v1/scenes/LuminousBridge.tsx`
+- **Why:** Previously the bridge fragments were interleaved and the slice count created the impression that disconnected pieces were lighting up all over the bridge. This contradicted a traveler physically constructing a world by moving forward.
+- **Change:** Each deck, arch and hanger now carries a common span index. A single monotonic build-front traverses spans 0–83 from left to right, and every segment's intensity appears only as that front reaches it. Embers follow the same left-to-right progress.
+- **Visible outcome expected:** A continuous structure grows toward the opposite bank. The arch and deck emerge together, with restrained warm filament intensity rather than additive neon.
+- **Verified:** source written to branch; no Electron or offline render performed here.
+- **Still missing:** the rasterized old bridge in both valley images needs actual bridge-free source art, and the 3D bridge geometry must be aligned to these cleaned images. Until then there may be duplicate structures.
