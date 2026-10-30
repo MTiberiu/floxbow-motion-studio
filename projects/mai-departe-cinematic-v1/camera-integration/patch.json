@@ -1,0 +1,18 @@
+{
+  "before": "a04f4632195ae8711c1e1aa22efb149f6a0505091ac4617b42f5beb1eff08b17",
+  "after": "caf2a8be644089fedef9b26ce0dd49fc518fdcf0847d724149920f39979ae851",
+  "changes": [
+    [
+      "import {buildEmulsion}",
+      "import {CameraDirector} from './CameraDirector';\nimport {buildEmulsion}"
+    ],
+    [
+      "  return (\n    <AbsoluteFill",
+      "  return (\n    <CameraDirector frame={frame} orangeY={y(time,0)}>\n    <AbsoluteFill"
+    ],
+    [
+      "    </AbsoluteFill>\n  );",
+      "    </AbsoluteFill>\n    </CameraDirector>\n  );"
+    ]
+  ]
+}

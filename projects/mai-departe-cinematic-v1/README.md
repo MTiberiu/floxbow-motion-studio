@@ -15,3 +15,7 @@ The source WAV is not bundled in this branch. After cloning, relink the soundtra
 ## Living Emulsion Engine (2026-10-30)
 
 The current local cinematic proof now uses an immutable arrival-time field for its reveal. The world mask, luminous contour, tangent filaments and detached particles share this field; film-space noise does not repaint the developed interior. The existing dark cinematic image, atmosphere, travelers and saved Timeline remain intact. This supersedes the older soft-edge description above, not the saved edit. Integration, exact commands, limitations and check results are documented in [reveal-integration/README.md](reveal-integration/README.md). The engine is SVG/CSS-composited onto the existing world, with no additional WebGL renderer. Electron was visually inspected at 10 and 20 seconds, including a return seek and fullscreen at 20 seconds. No export was rendered.
+
+## Cinematic Camera Director (2026-10-30)
+
+The local cinematic clip now stages Overview → Follow Orange → World Fullscreen → Overview during seconds 8–27, without editing the saved Timeline. The prepared valley uses a new clean illustration, separate bank planes and perspective water; the original cinematic plate and Living Emulsion remain in overview. Start playback at 7 seconds; inspect fullscreen world at 18 and return at 27. See [camera-integration/README.md](camera-integration/README.md) for guarded installation, shot parameters, checks and 2.5D limitations. No render was performed.

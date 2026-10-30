@@ -1,0 +1,6 @@
+[
+ {"shotType":"overview","startFrame":0,"endFrame":240,"position":[0,2.5,16],"target":[0,2,-20],"fov":48,"transitionFrames":0,"transitionType":"smoothstep","filmVisible":true,"routesVisible":true},
+ {"shotType":"follow-orange","startFrame":240,"endFrame":390,"position":[0.8,2.1,11],"target":[0,1.8,-15],"fov":44,"transitionFrames":90,"transitionType":"smoothstep","filmVisible":true,"routesVisible":true},
+ {"shotType":"world-fullscreen","startFrame":390,"endFrame":690,"position":[-0.6,1.65,3],"target":[0,2.8,-25],"fov":48,"transitionFrames":60,"transitionType":"smoothstep","filmVisible":false,"routesVisible":false},
+ {"shotType":"overview","startFrame":690,"endFrame":810,"position":[0,2.5,16],"target":[0,2,-20],"fov":48,"transitionFrames":120,"transitionType":"smoothstep","filmVisible":true,"routesVisible":true}
+]

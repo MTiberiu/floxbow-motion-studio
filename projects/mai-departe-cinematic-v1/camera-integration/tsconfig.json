@@ -1,0 +1,1 @@
+{"extends":"../../../tsconfig.json","include":["../scenes/camera-state.ts","../scenes/CameraDirector.tsx","../scenes/CameraWorld.tsx","./camera.test.ts"]}
