@@ -1,9 +1,9 @@
 import {useMemo} from 'react';
-import {staticFile} from 'remotion';
+import filmValley from '../assets/film-valley.png';
 
 /**
  * The illustrated world lives inside JourneyWorld's EXISTING reveal mask.
- * Image from project public assets: public/film-valley.png.
+ * Image is a project-local asset: assets/film-valley.png.
  * Time-driven parallax, water shimmer, haze and micro-light only.
  * No browser clock, randomness per frame, or network image.
  */
@@ -13,7 +13,7 @@ export function CinematicPlate({time}:{time:number}){
    return {x:85+f(i*11)*720,y:576+f(i*19+4)*238,r:.6+f(i*3+7)*2.2,p:f(i*7+2)*6.283,phase:f(i*17+9)};
  }),[]);
  const drift=Math.sin(time*.15)*8;
- const image=staticFile('film-valley.png');
+ const image=filmValley;
  return <div aria-hidden="true" style={{position:'absolute',inset:0,overflow:'hidden',pointerEvents:'none',zIndex:20}}>
    <img src={image} style={{position:'absolute',width:'100%',height:'100%',objectFit:'fill',maxWidth:'none',
      transform:`translate3d(${drift}px,${Math.sin(time*.12)*2}px,0) scale(1.018)`,
