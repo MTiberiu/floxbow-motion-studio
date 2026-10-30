@@ -12,15 +12,15 @@ const hash=(v:number)=>{const n=Math.sin(v*117.19+32.7)*43758.5453;return n-Math
 export function LuminousBridge({frame}:{frame:number}){
  const build=ease((frame-270)/250);
  const pieces=useMemo(()=>{
-  const spans:THREE.Vector3[][]=[];
+  const spans:THREE.BufferGeometry[]=[];
   const steps=84;
   const curve=(u:number)=>new THREE.Vector3(-9+18*u,1.5+3.7*Math.sin(Math.PI*u),-17);
   // Arched supporting rib and a low walking deck.
   for(let i=0;i<steps;i++){
    const u=i/steps,v=(i+1)/steps;
-   spans.push([curve(u),curve(v)]);
-   spans.push([new THREE.Vector3(-9+18*u,1.45,-16),new THREE.Vector3(-9+18*v,1.45,-16)]);
-   if(i%6===0)spans.push([new THREE.Vector3(-9+18*u,1.45,-16),curve(u)]);
+   spans.push(new THREE.BufferGeometry().setFromPoints([curve(u),curve(v)]));
+   spans.push(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-9+18*u,1.45,-16),new THREE.Vector3(-9+18*v,1.45,-16)]));
+   if(i%6===0)spans.push(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-9+18*u,1.45,-16),curve(u)]));
   }
   return spans;
  },[]);
@@ -34,10 +34,7 @@ export function LuminousBridge({frame}:{frame:number}){
   return points;
  },[]);
  return <group data-bridge-build={build}>
-  {pieces.slice(0,active).map((pair,i)=><line key={i}>
-   <bufferGeometry>
-    <bufferAttribute attach="attributes-position" args={[new Float32Array(pair.flatMap(v=>[v.x,v.y,v.z])),3]}/>
-   </bufferGeometry>
+  {pieces.slice(0,active).map((geometry,i)=><line key={i} geometry={geometry}>
    <lineBasicMaterial color={i%3===0?'#f4d6a1':'#bf8f59'} transparent opacity={.35+.4*build} depthWrite={false}/>
   </line>)}
   {glow.slice(0,Math.floor(glow.length*build)).map((p,i)=><mesh key={i} position={p.toArray()}>
