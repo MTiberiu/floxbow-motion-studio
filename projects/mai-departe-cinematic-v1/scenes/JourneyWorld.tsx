@@ -1,4 +1,4 @@
-import { CinematicPlate } from './CinematicPlate';
+import { CinematicPlateV3 } from './CinematicPlateV3';
 import { JourneyConstruction } from './JourneyConstruction';
 import { LuminousGateway } from './LuminousGateway';
 import { ThreeCanvas } from '@remotion/three';
@@ -194,6 +194,6 @@ export function JourneyWorld({time,speed,maskImage}:{time:number;speed:number;ma
             <LuminousGateway time={time} />
             <JourneyConstruction time={time} />
       </ThreeCanvas>
-      <CinematicPlate time={time} />
+      <CinematicPlateV3 time={time} />
   </div>;
 }
