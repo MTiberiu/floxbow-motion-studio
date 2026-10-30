@@ -1,0 +1,1491 @@
+{
+  "schemaVersion": 1,
+  "kind": "mai-departe-cinematic-shot-board",
+  "source": "director-shot-plan.json",
+  "durationSeconds": 239.96,
+  "description": "Planning metadata only. References do not alter the existing Timeline or original source shot plan.",
+  "sections": [
+    {
+      "id": "s01-instrumental-open",
+      "name": "The weight before the first line",
+      "start": 0,
+      "end": 13.033333333333333,
+      "style": "futuristic-film",
+      "shotCount": 4
+    },
+    {
+      "id": "s02-the-burden",
+      "name": "The loop, the work, the bills",
+      "start": 13.033333333333333,
+      "end": 55.2,
+      "style": "paper",
+      "shotCount": 9
+    },
+    {
+      "id": "s03-the-decision",
+      "name": "Fear gives way to a decision",
+      "start": 55.2,
+      "end": 97.86666666666666,
+      "style": "paper",
+      "shotCount": 14
+    },
+    {
+      "id": "s04-rejection-and-return",
+      "name": "Rejection, then he begins again",
+      "start": 97.86666666666666,
+      "end": 139.73333333333332,
+      "style": "paper",
+      "shotCount": 10
+    },
+    {
+      "id": "s05-keeps-going",
+      "name": "Forward, with what remains",
+      "start": 139.73333333333332,
+      "end": 167.73333333333332,
+      "style": "hybrid",
+      "shotCount": 8
+    },
+    {
+      "id": "s06-bridge",
+      "name": "Tomorrow may still be hard",
+      "start": 167.73333333333332,
+      "end": 181.6,
+      "style": "hybrid",
+      "shotCount": 4
+    },
+    {
+      "id": "s07-final-chorus",
+      "name": "He has not stopped",
+      "start": 181.6,
+      "end": 211.46666666666667,
+      "style": "hybrid",
+      "shotCount": 6
+    },
+    {
+      "id": "s08-outro",
+      "name": "Not solved; still at peace",
+      "start": 211.46666666666667,
+      "end": 239.96666666666667,
+      "style": "paper",
+      "shotCount": 4
+    }
+  ],
+  "shots": [
+    {
+      "shotId": "s01-instrumental-1",
+      "sectionId": "s01-instrumental-open",
+      "start": 0.18,
+      "end": 3.7,
+      "lyric": null,
+      "action": null,
+      "materialStyle": "futuristic-film",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "physical film / three paths / opening breach"
+      },
+      "camera": {
+        "framing": "music-only",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "film-open",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": null
+    },
+    {
+      "shotId": "s01-instrumental-2",
+      "sectionId": "s01-instrumental-open",
+      "start": 3.7,
+      "end": 7.23,
+      "lyric": null,
+      "action": null,
+      "materialStyle": "futuristic-film",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "physical film / three paths / opening breach"
+      },
+      "camera": {
+        "framing": "music-only",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": null
+    },
+    {
+      "shotId": "s01-instrumental-3",
+      "sectionId": "s01-instrumental-open",
+      "start": 7.23,
+      "end": 10.8,
+      "lyric": null,
+      "action": null,
+      "materialStyle": "futuristic-film",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "physical film / three paths / opening breach"
+      },
+      "camera": {
+        "framing": "music-only",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": null
+    },
+    {
+      "shotId": "s01-instrumental-4",
+      "sectionId": "s01-instrumental-open",
+      "start": 10.8,
+      "end": 13.033333333333333,
+      "lyric": null,
+      "action": null,
+      "materialStyle": "futuristic-film",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "physical film / three paths / opening breach"
+      },
+      "camera": {
+        "framing": "music-only",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": null
+    },
+    {
+      "shotId": "s02-hesitates",
+      "sectionId": "s02-the-burden",
+      "start": 13.033333333333333,
+      "end": 20.133333333333333,
+      "lyric": "Am tot zis: „Mai stau un pic”,",
+      "action": "hesitation",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263"
+    },
+    {
+      "shotId": "s02-one-step",
+      "sectionId": "s02-the-burden",
+      "start": 20.133333333333333,
+      "end": 27.266666666666666,
+      "lyric": "Azi îmi spun: Mai poți un pas,",
+      "action": "step",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f"
+    },
+    {
+      "shotId": "s03-the-promise",
+      "sectionId": "s02-the-burden",
+      "start": 27.266666666666666,
+      "end": 33.96666666666667,
+      "lyric": "Mi-am promis „Va fi mai bine”,",
+      "action": "promise",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e"
+    },
+    {
+      "shotId": "s03-bills-fall",
+      "sectionId": "s02-the-burden",
+      "start": 33.96666666666667,
+      "end": 37.7,
+      "lyric": "Strâng facturile pe masă,",
+      "action": "bills",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper bills falling and accumulating on desk"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d"
+    },
+    {
+      "shotId": "s03-cannot-call",
+      "sectionId": "s02-the-burden",
+      "start": 37.7,
+      "end": 41.1,
+      "lyric": "N-am curaj să sun acasă.",
+      "action": "cannot-call",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2"
+    },
+    {
+      "shotId": "s03-phone-rings",
+      "sectionId": "s02-the-burden",
+      "start": 41.1,
+      "end": 44.56666666666667,
+      "lyric": "Când mă sună, mă prefac,",
+      "action": "answer",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3"
+    },
+    {
+      "shotId": "s03-pretends",
+      "sectionId": "s02-the-burden",
+      "start": 44.56666666666667,
+      "end": 48.333333333333336,
+      "lyric": "Spun că-s bine, apoi tac.",
+      "action": "silence",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948"
+    },
+    {
+      "shotId": "s03-says-yes",
+      "sectionId": "s02-the-burden",
+      "start": 48.333333333333336,
+      "end": 51.86666666666667,
+      "lyric": "Am zis „da” la ce n-am vrut,",
+      "action": "consent",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2"
+    },
+    {
+      "shotId": "s03-lost-time",
+      "sectionId": "s02-the-burden",
+      "start": 51.86666666666667,
+      "end": 55.2,
+      "lyric": "Timpul meu s-a tot pierdut.",
+      "action": "lost-time",
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "human hesitation, paper desk, printed photograph and bills"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "world-to-paper-or-paper-continuity",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501"
+    },
+    {
+      "shotId": "s04-fear",
+      "sectionId": "s03-the-decision",
+      "start": 55.2,
+      "end": 58.56666666666667,
+      "lyric": "Nu-mi trece frica dacă stau,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2"
+    },
+    {
+      "shotId": "s04-knows-no",
+      "sectionId": "s03-the-decision",
+      "start": 58.56666666666667,
+      "end": 62.266666666666666,
+      "lyric": "Știu măcar ce nu mai vreau.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352"
+    },
+    {
+      "shotId": "s04-no-answers",
+      "sectionId": "s03-the-decision",
+      "start": 62.266666666666666,
+      "end": 65.86666666666666,
+      "lyric": "N-am răspunsuri pentru tot,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0"
+    },
+    {
+      "shotId": "s04-does-what-he-can",
+      "sectionId": "s03-the-decision",
+      "start": 65.86666666666666,
+      "end": 69.93333333333334,
+      "lyric": "Dar fac astăzi tot ce pot.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42"
+    },
+    {
+      "shotId": "s05-chooses-to-leave",
+      "sectionId": "s03-the-decision",
+      "start": 69.93333333333334,
+      "end": 73.26666666666667,
+      "lyric": "Nu rămân aici, nu mă las,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389"
+    },
+    {
+      "shotId": "s05-step-after-step",
+      "sectionId": "s03-the-decision",
+      "start": 73.26666666666667,
+      "end": 76.53333333333333,
+      "lyric": "Mai departe, pas după pas.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d"
+    },
+    {
+      "shotId": "s05-even-when-hard",
+      "sectionId": "s03-the-decision",
+      "start": 76.53333333333333,
+      "end": 76.53333333333333,
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13"
+    },
+    {
+      "shotId": "s05-refrain-again",
+      "sectionId": "s03-the-decision",
+      "start": 76.53333333333333,
+      "end": 80.3,
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13"
+    },
+    {
+      "shotId": "s05-time-back",
+      "sectionId": "s03-the-decision",
+      "start": 80.3,
+      "end": 83.86666666666666,
+      "lyric": "Îmi iau înapoi timpul meu.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5"
+    },
+    {
+      "shotId": "s09-keeps-moving",
+      "sectionId": "s03-the-decision",
+      "start": 83.86666666666666,
+      "end": 86.83333333333333,
+      "lyric": "Nu rămân aici, nu mă las,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96"
+    },
+    {
+      "shotId": "s05-what-remains",
+      "sectionId": "s03-the-decision",
+      "start": 86.83333333333333,
+      "end": 90.83333333333333,
+      "lyric": "Merg cu tot ce mi-a mai rămas.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4"
+    },
+    {
+      "shotId": "s05-leaves-for-road",
+      "sectionId": "s03-the-decision",
+      "start": 90.83333333333333,
+      "end": 90.83333333333333,
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565"
+    },
+    {
+      "shotId": "s09-refrain",
+      "sectionId": "s03-the-decision",
+      "start": 90.83333333333333,
+      "end": 94.26666666666667,
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565"
+    },
+    {
+      "shotId": "s05-now",
+      "sectionId": "s03-the-decision",
+      "start": 94.26666666666667,
+      "end": 97.86666666666666,
+      "lyric": "Fac ce pot cu ce am acum.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "handwritten plan, footsteps and paper cutouts"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60"
+    },
+    {
+      "shotId": "s06-no",
+      "sectionId": "s04-rejection-and-return",
+      "start": 97.86666666666666,
+      "end": 100.9,
+      "lyric": "Mi-au spus „nu” la interviu,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "rejection letter, photographed person returning"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87"
+    },
+    {
+      "shotId": "s07-tries-again",
+      "sectionId": "s04-rejection-and-return",
+      "start": 100.9,
+      "end": 104.43333333333334,
+      "lyric": "Mai încerc, nu-i prea târziu.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677"
+    },
+    {
+      "shotId": "s07-makes-time",
+      "sectionId": "s04-rejection-and-return",
+      "start": 104.43333333333334,
+      "end": 108.3,
+      "lyric": "Îmi fac timp și pentru mine,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779"
+    },
+    {
+      "shotId": "s07-learns",
+      "sectionId": "s04-rejection-and-return",
+      "start": 108.3,
+      "end": 111.5,
+      "lyric": "Să învăț ce nu știu bine.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a"
+    },
+    {
+      "shotId": "s07-cant-anymore",
+      "sectionId": "s04-rejection-and-return",
+      "start": 111.5,
+      "end": 115.13333333333334,
+      "lyric": "Și când simt că nu mai pot,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f"
+    },
+    {
+      "shotId": "s07-family-calls",
+      "sectionId": "s04-rejection-and-return",
+      "start": 115.13333333333334,
+      "end": 118.46666666666667,
+      "lyric": "Sună a mei, nu spun tot.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "wide",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b"
+    },
+    {
+      "shotId": "s07-mistakes",
+      "sectionId": "s04-rejection-and-return",
+      "start": 118.46666666666667,
+      "end": 121.83333333333333,
+      "lyric": "Mai greșesc, mai stau pe loc,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5"
+    },
+    {
+      "shotId": "s07-changes",
+      "sectionId": "s04-rejection-and-return",
+      "start": 121.83333333333333,
+      "end": 124.83333333333333,
+      "lyric": "Schimb ce pot, n-aștept noroc.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be"
+    },
+    {
+      "shotId": "s08-fear-again",
+      "sectionId": "s04-rejection-and-return",
+      "start": 124.83333333333333,
+      "end": 132.1,
+      "lyric": "Nu-mi trece frica dacă stau,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa"
+    },
+    {
+      "shotId": "s08-no-answers-again",
+      "sectionId": "s04-rejection-and-return",
+      "start": 132.1,
+      "end": 139.73333333333332,
+      "lyric": "N-am răspunsuri pentru tot,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "interview rejection letter and human recovery"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c"
+    },
+    {
+      "shotId": "s11-keeps-going",
+      "sectionId": "s05-keeps-going",
+      "start": 139.73333333333332,
+      "end": 142.86666666666667,
+      "lyric": "Nu rămân aici, nu mă las,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84"
+    },
+    {
+      "shotId": "s09-further",
+      "sectionId": "s05-keeps-going",
+      "start": 142.86666666666667,
+      "end": 146.63333333333333,
+      "lyric": "Mai departe, pas după pas.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751"
+    },
+    {
+      "shotId": "s09-even-hard-again",
+      "sectionId": "s05-keeps-going",
+      "start": 146.63333333333333,
+      "end": 146.63333333333333,
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17"
+    },
+    {
+      "shotId": "s11-refrain",
+      "sectionId": "s05-keeps-going",
+      "start": 146.63333333333333,
+      "end": 150.16666666666666,
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17"
+    },
+    {
+      "shotId": "s09-takes-back-time",
+      "sectionId": "s05-keeps-going",
+      "start": 150.16666666666666,
+      "end": 156.56666666666666,
+      "lyric": "Îmi iau înapoi timpul meu.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f"
+    },
+    {
+      "shotId": "s09-with-what-remains",
+      "sectionId": "s05-keeps-going",
+      "start": 156.56666666666666,
+      "end": 160.66666666666666,
+      "lyric": "Merg cu tot ce mi-a mai rămas.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9"
+    },
+    {
+      "shotId": "s09-leaves-again",
+      "sectionId": "s05-keeps-going",
+      "start": 160.66666666666666,
+      "end": 164.13333333333333,
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3"
+    },
+    {
+      "shotId": "s09-can-now",
+      "sectionId": "s05-keeps-going",
+      "start": 164.13333333333333,
+      "end": 167.73333333333332,
+      "lyric": "Fac ce pot cu ce am acum.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "paper-to-topographic hybrid advancing routes"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52"
+    },
+    {
+      "shotId": "s10-tomorrow",
+      "sectionId": "s06-bridge",
+      "start": 167.73333333333332,
+      "end": 171.13333333333333,
+      "lyric": "Poate mâine tot mi-e greu,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished luminous bridge emerging from paper blueprint"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e"
+    },
+    {
+      "shotId": "s10-holds-plan",
+      "sectionId": "s06-bridge",
+      "start": 171.13333333333333,
+      "end": 174.66666666666666,
+      "lyric": "Dar mă țin de planul meu.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished luminous bridge emerging from paper blueprint"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097"
+    },
+    {
+      "shotId": "s10-not-all-yet",
+      "sectionId": "s06-bridge",
+      "start": 174.66666666666666,
+      "end": 178.23333333333332,
+      "lyric": "Azi n-am tot ce mi-am dorit,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished luminous bridge emerging from paper blueprint"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4"
+    },
+    {
+      "shotId": "s10-has-not-stopped",
+      "sectionId": "s06-bridge",
+      "start": 178.23333333333332,
+      "end": 184.73333333333332,
+      "lyric": "Dar măcar nu m-am oprit.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished luminous bridge emerging from paper blueprint"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433"
+    },
+    {
+      "shotId": "s11-further",
+      "sectionId": "s07-final-chorus",
+      "start": 184.73333333333332,
+      "end": 188.16666666666666,
+      "lyric": "Mai departe, pas după pas.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "three travelers converge with human photographic cutaways"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b"
+    },
+    {
+      "shotId": "s11-even-hard",
+      "sectionId": "s07-final-chorus",
+      "start": 188.16666666666666,
+      "end": 192.16666666666666,
+      "lyric": "Nu rămân aici, chiar de-i greu,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "three travelers converge with human photographic cutaways"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c"
+    },
+    {
+      "shotId": "s11-time-back",
+      "sectionId": "s07-final-chorus",
+      "start": 192.16666666666666,
+      "end": 198.66666666666666,
+      "lyric": "Îmi iau înapoi timpul meu.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "three travelers converge with human photographic cutaways"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251"
+    },
+    {
+      "shotId": "s11-with-what-remains",
+      "sectionId": "s07-final-chorus",
+      "start": 198.66666666666666,
+      "end": 202.5,
+      "lyric": "Merg cu tot ce mi-a mai rămas.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "three travelers converge with human photographic cutaways"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e"
+    },
+    {
+      "shotId": "s11-leaves-road",
+      "sectionId": "s07-final-chorus",
+      "start": 202.5,
+      "end": 206.1,
+      "lyric": "Nu rămân aici, plec la drum,",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "three travelers converge with human photographic cutaways"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a"
+    },
+    {
+      "shotId": "s11-now",
+      "sectionId": "s07-final-chorus",
+      "start": 206.1,
+      "end": 211.46666666666667,
+      "lyric": "Fac ce pot cu ce am acum.",
+      "action": null,
+      "materialStyle": "hybrid",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "three travelers converge with human photographic cutaways"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f"
+    },
+    {
+      "shotId": "s12-not-solved",
+      "sectionId": "s08-outro",
+      "start": 211.46666666666667,
+      "end": 216.66666666666666,
+      "lyric": "Nu e totul rezolvat,",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished but peaceful human portrait and final film pullback"
+      },
+      "camera": {
+        "framing": "close",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb"
+    },
+    {
+      "shotId": "s12-peace",
+      "sectionId": "s08-outro",
+      "start": 216.66666666666666,
+      "end": 224.8,
+      "lyric": "Dar am sufletul împăcat.",
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished but peaceful human portrait and final film pullback"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4"
+    },
+    {
+      "shotId": "s08-outro-music-1",
+      "sectionId": "s08-outro",
+      "start": 224.8,
+      "end": 228.45,
+      "lyric": null,
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished but peaceful human portrait and final film pullback"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": null
+    },
+    {
+      "shotId": "s08-outro-music-2",
+      "sectionId": "s08-outro",
+      "start": 228.45,
+      "end": 239.96666666666667,
+      "lyric": null,
+      "action": null,
+      "materialStyle": "paper",
+      "referenceImage": {
+        "status": "needed",
+        "asset": null,
+        "subject": "unfinished but peaceful human portrait and final film pullback"
+      },
+      "camera": {
+        "framing": "medium",
+        "movement": "to be authored from music and lyric"
+      },
+      "transition": {
+        "type": "match-action-or-camera-move",
+        "sharedEffect": "material-morph-v1",
+        "beatEventRef": null
+      },
+      "sourceCueId": null
+    }
+  ]
+}
