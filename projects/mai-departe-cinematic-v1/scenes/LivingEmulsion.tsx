@@ -1,4 +1,4 @@
-import {frontierX,frontierParticle} from './emulsion-field';
+import {frontierXForMask,frontierParticle} from './emulsion-field';
 const fract=(n:number)=>n-Math.floor(n);
 const noise=(n:number)=>fract(Math.sin(n*127.1+91.7)*43758.5453);
 
@@ -13,7 +13,7 @@ export function LivingEmulsion({time,speed,revealX,edge}:{time:number;speed:numb
   <path d={edge} fill="none" stroke="#d69a62" strokeWidth={2.2} opacity={.34}/>
   {Array.from({length:190},(_,i)=>{
    const yy=84+noise(i*17+3)*712;
-   const xx=frontierX(time,yy,speed,revealX);
+   const xx=frontierXForMask(time,yy,speed,revealX);
    const side=noise(i*19+6)>.42?-1:1;
    const distance=4+noise(i*29+2)*30;
    const x=xx+side*distance;
@@ -27,7 +27,7 @@ export function LivingEmulsion({time,speed,revealX,edge}:{time:number;speed:numb
   {/* Tiny torn threads and heat cracks are attached to the actual frontier. */}
   {Array.from({length:56},(_,i)=>{
    const yy=88+noise(i*23+2)*704;
-   const x=frontierX(time,yy,speed,revealX);
+   const x=frontierXForMask(time,yy,speed,revealX);
    const lift=(noise(i*13+5)-.5)*14;
    return <path key={i} d={`M${x-5} ${yy-2} l${-6-noise(i*3)*15} ${lift} l${-3-noise(i*47)*9} ${lift*.6}`}
     fill="none" stroke={i%4===0?'#d9a06d':'#24140e'} strokeWidth={.45+noise(i*31)*1.8}
