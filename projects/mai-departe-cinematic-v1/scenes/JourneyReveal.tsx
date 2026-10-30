@@ -1,3 +1,7 @@
+import {CameraDirector} from './CameraDirector';
+import {buildEmulsion} from './emulsion-field';
+import {LivingEmulsion} from './LivingEmulsion';
+import { FilmLifeOverlay } from './FilmLifeOverlay';
 import { JourneyWorld } from './JourneyWorld';
 import { AbsoluteFill, useVideoConfig } from 'remotion';
 import type { EditableComponent } from '@motion/sdk/editor';
@@ -20,39 +24,6 @@ function guideValue(time: number, key: (typeof keys)[number]) {
   return first[key] + (second[key] - first[key]) * (position - index);
 }
 
-// World-anchored material reveal. The mask is evaluated afresh for every frame:
-// seeking backwards gives the same result as playing forwards. The seeded flecks
-// are material fragments; they are not a blurred curtain over the scenery.
-function buildWorldMask(revealX: number, pathY: number[], offset: number) {
-  const cell = 21;
-  const left = Math.max(0, revealX - 145);
-  const right = Math.min(1920, revealX + 48);
-  const worldCellStart = Math.floor((left + offset) / cell);
-  const worldCellEnd = Math.ceil((right + offset) / cell);
-  const fragments: string[] = [];
-  const hash = (n: number) => seed(n * 13.37 + 91);
-  for (let wx = worldCellStart; wx <= worldCellEnd; wx++) {
-    const x = wx * cell - offset;
-    for (let row = 4; row <= 38; row++) {
-      const y = row * cell;
-      const r = hash(wx * 109 + row * 379);
-      const stagger = (hash(wx * 67 + row * 47) - 0.5) * 27;
-      const advance = revealX - (x + stagger);
-      const nearTrail = Math.max(0, ...pathY.map((path) => 1 - Math.abs(y - path) / 145));
-      const coverage = clamp((advance + 80) / 185 + nearTrail * 0.19, 0, 1);
-      if (r > coverage) continue;
-      const size = 5 + hash(wx * 157 + row * 211) * 19;
-      const opacity = clamp(0.24 + coverage * 0.83, 0, 1);
-      fragments.push(`<ellipse cx="${(x + stagger).toFixed(1)}" cy="${(y + (hash(wx * 83 + row * 19) - .5) * 11).toFixed(1)}" rx="${size.toFixed(1)}" ry="${(size * (.42 + r * .45)).toFixed(1)}" fill="white" opacity="${opacity.toFixed(2)}"/>`);
-    }
-  }
-  const emitters = pathY.map((y) =>
-    `<ellipse cx="${revealX - 74}" cy="${y.toFixed(2)}" rx="84" ry="58" fill="url(#sprayReveal)"/>`,
-  ).join('');
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><linearGradient id="materialEdge" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient><radialGradient id="sprayReveal"><stop stop-color="white" stop-opacity=".83"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient></defs><rect x="0" y="90" width="${Math.max(0, revealX - 145)}" height="705" fill="white"/><rect x="${Math.max(0,revealX - 145)}" y="90" width="110" height="705" fill="url(#materialEdge)" opacity=".7"/>${fragments.join('')}${emitters}</svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
 export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?: number }) {
   const { fps } = useVideoConfig();
   const time = frame / fps;
@@ -67,17 +38,52 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
   const scales = [32, 50, 46];
   const y = (seconds: number, path: number) => 450 - guideValue(seconds, keys[path]) * scales[path] * gain;
   const offset = time * speed;
-  const maskImage = buildWorldMask(revealX, keys.map((_, path) => y(time, path)), offset);
+  const {maskImage, edge: boundary, area} = buildEmulsion(time, speed, revealX);
 
   return (
-    <AbsoluteFill style={{ background: '#fff' }} data-journey-time={time}>
+    <CameraDirector frame={frame} orangeY={y(time,0)}>
+    <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)' }} data-journey-time={time}>
       <JourneyWorld time={time} speed={speed} maskImage={maskImage} />
+      <FilmLifeOverlay time={time} amount={0.75} />
+      {/* The untraveled film is not a flat stationary backdrop: grain stays
+          attached to the film while low-frequency amber pools travel slowly. */}
+      <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+        <defs>
+          <clipPath id="untraveledFilm"><rect x={revealX+18} y="82" width={Math.max(0,1920-revealX-18)} height="718"/></clipPath>
+          <radialGradient id="travelingWarmth">
+            <stop offset="0" stopColor="#b45a24" stopOpacity=".30"/>
+            <stop offset=".55" stopColor="#6a311a" stopOpacity=".10"/>
+            <stop offset="1" stopColor="#140e0c" stopOpacity="0"/>
+          </radialGradient>
+          <radialGradient id="travelingBlue">
+            <stop offset="0" stopColor="#296279" stopOpacity=".23"/>
+            <stop offset="1" stopColor="#060b12" stopOpacity="0"/>
+          </radialGradient>
+        </defs>
+        <g clipPath="url(#untraveledFilm)">
+          <ellipse cx={1250+Math.sin(time*.09)*190} cy={300+Math.sin(time*.13)*110} rx="540" ry="280" fill="url(#travelingWarmth)"/>
+          <ellipse cx={1560+Math.cos(time*.07)*230} cy={700+Math.sin(time*.11)*120} rx="620" ry="320" fill="url(#travelingBlue)"/>
+          {Array.from({length:180},(_,i)=>{
+            const x=((seed(i*81+5)*2400 - offset*.17)%2400+2400)%2400-150;
+            const yy=82+seed(i*37+11)*718;
+            const flicker=.25+.75*Math.pow(Math.max(0,Math.sin(time*(.21+seed(i*5)*.6)+i)),2);
+            return <circle key={i} cx={x} cy={yy} r={.35+seed(i*71+2)*1.4}
+              fill={i%4===0?'#f7c17d':'#9da29b'} opacity={flicker*(.1+seed(i*19)*.23)}/>;
+          })}
+          {Array.from({length:12},(_,i)=>{
+            const x=((i*223-offset*.1)%2400+2400)%2400;
+            return <path key={i} d={`M${x} 84 q${Math.sin(i)*5} 220 ${Math.cos(i)*6} 650`}
+              fill="none" stroke="#b88b5c" strokeWidth={.5+seed(i)*.6}
+              opacity={.035+Math.sin(time*.12+i)*.012}/>;
+          })}
+        </g>
+      </svg>
       <svg viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <defs>
-          <clipPath id="futureRoad"><rect x={revealX} y="90" width={1920 - revealX} height="705" /></clipPath>
+          <clipPath id="futureRoad"><path d={`M0,82 H1920 V800 H0 Z ${area}`} clipRule="evenodd" /></clipPath>
           {colors.map((color, index) => <radialGradient key={color} id={`markerGlow${index}`} cx="30%" cy="25%"><stop stopColor="white" /><stop offset=".3" stopColor={color} /><stop offset="1" stopColor={['#8d4427', '#582a87', '#17596e'][index]} /></radialGradient>)}
         </defs>
-        <g stroke="#d5dce0" strokeWidth="1" opacity=".55">
+        <g clipPath="url(#futureRoad)" stroke="#967c61" strokeWidth="1" opacity=".2">
           {Array.from({ length: 22 }, (_, index) => { const x = index * 100 - (offset % 100); return <path key={`v-${index}`} d={`M${x} 90 V795`} />; })}
           {Array.from({ length: 8 }, (_, index) => <path key={`h-${index}`} d={`M0 ${95 + index * 100} H1920`} />)}
         </g>
@@ -88,7 +94,7 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
             points.push(`${x} ${y(seconds, path)}`);
           }
           const d = `M${points.join(' L')}`;
-          return <path key={`road-${path}`} clipPath="url(#futureRoad)" d={d} stroke={colors[path]} strokeWidth="3" fill="none" opacity=".22" />;
+          return <path key={`road-${path}`} clipPath="url(#futureRoad)" d={d} stroke={colors[path]} strokeWidth="3" fill="none" opacity=".8" />;
         })}
         {keys.map((_, path) => (
           <g key={`marker-${path}`}>
@@ -100,19 +106,29 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
               const py = y(birth, path) + (seed(index + 500 * path) - 0.5) * age * 140;
               return <circle key={index} cx={centerX - travel} cy={py} r={1 + seed(index + 70) * 3.4} fill={colors[path]} opacity={(1 - age / life) * 0.65} />;
             })}
-            <circle cx={centerX} cy={y(time, path)} r="25" fill="#f8fafb" stroke="#253642" strokeWidth="1.5" />
-            <circle cx={centerX} cy={y(time, path)} r="18" fill="none" stroke={colors[path]} strokeWidth="3" />
-            <circle cx={centerX} cy={y(time, path)} r="5" fill="#253642" />
-            <path d={`M${centerX - 32} ${y(time, path)} h9 M${centerX + 23} ${y(time, path)} h9 M${centerX} ${y(time, path) - 32} v9 M${centerX} ${y(time, path) + 23} v9`} stroke="#253642" strokeWidth="1.5" />
+            <circle cx={centerX} cy={y(time,path)} r="33" fill={colors[path]} opacity=".08"/>
+            <circle cx={centerX} cy={y(time,path)} r="18" fill={colors[path]} opacity=".15"/>
+            <circle cx={centerX} cy={y(time,path)} r="9" fill={colors[path]} opacity=".85"/>
+            <circle cx={centerX} cy={y(time,path)} r="4" fill="#fff7de"/>
+            <circle cx={centerX} cy={y(time,path)} r="19" fill="none" stroke={colors[path]} strokeWidth=".9" opacity=".6"/>
+
           </g>
         ))}
-        <path d="M0 80 H1920 M0 805 H1920" stroke="#c7ced2" strokeWidth="2" />
+        <LivingEmulsion time={time} speed={speed} revealX={revealX} edge={boundary}/>
+        <path d="M0 80 H1920 M0 805 H1920" stroke="#a66732" strokeWidth="3" />
         {Array.from({ length: 35 }, (_, index) => {
           const x = index * 60 - (offset % 60);
-          return <g key={`sprocket-${index}`} fill="#d3d9dc"><rect x={x} y="50" width="25" height="14" rx="3" /><rect x={x} y="820" width="25" height="14" rx="3" /></g>;
+          return <g key={`sprocket-${index}`} fill="#d3d9dc"><rect x={x} y="50" width="28" height="18" rx="4" /><rect x={x} y="820" width="25" height="14" rx="3" /></g>;
         })}
       </svg>
+      <div aria-hidden="true" style={{position:'absolute',left:0,right:0,top:0,height:80,background:'linear-gradient(#160e0a,#412416 46%,#120e0e)',borderBottom:'3px solid #bb7b44',opacity:.97,pointerEvents:'none'}}/>
+      <div aria-hidden="true" style={{position:'absolute',left:0,right:0,top:805,height:70,background:'linear-gradient(#2d1b12,#0e0b0b)',borderTop:'3px solid #bb7b44',opacity:.97,pointerEvents:'none'}}/>
+      <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+        {Array.from({length:35},(_,i)=>{const x=i*60-(offset%60);return <g key={i} fill="#ba8751"><rect x={x} y="23" width="30" height="33" rx="5"/><rect x={x} y="827" width="30" height="28" rx="5"/></g>;})}
+        {Array.from({length:110},(_,i)=>{const x=seed(i*13+1)*1920,y=82+seed(i*17+3)*720;return <circle key={i} cx={x} cy={y} r={.4+seed(i*7)*1.6} fill="#dba56f" opacity={.07+seed(i*3)*.17}/>;})}
+      </svg>
     </AbsoluteFill>
+    </CameraDirector>
   );
 }
 

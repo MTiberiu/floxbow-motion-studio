@@ -1,3 +1,6 @@
+import { CinematicPlate } from './CinematicPlate';
+import { JourneyConstruction } from './JourneyConstruction';
+import { LuminousGateway } from './LuminousGateway';
 import { ThreeCanvas } from '@remotion/three';
 import { useMemo } from 'react';
 import * as THREE from 'three';
@@ -188,6 +191,9 @@ export function JourneyWorld({time,speed,maskImage}:{time:number;speed:number;ma
       <Ridge time={time} speed={speed} seed={3} base={-260} altitude={190} bottom={-485} rate={.83} z={2} ink="#79bbc0"/>
       <WorldGrid time={time} speed={speed}/>
       <Sparks time={time} speed={speed}/>
-    </ThreeCanvas>
+            <LuminousGateway time={time} />
+            <JourneyConstruction time={time} />
+      </ThreeCanvas>
+      <CinematicPlate time={time} />
   </div>;
 }
