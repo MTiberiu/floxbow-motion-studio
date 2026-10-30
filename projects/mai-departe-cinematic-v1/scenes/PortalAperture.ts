@@ -23,5 +23,8 @@ export function portalAperture(frame:number,fps:number,speed:number,revealX:numb
   const rx=expansion*110*rough,ry=expansion*166*rough;
   return {x:cx+Math.cos(a)*rx,y:cy+Math.sin(a)*ry};
  });
- const coversViewport=travel>=.999;\n return {open:travel,coversViewport,boundary,polygon:`polygon(${points.map(p=>`${p.x}% ${p.y}%`).join(',')})`,edgePoints:points.map(p=>`${p.x*19.2},${p.y*10.8}`).join(' '),cx,cy};
+ const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+ const coversViewport=Math.min(...xs)<0&&Math.max(...xs)>100&&Math.min(...ys)<0&&Math.max(...ys)>100;
+ // An edge is only drawn while its physical projected contour intersects the frame.
+ const edgeVisible=travel>0&&!coversViewport;\n return {open:travel,coversViewport,edgeVisible,boundary,polygon:`polygon(${points.map(p=>`${p.x}% ${p.y}%`).join(',')})`,edgePoints:points.map(p=>`${p.x*19.2},${p.y*10.8}`).join(' '),cx,cy};
 }
