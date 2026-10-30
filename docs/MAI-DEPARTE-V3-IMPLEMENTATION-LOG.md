@@ -88,3 +88,14 @@ Append for each code change:
 - **Expected visible outcome:** During camera forward travel, nearer ridge silhouettes translate and change apparent size faster than distant ones, between the painted valley and near banks. No claim of full reconstruction.
 - **Verified:** GitHub source changes committed. Not compiled, benchmarked or inspected in Electron in this environment.
 - **Still missing:** Clean bridge-free base art and genuinely separated photorealistic terrain alpha masks. Existing valley photo and generated silhouettes may differ in painterly style; developer should visually inspect and adjust geometry/opacity as needed.
+
+## 2026-10-30 — correct optical-flow direction and physical bank motion
+
+- **Files:** `projects/mai-departe-cinematic-v1/scenes/CameraWorld.tsx`
+- **Observed problem:** A nominal parallax effect looked like camera zoom only. Near terrain cards were fixed in world coordinates while the underlying photo texture drifted, reducing the sense of travel.
+- **Cause:** The procedural `worldPlate` shader inverted image-depth semantics: UV y grows upwards, yet its old `near` weight was blended inconsistently with `distant`, and the close-bank meshes had no time-derived travel at all. Different planes translated only through the camera dolly.
+- **Change:** Reassigned sky, middle mountains and foreground sampling weights in the correct UV direction and introduced conservative frame-derived optical flow. Existing depth-separated near bank meshes also translate at separate rates (`0.05–0.22` world units/second), while the camera still performs the authored forward move.
+- **Intent:** Make the world already in motion while visible through the tear, then sustain optical flow while entering it, without introducing unrelated sparkle overlays or restarting the animation clock.
+- **Expected visual check:** At 9, 11, 13, 16 and 20 seconds the near banks should traverse the field faster than distant terrain; the underlying world image should not freeze when the camera shot changes.
+- **Verified:** Code committed. No Electron preview, screenshots or rendering benchmark available to this GitHub-only update.
+- **Remaining gap:** Image itself still contains the baked bridge and is not separated into clean object masks. This update does NOT meet those final art requirements; it is an intermediate optical-flow correction.
