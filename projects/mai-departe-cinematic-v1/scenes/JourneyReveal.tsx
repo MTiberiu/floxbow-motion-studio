@@ -1,3 +1,4 @@
+import { DarkFilmAtmosphere } from './DarkFilmAtmosphere';
 import {CameraDirector} from './CameraDirector';
 import {buildEmulsion} from './emulsion-field';
 import {LivingEmulsion} from './LivingEmulsion';
@@ -45,6 +46,7 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
     <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)' }} data-journey-time={time}>
       <JourneyWorld time={time} speed={speed} maskImage={maskImage} />
       <FilmLifeOverlay time={time} amount={0.75} />
+      <DarkFilmAtmosphere time={time} intensity={1} />
       {/* The untraveled film is not a flat stationary backdrop: grain stays
           attached to the film while low-frequency amber pools travel slowly. */}
       <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>

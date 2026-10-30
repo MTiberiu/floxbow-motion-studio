@@ -20,6 +20,7 @@ export function DockablePanel({
     "--panel-preferred-width": `${registration.preferredSize.width}px`,
     "--panel-preferred-height": `${registration.preferredSize.height}px`,
   } as CSSProperties;
+  const keepEditorPreviewRunning = registration.id === "editor" && !active;
 
   return (
     <section
@@ -30,7 +31,9 @@ export function DockablePanel({
       data-min-size={`${registration.minSize.width}x${registration.minSize.height}`}
       data-preferred-size={`${registration.preferredSize.width}x${registration.preferredSize.height}`}
       data-overflow={registration.overflow}
-      hidden={!active}
+      hidden={!active && !keepEditorPreviewRunning}
+      inert={!active}
+      data-background-session={keepEditorPreviewRunning || undefined}
       style={style}
     >
       <header className="dockable-panel-titlebar">

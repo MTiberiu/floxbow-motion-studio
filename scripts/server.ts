@@ -840,9 +840,26 @@ export async function startServers(
             }
             if (musicAnalysis && req.method === "GET") {
               const report = await readMusicAnalysisReport(projectRoot);
+              let sourceAssetId: string | null = null;
+              if (report) {
+                const registry = await readMediaRegistry(projectRoot);
+                for (const asset of registry.registry.assets) {
+                  if (asset.type !== "audio") continue;
+                  const resolved = await resolveMedia(projectRoot, registry.registry, asset.id);
+                  if (resolved.status !== "ready" || resolved.type !== "audio") continue;
+                  const sourceInfo = await stat(resolved.path);
+                  if (
+                    sourceInfo.size === report.asset.sizeBytes &&
+                    sourceInfo.mtime.toISOString() === report.asset.modifiedAt
+                  ) {
+                    sourceAssetId = asset.id;
+                    break;
+                  }
+                }
+              }
               res.setHeader("Content-Type", "application/json");
               res.setHeader("Cache-Control", "no-store");
-              res.end(JSON.stringify({ report }));
+              res.end(JSON.stringify({ report, sourceAssetId }));
               return;
             }
             if (musicAnalysis && req.method === "POST") {

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { CSSProperties, Dispatch, KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent as ReactPointerEvent, RefObject, SetStateAction } from "react";
+import type { CSSProperties, Dispatch, KeyboardEvent as ReactKeyboardEvent, MouseEvent, PointerEvent as ReactPointerEvent, SetStateAction } from "react";
 import { parseEditTimeline, type EditTimeline, type TimelineClip } from "@motion/sdk/timeline";
 import { createSubtitleClip, extendSubtitleClipToTimedWords, subtitleContentSchema } from "@motion/lyrics-sync/subtitles";
 import { buildWordGravityCurve, getWordGravityAtTime } from "@motion/lyrics-sync/phrasing";
@@ -16,9 +16,9 @@ type Props = {
   projectWidth: number;
   projectHeight: number;
   refreshAfterSave: () => Promise<void>;
-  audioRef: RefObject<HTMLAudioElement | null>;
-  audioUrl: string;
-  onAudioTimeUpdate: (time: number) => void;
+  audioAvailable: boolean;
+  audioPlaying: boolean;
+  onTogglePlayback: () => void;
   correlation: MusicLyricsMap | null;
   directorBrief: DirectorBrief | null;
   correlationStale: boolean;
@@ -59,7 +59,7 @@ const MAX_MANUAL_WORD_DURATION_SECONDS = 15;
 
 export function MusicLyricsMapView(props: Props) {
   const {
-    report, projectId, refreshAfterSave, audioRef, audioUrl, onAudioTimeUpdate, correlation, directorBrief, correlationStale, correlationBusy, correlationZoom, setCorrelationZoom,
+    report, projectId, refreshAfterSave, audioAvailable, audioPlaying, onTogglePlayback, correlation, directorBrief, correlationStale, correlationBusy, correlationZoom, setCorrelationZoom,
     buildCorrelation, downloadReport, downloadMap, downloadBrief, visibleSources, setVisibleSources,
     playhead, seekTo, playEvent, reportMatchesSelection,
   } = props;
@@ -91,9 +91,6 @@ export function MusicLyricsMapView(props: Props) {
   }, []);
   const [timelineStart, setTimelineStart] = useState(0);
   const timelineStartRef = useRef(0);
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const [audioVolume, setAudioVolume] = useState(1);
-  const [audioError, setAudioError] = useState("");
   const [savedTimeline, setSavedTimeline] = useState<EditTimeline | null>(null);
   const [draftTimeline, setDraftTimeline] = useState<EditTimeline | null>(null);
   const [timelineRevision, setTimelineRevision] = useState("");
@@ -269,16 +266,7 @@ export function MusicLyricsMapView(props: Props) {
   };
 
   const toggleAudioPlayback = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      setAudioError("");
-      void audio.play().catch(reason => setAudioError(reason instanceof Error ? reason.message : "Audio playback could not start."));
-    } else audio.pause();
-  };
-  const updateAudioVolume = (value: number) => {
-    setAudioVolume(value);
-    if (audioRef.current) audioRef.current.volume = value;
+    if (audioAvailable) onTogglePlayback();
   };
 
   const handleMapClick = (event: MouseEvent<SVGSVGElement>) => {
@@ -314,27 +302,21 @@ export function MusicLyricsMapView(props: Props) {
   };
 
   const beginAudioScrub = () => {
-    const audio = audioRef.current;
-    if (!audio || !audio.paused || !audioUrl || !reportMatchesSelection) return;
+    if (!audioAvailable || audioPlaying || !reportMatchesSelection) return;
     scrubStartedPlaybackRef.current = true;
-    setAudioError("");
-    void audio.play().catch(reason => {
-      scrubStartedPlaybackRef.current = false;
-      setAudioError(reason instanceof Error ? reason.message : "Audio playback could not start.");
-    });
+    onTogglePlayback();
   };
 
   const endAudioScrub = () => {
-    if (scrubStartedPlaybackRef.current) audioRef.current?.pause();
+    if (scrubStartedPlaybackRef.current) onTogglePlayback();
     scrubStartedPlaybackRef.current = false;
   };
 
   const previewSeekAudio = () => {
-    const audio = audioRef.current;
-    if (!audio || !audioUrl || !reportMatchesSelection) return;
+    if (!audioAvailable || !reportMatchesSelection) return;
     if (seekPreviewStopRef.current !== null) window.clearTimeout(seekPreviewStopRef.current);
     seekPreviewStopRef.current = null;
-    if (audio.paused) beginAudioScrub();
+    if (!audioPlaying) beginAudioScrub();
     // A brief tap should audition the newly selected position too; holding
     // an arrow continues to scrub and is stopped by endSeekHold instead.
     if (scrubStartedPlaybackRef.current) {
@@ -1233,7 +1215,6 @@ export function MusicLyricsMapView(props: Props) {
   }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
   return <div className="mlm-page">
-    <audio ref={audioRef} hidden preload="metadata" src={audioUrl || undefined} onTimeUpdate={event => { onAudioTimeUpdate(event.currentTarget.currentTime); if (audioPlaying) { setManuallySelectedCueId(null); setFocusedTimingWordSelection(null); } }} onPlay={() => { setAudioPlaying(true); setManuallySelectedCueId(null); setFocusedTimingWordSelection(null); }} onPause={() => setAudioPlaying(false)} onVolumeChange={event => setAudioVolume(event.currentTarget.volume)} onError={() => setAudioError("The selected audio file could not be loaded.")}/>
     <section className="mlm-panel mlm-audio-overview">
       <div className="mlm-audio-strip"><div><span className="mlm-kicker">AUDIO</span><strong>{report.asset.displayName}</strong></div><div className="mlm-audio-facts"><span>{report.structure.bpm === null ? "BPM unavailable" : `${Math.round(report.structure.bpm)} BPM`}</span><span>{report.structure.beats.length} beats</span><span>{report.structure.sections.length} sections</span><span>{currentSection?.label ?? "No section"}</span><span>{formatTime(duration)}</span></div>
       </div>
@@ -1256,7 +1237,7 @@ export function MusicLyricsMapView(props: Props) {
               </div></details>
               <div className={`mlm-word-zoom${lyricView !== "word-timeline" ? " is-placeholder" : ""}`}><button aria-label="Zoom out words" title="Show more time" disabled={lyricView !== "word-timeline"} onClick={() => setWordZoom(1.5)}>−</button><span>{lyricView !== "word-timeline" ? "" : `${formatTime(visibleSpan)} view`}</span><button aria-label="Zoom in words" title="Show less time" disabled={lyricView !== "word-timeline"} onClick={() => setWordZoom(.67)}>+</button></div>
             </div>
-            <div className="mlm-alignment-transport"><button className="mlm-transport-play" onClick={toggleAudioPlayback} disabled={!audioUrl || !reportMatchesSelection} aria-label={audioPlaying ? "Pause soundtrack" : "Play soundtrack"}>{audioPlaying ? "Ⅱ" : "▶"}</button><button className="mlm-seek-step" aria-label="Seek back one frame" title={`Back 1 frame (${(1000 / (draftTimeline?.fps ?? 30)).toFixed(0)} ms); hold to continue`} disabled={!duration} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginSeekHold(-1); }} onPointerUp={endSeekHold} onPointerCancel={endSeekHold} onLostPointerCapture={endSeekHold} onClick={event => { if (event.detail === 0) { seekByFrame(-1); previewSeekAudio(); } }}>←</button><time>{formatTime(playhead)} <span>/ {formatTime(duration)}</span></time><button className="mlm-seek-step" aria-label="Seek forward one frame" title={`Forward 1 frame (${(1000 / (draftTimeline?.fps ?? 30)).toFixed(0)} ms); hold to continue`} disabled={!duration} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginSeekHold(1); }} onPointerUp={endSeekHold} onPointerCancel={endSeekHold} onLostPointerCapture={endSeekHold} onClick={event => { if (event.detail === 0) { seekByFrame(1); previewSeekAudio(); } }}>→</button><input aria-label="Seek soundtrack" type="range" min="0" max={duration || 1} step="0.01" value={Math.min(duration, playhead)} onChange={event => seekFromTimeline(Number(event.currentTarget.value))}/><label className="mlm-alignment-volume" title="Soundtrack volume"><span>Vol</span><input aria-label="Soundtrack volume" type="range" min="0" max="1" step="0.01" value={audioVolume} onChange={event => updateAudioVolume(Number(event.currentTarget.value))}/></label><button className="mlm-open-analysis" onClick={() => setAnalysisTimelineOpen(true)} aria-haspopup="dialog">Full analysis</button></div>
+            <div className="mlm-alignment-transport"><button className="mlm-transport-play" onClick={toggleAudioPlayback} disabled={!audioAvailable} aria-label={audioPlaying ? "Pause soundtrack" : "Play soundtrack"}>{audioPlaying ? "Ⅱ" : "▶"}</button><button className="mlm-seek-step" aria-label="Seek back one frame" title={`Back 1 frame (${(1000 / (draftTimeline?.fps ?? 30)).toFixed(0)} ms); hold to continue`} disabled={!duration || !audioAvailable} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginSeekHold(-1); }} onPointerUp={endSeekHold} onPointerCancel={endSeekHold} onLostPointerCapture={endSeekHold} onClick={event => { if (event.detail === 0) { seekByFrame(-1); previewSeekAudio(); } }}>←</button><time>{formatTime(playhead)} <span>/ {formatTime(duration)}</span></time><button className="mlm-seek-step" aria-label="Seek forward one frame" title={`Forward 1 frame (${(1000 / (draftTimeline?.fps ?? 30)).toFixed(0)} ms); hold to continue`} disabled={!duration || !audioAvailable} onPointerDown={event => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginSeekHold(1); }} onPointerUp={endSeekHold} onPointerCancel={endSeekHold} onLostPointerCapture={endSeekHold} onClick={event => { if (event.detail === 0) { seekByFrame(1); previewSeekAudio(); } }}>→</button><input aria-label="Seek soundtrack" type="range" min="0" max={duration || 1} step="0.01" value={Math.min(duration, playhead)} onChange={event => seekFromTimeline(Number(event.currentTarget.value))} disabled={!audioAvailable}/><button className="mlm-open-analysis" onClick={() => setAnalysisTimelineOpen(true)} aria-haspopup="dialog">Full analysis</button></div>
           </div>
           {correlation && kineticTabOpened && <div hidden={lyricView !== "kinetic"}><KineticDirectionTab projectId={projectId} width={props.projectWidth} height={props.projectHeight} correlation={correlation} report={report} playhead={playhead} seekTo={seekTo} stale={correlationStale}/></div>}
           {lyricView !== "kinetic" && <div className="mlm-lyric-stage">
@@ -1267,7 +1248,7 @@ export function MusicLyricsMapView(props: Props) {
               return <span key={word.id} className={`mlm-lyric-token${isSung ? " sung" : isNow ? " now" : " future"}`} onClick={() => { if (word.start !== null) { focusWord(timingCue.id, word.id); seekTo(word.start); } }} title={word.start === null ? "No word time available" : `Seek to ${word.text} at ${formatTime(word.start)}`}>{word.text} </span>;
             }) : timingCue ? <span>{timingCue.text}</span> : <span className="mlm-instrumental-mark">♪</span>}</div>
             <div className="mlm-lyric-next">{nextCue?.text ?? ""}</div></> : <>
-              <TimedWordRunway cues={visibleCues} allCues={correlation.cues} selectedCueId={timingCue?.id ?? null} audioRef={audioRef} audioPlaying={audioPlaying} playhead={playhead} duration={duration} visibleSpan={visibleSpan} fps={draftTimeline?.fps ?? 30} correlationZoom={correlationZoom} wordBoxesVisible={wordBoxesVisible} wordGuidesVisible={wordGuidesVisible} verseBoundsVisible={verseBoundsVisible} wordGravityVisible={wordGravityVisible} seekTo={seekTo} seekFromTimeline={seekFromTimeline} beginAudioScrub={beginAudioScrub} endAudioScrub={endAudioScrub} selectWord={focusWord} selectCue={selectRunwayCue} stretchCueEdge={stretchVerseEdge} setCueEdgeAtPlayhead={setVerseEdgeAtPlayhead} addCueEdgeTime={addVerseEdgeTime} canEdit={!timingSaving && !audioPlaying}/>
+              <TimedWordRunway cues={visibleCues} allCues={correlation.cues} selectedCueId={timingCue?.id ?? null} audioPlaying={audioPlaying} playhead={playhead} duration={duration} visibleSpan={visibleSpan} fps={draftTimeline?.fps ?? 30} correlationZoom={correlationZoom} wordBoxesVisible={wordBoxesVisible} wordGuidesVisible={wordGuidesVisible} verseBoundsVisible={verseBoundsVisible} wordGravityVisible={wordGravityVisible} seekTo={seekTo} seekFromTimeline={seekFromTimeline} beginAudioScrub={beginAudioScrub} endAudioScrub={endAudioScrub} selectWord={focusWord} selectCue={selectRunwayCue} stretchCueEdge={stretchVerseEdge} setCueEdgeAtPlayhead={setVerseEdgeAtPlayhead} addCueEdgeTime={addVerseEdgeTime} canEdit={!timingSaving && !audioPlaying}/>
             </>}
           </div>}
           {lyricView === "word-timeline" && timingGapRows.length > 0 && <details className="mlm-timing-gaps"><summary>Timing gaps to review · {timingGapRows.length} lyrics</summary><p>The outline is the subtitle clip; the filled bar is the timed words. Trim only the blank clip area to keep the word times fixed.</p><div>{timingGapRows.map(({ cue, firstWord, lastWord, leadIn, tail }) => <article key={`gap-${cue.id}`}><button className="mlm-timing-gap-select" onClick={() => focusCue(cue)}><strong>{cue.text}</strong><small>{cue.alignment.wordTimingSource ?? "No word timing"} · {cue.alignment.status}</small></button>{leadIn >= .04 && <div className="mlm-timing-gap-action"><span>Before “{firstWord.text}” · {formatDuration(leadIn)}</span><button disabled={timingSaving} onClick={() => trimCueGap(cue, "start")}>Trim lead-in</button></div>}{tail >= .04 && <div className="mlm-timing-gap-action"><span>After “{lastWord.text}” · {formatDuration(tail)}</span><button disabled={timingSaving} onClick={() => trimCueGap(cue, "end")}>Trim tail</button></div>}</article>)}</div></details>}
@@ -1315,7 +1296,6 @@ export function MusicLyricsMapView(props: Props) {
 
     {analysisTimelineOpen && <div className="mlm-analysis-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) { setAnalysisTimelineOpen(false); setDetailsOpen(false); } }}><section className="mlm-analysis-dialog" role="dialog" aria-modal="true" aria-label="Full music analysis timeline"><header><div><span className="mlm-kicker">FULL SONG ANALYSIS</span><h2>Music, lyrics &amp; events</h2></div><button aria-label="Close full analysis" onClick={() => { setAnalysisTimelineOpen(false); setDetailsOpen(false); }}>×</button></header><section className={`mlm-panel mlm-map-panel${eventLanesVisible ? " has-event-lanes" : " is-compact"}`}>
       <div className="mlm-dock-header"><div className="mlm-panel-heading compact"><div><span className="mlm-kicker">03 / DETECTION TIMELINE</span><h2>{eventLanesVisible ? "Sound events, by category" : "Structure and waveform"}</h2><p>{lyricView === "word-timeline" ? "Playhead stays centered; the song moves beneath it." : "Click the timeline to seek. Scroll the time window below."}</p></div><div className="mlm-detection-actions">{lyricView === "preview" && <><label>Zoom <input aria-label="Timeline zoom" type="range" min="1" max={Math.max(1, Math.ceil(duration))} step="0.1" value={Math.min(Math.max(1, Math.ceil(duration)), correlationZoom)} onChange={event => { const next = Number(event.currentTarget.value); setCorrelationZoom(next); setTimelineStart(Math.max(0, Math.min(Math.max(0, duration - Math.min(duration, next)), playhead - next / 2))); }}/><span>{formatTime(visibleSpan)} window</span></label><button onClick={() => { setCorrelationZoom(duration || 40); setTimelineStart(0); }}>Entire song</button></>}<button className="mlm-hide-timeline" onClick={() => setEventLanesVisible(value => !value)} aria-expanded={eventLanesVisible}>{eventLanesVisible ? "Hide event lanes" : "Show event lanes"}</button></div></div>
-        {audioError && <span className="mlm-audio-error" role="alert">{audioError}</span>}
       </div>
       {eventLanesVisible && <div className="mlm-source-toggles" aria-label="Visible event categories">{SOURCES.map(source => <label key={source} className={`mlm-source-toggle mlm-${source}`}><input type="checkbox" checked={visibleSources[source]} onChange={event => setVisibleSources(current => ({ ...current, [source]: event.currentTarget.checked }))}/><span>{titleCase(source === "mix" ? "Mix / change" : source)}</span><b>{counts?.[source] ?? 0}</b></label>)}</div>}
       {!correlation && <div className="ma-unavailable">Build the full-song correlation first; the event timeline uses the same song position and audio report.</div>}
@@ -1380,7 +1360,6 @@ type TimedWordRunwayProps = {
   cues: CorrelationCue[];
   allCues: CorrelationCue[];
   selectedCueId: string | null;
-  audioRef: RefObject<HTMLAudioElement | null>;
   audioPlaying: boolean;
   playhead: number;
   duration: number;
@@ -1403,7 +1382,7 @@ type TimedWordRunwayProps = {
   canEdit: boolean;
 };
 
-function TimedWordRunway({ cues, allCues, selectedCueId, audioRef, audioPlaying, playhead, duration, visibleSpan, fps, correlationZoom, wordBoxesVisible, wordGuidesVisible, verseBoundsVisible, wordGravityVisible, seekTo, seekFromTimeline, beginAudioScrub, endAudioScrub, selectWord, selectCue, stretchCueEdge, setCueEdgeAtPlayhead, addCueEdgeTime, canEdit }: TimedWordRunwayProps) {
+function TimedWordRunway({ cues, allCues, selectedCueId, audioPlaying, playhead, duration, visibleSpan, fps, correlationZoom, wordBoxesVisible, wordGuidesVisible, verseBoundsVisible, wordGravityVisible, seekTo, seekFromTimeline, beginAudioScrub, endAudioScrub, selectWord, selectCue, stretchCueEdge, setCueEdgeAtPlayhead, addCueEdgeTime, canEdit }: TimedWordRunwayProps) {
   const [displayTime, setDisplayTime] = useState(playhead);
   const [isPanning, setIsPanning] = useState(false);
   const [rangeCueId, setRangeCueId] = useState(selectedCueId);
@@ -1411,30 +1390,12 @@ function TimedWordRunway({ cues, allCues, selectedCueId, audioRef, audioPlaying,
   const dragRef = useRef<{ pointerId: number; x: number; time: number } | null>(null);
   const stretchDragRef = useRef<{ pointerId: number; x: number; secondsPerPixel: number; cue: CorrelationCue; edge: "start" | "end" } | null>(null);
   const audioStartTimerRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!audioPlaying) setDisplayTime(audioRef.current?.currentTime ?? playhead);
-  }, [audioPlaying, audioRef, playhead]);
+  useEffect(() => setDisplayTime(playhead), [playhead]);
   useEffect(() => {
     // While paused, follow an explicit lyric selection. During playback keep
     // the editing target steady instead of making its controls jump per lyric.
     if (!audioPlaying && selectedCueId) setRangeCueId(selectedCueId);
   }, [audioPlaying, selectedCueId]);
-  useEffect(() => {
-    if (!audioPlaying) return;
-    let frame = 0;
-    let lastPaint = 0;
-    const tick = (now: number) => {
-      const audio = audioRef.current;
-      if (audio && now - lastPaint >= 12) {
-        setDisplayTime(audio.currentTime);
-        lastPaint = now;
-      }
-      frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [audioPlaying, audioRef]);
-
   const safeSpan = Math.max(.001, visibleSpan);
   const visibleStart = displayTime - safeSpan / 2;
   const visibleEnd = visibleStart + safeSpan;

@@ -101,8 +101,6 @@ export function useEditorSession({
   const pendingPreviewSeekFrame = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [previewGeneration, setPreviewGeneration] = useState(0);
-  const wasActive = useRef(active);
-  const resumePlaybackAfterHide = useRef(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [undoStack, setUndoStack] = useState<EditTimeline[]>([]);
@@ -134,17 +132,6 @@ export function useEditorSession({
     setUndoStack([]);
     setRedoStack([]);
   };
-
-  useEffect(() => {
-    if (wasActive.current === active) return;
-    wasActive.current = active;
-    if (!active) {
-      resumePlaybackAfterHide.current = playing;
-      if (playing) sendPreview("pause");
-      return;
-    }
-    setPreviewGeneration((generation) => generation + 1);
-  }, [active, playing, sendPreview]);
 
   useEffect(() => {
     if (!manifest.editTimeline || !active) return;
@@ -376,13 +363,6 @@ export function useEditorSession({
           pendingPreviewSeekFrame.current =
             frameRef.current === 0 ? null : frameRef.current;
           sendPreview("seek", { frame: frameRef.current });
-          if (resumePlaybackAfterHide.current) {
-            sendPreview("play");
-            // A late frame message from the previous iframe can arrive after
-            // this new preview is ready. Only the ready handshake for the
-            // active preview should consume the resume request.
-            resumePlaybackAfterHide.current = false;
-          }
         } catch (messageError) {
           setError(String(messageError));
         }
@@ -459,7 +439,6 @@ export function useEditorSession({
       advanceStateVersion();
     },
     pause: () => {
-      resumePlaybackAfterHide.current = false;
       sendPreview("pause");
       advanceStateVersion();
     },

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProjectManifest } from "@motion/project-loader/schema";
 import { MusicLyricsMapView } from "./MusicLyricsMapView";
+import { useSharedTimelineTransport } from "./shared-timeline-transport";
 import "./music-analysis.css";
 
 export type AudioAsset = { id: string; displayName: string; status: string; type: string };
@@ -47,6 +48,7 @@ export function MusicAnalysis({ manifest, active }: { manifest: ProjectManifest;
   const [assets, setAssets] = useState<AudioAsset[]>([]);
   const [selectedAssetId, setSelectedAssetId] = useState("");
   const [report, setReport] = useState<Report | null>(null);
+  const [reportSourceAssetId, setReportSourceAssetId] = useState<string | null>(null);
   const [correlation, setCorrelation] = useState<MusicLyricsMap | null>(null);
   const [directorBrief, setDirectorBrief] = useState<DirectorBrief | null>(null);
   const [correlationStale, setCorrelationStale] = useState(false);
@@ -55,10 +57,10 @@ export function MusicAnalysis({ manifest, active }: { manifest: ProjectManifest;
   const [job, setJob] = useState<Job | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [linkingSoundtrack, setLinkingSoundtrack] = useState(false);
   const eventStopTimer = useRef<number | null>(null);
   const [visibleSources, setVisibleSources] = useState<Record<"drums" | "bass" | "vocals" | "other" | "mix", boolean>>({ drums: true, bass: true, vocals: true, other: true, mix: true });
-  const [playhead, setPlayhead] = useState(0);
+  const transport = useSharedTimelineTransport();
   const base = `/api/media/${encodeURIComponent(manifest.id)}/music-analysis`;
   const correlationBase = `/api/media/${encodeURIComponent(manifest.id)}/music-lyrics-map`;
   const busy = job?.status === "queued" || job?.status === "running";
@@ -68,20 +70,29 @@ export function MusicAnalysis({ manifest, active }: { manifest: ProjectManifest;
     try {
       const [media, saved, mapped] = await Promise.all([
         json<{ assets: AudioAsset[] }>(`/api/media/${encodeURIComponent(manifest.id)}`),
-        json<{ report: Report | null }>(base),
+        json<{ report: Report | null; sourceAssetId: string | null }>(base),
         json<CorrelationResponse>(correlationBase),
       ]);
       const audioAssets = media.assets.filter(asset => asset.type === "audio" && asset.status === "ready");
       setAssets(audioAssets);
       setReport(saved.report);
+      setReportSourceAssetId(saved.sourceAssetId);
       setCorrelation(mapped.map);
       setDirectorBrief(mapped.brief);
       setCorrelationStale(mapped.stale);
-      setSelectedAssetId(current => current && audioAssets.some(asset => asset.id === current) ? current : saved.report?.assetId ?? audioAssets[0]?.id ?? "");
+      const timelineAssetId = transport?.projectId === manifest.id ? transport.audioAssetId : null;
+      const preferredAssetId = saved.sourceAssetId ?? (
+        timelineAssetId && audioAssets.some(asset => asset.id === timelineAssetId)
+          ? timelineAssetId
+          : audioAssets[0]?.id ?? ""
+      );
+      setSelectedAssetId(current => current && audioAssets.some(asset => asset.id === current)
+        ? current
+        : preferredAssetId);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
-  }, [base, correlationBase, manifest.id]);
+  }, [base, correlationBase, manifest.id, transport?.audioAssetId, transport?.projectId]);
 
   const buildCorrelation = useCallback(async () => {
     setCorrelationBusy(true);
@@ -138,39 +149,53 @@ export function MusicAnalysis({ manifest, active }: { manifest: ProjectManifest;
     } catch (reason) { setError(reason instanceof Error ? reason.message : String(reason)); }
   };
 
+  const linkSelectedAudioToTimeline = async () => {
+    if (!selectedAssetId || linkingSoundtrack) return;
+    setLinkingSoundtrack(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(selectedAssetId)}/soundtrack`);
+      const raw = await response.text();
+      let result: { displayName?: string; durationInSeconds?: number };
+      try { result = JSON.parse(raw) as typeof result; }
+      catch { throw new Error(raw || "The selected audio could not be opened."); }
+      if (!response.ok) throw new Error(result.displayName ?? (raw || "The selected audio could not be opened."));
+      if (typeof result.durationInSeconds !== "number" || !Number.isFinite(result.durationInSeconds) || result.durationInSeconds <= 0)
+        throw new Error("The selected audio has no usable duration.");
+      window.dispatchEvent(new CustomEvent("motion-use-soundtrack", { detail: {
+        projectId: manifest.id,
+        assetId: selectedAssetId,
+        durationInSeconds: result.durationInSeconds,
+        displayName: result.displayName ?? currentAsset?.displayName ?? "Audio",
+      } }));
+      setNotice(`${result.displayName ?? currentAsset?.displayName ?? "Audio"} is now the Timeline soundtrack. Save the Timeline in the Video Editor to keep this change.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLinkingSoundtrack(false);
+    }
+  };
+
   const currentAsset = assets.find(asset => asset.id === selectedAssetId);
-  const reportMatchesSelection = !report || report.assetId === selectedAssetId;
-  const audioUrl = currentAsset ? `/api/media/${encodeURIComponent(manifest.id)}/assets/${encodeURIComponent(currentAsset.id)}/stream` : "";
+  const reportMatchesSelection = !report || reportSourceAssetId === selectedAssetId;
+  const timelineMatchesSelection = transport?.projectId === manifest.id && transport.audioAssetId === selectedAssetId;
+  const audioAvailable = Boolean(timelineMatchesSelection && reportMatchesSelection);
+  const audioPlaying = Boolean(audioAvailable && transport?.playing);
+  const playhead = timelineMatchesSelection && transport ? transport.frame / transport.fps : 0;
   const duration = report?.durationSeconds ?? 0;
   const reportComplete = report?.status === "complete" && report.musicalEvents?.status === "available";
-  useEffect(() => {
-    if (!active) return;
-    const toggleSoundtrack = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || event.repeat) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable='true'], [role='textbox']")) return;
-      if (!audioRef.current || !reportMatchesSelection) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (audioRef.current.paused) void audioRef.current.play().catch(reason => setError(reason instanceof Error ? reason.message : "Audio playback could not start."));
-      else audioRef.current.pause();
-    };
-    window.addEventListener("keydown", toggleSoundtrack, true);
-    return () => window.removeEventListener("keydown", toggleSoundtrack, true);
-  }, [active, reportMatchesSelection]);
   const seekTo = (time: number) => {
+    if (!audioAvailable || !transport) return;
     const bounded = Math.max(0, Math.min(duration, time));
-    if (audioRef.current) audioRef.current.currentTime = bounded;
-    setPlayhead(bounded);
+    transport.seek(Math.round(bounded * transport.fps));
   };
   const playEvent = (event: MusicEvent) => {
-    if (!audioRef.current || !reportMatchesSelection) return;
+    if (!audioAvailable || !transport) return;
     if (eventStopTimer.current !== null) window.clearTimeout(eventStopTimer.current);
-    audioRef.current.currentTime = event.time;
-    setPlayhead(event.time);
-    void audioRef.current.play();
+    transport.seek(Math.round(event.time * transport.fps));
+    transport.play();
     const windowSeconds = event.endTime ? Math.min(8, Math.max(1.2, event.endTime - event.time + 0.5)) : 2.5;
-    eventStopTimer.current = window.setTimeout(() => audioRef.current?.pause(), windowSeconds * 1000);
+    eventStopTimer.current = window.setTimeout(() => transport.pause(), windowSeconds * 1000);
   };
   const downloadReport = () => {
     if (!report) return;
@@ -191,15 +216,16 @@ export function MusicAnalysis({ manifest, active }: { manifest: ProjectManifest;
     {!assets.length && <section className="ma-empty"><h2>No audio is ready for analysis</h2><p>Import an MP3 or WAV from Assets, then return here and choose it.</p></section>}
     {report && <>
       {!reportMatchesSelection && <div className="ma-notice">This report belongs to “{report.asset.displayName}”. Press Analyze Music to replace it with the selected soundtrack.</div>}
+      {reportMatchesSelection && !timelineMatchesSelection && <div className="ma-notice">Music Analysis uses the shared Video Editor player. Set “{currentAsset?.displayName ?? report.asset.displayName}” as the Timeline soundtrack to enable playback and keep event seeking in sync. <button type="button" onClick={() => void linkSelectedAudioToTimeline()} disabled={!currentAsset || linkingSoundtrack}>{linkingSoundtrack ? "Linking audio…" : "Use as Timeline soundtrack"}</button></div>}
       <MusicLyricsMapView
         report={report}
         projectId={manifest.id}
         projectWidth={manifest.width}
         projectHeight={manifest.height}
         refreshAfterSave={load}
-        audioRef={audioRef}
-        audioUrl={audioUrl}
-        onAudioTimeUpdate={time => setPlayhead(time)}
+        audioAvailable={audioAvailable}
+        audioPlaying={audioPlaying}
+        onTogglePlayback={() => { if (!audioAvailable || !transport) return; if (transport.playing) transport.pause(); else transport.play(); }}
         correlation={correlation}
         directorBrief={directorBrief}
         correlationStale={correlationStale}

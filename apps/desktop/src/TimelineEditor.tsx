@@ -52,6 +52,10 @@ import {
   subtitleTrackId,
 } from "./timeline-track-utils";
 import { useWorkspaceManager } from "./WorkspaceManager";
+import {
+  clearSharedTimelineTransport,
+  publishSharedTimelineTransport,
+} from "./shared-timeline-transport";
 import { clampTimelineHeight, DEFAULT_TIMELINE_HEIGHT } from "./editor-layout";
 import { addPoseStudioActionToTimeline } from "./pose-studio-import";
 import { publishStoryboardToTimeline, storyboardReferenceIdsForScope, type StoryboardPublishScope } from "./storyboard-timeline";
@@ -294,6 +298,33 @@ export function TimelineEditor({
     undoCount,
     redoCount,
   } = snapshot;
+  useEffect(() => {
+    if (!doc) {
+      clearSharedTimelineTransport(snapshot.sessionId);
+      return;
+    }
+    publishSharedTimelineTransport({
+      projectId: manifest.id,
+      sessionId: snapshot.sessionId,
+      timeline: doc,
+      audioAssetId: (() => {
+        const assetId = doc.clips.find((clip) => clip.componentId === "soundtrack")?.content.assetId;
+        return typeof assetId === "string" ? assetId : null;
+      })(),
+      frame,
+      fps: doc.fps,
+      playing,
+      masterVolume,
+      play: commands.play,
+      pause: commands.pause,
+      seek: commands.seek,
+      setVolume: setMasterVolume,
+    });
+  }, [commands, doc, frame, manifest.id, masterVolume, playing, snapshot.sessionId]);
+  useEffect(
+    () => () => clearSharedTimelineTransport(snapshot.sessionId),
+    [snapshot.sessionId],
+  );
   previewKeyRef.current = `${reload}:${previewGeneration}:${previewOrigin}`;
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   const {

@@ -56,7 +56,7 @@ summary:focus-visible {
   min-height: 0;
   display: grid;
   grid-template-columns: var(--left-width) 5px minmax(0, 1fr);
-  grid-template-rows: 46px minmax(0, 1fr);
+  grid-template-rows: 46px minmax(0, 1fr) auto;
   overflow: hidden;
   background: #13181f;
 }

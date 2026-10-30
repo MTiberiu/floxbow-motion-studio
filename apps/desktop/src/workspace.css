@@ -71,6 +71,16 @@
 .dockable-panel[hidden] {
   display: none !important;
 }
+.dockable-panel[data-background-session="true"] {
+  position: fixed;
+  z-index: -1;
+  top: 0;
+  left: -200vw;
+  width: 100vw;
+  height: 100dvh;
+  opacity: 0;
+  pointer-events: none;
+}
 .dockable-panel-titlebar {
   display: flex;
   align-items: center;

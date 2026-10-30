@@ -25,6 +25,7 @@ import { PoseSheetStudio } from "./PoseSheetStudio";
 import { MediaPanel } from "./MediaPanel";
 import { ProjectLibrary } from "./ProjectLibrary";
 import { MusicAnalysis } from "./MusicAnalysis";
+import { SharedTransportDock } from "./SharedTransportDock";
 import { DetachedTimelineWindow } from "./DetachedTimelineWindow";
 import {
   WorkspaceManager,
@@ -496,6 +497,7 @@ function StudioShell() {
           }}
         />}
       </main>
+      <SharedTransportDock />
       {leaveDialogOpen && <div className="unsaved-exit-backdrop" role="presentation"><section className="unsaved-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="unsaved-exit-title"><span className="eyebrow">UNSAVED CHANGES</span><h2 id="unsaved-exit-title">Leave this project?</h2><p>{projectDirty.timeline && projectDirty.storyboard ? "The Timeline and Storyboard have unsaved changes." : projectDirty.timeline ? "The Timeline has unsaved changes." : "The Storyboard has unsaved changes."} If you return to projects now, these changes may be lost.</p><footer><button onClick={() => setLeaveDialogOpen(false)}>Stay in project</button><button className="unsaved-exit-confirm" onClick={leaveProject}>Leave without saving</button></footer></section></div>}
     </div>
   );
