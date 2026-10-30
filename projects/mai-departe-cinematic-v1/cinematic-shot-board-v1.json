@@ -3,7 +3,7 @@
   "kind": "mai-departe-cinematic-shot-board",
   "source": "director-shot-plan.json",
   "durationSeconds": 239.96,
-  "description": "Planning metadata only. References do not alter the existing Timeline or original source shot plan.",
+  "description": "59 lyrical shot records across eight sections. FUTURISTIC FILM contains a futuristic digital content-creator screen environment in S03. PAPER is a tactile human/photo stage. No project Timeline modifications.",
   "sections": [
     {
       "id": "s01-instrumental-open",
@@ -26,7 +26,7 @@
       "name": "Fear gives way to a decision",
       "start": 55.2,
       "end": 97.86666666666666,
-      "style": "paper",
+      "style": "futuristic-film",
       "shotCount": 14
     },
     {
@@ -82,7 +82,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "physical film / three paths / opening breach"
+        "subject": "Macro: grained burnt physical film running through dark space, three traveler dots as embers"
       },
       "camera": {
         "framing": "music-only",
@@ -93,7 +93,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": null
+      "sourceCueId": null,
+      "visualIntent": "Macro: grained burnt physical film running through dark space, three traveler dots as embers",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s01-instrumental-2",
@@ -106,7 +108,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "physical film / three paths / opening breach"
+        "subject": "Camera approaches living tear; mountains already move behind its hole"
       },
       "camera": {
         "framing": "music-only",
@@ -117,7 +119,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": null
+      "sourceCueId": null,
+      "visualIntent": "Camera approaches living tear; mountains already move behind its hole",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s01-instrumental-3",
@@ -130,7 +134,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "physical film / three paths / opening breach"
+        "subject": "Flight through the torn plane; burned fragments brush past lens, water parallax"
       },
       "camera": {
         "framing": "music-only",
@@ -141,7 +145,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": null
+      "sourceCueId": null,
+      "visualIntent": "Flight through the torn plane; burned fragments brush past lens, water parallax",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s01-instrumental-4",
@@ -154,7 +160,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "physical film / three paths / opening breach"
+        "subject": "Flying over valley, target a mountain silhouette to begin physical paper change"
       },
       "camera": {
         "framing": "music-only",
@@ -165,7 +171,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": null
+      "sourceCueId": null,
+      "visualIntent": "Flying over valley, target a mountain silhouette to begin physical paper change",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s02-hesitates",
@@ -178,7 +186,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Mountain outline folds into a paper landscape, reveal cutout portrait of person postponing work"
       },
       "camera": {
         "framing": "wide",
@@ -189,7 +197,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263"
+      "sourceCueId": "subtitle-whisper-d0760973-c8cd-4e41-a495-2ceee3ca1263",
+      "visualIntent": "Mountain outline folds into a paper landscape, reveal cutout portrait of person postponing work",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s02-one-step",
@@ -202,7 +212,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Paper character stands; first paper path draws itself beneath one foot"
       },
       "camera": {
         "framing": "wide",
@@ -213,7 +223,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f"
+      "sourceCueId": "subtitle-whisper-329ad718-6d14-4520-90eb-120ac5a8299f",
+      "visualIntent": "Paper character stands; first paper path draws itself beneath one foot",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-the-promise",
@@ -226,7 +238,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Handwritten promise becomes a folded paper horizon with portrait"
       },
       "camera": {
         "framing": "wide",
@@ -237,7 +249,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e"
+      "sourceCueId": "subtitle-whisper-6a6956e3-7cfc-4e27-b809-28503426504e",
+      "visualIntent": "Handwritten promise becomes a folded paper horizon with portrait",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-bills-fall",
@@ -250,7 +264,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper bills falling and accumulating on desk"
+        "subject": "Bills fall on beat, stack on real paper desk, visible human hands"
       },
       "camera": {
         "framing": "wide",
@@ -261,7 +275,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d"
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d",
+      "visualIntent": "Bills fall on beat, stack on real paper desk, visible human hands",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-cannot-call",
@@ -274,7 +290,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Paper phone photograph, unpressed call button, held breath"
       },
       "camera": {
         "framing": "close",
@@ -285,7 +301,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2"
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-2",
+      "visualIntent": "Paper phone photograph, unpressed call button, held breath",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-phone-rings",
@@ -298,7 +316,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Printed phone vibration; portrait turns over, paper edges bend"
       },
       "camera": {
         "framing": "close",
@@ -309,7 +327,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3"
+      "sourceCueId": "subtitle-whisper-834556a4-58e1-41d5-9713-a913c604ef6d-line-3",
+      "visualIntent": "Printed phone vibration; portrait turns over, paper edges bend",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-pretends",
@@ -322,7 +342,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Paper portrait smiling artificially, shadow remains heavy"
       },
       "camera": {
         "framing": "close",
@@ -333,7 +353,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948"
+      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948",
+      "visualIntent": "Paper portrait smiling artificially, shadow remains heavy",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-says-yes",
@@ -346,7 +368,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Agreement form and signature unfold against character"
       },
       "camera": {
         "framing": "wide",
@@ -357,7 +379,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2"
+      "sourceCueId": "subtitle-whisper-4dd0e56d-f766-404c-b89c-a7ad77d31948-line-2",
+      "visualIntent": "Agreement form and signature unfold against character",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s03-lost-time",
@@ -370,7 +394,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "human hesitation, paper desk, printed photograph and bills"
+        "subject": "Paper clock fragments drift past camera towards a printed digital screen"
       },
       "camera": {
         "framing": "close",
@@ -381,7 +405,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501"
+      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501",
+      "visualIntent": "Paper clock fragments drift past camera towards a printed digital screen",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s04-fear",
@@ -390,22 +416,24 @@
       "end": 58.56666666666667,
       "lyric": "Nu-mi trece frica dacă stau,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Push through paper clock opening into dimensional futuristic monitor corridor"
       },
       "camera": {
         "framing": "close",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2"
+      "sourceCueId": "subtitle-whisper-1eb89431-f457-4937-9e49-d02f75702501-line-2",
+      "visualIntent": "Push through paper clock opening into dimensional futuristic monitor corridor",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s04-knows-no",
@@ -414,22 +442,24 @@
       "end": 62.266666666666666,
       "lyric": "Știu măcar ce nu mai vreau.",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Digital screens show 'what not to do' choices, three routes choose one"
       },
       "camera": {
         "framing": "wide",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352"
+      "sourceCueId": "subtitle-whisper-5af4c4d3-38c4-400f-98f7-cf35c6342352",
+      "visualIntent": "Digital screens show 'what not to do' choices, three routes choose one",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s04-no-answers",
@@ -438,22 +468,24 @@
       "end": 65.86666666666666,
       "lyric": "N-am răspunsuri pentru tot,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Screens are incomplete, data fragments and empty displays"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0"
+      "sourceCueId": "subtitle-whisper-d6c2eda7-94a2-47ee-8edd-8b5a03ee6ac0",
+      "visualIntent": "Screens are incomplete, data fragments and empty displays",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s04-does-what-he-can",
@@ -462,22 +494,24 @@
       "end": 69.93333333333334,
       "lyric": "Dar fac astăzi tot ce pot.",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "One working screen lights up: first concrete creator task completed"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42"
+      "sourceCueId": "subtitle-whisper-8b099717-13ed-4f4e-bb92-6ae3dbfafa42",
+      "visualIntent": "One working screen lights up: first concrete creator task completed",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-chooses-to-leave",
@@ -486,22 +520,24 @@
       "end": 73.26666666666667,
       "lyric": "Nu rămân aici, nu mă las,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Camera turns down corridor away from noise, orange guide leads"
       },
       "camera": {
         "framing": "wide",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389"
+      "sourceCueId": "subtitle-whisper-6935216b-bf94-4f20-bae0-76c21d2f8389",
+      "visualIntent": "Camera turns down corridor away from noise, orange guide leads",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-step-after-step",
@@ -510,22 +546,24 @@
       "end": 76.53333333333333,
       "lyric": "Mai departe, pas după pas.",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Screens align into sequential creator-story frames on musical accents"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d"
+      "sourceCueId": "subtitle-whisper-6cabce26-53d7-4fcf-9f26-585396b2b99d",
+      "visualIntent": "Screens align into sequential creator-story frames on musical accents",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-even-when-hard",
@@ -534,22 +572,24 @@
       "end": 76.53333333333333,
       "lyric": "Nu rămân aici, chiar de-i greu,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Zero-duration cue: no standalone shot, attach emphasis to following phrase"
       },
       "camera": {
         "framing": "close",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13"
+      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "visualIntent": "Zero-duration cue: no standalone shot, attach emphasis to following phrase",
+      "editorialStatus": "merge-with-next-nonzero-shot"
     },
     {
       "shotId": "s05-refrain-again",
@@ -558,22 +598,24 @@
       "end": 80.3,
       "lyric": "Nu rămân aici, chiar de-i greu,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Rapid yet readable screen change: creative work, difficult messages, no fake news headlines"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13"
+      "sourceCueId": "subtitle-whisper-6b9fe9eb-cf0a-45fe-bd05-54c49e5a7f13",
+      "visualIntent": "Rapid yet readable screen change: creative work, difficult messages, no fake news headlines",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-time-back",
@@ -582,22 +624,24 @@
       "end": 83.86666666666666,
       "lyric": "Îmi iau înapoi timpul meu.",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Clock/UI strips become directed motion tracks, reclaiming time"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5"
+      "sourceCueId": "subtitle-whisper-d6229408-9104-45b6-a5a1-73e67025b8f5",
+      "visualIntent": "Clock/UI strips become directed motion tracks, reclaiming time",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-keeps-moving",
@@ -606,22 +650,24 @@
       "end": 86.83333333333333,
       "lyric": "Nu rămân aici, nu mă las,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Three travelers navigate forward through editorial monitors"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96"
+      "sourceCueId": "subtitle-whisper-0000bb59-e382-4ff9-8e33-666872226b96",
+      "visualIntent": "Three travelers navigate forward through editorial monitors",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-what-remains",
@@ -630,22 +676,24 @@
       "end": 90.83333333333333,
       "lyric": "Merg cu tot ce mi-a mai rămas.",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Screen of saved draft / archive turns into new building blocks"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4"
+      "sourceCueId": "subtitle-whisper-638d5862-b5d9-4cce-9e4e-36ab95f475a4",
+      "visualIntent": "Screen of saved draft / archive turns into new building blocks",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-leaves-for-road",
@@ -654,22 +702,24 @@
       "end": 90.83333333333333,
       "lyric": "Nu rămân aici, plec la drum,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Zero-duration cue: attach to next shot, never render empty shot"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565"
+      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "visualIntent": "Zero-duration cue: attach to next shot, never render empty shot",
+      "editorialStatus": "merge-with-next-nonzero-shot"
     },
     {
       "shotId": "s09-refrain",
@@ -678,22 +728,24 @@
       "end": 94.26666666666667,
       "lyric": "Nu rămân aici, plec la drum,",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Camera banks toward opening at end of illuminated screen wall"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565"
+      "sourceCueId": "subtitle-whisper-cd8b9044-faba-4078-84fc-e045cc186565",
+      "visualIntent": "Camera banks toward opening at end of illuminated screen wall",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s05-now",
@@ -702,22 +754,24 @@
       "end": 97.86666666666666,
       "lyric": "Fac ce pot cu ce am acum.",
       "action": null,
-      "materialStyle": "paper",
+      "materialStyle": "futuristic-film",
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "handwritten plan, footsteps and paper cutouts"
+        "subject": "Digital screen opens into world route ahead, camera passes through picture plane"
       },
       "camera": {
         "framing": "medium",
         "movement": "to be authored from music and lyric"
       },
       "transition": {
-        "type": "match-action-or-camera-move",
+        "type": "paper-into-digital-screen",
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60"
+      "sourceCueId": "subtitle-whisper-869b8056-9cf3-45e4-8ce2-bb47e745be60",
+      "visualIntent": "Digital screen opens into world route ahead, camera passes through picture plane",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s06-no",
@@ -730,7 +784,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "rejection letter, photographed person returning"
+        "subject": "Paper interview denial letter snaps into foreground over muted screen"
       },
       "camera": {
         "framing": "close",
@@ -741,7 +795,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87"
+      "sourceCueId": "subtitle-whisper-b1f29ef8-dda4-420e-9f5d-f2b257722b87",
+      "visualIntent": "Paper interview denial letter snaps into foreground over muted screen",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-tries-again",
@@ -754,7 +810,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Same letter folds into new application, no world reset"
       },
       "camera": {
         "framing": "medium",
@@ -765,7 +821,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677"
+      "sourceCueId": "subtitle-whisper-ac2f248d-0359-4ef6-b0d7-d69d306fa677",
+      "visualIntent": "Same letter folds into new application, no world reset",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-makes-time",
@@ -778,7 +836,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Person rearranges real paper calendar and desk"
       },
       "camera": {
         "framing": "wide",
@@ -789,7 +847,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779"
+      "sourceCueId": "subtitle-whisper-66124bd3-72a2-4f83-b782-759b9224c779",
+      "visualIntent": "Person rearranges real paper calendar and desk",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-learns",
@@ -802,7 +862,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Page layers reveal books, handwritten notes, personal image"
       },
       "camera": {
         "framing": "medium",
@@ -813,7 +873,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a"
+      "sourceCueId": "subtitle-whisper-fcee683a-951f-4b78-949e-a191c974d83a",
+      "visualIntent": "Page layers reveal books, handwritten notes, personal image",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-cant-anymore",
@@ -826,7 +888,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Portrait pauses, paper texture wrinkles in shadow"
       },
       "camera": {
         "framing": "close",
@@ -837,7 +899,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f"
+      "sourceCueId": "subtitle-whisper-98739d94-03b2-4a44-a7e4-4f9a3cbc208f",
+      "visualIntent": "Portrait pauses, paper texture wrinkles in shadow",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-family-calls",
@@ -850,7 +914,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Family portrait is revealed from folded printed photo, warm corner"
       },
       "camera": {
         "framing": "wide",
@@ -861,7 +925,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b"
+      "sourceCueId": "subtitle-whisper-c8dd2c5b-562f-4f35-b395-e4f6cab4633b",
+      "visualIntent": "Family portrait is revealed from folded printed photo, warm corner",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-mistakes",
@@ -874,7 +940,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Paper attempt crumples but does not disappear"
       },
       "camera": {
         "framing": "medium",
@@ -885,7 +951,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5"
+      "sourceCueId": "subtitle-whisper-822df1e4-6299-4840-8a1a-eb9984da79e5",
+      "visualIntent": "Paper attempt crumples but does not disappear",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s07-changes",
@@ -898,7 +966,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "A fresh page slides into the same shot, new step drawn"
       },
       "camera": {
         "framing": "medium",
@@ -909,7 +977,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be"
+      "sourceCueId": "subtitle-whisper-0a3f976e-d77b-4322-8a3c-d7a049e7a7be",
+      "visualIntent": "A fresh page slides into the same shot, new step drawn",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s08-fear-again",
@@ -922,7 +992,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Negative space around person, repeated hesitation reframed"
       },
       "camera": {
         "framing": "close",
@@ -933,7 +1003,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa"
+      "sourceCueId": "subtitle-whisper-d2b7602f-c7b3-41e6-a908-7093029b21aa",
+      "visualIntent": "Negative space around person, repeated hesitation reframed",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s08-no-answers-again",
@@ -946,7 +1018,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "interview rejection letter and human recovery"
+        "subject": "Incomplete paper map but first forward marker remains"
       },
       "camera": {
         "framing": "medium",
@@ -957,7 +1029,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c"
+      "sourceCueId": "subtitle-whisper-3e839fff-b101-4c00-b074-1c7dcecdd01c",
+      "visualIntent": "Incomplete paper map but first forward marker remains",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-keeps-going",
@@ -970,7 +1044,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Paper cuts into terrain contours, travelers become light once again"
       },
       "camera": {
         "framing": "medium",
@@ -981,7 +1055,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84"
+      "sourceCueId": "subtitle-whisper-00389641-5d6a-4b7b-a8c0-401c38d44d84",
+      "visualIntent": "Paper cuts into terrain contours, travelers become light once again",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-further",
@@ -994,7 +1070,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Camera follows steps along paper route ascending to real 3D depth"
       },
       "camera": {
         "framing": "medium",
@@ -1005,7 +1081,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751"
+      "sourceCueId": "subtitle-whisper-ba9e38b5-0acc-445d-83cc-f27af3a9f751",
+      "visualIntent": "Camera follows steps along paper route ascending to real 3D depth",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-even-hard-again",
@@ -1018,7 +1096,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Zero-duration cue: attach emphasis to following shot"
       },
       "camera": {
         "framing": "close",
@@ -1029,7 +1107,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17"
+      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "visualIntent": "Zero-duration cue: attach emphasis to following shot",
+      "editorialStatus": "merge-with-next-nonzero-shot"
     },
     {
       "shotId": "s11-refrain",
@@ -1042,7 +1122,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Paper ridge extrudes into rocky scenic flight"
       },
       "camera": {
         "framing": "medium",
@@ -1053,7 +1133,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17"
+      "sourceCueId": "subtitle-whisper-48c8b968-b839-4e21-a6a3-f86e09833d17",
+      "visualIntent": "Paper ridge extrudes into rocky scenic flight",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-takes-back-time",
@@ -1066,7 +1148,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Three moving timelines interleave, visual time reclaimed"
       },
       "camera": {
         "framing": "medium",
@@ -1077,7 +1159,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f"
+      "sourceCueId": "subtitle-whisper-cc564789-81cd-4cf6-bee3-2e5be30aff8f",
+      "visualIntent": "Three moving timelines interleave, visual time reclaimed",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-with-what-remains",
@@ -1090,7 +1174,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Fragments of paper become bridge architecture"
       },
       "camera": {
         "framing": "medium",
@@ -1101,7 +1185,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9"
+      "sourceCueId": "subtitle-whisper-0bd67c38-115a-4f4c-b803-546230e0bef9",
+      "visualIntent": "Fragments of paper become bridge architecture",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-leaves-again",
@@ -1114,7 +1200,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Camera accelerates past paper horizon into illuminated landscape"
       },
       "camera": {
         "framing": "medium",
@@ -1125,7 +1211,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3"
+      "sourceCueId": "subtitle-whisper-954526d9-7a99-49f5-b22e-b15d9111ccb3",
+      "visualIntent": "Camera accelerates past paper horizon into illuminated landscape",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s09-can-now",
@@ -1138,7 +1226,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "paper-to-topographic hybrid advancing routes"
+        "subject": "Tangible new ground constructs beneath each step"
       },
       "camera": {
         "framing": "medium",
@@ -1149,7 +1237,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52"
+      "sourceCueId": "subtitle-whisper-a2d5b3ab-0d6d-48fc-a719-78a9d4f12d52",
+      "visualIntent": "Tangible new ground constructs beneath each step",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s10-tomorrow",
@@ -1162,7 +1252,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished luminous bridge emerging from paper blueprint"
+        "subject": "Dark sky holds uncertainty over unfinished bridge"
       },
       "camera": {
         "framing": "close",
@@ -1173,7 +1263,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e"
+      "sourceCueId": "subtitle-whisper-afeb6c24-1e02-418c-b7fa-08060cb57d6e",
+      "visualIntent": "Dark sky holds uncertainty over unfinished bridge",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s10-holds-plan",
@@ -1186,7 +1278,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished luminous bridge emerging from paper blueprint"
+        "subject": "Blueprint on paper becomes 3D bridge filament contour"
       },
       "camera": {
         "framing": "close",
@@ -1197,7 +1289,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097"
+      "sourceCueId": "subtitle-whisper-4f0873be-58f0-413e-9c77-8ef284d87097",
+      "visualIntent": "Blueprint on paper becomes 3D bridge filament contour",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s10-not-all-yet",
@@ -1210,7 +1304,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished luminous bridge emerging from paper blueprint"
+        "subject": "Incomplete bridge lights only where traveler reaches"
       },
       "camera": {
         "framing": "medium",
@@ -1221,7 +1315,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4"
+      "sourceCueId": "subtitle-whisper-2fac3fbd-0776-43ce-8fec-6b06d156c3e4",
+      "visualIntent": "Incomplete bridge lights only where traveler reaches",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s10-has-not-stopped",
@@ -1234,7 +1330,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished luminous bridge emerging from paper blueprint"
+        "subject": "Camera crosses bridge; light reaches next support"
       },
       "camera": {
         "framing": "medium",
@@ -1245,7 +1341,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433"
+      "sourceCueId": "subtitle-whisper-923b9776-4879-48cc-876a-2764cf167433",
+      "visualIntent": "Camera crosses bridge; light reaches next support",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-further",
@@ -1258,7 +1356,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "three travelers converge with human photographic cutaways"
+        "subject": "Full three traveler travel shot with rhythmic parallax"
       },
       "camera": {
         "framing": "medium",
@@ -1269,7 +1367,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b"
+      "sourceCueId": "subtitle-whisper-d2d67bf0-db03-4fb2-b21c-11fb3eedcc0b",
+      "visualIntent": "Full three traveler travel shot with rhythmic parallax",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-even-hard",
@@ -1282,7 +1382,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "three travelers converge with human photographic cutaways"
+        "subject": "Fast pass between shadowed valley and lit structures"
       },
       "camera": {
         "framing": "close",
@@ -1293,7 +1393,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c"
+      "sourceCueId": "subtitle-whisper-4f5e297d-0aa1-4c16-811d-b32bcdab617c",
+      "visualIntent": "Fast pass between shadowed valley and lit structures",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-time-back",
@@ -1306,7 +1408,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "three travelers converge with human photographic cutaways"
+        "subject": "Wide aerial film behind mountains, routes running"
       },
       "camera": {
         "framing": "medium",
@@ -1317,7 +1419,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251"
+      "sourceCueId": "subtitle-whisper-132192cd-e235-49a0-aadf-d668e7d35251",
+      "visualIntent": "Wide aerial film behind mountains, routes running",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-with-what-remains",
@@ -1330,7 +1434,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "three travelers converge with human photographic cutaways"
+        "subject": "Human paper photos become visual fragments in the sky"
       },
       "camera": {
         "framing": "medium",
@@ -1341,7 +1445,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e"
+      "sourceCueId": "subtitle-whisper-3c89a6b7-0fc5-483e-93a7-66f6e2a8594e",
+      "visualIntent": "Human paper photos become visual fragments in the sky",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-leaves-road",
@@ -1354,7 +1460,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "three travelers converge with human photographic cutaways"
+        "subject": "Camera banks left to follow orange across the last span"
       },
       "camera": {
         "framing": "medium",
@@ -1365,7 +1471,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a"
+      "sourceCueId": "subtitle-whisper-9f20175a-6978-42e3-958f-39afba8b3c3a",
+      "visualIntent": "Camera banks left to follow orange across the last span",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s11-now",
@@ -1378,7 +1486,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "three travelers converge with human photographic cutaways"
+        "subject": "All three paths converge to a luminous but unfinished vista"
       },
       "camera": {
         "framing": "medium",
@@ -1389,7 +1497,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f"
+      "sourceCueId": "subtitle-whisper-f141cc87-0cb3-46e7-bf00-2d5356a4201f",
+      "visualIntent": "All three paths converge to a luminous but unfinished vista",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s12-not-solved",
@@ -1402,7 +1512,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished but peaceful human portrait and final film pullback"
+        "subject": "Paper cutout of person and unfinished world framed together"
       },
       "camera": {
         "framing": "close",
@@ -1413,7 +1523,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb"
+      "sourceCueId": "subtitle-whisper-d30b5dc0-9d48-4cb3-8e12-42bcfb239cdb",
+      "visualIntent": "Paper cutout of person and unfinished world framed together",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s12-peace",
@@ -1426,7 +1538,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished but peaceful human portrait and final film pullback"
+        "subject": "Close printed portrait with warm crease and slow camera retreat"
       },
       "camera": {
         "framing": "medium",
@@ -1437,7 +1549,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4"
+      "sourceCueId": "subtitle-whisper-1a3d124d-e6bf-4a3d-833e-9ae1c003bfd4",
+      "visualIntent": "Close printed portrait with warm crease and slow camera retreat",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s08-outro-music-1",
@@ -1450,7 +1564,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished but peaceful human portrait and final film pullback"
+        "subject": "Pull back: paper sits within the massive running film"
       },
       "camera": {
         "framing": "medium",
@@ -1461,7 +1575,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": null
+      "sourceCueId": null,
+      "visualIntent": "Pull back: paper sits within the massive running film",
+      "editorialStatus": "planned"
     },
     {
       "shotId": "s08-outro-music-2",
@@ -1474,7 +1590,7 @@
       "referenceImage": {
         "status": "needed",
         "asset": null,
-        "subject": "unfinished but peaceful human portrait and final film pullback"
+        "subject": "Final moving-film wide shot, trails continue beyond frame, no hard stop"
       },
       "camera": {
         "framing": "medium",
@@ -1485,7 +1601,9 @@
         "sharedEffect": "material-morph-v1",
         "beatEventRef": null
       },
-      "sourceCueId": null
+      "sourceCueId": null,
+      "visualIntent": "Final moving-film wide shot, trails continue beyond frame, no hard stop",
+      "editorialStatus": "planned"
     }
   ]
 }
