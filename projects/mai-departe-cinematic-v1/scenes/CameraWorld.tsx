@@ -54,20 +54,22 @@ float fade=smoothstep(-28.,-17.,world.z);gl_FragColor=vec4(color,fade*.16);
 #include <tonemapping_fragment>
 #include <colorspace_fragment>
 }`;
-function Rig({frame,orangeY}:{frame:number;orangeY:number}){
+function Rig({frame,orangeY,accent}:{frame:number;orangeY:number;accent:number}){
  const {camera,invalidate}=useThree();const state=cameraState(frame);
  useLayoutEffect(()=>{const cam=camera as THREE.PerspectiveCamera;
   // A small continuous travelling motion begins as soon as the aperture opens.
   // World geometry, film and camera are all evaluated from the same frame.
   const moving=Math.max(0,Math.min(1,(frame-240)/210));
   const sway=Math.sin(frame/150)*.17*moving;
-  cam.position.set(state.position[0]+sway,state.position[1]+Math.sin(frame/210)*.045*moving,state.position[2]);
+  // Music-derived prosody attacks gently accelerate the physical dolly, not image scale.
+  const impulse=Math.max(0,Math.min(1,accent));
+  cam.position.set(state.position[0]+sway,state.position[1]+Math.sin(frame/210)*.045*moving,state.position[2]-.7*impulse*moving);
   cam.fov=state.fov;
   cam.lookAt(state.target[0],state.target[1]+(450-orangeY)/1080*.25*state.follow,state.target[2]);
   cam.updateProjectionMatrix();invalidate();
- },[camera,invalidate,frame,orangeY]);return null;
+ },[camera,invalidate,frame,orangeY,accent]);return null;
 }
-function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
+function World({frame,time,orangeY,accent}:{frame:number;time:number;orangeY:number;accent:number}){
  const motion=revealMotion(time);
  const textures=useLoader(THREE.TextureLoader,[plate,slope]);
  // Loaded once; ThreeCanvas Suspense waits for texture readiness in Remotion.
@@ -79,7 +81,7 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
  const mistB=useMemo(()=>({time:{value:time},seed:{value:4.7}}),[]);
  mistA.time.value=time;mistB.time.value=time;
  return <>
-  <Rig frame={frame} orangeY={orangeY}/>
+  <Rig frame={frame} orangeY={orangeY} accent={accent}/>
   <color attach="background" args={['#171715']}/>
   <mesh position={[0,7,-36]}><planeGeometry args={[88,49.5]}/><shaderMaterial uniforms={plateUniforms} vertexShader={vertex} fragmentShader={worldPlate}/></mesh>
   <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.5,-6]}><planeGeometry args={[90,56,1,1]}/><shaderMaterial uniforms={uniforms} vertexShader={vertex} fragmentShader={water} transparent depthWrite={false}/></mesh>
@@ -118,8 +120,8 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
   <mesh position={hero}><planeGeometry args={[1.5,1.5]}/><shaderMaterial transparent depthWrite={false} blending={THREE.AdditiveBlending} vertexShader={vertex} fragmentShader={`varying vec2 vUv;void main(){float r=length(vUv-.5)*2.;float a=exp(-r*r*18.)*.3;gl_FragColor=vec4(1.,.35,.06,a);}`}/></mesh>
  </>;
 }
-export function CameraWorld({frame,orangeY}:{frame:number;orangeY:number}){
+export function CameraWorld({frame,orangeY,accent=0}:{frame:number;orangeY:number;accent?:number}){
  const {width,height,fps}=useVideoConfig();return <ThreeCanvas width={width} height={height}
   camera={{position:[0,2.5,16],fov:48,near:.1,far:150}} gl={{alpha:false,antialias:true}}
-  style={{position:'absolute',inset:0}}><World frame={frame} time={frame/fps} orangeY={orangeY}/></ThreeCanvas>;
+  style={{position:'absolute',inset:0}}><World frame={frame} time={frame/fps} orangeY={orangeY} accent={accent}/></ThreeCanvas>;
 }
