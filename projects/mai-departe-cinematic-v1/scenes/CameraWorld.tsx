@@ -8,6 +8,7 @@ import slope from '../assets/journey-near-slope-v1.png';
 import {cameraState,type Vec3} from './camera-state';
 import {LuminousBridge} from './LuminousBridge';
 import {WorldDepthRidges} from './WorldDepthRidges';
+import {DistantFilmBackdrop} from './DistantFilmBackdrop';
 import {revealMotion} from './reveal-motion';
 const vertex=`varying vec2 vUv; varying vec3 world; void main(){vUv=uv;world=(modelMatrix*vec4(position,1.)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const mistVertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
@@ -85,6 +86,7 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
   {/* Real depth separation with natural-alpha banks; camera cannot orbit these cards. */}
   <mesh position={[-12+motion.worldOffset.middle*1.25,0,-7]}><planeGeometry args={[30,16.88]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} color="#bc936d" toneMapped={false}/></mesh>
   <mesh position={[18+motion.worldOffset.far,-1,-19]} rotation={[0,0,-.12]} scale={[-1,1,1]}><planeGeometry args={[29,16.3]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} side={THREE.DoubleSide} color="#917c69" toneMapped={false}/></mesh>
+  <DistantFilmBackdrop time={time}/>
   <WorldDepthRidges time={time}/>
   {/* The same world remains visible through the tear and after crossing it:
       two independently drifting mist planes at different physical depths. */}
