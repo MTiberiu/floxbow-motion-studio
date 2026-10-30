@@ -1,266 +1,193 @@
 import { ThreeCanvas } from '@remotion/three';
-import { useLoader } from '@react-three/fiber';
-import * as THREE from 'three';
 import { useMemo } from 'react';
+import * as THREE from 'three';
 import { useVideoConfig } from 'remotion';
-import distantMountains from '../assets/journey-distant-mountains-v1.png';
-import nearSlope from '../assets/journey-near-slope-v1.png';
-import foregroundShore from '../assets/journey-shore-v1.png';
 
-const PHOTO_VERTEX = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`;
-
-// A small edge despill pass replaces cyan pixels with nearby opaque material colors.
-// It leaves the alpha channel intact, so the cutout stays truly transparent.
-const PHOTO_FRAGMENT = `
-uniform sampler2D map;
-uniform vec2 texelSize;
-varying vec2 vUv;
-void main() {
-  vec4 base = texture2D(map, vUv);
-  if (base.a < 0.01) discard;
-  vec3 interior = vec3(0.0);
-  float count = 0.0;
-  for (int x = -2; x <= 2; x++) {
-    for (int y = -2; y <= 2; y++) {
-      if (x == 0 && y == 0) continue;
-      vec4 sampleColor = texture2D(map, vUv + vec2(float(x), float(y)) * texelSize);
-      if (sampleColor.a > 0.94) {
-        interior += sampleColor.rgb;
-        count += 1.0;
-      }
+/**
+ * The GRID becomes the WORLD. A frame-addressable generative landscape,
+ * combining vector-like elevation contours, mineral surfaces, independent
+ * atmosphere and a reflective lake. No raster plate or UV-stretched photo.
+ * All positions derive from song time (seek and render are deterministic).
+ */
+const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const fract = (x: number) => x - Math.floor(x);
+const hash = (x: number) => fract(Math.sin(x * 127.1 + 91.37) * 43758.5453);
+const mix = (a: number, b: number, t: number) => a + (b - a) * t;
+function noise(x: number) {
+  const i = Math.floor(x), f = fract(x), u = f * f * (3 - 2 * f);
+  return mix(hash(i), hash(i + 1), u);
+}
+function summit(x: number, seed: number) {
+  const p = x * 0.00165 + seed * 13.7;
+  const broad = Math.abs(noise(p * 3.5) * 2 - 1);
+  const teeth = Math.pow(Math.abs(noise(p * 11.5) * 2 - 1), 2.2);
+  const detail = (noise(p * 61) - 0.5) * 0.15;
+  return clamp(broad * 0.71 + teeth * 0.34 + detail, 0.04, 1);
+}
+const MIN_X = -1800, MAX_X = 8800, DX = 14;
+function terrain(seed: number, base: number, altitude: number, bottom: number) {
+  const vertices: number[] = [], colors: number[] = [], index: number[] = [];
+  const rock = new THREE.Color(seed < 2 ? '#788da0' : seed < 3 ? '#476d80' : '#28556a');
+  const snow = new THREE.Color('#dcecf1');
+  const moss = new THREE.Color('#307a77');
+  const n = Math.ceil((MAX_X - MIN_X) / DX);
+  for (let i = 0; i <= n; i++) {
+    const x = MIN_X + i * DX, peak = summit(x, seed);
+    for (let j = 0; j < 2; j++) {
+      vertices.push(x, j ? bottom : base + peak * altitude, 0);
+      const c = rock.clone();
+      const grain = noise(x * 0.019 + seed * 20);
+      if (!j) c.lerp(snow, clamp((peak - 0.37) * 2.3 + (grain - 0.5) * 0.25));
+      else c.lerp(moss, 0.42);
+      c.multiplyScalar(0.86 + grain * 0.18);
+      colors.push(c.r, c.g, c.b);
+    }
+    if (i < n) {
+      const k = i * 2;
+      index.push(k, k + 2, k + 1, k + 2, k + 3, k + 1);
     }
   }
-  vec3 rgb = base.rgb;
-  if (count > 0.0 && base.a < 0.96) {
-    vec3 inside = interior / count;
-    float cyanFringe = step(max(base.r, base.g) * 1.22, base.b) * step(base.r * 1.32, base.g);
-    float edge = 1.0 - smoothstep(0.35, 0.96, base.a);
-    rgb = mix(rgb, inside, cyanFringe * edge * 0.92);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  g.setIndex(index);
+  return g;
+}
+function contour(seed: number, base: number, altitude: number, fraction: number) {
+  const points: THREE.Vector3[] = [];
+  for (let x = MIN_X; x <= MAX_X; x += DX) {
+    points.push(new THREE.Vector3(x, base + summit(x, seed) * altitude * fraction, 0));
   }
-  gl_FragColor = vec4(rgb, base.a);
-}`;
-
-const SKY_VERTEX = PHOTO_VERTEX;
-const SKY_FRAGMENT = `
-varying vec2 vUv;
-void main() {
-  vec3 upper = vec3(0.57, 0.68, 0.72);
-  vec3 horizon = vec3(0.91, 0.87, 0.78);
-  float light = smoothstep(0.08, 0.92, vUv.y);
-  vec3 color = mix(horizon, upper, light);
-  float cloudBand = sin(vUv.x * 18.0 + vUv.y * 4.0) * 0.012;
-  color += cloudBand * smoothstep(0.1, 0.75, vUv.y);
-  gl_FragColor = vec4(color, 1.0);
-}`;
-
-const WATER_VERTEX = `
-uniform float time;
-varying vec2 vUv;
-varying vec3 vLocal;
-void main() {
-  vUv = uv;
-  vec3 p = position;
-  float crest = sin((p.x + time * 24.0) * 0.018) * 1.5
-              + sin((p.x - time * 15.0) * 0.043) * 0.65;
-  p.y += crest * smoothstep(-470.0, -80.0, p.y);
-  vLocal = p;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-}`;
-
-const WATER_FRAGMENT = `
-uniform float time;
-varying vec2 vUv;
-varying vec3 vLocal;
-void main() {
-  float depth = 1.0 - smoothstep(-540.0, -90.0, vLocal.y);
-  vec3 shore = vec3(0.31, 0.52, 0.56);
-  vec3 deep = vec3(0.035, 0.15, 0.21);
-  vec3 color = mix(shore, deep, depth);
-  float waveA = sin(vLocal.x * 0.035 + time * 1.1);
-  float waveB = sin(vLocal.x * 0.061 - time * 0.7 + vLocal.y * 0.008);
-  float glimmer = pow(max(0.0, waveA * 0.5 + waveB * 0.5), 15.0);
-  color = mix(color, vec3(0.76, 0.81, 0.75), glimmer * 0.23);
-  gl_FragColor = vec4(color, 1.0);
-}`;
-
-const FOG_VERTEX = `
-varying vec2 vUv;
-void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}`;
-const FOG_FRAGMENT = `
-uniform float opacity;
-varying vec2 vUv;
-void main() {
-  float horizontal = smoothstep(0.0, 0.16, vUv.x) * (1.0 - smoothstep(0.84, 1.0, vUv.x));
-  float vertical = exp(-pow((vUv.y - 0.5) * 3.0, 2.0));
-  gl_FragColor = vec4(0.79, 0.86, 0.84, horizontal * vertical * opacity);
-}`;
-
-function PhotoLayer({ source, x, top, width, order, travel, parallax }: {
-  source: string;
-  x: number;
-  top: number;
-  width: number;
-  order: number;
-  travel: number;
-  parallax: number;
+  return new THREE.BufferGeometry().setFromPoints(points);
+}
+function Ridge({ time, speed, seed, base, altitude, bottom, rate, z, ink }: {
+  time: number; speed: number; seed: number; base: number; altitude: number;
+  bottom: number; rate: number; z: number; ink: string;
 }) {
-  const loaded = useLoader(THREE.TextureLoader, source);
-  const texture = useMemo(() => {
-    const copy = loaded.clone();
-    copy.colorSpace = THREE.SRGBColorSpace;
-    copy.needsUpdate = true;
-    return copy;
-  }, [loaded]);
-  const height = width * texture.image.height / texture.image.width;
-  const uniforms = useMemo(() => ({
-    map: { value: texture },
-    texelSize: { value: new THREE.Vector2(1 / texture.image.width, 1 / texture.image.height) },
-  }), [texture]);
-
-  return (
-    <mesh
-      position={[x + width / 2 - 960 - travel * parallax, 540 - top - height / 2, order * 0.01]}
-      renderOrder={order}
-    >
-      <planeGeometry args={[width, height]} />
-      <shaderMaterial
-        uniforms={uniforms}
-        vertexShader={PHOTO_VERTEX}
-        fragmentShader={PHOTO_FRAGMENT}
-        transparent
-        depthTest={false}
-        depthWrite={false}
-        toneMapped={false}
-      />
+  const ground = useMemo(() => terrain(seed, base, altitude, bottom), [seed, base, altitude, bottom]);
+  const contourLines = useMemo(() => [0.26, 0.46, 0.67, 0.84, 1].map(t => contour(seed, base, altitude, t)), [seed, base, altitude]);
+  return <group position={[-time * speed * rate, 0, z]}>
+    <mesh geometry={ground} renderOrder={3 + seed}>
+      <meshBasicMaterial vertexColors side={THREE.DoubleSide} depthTest={false} depthWrite={false} />
     </mesh>
-  );
+    {contourLines.map((geometry, i) => <line key={i} geometry={geometry} renderOrder={9 + seed}>
+      <lineBasicMaterial color={ink} transparent opacity={i === 4 ? 0.92 : 0.16 + i * 0.065} depthTest={false} depthWrite={false} />
+    </line>)}
+  </group>;
 }
 
-function Atmosphere({ time, travel }: { time: number; travel: number }) {
-  const fogs = [
-    { x: 180, y: 385, width: 650, alpha: 0.12, rate: 0.12 },
-    { x: 850, y: 445, width: 780, alpha: 0.1, rate: 0.08 },
-    { x: 1420, y: 355, width: 520, alpha: 0.07, rate: 0.06 },
-  ];
+const SKY_V = `
+varying vec2 uvCoord;
+void main() { uvCoord = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`;
+const SKY_F = `
+uniform float time;
+varying vec2 uvCoord;
+void main() {
+  float horizon = smoothstep(0.0,1.0,uvCoord.y);
+  vec3 low = vec3(0.74,0.88,0.89);
+  vec3 high = vec3(0.09,0.18,0.29);
+  vec3 color = mix(low,high,pow(horizon,0.85));
+  float sun = exp(-pow((uvCoord.x-0.76)*10.0,2.0)-pow((uvCoord.y-0.62)*5.0,2.0));
+  color += vec3(0.59,0.39,0.24)*sun*0.42;
+  float atmosphericBands = sin(uvCoord.y*70.0+time*.12+sin(uvCoord.x*8.0)*2.0)*.008;
+  gl_FragColor = vec4(color+atmosphericBands,1.0);
+}`;
+const WATER_V = `
+uniform float time;
+varying vec2 localUV;
+varying vec2 worldXY;
+void main() {
+  localUV=uv;
+  vec3 p=position;
+  p.y += sin(p.x*.018+time*.85)*2.8+sin(p.x*.054-time*1.26)*1.2;
+  worldXY=p.xy;
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+}`;
+const WATER_F = `
+uniform float time;
+varying vec2 localUV;
+varying vec2 worldXY;
+void main() {
+  float ripple=sin(worldXY.x*.044+time*1.7+sin(worldXY.y*.017))*sin(worldXY.x*.012-time*.64);
+  float shimmer=pow(max(0.0,ripple),15.0);
+  vec3 deep=vec3(.025,.16,.22);
+  vec3 near=vec3(.15,.39,.46);
+  vec3 c=mix(deep,near,localUV.y);
+  c+=vec3(.25,.42,.42)*shimmer*.34;
+  float lines=pow(max(0.0,sin(worldXY.y*.17+sin(worldXY.x*.026+time)*2.0)),28.0);
+  c+=vec3(.12,.32,.33)*lines*.22;
+  gl_FragColor=vec4(c,1.0);
+}`;
+function Lake({ time, speed }: { time: number; speed: number }) {
+  const uniforms=useMemo(()=>({time:{value:time}}),[]);
+  uniforms.time.value=time;
+  return <mesh position={[-time*speed*.65,-345,-2]} renderOrder={5}>
+    <planeGeometry args={[12500,510,100,12]} />
+    <shaderMaterial vertexShader={WATER_V} fragmentShader={WATER_F} uniforms={uniforms} depthTest={false} depthWrite={false} />
+  </mesh>;
+}
+function Atmosphere({ time, speed }: { time: number; speed: number }) {
+  const sky = useMemo(()=>({time:{value:time}}),[]);
+  sky.time.value=time;
   return <>
-    <mesh position={[-travel * 0.025, 45, -40]} renderOrder={0}>
-      <planeGeometry args={[2600, 900]} />
-      <shaderMaterial vertexShader={SKY_VERTEX} fragmentShader={SKY_FRAGMENT} depthTest={false} depthWrite={false} />
+    <mesh position={[0,0,-30]} renderOrder={0}>
+      <planeGeometry args={[1920,1080]} />
+      <shaderMaterial vertexShader={SKY_V} fragmentShader={SKY_F} uniforms={sky} depthTest={false} depthWrite={false} />
     </mesh>
-    {fogs.map((fog, index) => (
-      <mesh key={index} position={[fog.x - 960 - travel * fog.rate + Math.sin(time * 0.12 + index) * 22, 540 - fog.y, -20 + index]} renderOrder={index + 1}>
-        <planeGeometry args={[fog.width, 54]} />
-        <shaderMaterial uniforms={{ opacity: { value: fog.alpha } }} vertexShader={FOG_VERTEX} fragmentShader={FOG_FRAGMENT} transparent depthTest={false} depthWrite={false} />
-      </mesh>
-    ))}
+    {[0,1,2].map(i=><mesh key={i} position={[Math.sin(time*.12+i*2)*32-time*speed*.025,80-i*90,-20+i]} renderOrder={1+i}>
+      <planeGeometry args={[1680-i*160,75+i*40]} />
+      <meshBasicMaterial color={i===0?'#b6d4de':'#d8ebeb'} transparent opacity={.065+i*.025} depthTest={false} depthWrite={false} />
+    </mesh>)}
   </>;
 }
-
-function waterGeometry() {
-  const shape = new THREE.Shape();
-  shape.moveTo(-1160, -95);
-  shape.bezierCurveTo(-930, -70, -790, -45, -590, -36);
-  shape.bezierCurveTo(-360, -27, -190, 0, 20, -3);
-  shape.bezierCurveTo(260, -6, 430, -52, 650, -48);
-  shape.bezierCurveTo(830, -42, 1010, -10, 1160, -40);
-  shape.lineTo(1160, -560);
-  shape.lineTo(-1160, -560);
-  shape.closePath();
-  return new THREE.ShapeGeometry(shape, 64);
+function WorldGrid({time,speed}:{time:number;speed:number}) {
+  const geometry=useMemo(()=>{
+    const points:THREE.Vector3[]=[];
+    for(let k=-25;k<=110;k++){
+      const x=k*80;
+      points.push(new THREE.Vector3(x,-460,0),new THREE.Vector3(x,440,0));
+    }
+    for(let y=-440;y<=440;y+=80){
+      points.push(new THREE.Vector3(MIN_X,y,0),new THREE.Vector3(MAX_X,y,0));
+    }
+    const g=new THREE.BufferGeometry().setFromPoints(points);
+    return g;
+  },[]);
+  return <lineSegments geometry={geometry} position={[-time*speed*.48,0,5]} renderOrder={12}>
+    <lineBasicMaterial color="#bcf3f5" transparent opacity={.075} depthWrite={false} depthTest={false} />
+  </lineSegments>;
 }
-
-function Lake({ time, travel }: { time: number; travel: number }) {
-  const geometry = useMemo(waterGeometry, []);
-  const uniforms = useMemo(() => ({ time: { value: time } }), []);
-  uniforms.time.value = time;
-  return (
-    <mesh geometry={geometry} position={[-travel * 0.82, -50, -8]} renderOrder={5}>
-      <shaderMaterial uniforms={uniforms} vertexShader={WATER_VERTEX} fragmentShader={WATER_FRAGMENT} depthTest={false} depthWrite={false} />
-    </mesh>
-  );
+function Sparks({time,speed}:{time:number;speed:number}) {
+  const dots=useMemo(()=>{
+    const a:number[]=[];
+    for(let i=0;i<350;i++){
+      a.push(-1000+hash(i*7)*10200,-410+hash(i*11+3)*690,0);
+    }
+    return new THREE.BufferGeometry().setFromPoints(Array.from({length:350},(_,i)=>new THREE.Vector3(a[i*3],a[i*3+1],0)));
+  },[]);
+  return <points geometry={dots} position={[-time*speed*.39,0,16]} renderOrder={15}>
+    <pointsMaterial color="#b4edf0" size={2.2} transparent opacity={.56} sizeAttenuation={false} depthTest={false} depthWrite={false} />
+  </points>;
 }
-
-function Wildlife({ time, travel }: { time: number; travel: number }) {
-  const birdGeometry = useMemo(() => {
-    const shape = new THREE.Shape();
-    shape.moveTo(-15, 3);
-    shape.quadraticCurveTo(-7, -6, 0, 0);
-    shape.quadraticCurveTo(7, -6, 15, 3);
-    shape.quadraticCurveTo(6, -1, 0, 4);
-    shape.quadraticCurveTo(-6, -1, -15, 3);
-    return new THREE.ShapeGeometry(shape);
-  }, []);
-  const fishGeometry = useMemo(() => {
-    const shape = new THREE.Shape();
-    shape.moveTo(12, 0);
-    shape.quadraticCurveTo(0, 8, -12, 0);
-    shape.quadraticCurveTo(0, -8, 12, 0);
-    shape.moveTo(-11, 0);
-    shape.lineTo(-20, 7);
-    shape.lineTo(-18, 0);
-    shape.lineTo(-20, -7);
-    shape.closePath();
-    return new THREE.ShapeGeometry(shape);
-  }, []);
-  const life = Math.max(0, Math.min(1, (time - 8) / 14));
-  const birds = Array.from({ length: 5 }, (_, index) => {
-    const x = ((index * 390 - travel * 0.24 + time * (9 + index)) % 2400 + 2400) % 2400 - 1200;
-    const y = 540 - (245 + index * 31 + Math.sin(time * 0.72 + index * 2.1) * 9);
-    return <mesh key={`bird-${index}`} geometry={birdGeometry} position={[x, y, 10]} rotation={[0, 0, Math.sin(time * 0.8 + index) * 0.07]} scale={0.5 + index * 0.04} renderOrder={9}>
-      <meshBasicMaterial color="#253a43" transparent opacity={life * 0.68} depthTest={false} depthWrite={false} />
-    </mesh>;
-  });
-  const fish = Array.from({ length: 7 }, (_, index) => {
-    const x = ((index * 315 - travel * 0.86 + time * (index % 2 ? 14 : -10)) % 2300 + 2300) % 2300 - 1150;
-    const y = 540 - (690 + (index % 4) * 22 + Math.sin(time + index * 1.7) * 5);
-    return <mesh key={`fish-${index}`} geometry={fishGeometry} position={[x, y, -3]} scale={0.5 + (index % 3) * 0.12} renderOrder={6}>
-      <meshBasicMaterial color="#092f3b" transparent opacity={life * 0.27} depthTest={false} depthWrite={false} />
-    </mesh>;
-  });
-  return <>{fish}{birds}</>;
-}
-
-export function JourneyWorld({ time, speed, maskImage }: { time: number; speed: number; maskImage: string }) {
-  const { width, height } = useVideoConfig();
-  const travel = time * speed;
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden',
-        maskImage: `url("${maskImage}")`,
-        WebkitMaskImage: `url("${maskImage}")`,
-        maskSize: '100% 100%',
-        WebkitMaskSize: '100% 100%',
-        maskRepeat: 'no-repeat',
-        WebkitMaskRepeat: 'no-repeat',
-      }}
-    >
-      <ThreeCanvas
-        width={width}
-        height={height}
-        orthographic
-        camera={{ left: -960, right: 960, top: 540, bottom: -540, near: 0.1, far: 2400, position: [0, 0, 1200] }}
-        gl={{ alpha: true, antialias: true }}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-      >
-        <Atmosphere time={time} travel={travel} />
-        <PhotoLayer source={distantMountains} x={-230} top={225} width={1320} order={4} travel={travel} parallax={0.16} />
-        <Lake time={time} travel={travel} />
-        <PhotoLayer source={nearSlope} x={-760} top={520} width={1280} order={7} travel={travel} parallax={0.48} />
-        <PhotoLayer source={foregroundShore} x={-260} top={600} width={1820} order={8} travel={travel} parallax={0.78} />
-        <Wildlife time={time} travel={travel} />
-      </ThreeCanvas>
-    </div>
-  );
+export function JourneyWorld({time,speed,maskImage}:{time:number;speed:number;maskImage:string}) {
+  const {width,height}=useVideoConfig();
+  return <div aria-hidden="true" style={{
+    position:'absolute',inset:0,overflow:'hidden',
+    maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,
+    maskSize:'100% 100%',WebkitMaskSize:'100% 100%',
+    maskRepeat:'no-repeat',WebkitMaskRepeat:'no-repeat'
+  }}>
+    <ThreeCanvas width={width} height={height} orthographic
+      camera={{left:-960,right:960,top:540,bottom:-540,near:.1,far:2400,position:[0,0,1200]}}
+      gl={{alpha:true,antialias:true}}
+      style={{position:'absolute',inset:0,width:'100%',height:'100%'}}>
+      <Atmosphere time={time} speed={speed}/>
+      <Ridge time={time} speed={speed} seed={1} base={40} altitude={310} bottom={-180} rate={.15} z={-12} ink="#d9eff3"/>
+      <Ridge time={time} speed={speed} seed={2} base={-105} altitude={380} bottom={-285} rate={.36} z={-8} ink="#abdee7"/>
+      <Lake time={time} speed={speed}/>
+      <Ridge time={time} speed={speed} seed={3} base={-260} altitude={190} bottom={-485} rate={.83} z={2} ink="#79bbc0"/>
+      <WorldGrid time={time} speed={speed}/>
+      <Sparks time={time} speed={speed}/>
+    </ThreeCanvas>
+  </div>;
 }
