@@ -82,11 +82,12 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
           {Array.from({ length: 8 }, (_, index) => <path key={`h-${index}`} d={`M0 ${95 + index * 100} H1920`} />)}
         </g>
         {keys.map((_, path) => {
-          let d = '';
+          const points: string[] = [];
           for (let x = 0; x <= 1920; x += 7) {
             const seconds = clamp(time + (x - centerX) / speed, 0, guides.durationSeconds);
-            d += `${x === 0 ? 'M' : ' L'}${x} ${y(seconds, path)}`;
+            points.push(`${x} ${y(seconds, path)}`);
           }
+          const d = `M${points.join(' L')}`;
           return <path key={`road-${path}`} clipPath="url(#futureRoad)" d={d} stroke={colors[path]} strokeWidth="3" fill="none" opacity=".22" />;
         })}
         {keys.map((_, path) => (
