@@ -41,7 +41,7 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
   const {maskImage, edge: boundary, area} = buildEmulsion(time, speed, revealX);
 
   return (
-    <CameraDirector frame={frame} orangeY={y(time,0)}>
+    <CameraDirector frame={frame} orangeY={y(time,0)} speed={speed} revealX={revealX} fps={fps}>
     <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)' }} data-journey-time={time}>
       <JourneyWorld time={time} speed={speed} maskImage={maskImage} />
       <FilmLifeOverlay time={time} amount={0.75} />
