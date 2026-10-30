@@ -15,11 +15,11 @@ export function portalAperture(frame:number,fps:number,speed:number,revealX:numb
  const cx=clamp(boundary/1920)*100;
  const cy=41.7;
  const expansion=.001+travel*1.58;
- const points=Array.from({length:96},(_,i)=>{
-  const a=i*2*Math.PI/96;
-  const rough=1+.055*Math.sin(a*9+1.4)+.035*Math.sin(a*27-1.7)+.02*Math.sin(a*52+.5);
+ const points=Array.from({length:144},(_,i)=>{
+  const a=i*2*Math.PI/144;
+  const rough=1+.085*Math.sin(a*9+1.4)+.042*Math.sin(a*27-1.7)+.028*Math.sin(a*52+.5);
   const rx=expansion*110*rough,ry=expansion*166*rough;
-  return `${cx+Math.cos(a)*rx}% ${cy+Math.sin(a)*ry}%`;
+  return {x:cx+Math.cos(a)*rx,y:cy+Math.sin(a)*ry};
  });
- return {open:travel,boundary,polygon:`polygon(${points.join(',')})`,cx,cy};
+ return {open:travel,boundary,polygon:`polygon(${points.map(p=>`${p.x}% ${p.y}%`).join(',')})`,edgePoints:points.map(p=>`${p.x*19.2},${p.y*10.8}`).join(' '),cx,cy};
 }
