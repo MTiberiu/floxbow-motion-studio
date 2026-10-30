@@ -67,3 +67,13 @@ Append for each code change:
 - **Visible outcome expected:** A continuous structure grows toward the opposite bank. The arch and deck emerge together, with restrained warm filament intensity rather than additive neon.
 - **Verified:** source written to branch; no Electron or offline render performed here.
 - **Still missing:** the rasterized old bridge in both valley images needs actual bridge-free source art, and the 3D bridge geometry must be aligned to these cleaned images. Until then there may be duplicate structures.
+
+## 2026-10-30 — improved forward optical flow inside the revealed world
+
+- **Files:** `projects/mai-departe-cinematic-v1/scenes/CinematicPlateV3.tsx`
+- **Observed problem:** During the film reveal the valley reads as a stationary poster even though the three travelers and the frontier are moving. Earlier depth-band masks had overly broad overlaps and the parallax travel was subtle.
+- **Cause:** The illustrated source is still one PNG; the original V3 implementation reused it in only three softly masked regions and limited most motion to a few pixels.
+- **Modification and intent:** Divided the 2D sampling into four conservative depth bands: sky, far ridges, valley and near water. Each samples the original art with independently calculated forward displacement and scale; motion and water highlights remain functions of composition time. Corrected opacity-band calculations to use ordered linear-gradient stops. This is a practical improvement to the film-view optical flow while real alpha-layer source art remains unavailable.
+- **Visible outcome expected:** The scenery already visible behind the existing reveal edge advances continuously, with progressively faster motion toward the water/near region. The film mask still protects the unrevealed area.
+- **Verification:** Changes committed to GitHub. Not validated with local Electron or test renderer.
+- **Limit:** These are **depth bands of the same PNG**, NOT true alpha-isolated mountains or a perspective-reconstructed scene. Baked original bridge remains. We cannot safely claim the image has been separated into physical objects.
