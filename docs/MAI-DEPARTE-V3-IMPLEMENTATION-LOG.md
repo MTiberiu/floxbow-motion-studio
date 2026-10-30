@@ -150,3 +150,15 @@ Append for each code change:
 - **Expected outcome:** Film seems physically distant behind mountains when the flight reveals the right viewpoint; future shot production becomes complete 25–50s passages.
 - **Verification:** GitHub code committed, not built or viewed in Electron. Visibility and painterly integration are not confirmed.
 - **Limitations:** Film backdrop uses procedural line tracks rather than the song-specific curves; this is environmental symbolism, not a second synchronized route timeline. Need scene QA and eventually reuse actual guide curves. Film backdrop currently only exists in the existing 0–30s camera clip; it does not yet extend runtime coverage.
+
+## 2026-10-30 — Replace expanding portal zoom with directional rift takeover
+
+**What user saw:** An ellipse grew over the film like a PowerPoint mask; returning world cut felt unmotivated. This looked unlike actual camera travelling, particularly with the world composed of one photographic plate and a filtered duplicate.
+
+**Implementation:**
+- New `scenes/RiftPushTransition.ts` creates a deterministic moving serrated vertical boundary and complementary film/world clip polygons.
+- `scenes/CameraDirector.tsx` replaces the old growing portal. **Entry 240–450f:** world expands from the left, displaces the active film right and finally fills screen. **Hold 450–690f:** world fullscreen. **Return 690–810f:** the same living film/traveler system enters from left and pushes world out to the right. Border is a physical-looking scorched lip, with lightweight emissive debris locked to the seam.
+- `scenes/CameraWorld.tsx` uses a small forward camera-position impulse based on `vocalProsody` rising attacks, passed from `JourneyReveal.tsx`. This is a **dolly** change, not CSS zoom. Music data untouched.
+- `scenes/rift-push-transition.test.ts` covers boundaries, directions and deterministic random seeks.
+
+**Constraints and honest status:** This is a bidirectional **2D push transition with a Three.js world**, not a geometrically cut 3D film mesh. The current clip contains the future paper-world takeover only as a proposed subsequent phase; it is **not a generated paper texture or shot**. The original camera valley remains one photo plane plus separate procedural/near objects. Code was published to GitHub without local Electron render or test execution; must check for unwanted image displacement and top/bottom film rail continuity. Existing `PortalAperture.ts` is now unused by CameraDirector but retained for compatibility and history.
