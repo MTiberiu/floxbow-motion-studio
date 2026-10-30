@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import contextlib
 import ctypes
+import importlib.metadata
 import math
 import os
 import shutil
@@ -144,17 +145,20 @@ def group_attacks(events: list, source: str, max_gap: float) -> list:
     return groups
 
 
-def detect_vocal_activity(y, sample_rate: int, events: list, np) -> None:
+def detect_vocal_activity(y, sample_rate: int, events: list, np) -> tuple[list, list]:
     if len(y) == 0:
-        return
-    window = max(1, int(sample_rate * 0.05))
+        return [], []
     rms = []
-    for start in range(0, len(y), window):
-        part = y[start:start + window]
+    frame_seconds = 0.05
+    frame_count = int(math.ceil(len(y) / sample_rate / frame_seconds))
+    for index in range(frame_count):
+        start = int(round(index * frame_seconds * sample_rate))
+        end = min(len(y), int(round((index + 1) * frame_seconds * sample_rate)))
+        part = y[start:end]
         rms.append(float(np.sqrt(np.mean(np.square(part, dtype=np.float64)))) if len(part) else 0.0)
     peak = max(rms, default=0.0)
     if peak < 1e-5:
-        return
+        return rms, [False] * len(rms)
     threshold = max(0.003, peak * 0.09)
     active = [value >= threshold for value in rms]
     # Fill very short gaps in the separated vocal stem to avoid syllable-sized flicker.
@@ -190,6 +194,105 @@ def detect_vocal_activity(y, sample_rate: int, events: list, np) -> None:
         make_event(events, "vocals", "vocal_activity_start", start_seconds, "Demucs vocal-stem RMS activity threshold", end_seconds=end_seconds)
         make_event(events, "vocals", "vocal_activity_end", end_seconds, "Demucs vocal-stem RMS activity threshold")
         previous_end = end_seconds
+    return rms, active
+
+
+def build_vocal_profile(y, sample_rate: int, librosa, np, rms_values=None, active=None) -> dict:
+    """Build reusable, audio-only vocal features. Subtitle timing is deliberately not read here."""
+    frame_seconds = 0.05
+    if rms_values is None:
+        rms_values = []
+        frame_count = int(math.ceil(len(y) / sample_rate / frame_seconds))
+        for index in range(frame_count):
+            start = int(round(index * frame_seconds * sample_rate))
+            end = min(len(y), int(round((index + 1) * frame_seconds * sample_rate)))
+            part = y[start:end]
+            rms_values.append(float(np.sqrt(np.mean(np.square(part, dtype=np.float64)))) if len(part) else 0.0)
+    peak = max(rms_values, default=0.0)
+    threshold = max(0.003, peak * 0.09)
+    if active is None:
+        active = [value >= threshold for value in rms_values] if peak >= 1e-5 else [False] * len(rms_values)
+    rms_series = [{"time": round(index * frame_seconds, 4), "value": round(value, 7), "active": active[index]}
+                  for index, value in enumerate(rms_values)]
+    profile = {
+        "status": "partial", "method": "Demucs vocals stem RMS, 50 ms windows; 9% of stem peak or 0.003 threshold; gaps up to 180 ms filled",
+        "stemEngine": "Demucs-Infer",
+        "stemEngineVersion": _package_version("demucs-infer"),
+        "librosaVersion": getattr(librosa, "__version__", None),
+        "sampleRate": int(sample_rate), "rmsHopSeconds": frame_seconds, "rmsThreshold": round(threshold, 7),
+        "rms": rms_series, "f0": [], "f0Method": "librosa.pyin on Demucs vocals stem; experimental for singing",
+        "f0SampleRate": 22050, "f0HopSeconds": None, "reason": None,
+    }
+    if len(y) == 0 or peak < 1e-5:
+        profile["reason"] = "The separated vocal stem is empty or below the measurable RMS floor."
+        return profile
+    try:
+        target_rate, hop = 22050, 1102  # approximately 50 ms
+        analysis = librosa.resample(y, orig_sr=sample_rate, target_sr=target_rate) if sample_rate != target_rate else y
+        # Bound pYIN's working memory for full songs. Chunk starts and overlap are
+        # aligned to the analysis hop; the overlap is discarded on the next chunk.
+        chunk_frames, overlap_frames = 600, 40
+        stride_frames = chunk_frames - overlap_frames
+        chunk_samples = chunk_frames * hop
+        hz_parts, voiced_parts, probability_parts = [], [], []
+        for start_frame in range(0, max(1, int(math.ceil(len(analysis) / hop))), stride_frames):
+            start_sample = start_frame * hop
+            chunk = analysis[start_sample:min(len(analysis), start_sample + chunk_samples)]
+            if len(chunk) < 2:
+                break
+            f0, voiced, voiced_probability = librosa.pyin(
+                chunk, fmin=65, fmax=1000, sr=target_rate, frame_length=2048,
+                hop_length=hop, fill_na=np.nan,
+            )
+            keep_from = overlap_frames if start_frame else 0
+            hz_parts.extend(np.asarray(f0, dtype=np.float64)[keep_from:].tolist())
+            voiced_parts.extend(np.asarray(voiced, dtype=bool)[keep_from:].tolist())
+            probability_parts.extend(np.asarray(voiced_probability, dtype=np.float64)[keep_from:].tolist())
+        hz = np.asarray(hz_parts, dtype=np.float64)
+        voiced = np.asarray(voiced_parts, dtype=bool)
+        probability = np.asarray(probability_parts, dtype=np.float64)
+        # librosa.pyin uses centered frames and chunk padding, so its last chunk
+        # may contain frames beyond the source stem. Keep only timestamps backed
+        # by actual audio samples; report validation requires every point to be
+        # inside the soundtrack duration.
+        frame_count = int(math.ceil(len(analysis) / hop))
+        hz = hz[:frame_count]
+        voiced = voiced[:frame_count]
+        probability = probability[:frame_count]
+        valid = np.isfinite(hz) & (hz >= 65) & (hz <= 1000) & voiced
+        # Reject an isolated octave flip only when the valid neighbors agree with each
+        # other. We do not octave-correct ambiguous singing; invalid frames stay null.
+        rejected = set()
+        for i in range(1, len(hz) - 1):
+            if not valid[i - 1] or not valid[i] or not valid[i + 1]:
+                continue
+            neighbor_delta = abs(math.log2(hz[i - 1] / hz[i + 1]))
+            current_delta = min(abs(math.log2(hz[i] / hz[i - 1])), abs(math.log2(hz[i] / hz[i + 1])))
+            if neighbor_delta <= 0.18 and current_delta >= 0.8:
+                rejected.add(i)
+        rows = []
+        for i, value in enumerate(hz):
+            is_valid = bool(valid[i] and i not in rejected)
+            rows.append({"time": round(float(i * hop / target_rate), 4),
+                         "f0Hz": round(float(value), 3) if is_valid else None,
+                         "valid": is_valid,
+                         "voicedProbability": round(float(probability[i]), 4) if np.isfinite(probability[i]) else None,
+                         "octaveOutlierRejected": i in rejected})
+        profile["f0"] = rows
+        profile["f0HopSeconds"] = round(hop / target_rate, 6)
+        profile["status"] = "available" if any(row["valid"] for row in rows) else "partial"
+        if profile["status"] == "partial":
+            profile["reason"] = "pYIN returned no valid voiced F0 frames for this stem."
+    except Exception as exc:
+        profile["reason"] = f"F0 extraction unavailable: {type(exc).__name__}: {str(exc)[:180]}"
+    return profile
+
+
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
 
 
 def detect_musical_events(stem_root: Path | None, sample_rate: int, energy: list, accents: list,
@@ -198,6 +301,10 @@ def detect_musical_events(stem_root: Path | None, sample_rate: int, energy: list
     groups = []
     status_by_source = {name: "unavailable" for name in STEM_NAMES}
     reason = None
+    vocal_profile = {"status": "unavailable", "method": "Demucs vocals stem + librosa.pyin", "sampleRate": None,
+                     "stemEngine": "Demucs-Infer", "stemEngineVersion": None, "librosaVersion": None,
+                     "rmsHopSeconds": 0.05, "rmsThreshold": None, "rms": [], "f0": [], "f0Method": "librosa.pyin",
+                     "f0SampleRate": 22050, "f0HopSeconds": None, "reason": "The separated vocal stem is unavailable."}
     if stem_root is not None:
         loaded = {}
         import soundfile as sf
@@ -218,13 +325,15 @@ def detect_musical_events(stem_root: Path | None, sample_rate: int, energy: list
             detect_onset_events(*loaded["bass"], "bass", "bass_attack", librosa, np, events)
         if "vocals" in loaded:
             vocal_y, vocal_rate = loaded["vocals"]
-            detect_vocal_activity(vocal_y, vocal_rate, events, np)
+            vocal_rms, vocal_active = detect_vocal_activity(vocal_y, vocal_rate, events, np)
+            vocal_profile = build_vocal_profile(vocal_y, vocal_rate, librosa, np, vocal_rms, vocal_active)
             for event in detect_onset_events(vocal_y, vocal_rate, "vocals", "vocal_accent", librosa, np, events):
                 event["category"] = "vocal_accent"
         if "other" in loaded:
             detect_onset_events(*loaded["other"], "other", "other_transient", librosa, np, events)
     else:
         reason = "Demucs stems were not available; only mix-level DSP remains."
+        vocal_profile["reason"] = reason
 
     if accents:
         strengths = np.asarray([entry["strength"] for entry in accents], dtype=np.float32)
@@ -259,6 +368,7 @@ def detect_musical_events(stem_root: Path | None, sample_rate: int, energy: list
         "events": events,
         "groups": groups,
         "counts": counts,
+        "vocalProfile": vocal_profile,
         "instrumentRecognition": {
             "drumLabels": "kick_like/snare_like/hi_hat_like are conservative spectral-band heuristics, not a trained instrument classifier; drum_hit is unclassified.",
             "otherInstruments": "Not classified; other-stem events are instrument-agnostic transients.",
@@ -428,6 +538,7 @@ def main() -> int:
                 result["musicalEvents"] = detect_musical_events(
                     stems_root, sample_rate, energy, accents, result["engine"], librosa_module, np, stems_reused,
                 )
+                result["vocalProfile"] = result["musicalEvents"].pop("vocalProfile", None)
             except Exception as exc:
                 result["musicalEvents"] = {
                     **result["musicalEvents"], "status": "partial",

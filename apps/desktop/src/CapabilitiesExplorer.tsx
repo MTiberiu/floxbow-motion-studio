@@ -1,4 +1,4 @@
-import { useMemo, useState, type ComponentType } from "react";
+import { lazy, Suspense, useMemo, useState, type ComponentType } from "react";
 import { Player } from "@remotion/player";
 import rawRegistry from "../../../packages/animation-library/registry.json";
 import { parseCapabilityRegistry, type CapabilityExample } from "@motion/animations/registry";
@@ -14,6 +14,12 @@ import {
 import SubtitleClipExample from "../../../examples/capabilities/subtitle";
 import "./capabilities.css";
 
+const ThreeSceneExample = lazy(() =>
+  import("../../../examples/capabilities/threejs").then(({ ThreeSceneExample }) => ({
+    default: ThreeSceneExample,
+  })),
+);
+
 const registry = parseCapabilityRegistry(rawRegistry);
 const previewCompositions: Record<string, ComponentType<Record<string, never>>> = {
   canvas: CanvasExample,
@@ -24,6 +30,7 @@ const previewCompositions: Record<string, ComponentType<Record<string, never>>> 
   counter: CounterExample,
   "karaoke-words": KaraokeWordsExample,
   "subtitle-clip": SubtitleClipExample,
+  threejs: ThreeSceneExample,
 };
 const initialFrames: Record<string, number> = {
   canvas: 60,
@@ -34,6 +41,7 @@ const initialFrames: Record<string, number> = {
   counter: 80,
   "karaoke-words": 60,
   "subtitle-clip": 48,
+  threejs: 60,
 };
 
 export function CapabilitiesExplorer() {
@@ -114,17 +122,19 @@ export function CapabilitiesExplorer() {
                   <ExampleCard example={examples[0]} onOpen={openResource} />
                   {examples[0]?.preview && previewCompositions[examples[0].preview] && (
                     <div className="capability-preview" aria-label={`${capability.name} working preview`}>
-                      <Player
-                        component={previewCompositions[examples[0].preview]}
-                        durationInFrames={180}
-                        compositionWidth={1920}
-                        compositionHeight={1080}
-                        fps={30}
-                        initialFrame={initialFrames[examples[0].preview] ?? 30}
-                        controls
-                        loop
-                        style={{ width: "100%", height: "100%" }}
-                      />
+                      <Suspense fallback={<div className="capability-no-preview">Loading 3D preview…</div>}>
+                        <Player
+                          component={previewCompositions[examples[0].preview]}
+                          durationInFrames={180}
+                          compositionWidth={1920}
+                          compositionHeight={1080}
+                          fps={30}
+                          initialFrame={initialFrames[examples[0].preview] ?? 30}
+                          controls
+                          loop
+                          style={{ width: "100%", height: "100%" }}
+                        />
+                      </Suspense>
                     </div>
                   )}
                   {!examples[0]?.preview && <p className="capability-no-preview">This API example has no visual preview. The example file uses the real module directly.</p>}

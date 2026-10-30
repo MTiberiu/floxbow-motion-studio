@@ -69,16 +69,23 @@ test("complete report retains All-In-One-Infer labels and timings", () => {
         counts: { drums: 2, bass: 0, vocals: 0, other: 0, mix: 0 },
         instrumentRecognition: { drumLabels: "Heuristic labels", otherInstruments: "Not classified" },
       },
+      vocalProfile: {
+        status: "available", method: "Demucs vocals RMS", stemEngine: "Demucs-Infer", stemEngineVersion: "4.4.0", librosaVersion: "1.0.0", sampleRate: 22050, rmsHopSeconds: 0.05, rmsThreshold: 0.003,
+        rms: [{ time: 0, value: 0.12, active: true }],
+        f0: [{ time: 0, f0Hz: 220, valid: true, voicedProbability: 0.92, octaveOutlierRejected: false }],
+        f0Method: "librosa.pyin", f0SampleRate: 22050, f0HopSeconds: 0.05, reason: null,
+      },
     },
   });
 
   assert.equal(report.status, "complete");
-  assert.equal(report.schemaVersion, 2);
+  assert.equal(report.schemaVersion, 3);
   assert.equal(report.structure.bpm, 96);
   assert.deepEqual(report.structure.sections, [{ start: 0, end: 12.5, label: "intro" }]);
   assert.equal(report.provenance.structure.device, "cpu");
   assert.equal(report.musicalEvents?.events[0].category, "kick_like");
   assert.equal(report.musicalEvents?.groups[0].eventIds.length, 2);
+  assert.equal(report.vocalProfile?.f0[0]?.f0Hz, 220);
 });
 
 test("a new project can save and reopen one atomic report", async () => {

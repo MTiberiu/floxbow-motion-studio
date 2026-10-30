@@ -26,6 +26,14 @@ import { subtitleModule } from "@motion/lyrics-sync/component";
 
 The project's `edit-timeline.json` is the canonical saved timeline. Each segment is a regular `TimelineClip` with `componentId: "subtitles"`, integer `from` and `durationInFrames`, semantic `content`, and visual `props`. The frame range is authoritative for segment start/end. `content.words` optionally stores word intervals in seconds relative to the clip start; moving and trimming use the shared timeline helper to preserve absolute spoken positions.
 
+## Vocal phrasing and phrase grouping
+
+```ts
+import { analyzeVocalPhrasing, buildWordGravityCurve, comparePhrasing, getOrangeDurationScore, getVocalStretchScore, getWordGravityAtTime, planVisualPhrases } from "@motion/lyrics-sync/phrasing";
+```
+
+This browser-safe subpath consumes normalized saved lyric cues plus music context and returns separate word features and a deterministic visual phrase plan. It never writes subtitle timing. `FACTORY_PHRASING_SETTINGS` defines the versioned defaults; `phrasingSettingsSchema` validates user-tunable algorithm settings. Long-duration words are candidates only, and their source/alignment status stays attached. Syllable counting is a spelling heuristic, not phonetic alignment. `buildWordGravityCurve` maps the same saved word durations to time-indexed anchors using `log2(duration / 0.45s)`, clamped to ±2.4; `getWordGravityAtTime` applies smoothstep interpolation between anchors. `getVocalStretchScore` returns the separate syllable-adjusted score using a supplied syllable estimate and the current baseline settings. These scores are duration visualizations, not acoustic or emotional measurements, and do not alter lyric timing.
+
 ## Project data stages
 
 These stages have different purposes and do not create competing editable timelines:
@@ -106,6 +114,8 @@ Repeated choruses are separate segments with their own IDs and times. `content.r
 The editor's **Generate Subtitles** action selects only the asset ID from the existing soundtrack clip. The host resolves that ID through the Media Registry and runs Python/Whisper; local paths never enter the renderer. The response is bounded and validated before use. The editor converts it to frame clips and applies one EditorSession edit, so Undo and the existing save path remain authoritative. Existing subtitle clips require confirmation before replacement; other tracks and clips are preserved. Whisper output is a draft, including on successful transcription. Music recognition accuracy is not verified by this API.
 
 ## Rendering and dependencies
+
+The optional browser-safe `@motion/lyrics-sync/phrasing` subpath exports `FACTORY_PHRASING_SETTINGS`, `phrasingSettingsSchema`, `analyzeVocalPhrasing`, `planVisualPhrases`, `comparePhrasing`, and the duration-based word gravity helpers (`WORD_GRAVITY_REFERENCE_SECONDS`, `getOrangeDurationScore`, `getVocalStretchScore`, `buildWordGravityCurve`, `getWordGravityAtTime`). It operates on supplied timed cues and music context; it does not read or mutate Timeline data. Persisted phrase plans should retain their `plannerVersion` and source revisions.
 
 `Subtitles` renders in Remotion's frame context; `subtitleModule.component` is registered by the project composition and is shared by preview and renderer. It draws text for `caption` and `both`, and returns no text for `bubble` or `hidden`. Runtime dependencies are React, Remotion, `@motion/sdk/timeline`, and the lyric timing package. Subtitle text is white by default with a subtle shadow; the component stays transparent so it can overlay video. A containing composition can use a black background for the simple white-on-black starter appearance.
 

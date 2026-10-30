@@ -9,13 +9,14 @@ export type MusicEventSource = "drums" | "bass" | "vocals" | "other" | "mix";
 export type MusicEvent = { id: string; time: number; endTime?: number; category: string; source: MusicEventSource; intensity?: number; method: string };
 export type MusicEventGroup = { id: string; start: number; end: number; source: "drums" | "bass" | "other"; count: number; eventIds: string[]; pattern: string };
 export type Report = {
-  schemaVersion: 1 | 2; projectId: string; assetId: string;
+  schemaVersion: 1 | 2 | 3; projectId: string; assetId: string;
   asset: { displayName: string; sha256: string; sizeBytes: number; modifiedAt: string };
   analyzedAt: string; durationSeconds: number; status: "complete" | "partial";
   provenance: { structure: { status: "available" | "unavailable"; engine?: string; version?: string; device?: string; reason?: string }; dsp: { status: "available" | "partial"; engine: string; reason?: string } };
   structure: { bpm: number | null; beats: number[]; downbeats: number[]; beatPositions: number[]; sections: Array<{ start: number; end: number; label: string }> };
   dsp: { sampleRate: number; channels: number; waveform: number[]; energy: Point[]; accents: Array<{ time: number; strength: number }> };
   musicalEvents?: { status: "available" | "partial" | "unavailable"; method: string; stemsReused: boolean; sources: Record<"drums" | "bass" | "vocals" | "other", "available" | "unavailable">; events: MusicEvent[]; groups: MusicEventGroup[]; counts: Record<"drums" | "bass" | "vocals" | "other" | "mix", number>; instrumentRecognition: { drumLabels: string; otherInstruments: string }; reason?: string };
+  vocalProfile?: { status: "available" | "partial" | "unavailable"; method: string; stemEngine: string; stemEngineVersion: string | null; librosaVersion: string | null; sampleRate: number | null; rmsHopSeconds: number; rmsThreshold: number | null; rms: Array<{ time: number; value: number; active: boolean }>; f0: Array<{ time: number; f0Hz: number | null; valid: boolean; voicedProbability: number | null; octaveOutlierRejected: boolean }>; f0Method: string; f0SampleRate: number; f0HopSeconds: number | null; reason: string | null };
   performance?: { wallSeconds: number; peakWorkingSetMB: number | null };
 };
 export type CorrelationWord = { id: string; text: string; start: number | null; end: number | null; beatOffsetSeconds: number | null; eventIds: string[]; preWordCueIds: string[]; vocalActivityOverlap: boolean | null };
@@ -24,7 +25,7 @@ export type MusicLyricsMap = {
   status: "complete" | "partial";
   durationSeconds: number;
   unavailable: string[];
-  sources: { lyrics: { revision: string; timedCueCount: number; untimedWordCount: number } };
+  sources: { musicAnalysis: { reportRevision: string }; lyrics: { revision: string; timedCueCount: number; untimedWordCount: number } };
   sections: Array<{ start: number; end: number; label: string }>;
   events: Array<{ id: string; time: number; endTime?: number; category: string; source: MusicEventSource; intensity?: number; method: string; sourceRef: string }>;
   phrases: Array<{ id: string; cueIds: string[]; start: number; end: number; text: string; sectionLabels: string[]; eventIds: string[] }>;
@@ -193,6 +194,8 @@ export function MusicAnalysis({ manifest, active }: { manifest: ProjectManifest;
       <MusicLyricsMapView
         report={report}
         projectId={manifest.id}
+        projectWidth={manifest.width}
+        projectHeight={manifest.height}
         refreshAfterSave={load}
         audioRef={audioRef}
         audioUrl={audioUrl}

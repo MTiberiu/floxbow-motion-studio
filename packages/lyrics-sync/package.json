@@ -3,5 +3,5 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": {".":"./src/index.ts","./subtitles":"./src/subtitles.ts","./component":"./src/component.tsx"}
+  "exports": {".":"./src/index.ts","./subtitles":"./src/subtitles.ts","./component":"./src/component.tsx","./phrasing":"./src/phrasing.ts"}
 }

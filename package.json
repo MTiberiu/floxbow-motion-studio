@@ -30,12 +30,15 @@
     "sync:lyrics": "tsx packages/lyrics-sync/src/cli.ts"
   },
   "dependencies": {
+    "@react-three/fiber": "9.1.2",
     "@remotion/bundler": "4.0.537",
     "@remotion/player": "4.0.537",
     "@remotion/renderer": "4.0.537",
+    "@remotion/three": "4.0.537",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "remotion": "4.0.537",
+    "three": "0.171.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
@@ -43,6 +46,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "0.171.0",
     "@vitejs/plugin-react": "5.2.0",
     "electron": "44.9.2",
     "prettier": "3.9.10",

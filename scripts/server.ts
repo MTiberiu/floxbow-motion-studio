@@ -45,6 +45,8 @@ import { transcribeVideoClipAudio } from "./video-transcription";
 import { readProjectSettings, saveProjectCanvasSize } from "./project-settings";
 import { createMusicAnalysisReport, readMusicAnalysisReport, saveMusicAnalysisReport } from "./music-analysis-report";
 import { buildMusicLyricsMap, getLyricsSourceRevision, getMusicAnalysisSourceRevision, musicLyricsMapRevision, readMusicLyricsArtifacts, saveMusicLyricsArtifacts } from "./music-lyrics-map";
+import { readVocalPhrasingArtifacts, saveVocalPhrasingArtifacts } from "./vocal-phrasing";
+import { FACTORY_PHRASING_SETTINGS } from "@motion/lyrics-sync/phrasing";
 import type { EditTimeline } from "@motion/sdk/timeline";
 export const root = path.resolve(import.meta.dirname, "..");
 export const projectsDir = path.join(root, "projects");
@@ -619,7 +621,17 @@ export async function startServers(
                 if (stale) {
                   const { map, brief } = buildMusicLyricsMap({ projectId: id, music, timeline: saved.timeline });
                   await saveMusicLyricsArtifacts(projectRoot, map, brief);
-                  result = { ...saved, musicLyricsCorrelation: { status: "updated" } };
+                  const priorPhrasing = await readVocalPhrasingArtifacts(projectRoot);
+                  let vocalProsody: { status: "updated" | "stale" | "unchanged"; message?: string } = { status: "unchanged" };
+                  try {
+                    const algorithm = priorPhrasing.plan?.algorithm ?? "hybrid";
+                    const settings = priorPhrasing.plan?.settings ?? FACTORY_PHRASING_SETTINGS;
+                    await saveVocalPhrasingArtifacts(projectRoot, map, algorithm, settings, music.vocalProfile);
+                    vocalProsody = { status: "updated" };
+                  } catch (error) {
+                    vocalProsody = { status: "stale", message: error instanceof Error ? error.message : String(error) };
+                  }
+                  result = { ...saved, musicLyricsCorrelation: { status: "updated" }, vocalProsody };
                 } else result = { ...saved, musicLyricsCorrelation: { status: "unchanged" } };
               }
             } catch (error) {
@@ -706,6 +718,7 @@ export async function startServers(
             route.length === 2 && route[1] === "storyboard-publish";
           const musicAnalysis = route.length === 2 && route[1] === "music-analysis";
           const musicLyricsMap = route.length === 2 && route[1] === "music-lyrics-map";
+          const vocalPhrasing = route.length === 2 && route[1] === "vocal-phrasing";
           const musicAnalysisJob = route.length === 4 && route[1] === "music-analysis" && route[2] === "jobs";
           const assetId = removingAsset ? decodeURIComponent(route[2]) : "";
           const probedAssetId = soundtrackProbe
@@ -725,6 +738,7 @@ export async function startServers(
             !storyboardPublish &&
             !musicAnalysis &&
             !musicLyricsMap &&
+            !vocalPhrasing &&
             !musicAnalysisJob
           ) {
             res.writeHead(404).end("Unknown media operation");
@@ -738,7 +752,7 @@ export async function startServers(
             res.writeHead(404).end("Unknown project");
             return;
           }
-          if (musicAnalysis || musicAnalysisJob || musicLyricsMap) {
+          if (musicAnalysis || musicAnalysisJob || musicLyricsMap || vocalPhrasing) {
             if (req.method !== "GET" && req.method !== "POST" && req.method !== "DELETE") {
               res.writeHead(405).end();
               return;
@@ -752,6 +766,40 @@ export async function startServers(
               return;
             }
             const projectRoot = path.join(projectsDir, id);
+            if (vocalPhrasing) {
+              if (req.method === "GET") {
+                const artifacts = await readVocalPhrasingArtifacts(projectRoot);
+                const [music, current] = await Promise.all([
+                  readMusicAnalysisReport(projectRoot),
+                  project.manifest?.editTimeline ? readEditor(projectRoot, project.manifest) : Promise.resolve(null),
+                ]);
+                let stale = Boolean(artifacts.analysis || artifacts.plan);
+                if (artifacts.analysis && artifacts.plan && music && current) {
+                  const musicRevision = getMusicAnalysisSourceRevision(music);
+                  const lyricsRevision = getLyricsSourceRevision(current.timeline);
+                  stale = artifacts.analysis.sources.musicRevision !== musicRevision || artifacts.analysis.sources.lyricsRevision !== lyricsRevision || artifacts.plan.sources.musicRevision !== musicRevision || artifacts.plan.sources.lyricsRevision !== lyricsRevision;
+                }
+                res.setHeader("Content-Type", "application/json");
+                res.setHeader("Cache-Control", "no-store");
+                res.end(JSON.stringify({ ...artifacts, vocalProfile: music?.vocalProfile ?? null, stale }));
+                return;
+              }
+              if (req.method !== "POST") { res.writeHead(405).end(); return; }
+              let body = "";
+              for await (const chunk of req) { body += chunk.toString(); if (Buffer.byteLength(body) > 8_000) throw new Error("Vocal phrasing settings request is too large."); }
+              const input = JSON.parse(body || "{}");
+              if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).some(key => !["algorithm", "settings"].includes(key)) || !["stretch", "phrase-optimization", "hybrid"].includes(input.algorithm) || !input.settings || typeof input.settings !== "object" || Array.isArray(input.settings)) throw new Error("Choose a phrasing algorithm and valid settings.");
+              const music = await readMusicAnalysisReport(projectRoot);
+              if (!music) throw new Error("Run Analyze Music before preparing kinetic phrase direction.");
+              if (!project.manifest?.editTimeline) throw new Error("This project has no saved editable Timeline to read lyric cues from.");
+              const source = await readEditor(projectRoot, project.manifest);
+              const { map } = buildMusicLyricsMap({ projectId: id, music, timeline: source.timeline });
+              const saved = await saveVocalPhrasingArtifacts(projectRoot, map, input.algorithm, input.settings, music.vocalProfile);
+              res.setHeader("Content-Type", "application/json");
+              res.setHeader("Cache-Control", "no-store");
+              res.end(JSON.stringify({ ...saved, vocalProfile: music.vocalProfile ?? null, stale: false }));
+              return;
+            }
             if (musicLyricsMap) {
               if (req.method === "GET") {
                 const [artifacts, music] = await Promise.all([readMusicLyricsArtifacts(projectRoot), readMusicAnalysisReport(projectRoot)]);
@@ -778,8 +826,16 @@ export async function startServers(
               const source = await readEditor(projectRoot, project.manifest);
               const { map, brief } = buildMusicLyricsMap({ projectId: id, music, timeline: source.timeline });
               const saved = await saveMusicLyricsArtifacts(projectRoot, map, brief);
+              let vocalProsody: { status: "updated" | "stale"; message?: string };
+              try {
+                const priorPhrasing = await readVocalPhrasingArtifacts(projectRoot);
+                await saveVocalPhrasingArtifacts(projectRoot, map, priorPhrasing.plan?.algorithm ?? "hybrid", priorPhrasing.plan?.settings ?? FACTORY_PHRASING_SETTINGS, music.vocalProfile);
+                vocalProsody = { status: "updated" };
+              } catch (error) {
+                vocalProsody = { status: "stale", message: error instanceof Error ? error.message : String(error) };
+              }
               res.setHeader("Content-Type", "application/json");
-              res.end(JSON.stringify({ ...saved, stale: false }));
+              res.end(JSON.stringify({ ...saved, vocalProsody, stale: false }));
               return;
             }
             if (musicAnalysis && req.method === "GET") {

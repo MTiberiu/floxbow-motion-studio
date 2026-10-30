@@ -24,6 +24,28 @@ const eventGroupSchema = z.object({
   eventIds: z.array(z.string().min(1).max(180)).min(2).max(4),
   pattern: z.string().min(1).max(120),
 }).strict();
+const vocalProfileSchema = z.object({
+  status: z.enum(["available", "partial", "unavailable"]),
+  method: z.string().min(1).max(240),
+  stemEngine: z.string().min(1).max(80),
+  stemEngineVersion: z.string().max(80).nullable(),
+  librosaVersion: z.string().max(80).nullable(),
+  sampleRate: z.number().int().positive().nullable(),
+  rmsHopSeconds: z.number().positive(),
+  rmsThreshold: z.number().finite().nonnegative().nullable(),
+  rms: z.array(z.object({ time: z.number().finite().nonnegative(), value: z.number().finite().nonnegative(), active: z.boolean() }).strict()).max(500000),
+  f0: z.array(z.object({ time: z.number().finite().nonnegative(), f0Hz: z.number().finite().positive().nullable(), valid: z.boolean(), voicedProbability: z.number().finite().min(0).max(1).nullable(), octaveOutlierRejected: z.boolean() }).strict()).max(500000),
+  f0Method: z.string().min(1).max(240),
+  f0SampleRate: z.number().int().positive(),
+  f0HopSeconds: z.number().positive().nullable(),
+  reason: z.string().max(500).nullable(),
+}).strict().superRefine((profile, context) => {
+  if (profile.status === "available" && (!profile.rms.length || !profile.f0.some(point => point.valid && point.f0Hz !== null)))
+    context.addIssue({ code: "custom", path: ["status"], message: "An available vocal profile must contain RMS and valid F0 samples." });
+  for (const [index, point] of profile.f0.entries()) {
+    if (point.valid !== (point.f0Hz !== null)) context.addIssue({ code: "custom", path: ["f0", index, "valid"], message: "F0 validity must agree with whether a pitch value exists." });
+  }
+});
 const musicalEventsSchema = z.object({
   status: z.enum(["available", "partial", "unavailable"]),
   method: z.string().min(1).max(160),
@@ -37,7 +59,7 @@ const musicalEventsSchema = z.object({
 }).strict();
 
 const musicAnalysisReportBaseSchema = z.object({
-  schemaVersion: z.union([z.literal(1), z.literal(2)]),
+  schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   projectId: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   assetId: z.string().min(1).max(160),
   asset: z.object({ displayName: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/), sizeBytes: z.number().int().positive(), modifiedAt: z.string().datetime() }).strict(),
@@ -51,10 +73,21 @@ const musicAnalysisReportBaseSchema = z.object({
   structure: z.object({ bpm: z.number().finite().positive().nullable(), beats: z.array(z.number().finite().nonnegative()), downbeats: z.array(z.number().finite().nonnegative()), beatPositions: z.array(z.number().int().positive()), sections: z.array(sectionSchema) }).strict(),
   dsp: z.object({ sampleRate: z.number().int().positive(), channels: z.number().int().positive(), waveform: z.array(z.number().finite().min(0).max(1)).max(2000), energy: z.array(timedValueSchema).max(20000), accents: z.array(accentSchema).max(100000) }).strict(),
   musicalEvents: musicalEventsSchema.optional(),
+  vocalProfile: vocalProfileSchema.optional(),
   performance: z.object({ wallSeconds: z.number().finite().nonnegative(), peakWorkingSetMB: z.number().finite().positive().nullable() }).strict().optional(),
 }).strict();
 
 export const musicAnalysisReportSchema = musicAnalysisReportBaseSchema.superRefine((report, context) => {
+  if (report.vocalProfile) {
+    for (const [name, series] of [["rms", report.vocalProfile.rms], ["f0", report.vocalProfile.f0]] as const) {
+      let previous = -1;
+      for (const [index, point] of series.entries()) {
+        if (point.time > report.durationSeconds || point.time <= previous)
+          context.addIssue({ code: "custom", path: ["vocalProfile", name, index, "time"], message: "Vocal profile timestamps must increase and stay within the audio duration." });
+        previous = point.time;
+      }
+    }
+  }
   const musicalEvents = report.musicalEvents;
   if (!musicalEvents) return;
   const byId = new Map<string, (typeof musicalEvents.events)[number]>();
@@ -101,7 +134,7 @@ export function createMusicAnalysisReport(input: {
   const musicalEvents = worker.musicalEvents && typeof worker.musicalEvents === "object" ? worker.musicalEvents : undefined;
   const eventStatus = musicalEvents && typeof musicalEvents === "object" ? (musicalEvents as Record<string, unknown>).status : "unavailable";
   return musicAnalysisReportSchema.parse({
-    schemaVersion: 2,
+    schemaVersion: 3,
     projectId: input.projectId,
     assetId: input.assetId,
     asset: { displayName: input.displayName, sha256: input.fileSha256, sizeBytes: input.sizeBytes, modifiedAt: input.modifiedAt.toISOString() },
@@ -125,6 +158,7 @@ export function createMusicAnalysisReport(input: {
     },
     dsp: { sampleRate: worker.sampleRate, channels: worker.channels, waveform, energy, accents },
     ...(musicalEvents ? { musicalEvents } : {}),
+    ...(worker.vocalProfile && typeof worker.vocalProfile === "object" ? { vocalProfile: worker.vocalProfile } : {}),
     ...(worker.performance && typeof worker.performance === "object" ? { performance: worker.performance } : {}),
   });
 }

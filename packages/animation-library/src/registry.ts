@@ -42,6 +42,7 @@ const exampleSchema = z.object({
     "counter",
     "karaoke-words",
     "subtitle-clip",
+    "threejs",
   ]).optional(),
 });
 

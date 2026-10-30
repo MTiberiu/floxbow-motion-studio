@@ -9,6 +9,7 @@ Checked against npm metadata and official documentation on 2026-10-20 before ins
 | Vite | 7.3.7 | Node ^20.19 or >=22.12; MIT |
 | @vitejs/plugin-react | 5.2.0 | Peer supports Vite 7; MIT |
 | Remotion / player / bundler / renderer | 4.0.537, all identical | Custom Remotion license; React peer satisfied |
+| Three.js composition stack | `@remotion/three` 4.0.537, `@react-three/fiber` 9.1.2, `three` 0.171.0 | MIT packages; React 19 compatible Fiber; `@types/three` 0.171.0 is development-only |
 | TypeScript | 5.9.3 | Apache-2.0; stable compiler line used for this initial workspace |
 | Zod | lockfile resolved 4.x | MIT; schema validation |
 | tsx, Playwright, Prettier | lockfile pinned | MIT / Apache-2.0 / MIT; development tooling |

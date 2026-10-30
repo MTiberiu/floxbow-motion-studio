@@ -160,25 +160,44 @@ test("capability registry imports, docs, examples and references resolve", async
         return { directory, metadata };
       }),
   );
+  const rootPackage = JSON.parse(await readFile("package.json", "utf8"));
+  const rootDependencies = {
+    ...rootPackage.dependencies,
+    ...rootPackage.devDependencies,
+  } as Record<string, string>;
   for (const capability of registry.capabilities) {
+    const packageName = capability.api.importPath.startsWith("@")
+      ? capability.api.importPath.split("/").slice(0, 2).join("/")
+      : capability.api.importPath.split("/")[0];
     const owner = packageRecords.find(
       ({ metadata }) =>
-        metadata.name ===
-        capability.api.importPath.split("/").slice(0, 2).join("/"),
+        metadata.name === packageName,
     );
-    assert.ok(owner, `Missing package for ${capability.api.importPath}`);
-    const subpath = capability.api.importPath.slice(owner.metadata.name.length);
+    const packageDirectory = owner?.directory ?? path.join("node_modules", packageName);
+    assert.ok(
+      owner || rootDependencies[packageName],
+      `Missing workspace package or root dependency for ${capability.api.importPath}`,
+    );
+    const metadata = owner?.metadata ?? JSON.parse(
+      await readFile(path.join(packageDirectory, "package.json"), "utf8"),
+    );
+    const subpath = capability.api.importPath.slice(metadata.name.length);
     const exportKey = subpath ? `.${subpath}` : ".";
-    const target =
-      typeof owner.metadata.exports === "string"
-        ? owner.metadata.exports
-        : owner.metadata.exports?.[exportKey];
+    const exported =
+      typeof metadata.exports === "string"
+        ? metadata.exports
+        : metadata.exports?.[exportKey];
+    const target = typeof exported === "string"
+      ? exported
+      : exported?.import ?? exported?.default ?? exported?.types;
     assert.equal(
       typeof target,
       "string",
       `Unexported path ${capability.api.importPath}`,
     );
-    await readFile(path.join(owner.directory, target.slice(2)));
+    await readFile(
+      owner ? path.join(packageDirectory, target.slice(2)) : path.resolve(packageDirectory, target),
+    );
     await readFile(capability.documentation);
   }
   for (const example of registry.examples) {

@@ -3,6 +3,25 @@
   "sdkVersion": "0.1.0",
   "capabilities": [
     {
+      "id": "threejs-scene",
+      "name": "Three.js composition scene",
+      "category": "3D graphics",
+      "purpose": "Renders a React Three Fiber scene in a Remotion composition with frame-deterministic playback and rendering.",
+      "creatorActions": ["Build 3D geometry and lighting", "Animate objects from the Remotion frame", "Preview and render a Three.js scene"],
+      "suggestedPrompts": ["Build a Three.js scene with ThreeCanvas from @remotion/three and drive all motion from useCurrentFrame() so it scrubs and renders deterministically."],
+      "api": { "importPath": "@remotion/three", "symbol": "ThreeCanvas" },
+      "parameters": [
+        { "name": "children", "type": "React Three Fiber nodes", "required": true, "description": "Meshes, geometry, materials, lights, cameras, and other scene objects." },
+        { "name": "width / height", "type": "number (pixels)", "required": true, "description": "Use the composition dimensions from useVideoConfig()." },
+        { "name": "camera", "type": "Three.js camera settings", "description": "Optional ThreeCanvas camera configuration." }
+      ],
+      "integration": { "timeline": "Composition-level WebGL scene; Three.js objects are not independent editable Timeline clips.", "editor": "Previewed by Remotion's Player and included by the Remotion renderer when WebGL is available." },
+      "dependencies": ["@remotion/three", "@react-three/fiber", "three", "Remotion"],
+      "limitations": ["Requires WebGL and explicit width/height.", "Use useCurrentFrame() instead of useFrame(), timers, or requestAnimationFrame() for deterministic rendering.", "Scene objects do not receive generic Timeline Inspector controls."],
+      "documentation": "docs/THREEJS.md",
+      "exampleIds": ["threejs-cube"]
+    },
+    {
       "id": "canvas",
       "name": "Composition canvas",
       "category": "Composition",
@@ -304,6 +323,7 @@
     { "id": "player-composition", "title": "Player integration", "summary": "Mount a composition with a manifest and optional timeline props.", "path": "examples/capabilities/player.tsx", "capabilityIds": ["preview-player"] },
     { "id": "render-project", "title": "Render a saved project", "summary": "Call the existing rendering API for a project ID.", "path": "examples/capabilities/renderer.ts", "capabilityIds": ["video-rendering"] },
     { "id": "discover-projects", "title": "Discover projects", "summary": "Use the project loader and retain per-project validation results.", "path": "examples/capabilities/projects.ts", "capabilityIds": ["project-discovery"] },
-    { "id": "narration-audio", "title": "Add local narration", "summary": "A reusable composition fragment accepts a local imported audio URL.", "path": "examples/capabilities/audio.tsx", "capabilityIds": ["narration-audio"] }
+    { "id": "narration-audio", "title": "Add local narration", "summary": "A reusable composition fragment accepts a local imported audio URL.", "path": "examples/capabilities/audio.tsx", "capabilityIds": ["narration-audio"] },
+    { "id": "threejs-cube", "title": "Three.js frame-driven scene", "summary": "A real ThreeCanvas composition rotates and scales geometry from the Remotion frame clock.", "path": "examples/capabilities/threejs.tsx", "capabilityIds": ["threejs-scene"], "preview": "threejs" }
   ]
 }
