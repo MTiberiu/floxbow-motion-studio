@@ -26,7 +26,7 @@ export function CameraDirector({frame,orangeY,speed,revealX,fps,children}:{frame
    <AbsoluteFill style={{background:'radial-gradient(ellipse at 50% 45%,transparent 40%,rgba(12,8,5,.32))',mixBlendMode:'multiply'}}/>
   </AbsoluteFill>
   {/* Physical charred lip follows precisely the same contour as the cutout. */}
-  {portal.open>0&&portal.open<.96&&<svg aria-hidden="true" viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+  {portal.edgeVisible&&<svg aria-hidden="true" viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    <polygon points={portal.edgePoints} fill="none" stroke="#0c0907" strokeWidth="31" opacity=".96" strokeLinejoin="round"/>
    <polygon points={portal.edgePoints} fill="none" stroke="#382219" strokeWidth="17" opacity=".84" strokeLinejoin="round"/>
    <polygon points={portal.edgePoints} fill="none" stroke="#916440" strokeWidth="5" opacity=".42" strokeLinejoin="round"/>
