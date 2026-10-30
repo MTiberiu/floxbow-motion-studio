@@ -67,6 +67,39 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
   return (
     <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)' }} data-journey-time={time}>
       <JourneyWorld time={time} speed={speed} maskImage={maskImage} />
+      {/* The untraveled film is not a flat stationary backdrop: grain stays
+          attached to the film while low-frequency amber pools travel slowly. */}
+      <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+        <defs>
+          <clipPath id="untraveledFilm"><rect x={revealX+18} y="82" width={Math.max(0,1920-revealX-18)} height="718"/></clipPath>
+          <radialGradient id="travelingWarmth">
+            <stop offset="0" stopColor="#b45a24" stopOpacity=".30"/>
+            <stop offset=".55" stopColor="#6a311a" stopOpacity=".10"/>
+            <stop offset="1" stopColor="#140e0c" stopOpacity="0"/>
+          </radialGradient>
+          <radialGradient id="travelingBlue">
+            <stop offset="0" stopColor="#296279" stopOpacity=".23"/>
+            <stop offset="1" stopColor="#060b12" stopOpacity="0"/>
+          </radialGradient>
+        </defs>
+        <g clipPath="url(#untraveledFilm)">
+          <ellipse cx={1250+Math.sin(time*.09)*190} cy={300+Math.sin(time*.13)*110} rx="540" ry="280" fill="url(#travelingWarmth)"/>
+          <ellipse cx={1560+Math.cos(time*.07)*230} cy={700+Math.sin(time*.11)*120} rx="620" ry="320" fill="url(#travelingBlue)"/>
+          {Array.from({length:180},(_,i)=>{
+            const x=((seed(i*81+5)*2400 - offset*.17)%2400+2400)%2400-150;
+            const yy=82+seed(i*37+11)*718;
+            const flicker=.25+.75*Math.pow(Math.max(0,Math.sin(time*(.21+seed(i*5)*.6)+i)),2);
+            return <circle key={i} cx={x} cy={yy} r={.35+seed(i*71+2)*1.4}
+              fill={i%4===0?'#f7c17d':'#9da29b'} opacity={flicker*(.1+seed(i*19)*.23)}/>;
+          })}
+          {Array.from({length:12},(_,i)=>{
+            const x=((i*223-offset*.1)%2400+2400)%2400;
+            return <path key={i} d={`M${x} 84 q${Math.sin(i)*5} 220 ${Math.cos(i)*6} 650`}
+              fill="none" stroke="#b88b5c" strokeWidth={.5+seed(i)*.6}
+              opacity={.035+Math.sin(time*.12+i)*.012}/>;
+          })}
+        </g>
+      </svg>
       <svg viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <defs>
           <clipPath id="futureRoad"><rect x={revealX} y="90" width={1920 - revealX} height="705" /></clipPath>
