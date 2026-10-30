@@ -15,7 +15,7 @@ void main(){
  vec2 uv=vUv;float n=noise(vec2(uv.x*8.+time*.045+seed,uv.y*2.5+seed));
  float n2=noise(vec2(uv.x*17.-time*.025,uv.y*4.5+seed*2.));
  float band=exp(-pow((uv.y-.37-n*.13)/.24,2.));
- float alpha=(.12+n*.22+n2*.07)*band*smoothstep(0.,.18,uv.x)*smoothstep(1.,.82,uv.x);
+ float alpha=(.12+n*.22+n2*.07)*band*smoothstep(0.,.18,uv.x)*(1.-smoothstep(.82,1.,uv.x));
  vec3 color=mix(vec3(.45,.57,.57),vec3(.89,.70,.53),.30+n*.35);
  gl_FragColor=vec4(color,alpha);
  #include <tonemapping_fragment>
