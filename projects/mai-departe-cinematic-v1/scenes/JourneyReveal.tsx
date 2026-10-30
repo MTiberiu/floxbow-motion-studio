@@ -39,10 +39,14 @@ export function JourneyReveal({ clip, frame = 0 }: { clip: TimelineClip; frame?:
   const scales = [32, 50, 46];
   const y = (seconds: number, path: number) => 450 - guideValue(seconds, keys[path]) * scales[path] * gain;
   const offset = time * speed;
+  // Vocal attack intensity from the project's existing analysis, never random beats.
+  const vocalNow=guideValue(time,'vocalProsody');
+  const vocalBefore=guideValue(Math.max(0,time-.18),'vocalProsody');
+  const cameraAccent=Math.min(1,Math.max(0,(vocalNow-vocalBefore)*2.4));
   const {maskImage, edge: boundary, area} = buildEmulsion(time, speed, revealX);
 
   return (
-    <CameraDirector frame={frame} orangeY={y(time,0)} speed={speed} revealX={revealX} fps={fps}>
+    <CameraDirector frame={frame} orangeY={y(time,0)} speed={speed} revealX={revealX} fps={fps} accent={cameraAccent}>
     <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)' }} data-journey-time={time}>
       <JourneyWorld time={time} speed={speed} maskImage={maskImage} />
       <FilmLifeOverlay time={time} amount={0.75} />
