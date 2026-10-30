@@ -14,7 +14,9 @@ export function portalAperture(frame:number,fps:number,speed:number,revealX:numb
  // Derive the portal center from the moving physical edge rather than an arbitrary 46% screen anchor.
  const cx=clamp(boundary/1920)*100;
  const cy=41.7;
- const expansion=.001+travel*1.58;
+ // Push through the tear: as the camera reaches the threshold, the edge
+ // moves fully outside the screen instead of disappearing at a visibility cutoff.
+ const expansion=.001+travel*3.1;
  const points=Array.from({length:144},(_,i)=>{
   const a=i*2*Math.PI/144;
   const rough=1+.085*Math.sin(a*9+1.4)+.042*Math.sin(a*27-1.7)+.028*Math.sin(a*52+.5);
