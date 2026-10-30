@@ -21,6 +21,21 @@ void main(){
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
+const worldPlate=`uniform sampler2D image;uniform float time;varying vec2 vUv;
+void main(){
+ // Sky / distant massif / midground have distinct drift before the dolly starts.
+ float distant=1.-smoothstep(.50,.77,vUv.y);
+ float middle=smoothstep(.30,.52,vUv.y)*(1.-smoothstep(.70,.85,vUv.y));
+ float near=1.-smoothstep(.25,.44,vUv.y);
+ float speed=.00012+distant*.00013+middle*.00025+near*.00045;
+ vec2 uv=vUv;
+ uv.x=clamp(.5+(uv.x-.5)*.963-time*speed+sin(time*.15+uv.y*5.)*.0015,.003,.997);
+ uv.y=clamp(.5+(uv.y-.5)*.963,.003,.997);
+ vec3 c=texture2D(image,uv).rgb;
+ gl_FragColor=vec4(c,1.);
+ #include <tonemapping_fragment>
+ #include <colorspace_fragment>
+}`;
 const water=`uniform sampler2D image;uniform float time;varying vec2 vUv;varying vec3 world;
 void main(){float waves=sin(world.z*4.2+time*.8+sin(world.x*1.4))*sin(world.x*6.-time*.4);
 vec2 uv=vec2(clamp(.5+world.x/65.,.02,.98),.27+min(.4,abs(world.z+25.)*.008));
@@ -50,6 +65,7 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
  // Loaded once; ThreeCanvas Suspense waits for texture readiness in Remotion.
  useLayoutEffect(()=>{textures.forEach(t=>{t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;});},[textures]);
  const uniforms=useMemo(()=>({image:{value:textures[0]},time:{value:time}}),[textures,time]);
+ const plateUniforms=useMemo(()=>({image:{value:textures[0]},time:{value:time}}),[textures,time]);
  const hero:Vec3=[.8,2.4+(450-orangeY)/1080*.7,-1];
  const mistA=useMemo(()=>({time:{value:time},seed:{value:1.1}}),[]);
  const mistB=useMemo(()=>({time:{value:time},seed:{value:4.7}}),[]);
@@ -57,7 +73,7 @@ function World({frame,time,orangeY}:{frame:number;time:number;orangeY:number}){
  return <>
   <Rig frame={frame} orangeY={orangeY}/>
   <color attach="background" args={['#171715']}/>
-  <mesh position={[0,7,-36]}><planeGeometry args={[88,49.5]}/><meshBasicMaterial map={textures[0]} toneMapped={false}/></mesh>
+  <mesh position={[0,7,-36]}><planeGeometry args={[88,49.5]}/><shaderMaterial uniforms={plateUniforms} vertexShader={vertex} fragmentShader={worldPlate}/></mesh>
   <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.5,-6]}><planeGeometry args={[90,56,1,1]}/><shaderMaterial uniforms={uniforms} vertexShader={vertex} fragmentShader={water} transparent depthWrite={false}/></mesh>
   {/* Real depth separation with natural-alpha banks; camera cannot orbit these cards. */}
   <mesh position={[-12,0,-7]}><planeGeometry args={[30,16.88]}/><meshBasicMaterial map={textures[1]} transparent alphaTest={.025} color="#bc936d" toneMapped={false}/></mesh>
