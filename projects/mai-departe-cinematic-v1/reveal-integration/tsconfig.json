@@ -1,0 +1,4 @@
+{
+ "extends":"../../../tsconfig.json",
+ "include":["../scenes/emulsion-field.ts","../scenes/LivingEmulsion.tsx","./emulsion.test.ts"]
+}

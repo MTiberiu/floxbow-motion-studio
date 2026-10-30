@@ -11,3 +11,7 @@ The generated transparent image layers are `assets/journey-distant-mountains-v1.
 ## Sharing note
 The source WAV is not bundled in this branch. After cloning, relink the soundtrack in FloxBow Media. media.json contains a generic placeholder path.
 
+
+## Living Emulsion Engine (2026-10-30)
+
+The current local cinematic proof now uses an immutable arrival-time field for its reveal. The world mask, luminous contour, tangent filaments and detached particles share this field; film-space noise does not repaint the developed interior. The existing dark cinematic image, atmosphere, travelers and saved Timeline remain intact. This supersedes the older soft-edge description above, not the saved edit. Integration, exact commands, limitations and check results are documented in [reveal-integration/README.md](reveal-integration/README.md). The engine is SVG/CSS-composited onto the existing world, with no additional WebGL renderer. Electron was visually inspected at 10 and 20 seconds, including a return seek and fullscreen at 20 seconds. No export was rendered.
