@@ -98,6 +98,9 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
  const sprocketTime=transportSeconds(state.time);
  const filmParked=filmIsExploring(state.time);
  const reveal=worldRevealDirector(absolute);
+ // Blend film treatment away during the LAST 40% of entry; same 3D world
+ // remains underneath as the reveal takes over the whole screen.
+ const revealFinish=Math.max(0,Math.min(1,(state.entry-.60)/.40));
  const worlds=[natural,harbor,desert,forest,ice,cloud];
  const currentImage=worlds[state.index];
  const nextIndex=Math.min(state.index+1,worlds.length-1);
@@ -135,7 +138,7 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
    </AbsoluteFill>
   </AbsoluteFill>}
   {!state.finale&&state.entry<1&&<AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
-   <RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld crossing={state.warp} rails={0} revealAdvance={state.entry*1600}/>
+   <RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld crossing={state.warp} rails={0} revealFinish={revealFinish} revealAdvance={state.entry*1600}/>
   </AbsoluteFill>}
   {showReturn&&state.returning<1&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none"
    style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
