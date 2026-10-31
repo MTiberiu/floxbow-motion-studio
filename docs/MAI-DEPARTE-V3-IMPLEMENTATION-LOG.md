@@ -162,3 +162,17 @@ Append for each code change:
 - `scenes/rift-push-transition.test.ts` covers boundaries, directions and deterministic random seeks.
 
 **Constraints and honest status:** This is a bidirectional **2D push transition with a Three.js world**, not a geometrically cut 3D film mesh. The current clip contains the future paper-world takeover only as a proposed subsequent phase; it is **not a generated paper texture or shot**. The original camera valley remains one photo plane plus separate procedural/near objects. Code was published to GitHub without local Electron render or test execution; must check for unwanted image displacement and top/bottom film rail continuity. Existing `PortalAperture.ts` is now unused by CameraDirector but retained for compatibility and history.
+
+## 2026-10-31 — Correct two-front travel: original entry / traveler return / paper follows
+
+**Visual brief from four annotated screenshots:** The user explicitly keeps the first zoom into the photographic world. After exploring, the three route travelers return **from the left**, pushing the photographic world and its burnt frontier to the right until the old world leaves the preview. A **second** burnt frontier advances **behind the travelers** and replaces the trail film with paper. The three markers and curves must remain on their original global timebase.
+
+**Implemented:**
+- Replaced the previous incorrect entry push: `CameraDirector.tsx` now uses existing `PortalAperture` for first zoom (240–450 frames), preserving the currently familiar first passage.
+- Frames 690–810: the original `JourneyReveal` children return from the left using the `returnEdge.left` clip while `CameraWorld` moves out through `returnEdge.right`. No regenerated/fake travelers.
+- Frames 780–930: a SECOND rough `paperEdge` advances from left behind the three travelers, covering the film without resetting them. From 810–930 paper fills the film behind the second edge; after frame 930 PAPER is full view.
+- Added reusable `riftEdge` geometry and `transitionAt` scheduling to `RiftPushTransition.ts`.
+- Added `PaperWorldPlaceholder.tsx` with lightweight dimensional cut-paper landscape and printed photo-like frame; intentionally **placeholder**, not approved final graphical style. The old valley photographic plate and camera rig remain.
+- Updated test source with exact boundary/frame assertions and overlap ordering for the two rifts.
+
+**Verification status:** Commits published to GitHub, not compiled or previewed locally in Electron; geometry overlap, animation performance and interaction with actual clip duration must be checked in the application. The code is an integrated first-segment fix, NOT completion of the full 240-second storyboard. It may need phase retiming after user visual review. No changes to audio, subtitle data, project media JSON or edit-timeline JSON.
