@@ -16,6 +16,7 @@ import {RestoredFilmHub,restoredFilmHubModule} from './RestoredFilmHub';
 import {filmState} from './film-state';
 import {RiftBoundary} from './RiftBoundary';
 import {frontierX} from '../emulsion-field';
+import {transportSeconds,filmIsExploring} from './film-transport';
 
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;varying vec2 vUv;
@@ -56,6 +57,8 @@ function BackgroundWorld({frame,worldImage}:{frame:number;worldImage:string}){
 export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:number}){
  const {width,height,fps}=useVideoConfig();const absolute=(clip.from+frame)*30/fps;const state=filmState(absolute);
  const showReturn=state.showReturn;
+ const sprocketTime=transportSeconds(state.time);
+ const filmParked=filmIsExploring(state.time);
  const worlds=[natural,harbor,desert,forest,ice,cloud];
  const currentImage=worlds[state.index];
  const nextImage=worlds[Math.min(state.index+1,worlds.length-1)];
@@ -78,7 +81,7 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
  const oldWorldClip=`polygon(${edgePoints.map(([x,y])=>`${x/19.2}% ${y/10.8}%`).join(',')},100% 100%,100% 0%)`;
  return <AbsoluteFill style={{background:'#110e0c',overflow:'hidden'}} data-portal-study-time={state.time}
   data-paper-progress={state.paper} data-return-progress={state.returning}
-  data-active-director="continuous-film-cycle">
+  data-active-director="continuous-film-cycle" data-film-transport={filmParked?"parked":"running"}>
   {showReturn&&!state.finale&&<AbsoluteFill style={{transform:`translateX(${roadOffset/19.2}%)`,overflow:'visible',background:'#100e11'}}>
    <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
     <RestoredFilmHub clip={clip} frame={absolute*fps/30} worldImage={nextImage} travelersOnly={lastWorld} rails={0} roadExtension={roadExtension}/>
@@ -108,7 +111,7 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
    <defs><linearGradient id="fixedFilmRail" x2="0" y2="1"><stop stopColor="#160e0a"/><stop offset=".5" stopColor="#412416"/><stop offset="1" stopColor="#120e0e"/></linearGradient></defs>
    <path d="M0 0H1920V80H0Z M0 805H1920V875H0Z" fill="url(#fixedFilmRail)"/>
    <path d="M0 80H1920 M0 805H1920" stroke="#bb7b44" strokeWidth="3"/>
-   {Array.from({length:35},(_,i)=>{const x=i*60-(state.time*1920/Number(clip.props.horizon??55)%60);return <g key={i} fill="#ba8751"><rect x={x} y="23" width="30" height="33" rx="5"/><rect x={x} y="827" width="30" height="28" rx="5"/></g>;})}
+   {Array.from({length:35},(_,i)=>{const x=i*60-(sprocketTime*1920/Number(clip.props.horizon??55)%60);return <g key={i} fill="#ba8751"><rect x={x} y="23" width="30" height="33" rx="5"/><rect x={x} y="827" width="30" height="28" rx="5"/></g>;})}
   </svg>
  </AbsoluteFill>;
 }
