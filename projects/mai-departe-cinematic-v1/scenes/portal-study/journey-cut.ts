@@ -11,26 +11,34 @@ export const journeyCut=[
 export const journeyDuration=239.9666666667;
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const ease=(v:number)=>{const x=clamp(v);return x*x*(3-2*x);};
-/** Rider travel is based on absolute song time, never on reveal progress.
- * Choose a speed that can reach screen-right before the next world closes;
- * the same speed remains in effect across HUB -> REVEAL -> EXPLORE.
+/** One passage begins when the PREVIOUS world starts closing and persists
+ * through HUB, next REVEAL and next EXPLORE. No phase-dependent reset.
+ * X is a function ONLY of absolute song time + the saved music cut.
  */
-function approach(next:typeof journeyCut[number], hubStart:number, time:number){
- const hubDuration=Math.max(.001,next.enter-hubStart);
- // Match the actual start of each HUB passage exactly: x=0 at hubStart.
- // Never silently increase speed to fit a later 3D shot.
- const speed=1152/hubDuration;
- return (time-hubStart)*speed;
+export function travelerPassage(time:number){
+ const nextIndex=journeyCut.findIndex(w=>time<w.close);
+ if(nextIndex>=0){
+  const next=journeyCut[nextIndex];
+  const start=nextIndex===0?0:journeyCut[nextIndex-1].close;
+  const speed=1152/(next.enter-start);
+  return {start,speed,nextWorld:next.id};
+ }
+ const final=journeyCut[journeyCut.length-1];
+ return {start:final.close,speed:1920/(journeyDuration-final.close),nextWorld:null};
+}
+export function travelerXAt(time:number){
+ const passage=travelerPassage(time);
+ return (time-passage.start)*passage.speed;
 }
 export function journeyAt(frame:number){
  const t=frame/30;
  const i=journeyCut.findIndex(w=>t>=w.enter&&t<w.end);
  if(i<0){
   const next=journeyCut.find(w=>w.enter>t);
-  const previous=[...journeyCut].reverse().find(w=>w.end<=t);
-  const a=previous?.end??0,b=next?.enter??journeyDuration;
+  const passage=travelerPassage(t);
+  const a=passage.start,b=next?.enter??journeyDuration;
   const progress=clamp((t-a)/Math.max(.01,b-a));
-  const travelerX=next?approach(next,a,t):1920*progress;
+  const travelerX=travelerXAt(t);
   return {time:t,phase:'hub' as const,worldIndex:-1,worldId:null,
    travelerX,progress,mask:0,phaseProgress:progress,worldMount:false};
  }
@@ -41,9 +49,7 @@ export function journeyAt(frame:number){
    clamp((t-w.close)/(w.end-w.close));
  // Return has its own traveler crossing while the old world closes.
  // Linear motion avoids the previous eased sprint and sudden exit velocity.
- const previousEnd=i===0?0:journeyCut[i-1].end;
- const travelerX=phase==='close'?-120+2240*progress:
-  approach(w,previousEnd,t);
+ const travelerX=travelerXAt(t);
  // The organic frontier never catches the travelers: reveal continues after
  // they have left frame, on the recorded musical interval.
  const frontProgress=phase==='reveal'?progress:
