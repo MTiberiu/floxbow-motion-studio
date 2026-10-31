@@ -24,7 +24,7 @@ export function travelerPoseAt(time:number,index:number):TravelerPose{
  // over the same full duration as the reveal. It ends exactly at world.end.
  const closingDuration=world.end-world.close;
  const closingProgress=clamp((time-world.close)/closingDuration);
- const rejoin=smooth((closingProgress-(index*.10)) / (1-index*.10));
+ const rejoin=smooth((closingProgress-((2-index)*.10)) / (1-(2-index)*.10));
  const flight=leave*(1-rejoin);
  const age=Math.max(0,time-departure);
  const flightX=840+index*170+115*Math.sin(age*.39+index*1.3);
