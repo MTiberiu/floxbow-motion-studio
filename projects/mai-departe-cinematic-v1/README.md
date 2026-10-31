@@ -269,3 +269,13 @@ Following preview screenshots showing the basic single-stroke edge overtaking th
 - This is a provisional choreography; actual Electron preview and tests **were not executed** via GitHub. Verify first reveal 27–34s, later reveals 73–80, 139–145 and 187–194s; check old-world closures as well.
 
 Previous four-world baseline: `5aa398409dd285a5158b1c47987042444bb0d748`.
+
+## 2026-10-31 — Fix source of rider/curve desynchronization and artificial sprint
+
+The active four-world `JourneyCutScene.tsx` formerly drew each visible line with `pathY(time+(x-960)/roadSpeed, i)` but the marker at X used `pathY(time,i)`. Those are DIFFERENT positions except at X=960, therefore riders visibly detached from displayed curves. Both now sample **the same `visibleRoadY(time,x,i)` helper**.
+
+In `journey-cut.ts` the reveal rider X is now linear over its reserved music interval, not an accelerated smoothstep saturating at 38% of the reveal. The opening frontier also progresses linearly over the same interval, stays behind visible riders, and continues as riders depart. The outgoing old-world closure has a small 20% lead before the frontier starts (instead of an aggressive late snap).
+
+`edgeX` now uses irregular multiscale harmonics; both the CSS clip polygon and original `RiftBoundary` filaments/particles draw from the SAME edgeX. Full-height 145 samples align the mask and the rift geometry. Old-world photos and two-ThreeCanvas overlap are not restored.
+
+Commit baseline preceding these changes: `c0085100c636ce1ae08a8b9e7c04e1c11ca7edb5`. Verify in Electron, especially the first reveal at 27–34s, old-world closure at 51–55s and late reveals. No runtime preview or tests were executed through remote GitHub; visually verify the exact edge and camera. The future creative design can introduce physically authored edge textures beyond the current procedural multi-strand glow.
