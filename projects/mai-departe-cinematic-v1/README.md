@@ -143,3 +143,14 @@ Always inspect local uncommitted changes and confirm which branch Electron actua
 **Test visually**: 7 s entering first world; 10.7, **11.767**, 12.5 s for world handoff visual mismatch; 15 s for parked rail; 52.3–55 s for film restarting with the three travelers; 62–93 s for second world's frozen sprockets; 209–212 s for finale. Check that the current six-world reveal/frontier geometry is unaltered. No local Electron preview or compile was run through the GitHub-only session, so no runtime passing claim is made.
 
 **Further art work**: If the sudden brightness/rigidity at 11.767 s is still distracting, tune the lighting/texture grade between the emulsion overlay and the actual Three.js background **after looking at a frame-pair from the app**. Avoid substituting a different landscape file or changing transition geometry.
+
+## 2026-10-31 — Shared world reveal / automatic image life / reframe
+
+**Baseline before this batch:** `8e0ecfac981903c3d9382d217bd631efd5808034`. Changes are isolated in following commits.
+
+- `scenes/portal-study/world-reveal-director.ts` **NEW** — derives reusable `entry`, `fullReveal`, `edgeEnergy`, `settle`, `returnProgress`, `exposure`, `shimmer`, `forward`, `driftX/Y` and `centerX/Y` from the *existing* six-world `film-cue-sheet.json` + `filmState()`. No manual scene-specific time offsets or local playback timers.
+- Active `scenes/portal-study/PortalMaterialScene.tsx`: `BackgroundWorld` uses those common controls to animate a source-image shader: near pixels get slightly more optical travel than distant pixels, local sunlight/reflected highlights evolve, and the Three.js camera `lookAt` progressively compensates/recenters the landscape. Movement is deliberately restrained so it doesn't crop the photograph or disrupt the valley PAPER morph. Markup has `data-world-reveal`/`data-reveal-energy` for inspection.
+- `scenes/portal-study/world-reveal-director.test.ts` **NEW** — boundary/finite/deterministic checks for all six worlds and arbitrary seeks.
+- **No changes** to the original film rift geometry, six-world order, music/analysis, subtitle timings, or timeline. **No new image or generated art**. Existing revealed image remains a single textured plane rather than separated alpha-geometry; faux depth motion is a preview-stage enhancement, not true parallax.
+- **Check** 7–12 s for active first reveal and change at 10.8; 25 s for optical life during valley PAPER grading; 53–55 s return; 61–93 s harbor; 103–135 s desert, and one midpoint in every later world. Check that no image drifts outside its frame and that light does not pulse abruptly.
+- **Status:** GitHub commits only; neither local Electron rendering nor TypeScript/test execution is claimed. Verify the result before accepting the animation as finished. The older full-world lighting seam ~11.767 s remains eligible for image-grade matching after screenshot comparison.
