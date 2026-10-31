@@ -18,6 +18,7 @@ import {RiftBoundary} from './RiftBoundary';
 import {frontierX} from '../emulsion-field';
 import {transportSeconds,filmIsExploring} from './film-transport';
 import {worldRevealDirector} from './world-reveal-director';
+import {travelerRevealMotion} from './traveler-reveal-motion';
 
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;uniform vec2 worldDrift;uniform float forward;uniform float exposure;uniform float shimmer;uniform float edgeEnergy;varying vec2 vUv;
@@ -55,7 +56,7 @@ void main(){
  #include <colorspace_fragment>
 }`;
 function BackgroundWorld({frame,worldImage}:{frame:number;worldImage:string}){
- const state=filmState(frame);const reveal=worldRevealDirector(frame);const {camera,invalidate}=useThree();
+ const state=filmState(frame);const reveal=worldRevealDirector(frame);const discovery=travelerRevealMotion(frame);const {camera,invalidate}=useThree();
  const textures=useLoader(THREE.TextureLoader,[worldImage,state.index===0?paper:worldImage]);
  const uniforms=useMemo(()=>({natural:{value:textures[0]},paperImage:{value:textures[1]},progress:{value:0},time:{value:0},warp:{value:0},lens:{value:new THREE.Vector2(.39,.56)},worldDrift:{value:new THREE.Vector2()},forward:{value:0},exposure:{value:0},shimmer:{value:0},edgeEnergy:{value:0}}),[textures]);
  const material=useRef<THREE.ShaderMaterial>(null);
@@ -66,9 +67,9 @@ function BackgroundWorld({frame,worldImage}:{frame:number;worldImage:string}){
   camera.lookAt(state.position[0]+reveal.centerX*8,state.position[1]+reveal.centerY*6,0);
   uniforms.progress.value=state.paper;uniforms.time.value=state.time;
   uniforms.warp.value=state.warp;uniforms.lens.value.set(state.entry<1?.39:.656,state.entry<1?.56:.64);
-  uniforms.worldDrift.value.set(reveal.driftX,reveal.driftY);
-  uniforms.forward.value=reveal.forward;
-  uniforms.exposure.value=reveal.exposure;
+  uniforms.worldDrift.value.set(reveal.driftX+discovery.x*.002,reveal.driftY+discovery.y*.002);
+  uniforms.forward.value=reveal.forward+(discovery.scale-1)*.5;
+  uniforms.exposure.value=reveal.exposure+(discovery.grade-1)*.6;
   uniforms.shimmer.value=reveal.shimmer;
   uniforms.edgeEnergy.value=reveal.edgeEnergy;
   if(material.current)material.current.uniformsNeedUpdate=true;
@@ -114,8 +115,10 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
   </AbsoluteFill>}
   {!state.finale&&state.returning<1&&<AbsoluteFill style={{clipPath:showReturn?oldWorldClip:undefined,overflow:'hidden'}}>
    <AbsoluteFill style={{transform:showReturn?`translateX(${state.returning*7}%)`:undefined}}>
+    {/* Same source plate under the GPU canvas avoids a black flash while the next texture loads. */}
+    <img src={currentImage} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
     <ThreeCanvas width={width} height={height} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}
-     camera={{fov:50,position:state.position,near:.1,far:200}} gl={{alpha:false,antialias:true}}>
+     camera={{fov:50,position:state.position,near:.1,far:200}} gl={{alpha:true,antialias:true}}>
      <BackgroundWorld key={state.index} frame={absolute} worldImage={currentImage}/>
     </ThreeCanvas>
    </AbsoluteFill>
