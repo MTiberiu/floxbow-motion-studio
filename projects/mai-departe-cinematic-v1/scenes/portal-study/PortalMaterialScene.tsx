@@ -19,6 +19,8 @@ import {frontierX} from '../emulsion-field';
 import {transportSeconds,filmIsExploring} from './film-transport';
 import {worldRevealDirector} from './world-reveal-director';
 import {worldCameraAt} from './world-camera-director';
+import filmCueSheet from './film-cue-sheet.json';
+const filmCueWorlds=filmCueSheet.worlds;
 
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;uniform vec2 worldDrift;uniform float forward;uniform float exposure;uniform float shimmer;uniform float edgeEnergy;varying vec2 vUv;
@@ -104,7 +106,6 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
  const worlds=[natural,harbor,desert,forest,ice,cloud];
  const currentImage=worlds[state.index];
  const nextIndex=Math.min(state.index+1,worlds.length-1);
- const nextImage=worlds[nextIndex];
  const lastWorld=state.index===worlds.length-1;
  // The complete destination road arrives from the left. Its travelers and
  // trailing reveal share one transform, so the image cannot overtake them.
@@ -126,30 +127,46 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
   data-paper-progress={state.paper} data-return-progress={state.returning}
   data-active-director="continuous-film-cycle" data-film-transport={filmParked?"parked":"running"}
   data-world-reveal={reveal.fullReveal?"full":"transition"} data-reveal-energy={reveal.edgeEnergy.toFixed(3)}>
-  {showReturn&&!state.finale&&<AbsoluteFill style={{transform:`translateX(${roadOffset/19.2}%)`,overflow:'visible',background:'#100e11'}}>
-   <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
-    <RestoredFilmHub clip={clip} frame={absolute*fps/30} travelersOnly={lastWorld} rails={0} roadExtension={roadExtension}
-     worldLayer={!lastWorld?<WorldCanvas frame={absolute} index={nextIndex} image={nextImage} width={width} height={height}/>:undefined}/>
-   </AbsoluteFill>
+  {/* Each world owns a stationary, fullscreen stage. The NEXT world is
+      pre-mounted behind the outgoing world before travelers push the film.
+      Across the world-index boundary the same keyed canvas remains mounted.
+      No world is nested in the translated film, and none slides from left. */}
+  {!state.finale&&worlds.map((image,index)=>{
+    const first=index===0?0:filmCueWorlds[index-1].exit[0];
+    const last=filmCueWorlds[index].exit[1];
+    const visible=state.time>=first&&state.time<last;
+    if(!visible)return null;
+    const outgoing=index===state.index&&showReturn;
+    return <AbsoluteFill key={index} data-world-layer={index} style={{
+      zIndex:index===state.index?2:1,
+      clipPath:outgoing?oldWorldClip:undefined,
+      pointerEvents:'none',
+    }}>
+      <WorldCanvas frame={absolute} index={index} image={image} width={width} height={height}/>
+    </AbsoluteFill>;
+  })}
+  {/* The FILM alone crosses the viewport. Its opening is transparent and
+      exposes the stationary destination ThreeCanvas directly underneath. */}
+  {showReturn&&!state.finale&&<AbsoluteFill style={{zIndex:3,transform:`translateX(${roadOffset/19.2}%)`,pointerEvents:'none'}}>
+    <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
+      <RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld
+        crossing={state.warp} travelersOnly={lastWorld} rails={0}
+        roadExtension={roadExtension}/>
+    </AbsoluteFill>
   </AbsoluteFill>}
-  {!state.finale&&state.returning<1&&<AbsoluteFill style={{clipPath:showReturn?oldWorldClip:undefined,overflow:'hidden'}}>
-   <AbsoluteFill style={{transform:showReturn?`translateX(${state.returning*7}%)`:undefined}}>
-    <WorldCanvas frame={absolute} index={state.index} image={currentImage} width={width} height={height}/>
-   </AbsoluteFill>
-  </AbsoluteFill>}
-  {!state.finale&&state.entry<1&&<AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
+  {!state.finale&&state.entry<1&&<AbsoluteFill style={{zIndex:4,transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
    <RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld crossing={state.warp} rails={0} revealFinish={revealFinish} revealAdvance={state.entry*1600}/>
   </AbsoluteFill>}
   {showReturn&&state.returning<1&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none"
-   style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:5}}>
    <g transform="scale(1 1.2342857143)"><RiftBoundary time={state.time} speed={speed} revealX={0} edge={edgePath} sampleAt={exitAt} intensity={state.warp}/></g>
   </svg>}
-  {state.finale&&<AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
+  {state.finale&&<AbsoluteFill style={{zIndex:4,transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
    <RestoredFilmHub clip={clip} frame={absolute*fps/30} travelersOnly rails={0}/>
   </AbsoluteFill>}
   {/* Screen-space rails remain above every world and every reveal. */}
   <svg data-fixed-film-frame viewBox="0 0 1920 875" preserveAspectRatio="none"
-   style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none',zIndex:6}}>
    <defs><linearGradient id="fixedFilmRail" x2="0" y2="1"><stop stopColor="#160e0a"/><stop offset=".5" stopColor="#412416"/><stop offset="1" stopColor="#120e0e"/></linearGradient></defs>
    <path d="M0 0H1920V80H0Z M0 805H1920V875H0Z" fill="url(#fixedFilmRail)"/>
    <path d="M0 80H1920 M0 805H1920" stroke="#bb7b44" strokeWidth="3"/>
