@@ -68,7 +68,9 @@ const colors=['#db884e','#aa64d5','#399cbd'];
 const roadSpeed=1920/55;
 /** The exact same song-time sampling drives rendered curves and their riders. */
 function visibleRoadY(time:number,x:number,index:number){
- return pathY(Math.max(0,time+(x-960)/roadSpeed),index);
+ // Sample forward from the left edge: the old x-960 offset clamped
+ // the first half of the visible road to time zero and drew a false flat path.
+ return pathY(time+x/roadSpeed,index);
 }
 function FixedHub({time}:{time:number}){
  return <AbsoluteFill style={{background:'radial-gradient(ellipse at 66% 43%,#312017 0%,#121016 60%,#080b12 100%)'}}>
