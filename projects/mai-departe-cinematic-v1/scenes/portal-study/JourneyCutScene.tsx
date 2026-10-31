@@ -18,7 +18,7 @@ const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const ease=(v:number)=>{const x=clamp(v);return x*x*(3-2*x);};
 const guideKeys=['phraseEmotional','vocalProsody','wordGravity'] as const;
 function pathY(t:number,index:number){
- const p=clamp(t/guides.sampleStepSeconds)*(guides.samples.length-1);
+ const p=Math.max(0,Math.min(guides.samples.length-1,t/guides.sampleStepSeconds));
  const a=Math.floor(p),b=Math.min(a+1,guides.samples.length-1);
  const value=guides.samples[a][guideKeys[index]]*(1-(p-a))+guides.samples[b][guideKeys[index]]*(p-a);
  return 440-value*[32,50,46][index]*.92+[0,13,-13][index];
@@ -70,12 +70,6 @@ function FixedHub({time,x}:{time:number;x:number}){
     const pts=Array.from({length:276},(_,n)=>{const px=n*7;return `${px},${pathY(Math.max(0,time+(px-960)/speed),i)}`;});
     return <g key={i}>
      <path d={`M${pts.join(' L')}`} fill="none" stroke={colors[i]} strokeWidth="3" opacity=".85"/>
-     {x>=0&&x<=1920&&<g>
-      <circle cx={x} cy={pathY(time,i)} r="28" fill={colors[i]} opacity=".09"/>
-      <circle cx={x} cy={pathY(time,i)} r="12" fill={colors[i]} opacity=".5"/>
-      <circle cx={x} cy={pathY(time,i)} r="6" fill={colors[i]}/>
-      <circle cx={x} cy={pathY(time,i)} r="3" fill="white"/>
-     </g>}
     </g>;
    })}
   </svg>
@@ -99,6 +93,15 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
   {world&&<AbsoluteFill key={world.id} data-active-world={world.id} style={{clipPath:mask}}>
    <WorldStage frame={globalFrame} index={world.worldIndex} start={world.enter} full={world.full} end={world.end} width={width} height={height}/>
   </AbsoluteFill>}
+  {/* Markers are ABOVE the 3D reveal, following the fixed HUD road. */}
+  {state.phase!=='explore'&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   {colors.map((color,i)=><g key={i}>
+    <circle cx={state.travelerX} cy={pathY(time,i)} r="28" fill={color} opacity=".1"/>
+    <circle cx={state.travelerX} cy={pathY(time,i)} r="12" fill={color} opacity=".5"/>
+    <circle cx={state.travelerX} cy={pathY(time,i)} r="6" fill={color}/>
+    <circle cx={state.travelerX} cy={pathY(time,i)} r="3" fill="white"/>
+   </g>)}
+  </svg>}
   {edgeVisible&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    <polyline points={Array.from({length:75},(_,i)=>{const y=i*1080/74;return `${edgeX(y,front,time)},${y}`;}).join(' ')} fill="none" stroke="#cf9861" strokeWidth="5" opacity=".75"/>
   </svg>}
