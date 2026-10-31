@@ -18,6 +18,7 @@ import {RiftBoundary} from './RiftBoundary';
 import {frontierX} from '../emulsion-field';
 import {transportSeconds,filmIsExploring} from './film-transport';
 import {worldRevealDirector} from './world-reveal-director';
+import {worldCameraAt} from './world-camera-director';
 
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;uniform vec2 worldDrift;uniform float forward;uniform float exposure;uniform float shimmer;uniform float edgeEnergy;varying vec2 vUv;
@@ -54,18 +55,18 @@ void main(){
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
-function BackgroundWorld({frame,worldImage}:{frame:number;worldImage:string}){
- const state=filmState(frame);const reveal=worldRevealDirector(frame);const {camera,invalidate}=useThree();
- const textures=useLoader(THREE.TextureLoader,[worldImage,state.index===0?paper:worldImage]);
+function BackgroundWorld({frame,worldImage,worldIndex}:{frame:number;worldImage:string;worldIndex:number}){
+ const state=filmState(frame);const reveal=worldRevealDirector(frame);const cameraPlan=worldCameraAt(frame,worldIndex);const {camera,invalidate}=useThree();
+ const textures=useLoader(THREE.TextureLoader,[worldImage,worldIndex===0?paper:worldImage]);
  const uniforms=useMemo(()=>({natural:{value:textures[0]},paperImage:{value:textures[1]},progress:{value:0},time:{value:0},warp:{value:0},lens:{value:new THREE.Vector2(.39,.56)},worldDrift:{value:new THREE.Vector2()},forward:{value:0},exposure:{value:0},shimmer:{value:0},edgeEnergy:{value:0}}),[textures]);
  const material=useRef<THREE.ShaderMaterial>(null);
  useLayoutEffect(()=>{textures.forEach(t=>{t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;});},[textures]);
  useLayoutEffect(()=>{
   // Shared soft auto-framing: gradual look-at compensation, not a sudden zoom.
-  camera.position.set(...state.position);
-  camera.lookAt(state.position[0]+reveal.centerX*8,state.position[1]+reveal.centerY*6,0);
-  uniforms.progress.value=state.paper;uniforms.time.value=state.time;
-  uniforms.warp.value=state.warp;uniforms.lens.value.set(state.entry<1?.39:.656,state.entry<1?.56:.64);
+  camera.position.set(...cameraPlan.position);
+  camera.lookAt(...cameraPlan.target);
+  uniforms.progress.value=worldIndex===0?state.paper:0;uniforms.time.value=state.time;
+  uniforms.warp.value=worldIndex===state.index?state.warp:0;uniforms.lens.value.set(.5,.55);
   uniforms.worldDrift.value.set(reveal.driftX,reveal.driftY);
   uniforms.forward.value=reveal.forward;
   uniforms.exposure.value=reveal.exposure;
@@ -73,8 +74,22 @@ function BackgroundWorld({frame,worldImage}:{frame:number;worldImage:string}){
   uniforms.edgeEnergy.value=reveal.edgeEnergy;
   if(material.current)material.current.uniformsNeedUpdate=true;
   camera.updateProjectionMatrix();invalidate();
- },[camera,invalidate,frame,uniforms,state.paper,state.time,reveal.centerX,reveal.centerY,reveal.driftX,reveal.driftY,reveal.forward,reveal.exposure,reveal.shimmer,reveal.edgeEnergy,...state.position]);
+ },[camera,invalidate,frame,uniforms,state.paper,state.time,reveal.centerX,reveal.centerY,reveal.driftX,reveal.driftY,reveal.forward,reveal.exposure,reveal.shimmer,reveal.edgeEnergy,...cameraPlan.position,...cameraPlan.target]);
  return <mesh position={[0,0,0]}><planeGeometry args={[68,38.25]}/><shaderMaterial ref={material} uniforms={uniforms} vertexShader={vertex} fragmentShader={fragment} toneMapped={false}/></mesh>;
+}
+/** Same renderer for a revealed world and for its full-screen exploration.
+ * Both cases use identical geometry, shader, lighting and camera at the same
+ * absolute frame. During a return the next world is mounted alongside the
+ * outgoing world only while both are visible.
+ */
+function WorldCanvas({frame,index,image,width,height}:{frame:number;index:number;image:string;width:number;height:number}){
+ const plan=worldCameraAt(frame,index);
+ return <ThreeCanvas width={width} height={height}
+  style={{position:'absolute',inset:0,width:'100%',height:'100%'}}
+  camera={{fov:50,position:plan.position,near:.1,far:200}}
+  gl={{alpha:true,antialias:true}}>
+  <BackgroundWorld key={index} frame={frame} worldImage={image} worldIndex={index}/>
+ </ThreeCanvas>;
 }
 /** Complete music-driven world cycle; plates remain ready for user-authored depth layers. */
 export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:number}){
@@ -85,7 +100,8 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
  const reveal=worldRevealDirector(absolute);
  const worlds=[natural,harbor,desert,forest,ice,cloud];
  const currentImage=worlds[state.index];
- const nextImage=worlds[Math.min(state.index+1,worlds.length-1)];
+ const nextIndex=Math.min(state.index+1,worlds.length-1);
+ const nextImage=worlds[nextIndex];
  const lastWorld=state.index===worlds.length-1;
  // The complete destination road arrives from the left. Its travelers and
  // trailing reveal share one transform, so the image cannot overtake them.
@@ -109,17 +125,13 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
   data-world-reveal={reveal.fullReveal?"full":"transition"} data-reveal-energy={reveal.edgeEnergy.toFixed(3)}>
   {showReturn&&!state.finale&&<AbsoluteFill style={{transform:`translateX(${roadOffset/19.2}%)`,overflow:'visible',background:'#100e11'}}>
    <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
-    <RestoredFilmHub clip={clip} frame={absolute*fps/30} worldImage={nextImage} travelersOnly={lastWorld} rails={0} roadExtension={roadExtension}/>
+    <RestoredFilmHub clip={clip} frame={absolute*fps/30} travelersOnly={lastWorld} rails={0} roadExtension={roadExtension}
+     worldLayer={!lastWorld?<WorldCanvas frame={absolute} index={nextIndex} image={nextImage} width={width} height={height}/>:undefined}/>
    </AbsoluteFill>
   </AbsoluteFill>}
   {!state.finale&&state.returning<1&&<AbsoluteFill style={{clipPath:showReturn?oldWorldClip:undefined,overflow:'hidden'}}>
    <AbsoluteFill style={{transform:showReturn?`translateX(${state.returning*7}%)`:undefined}}>
-    {/* Same source plate under the GPU canvas avoids a black flash while the next texture loads. */}
-    <img src={currentImage} aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
-    <ThreeCanvas width={width} height={height} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}
-     camera={{fov:50,position:state.position,near:.1,far:200}} gl={{alpha:true,antialias:true}}>
-     <BackgroundWorld key={state.index} frame={absolute} worldImage={currentImage}/>
-    </ThreeCanvas>
+    <WorldCanvas frame={absolute} index={state.index} image={currentImage} width={width} height={height}/>
    </AbsoluteFill>
   </AbsoluteFill>}
   {!state.finale&&state.entry<1&&<AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
