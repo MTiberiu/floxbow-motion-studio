@@ -287,3 +287,12 @@ The previous fix updated only the 28px glow circle to `visibleRoadY(time,travele
 Previously `journeyAt` computed HUB traveler X from `progress*1152` and reveal X from `1152+1400*revealProgress`. Those had dramatically different px/s velocities and thus produced a boost at reveal begin. Now `approach(next,hubStart,time)` computes X from ABSOLUTE SONG TIME and a per-journey constant px/s speed, used identically for HUB, REVEAL and EXPLORE; 3D camera/reveal variables cannot influence X. Travelers persist into exploration until they leave viewport naturally, instead of popping at the reveal/full threshold. Old-world CLOSE remains a separate entrance choreography requiring future edit against song timing.
 
 Added a regression in `journey-cut.test.ts` for position and velocity continuity at each HUB->REVEAL boundary and position continuity around REVEAL->EXPLORE. NOTE: no local Electron render or test execution available from GitHub edits, and some aesthetic/timing problems may remain. New baseline for this fix: `f855f75bd6377e0dfc05727fae8bc7234cbfbe69`.
+
+## 2026-10-31 — Initial traveler origin and road time origin corrected
+
+Preview showed riders at X≈30 near the start and the first ~half of each visible path as an implausibly flat line. Root causes:
+- `approach()` previously used `Math.max(1152/hubDuration,768/available)`, allowing a faster reveal-imposed velocity that made rider X start *before* zero and changed the intended origin. Now each HUB starts strictly X=0 at its first music frame, continues at a single constant `1152/hubDuration` px/s through reveal and exploration. The camera and portal cannot modify rider speed.
+- `visibleRoadY()` sampled `time+(x-960)/roadSpeed` and clamped negatives to zero. At the beginning this drew the first half-screen as a constant Y line regardless of musical variation. It now samples `time+x/roadSpeed` from the left edge. The same function remains the single source for ALL concentric rider circles and all visible line points.
+- Added start-of-HUB and 60%-entry checks to `journey-cut.test.ts` (not executed in Electron).
+
+This changes the displayed path time window; verify musical subjective feel and the first 0–10 seconds before further art direction. GitHub source edits were not compiled or rendered on the user's Electron machine. Rollback baseline `9b0922315ea816dacb15aae7972ebb93e875bb6f`.
