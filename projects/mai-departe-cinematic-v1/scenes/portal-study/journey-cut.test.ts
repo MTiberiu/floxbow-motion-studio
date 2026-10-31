@@ -38,22 +38,18 @@ test('worlds reveal, explore, then close to return to HUB; masks have no sudden 
  }
 });
 
-test('traveler markers stay ahead of revealed edge while on screen, and exit before full reveal',()=>{
- const smooth=(v:number)=>{const x=Math.max(0,Math.min(1,v));return x*x*(3-2*x);};
- for(const world of journeyCut){
-  for(let n=0;n<=100;n++){
-   const progress=n/100;
-   const t=world.enter+(world.full-world.enter)*progress;
-   const state=journeyAt(Math.floor(t*30));
-   if(state.phase!=='reveal')continue;
-   const front=-100+2240*state.mask;
-   // 42px margin accounts for the organic ripples across its full height.
-   if(state.travelerX<=1920)assert.ok(front+42<state.travelerX,
-    world.id+' at '+progress+' front='+front+' rider='+state.travelerX);
-  }
-  const halfway=journeyAt(Math.round((world.enter+(world.full-world.enter)*.6)*30));
-  assert.ok(halfway.travelerX>1920,'riders must depart before final reveal');
-  const closeStart=journeyAt(Math.ceil(world.close*30));
-  assert.ok(closeStart.mask>.99,'old world stays open as riders first arrive');
+test('traveler X stays continuous and maintains the same speed across HUB to REVEAL',()=>{
+ for(let i=0;i<journeyCut.length;i++){
+  const w=journeyCut[i];
+  const at=Math.ceil(w.enter*30);
+  const x0=journeyAt(at-2).travelerX;
+  const x1=journeyAt(at-1).travelerX;
+  const x2=journeyAt(at).travelerX;
+  const x3=journeyAt(at+1).travelerX;
+  assert.ok(Math.abs(x2-x1)<7,w.id+' has no start teleport');
+  assert.ok(Math.abs((x3-x2)-(x1-x0))<1,w.id+' has no reveal speed boost');
+  const justBeforeFull=journeyAt(Math.floor(w.full*30)-1).travelerX;
+  const afterFull=journeyAt(Math.ceil(w.full*30)+1).travelerX;
+  assert.ok(Math.abs(afterFull-justBeforeFull)<12,w.id+' has no explore teleport');
  }
 });
