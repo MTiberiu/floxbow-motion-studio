@@ -14,6 +14,8 @@ import cloud from '../../assets/camera-cloud-v1.png';
 import {journeyAt,journeyCut} from './journey-cut';
 
 const plates:Record<number,string>={0:valley,1:harbor,3:forest,5:cloud};
+// Fetch source images early without mounting any world or WebGL context in HUB solo.
+useLoader.preload(THREE.TextureLoader,[valley,harbor,forest,cloud]);
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const ease=(v:number)=>{const x=clamp(v);return x*x*(3-2*x);};
 const guideKeys=['phraseEmotional','vocalProsody','wordGravity'] as const;
