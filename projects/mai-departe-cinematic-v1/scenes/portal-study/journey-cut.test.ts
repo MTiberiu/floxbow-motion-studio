@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {journeyAt,journeyCut} from './journey-cut';
+import {journeyAt,journeyCut,travelerPassage,travelerXAt} from './journey-cut';
 
 test('four non-overlapping worlds, others are HUB-only and at most one 3D scene at a time',()=>{
  assert.equal(journeyCut.length,4);
@@ -54,14 +54,20 @@ test('traveler X stays continuous and maintains the same speed across HUB to REV
  }
 });
 
-test('each HUB journey begins exactly at left edge and reaches 60 percent before reveal',()=>{
+test('travelers keep the same journey clock across CLOSURE -> HUB -> REVEAL',()=>{
  for(let i=0;i<journeyCut.length;i++){
   const world=journeyCut[i];
-  const hubStart=i===0?0:journeyCut[i-1].end;
-  const start=journeyAt(Math.ceil(hubStart*30));
-  assert.equal(start.phase,'hub');
-  assert.ok(start.travelerX>=0 && start.travelerX<4,'HUB must start at the actual left edge for '+world.id);
-  const before=journeyAt(Math.floor(world.enter*30)-1);
-  assert.ok(before.travelerX>1140 && before.travelerX<1152,'HUB should approach 60% at reveal '+world.id);
+  const start=i===0?0:journeyCut[i-1].close;
+  const at=travelerPassage(world.enter-.05);
+  assert.ok(Math.abs(at.start-start)<.001);
+  assert.ok(Math.abs(travelerXAt(start))<.001);
+  assert.ok(Math.abs(travelerXAt(world.enter)-1152)<.001);
+  if(i>0){
+   const cut=journeyCut[i-1].end;
+   const left=journeyAt(Math.floor(cut*30)-1);
+   const right=journeyAt(Math.ceil(cut*30));
+   assert.ok(Math.abs(left.travelerX-right.travelerX)<8,world.id+' closure/HUB X jump');
+   assert.equal(travelerPassage(cut-.01).start,travelerPassage(cut+.01).start);
+  }
  }
 });
