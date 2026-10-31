@@ -65,12 +65,31 @@ function edgePolygon(front:number,time:number,keep:'left'|'right'){
  return `polygon(${pts.join(',')},100% 100%,100% 0%)`;
 }
 const colors=['#db884e','#aa64d5','#399cbd'];
-const roadSpeed=1920/55;
-/** The exact same song-time sampling drives rendered curves and their riders. */
+/** Each fixed road position maps to a single absolute song instant.
+ * Rider X is the inverse of this mapping; therefore its Y equals
+ * pathY(current song time), without any screen/camera/reveal offsets.
+ */
+function roadTimeAt(time:number,x:number){
+ const active=journeyAt(time*30);
+ const activeIndex=journeyCut.findIndex(w=>w.worldIndex===active.worldIndex);
+ if(active.phase==='close' && activeIndex>=0){
+  const w=journeyCut[activeIndex];
+  const speed=2240/(w.end-w.close);
+  return w.close+(x+120)/speed;
+ }
+ const next=journeyCut.find(w=>w.enter>time)
+  ??(activeIndex>=0 && active.phase!=='close'?journeyCut[activeIndex]:undefined);
+ if(next){
+  const index=journeyCut.findIndex(w=>w.id===next.id);
+  const start=index===0?0:journeyCut[index-1].end;
+  const speed=1152/(next.enter-start);
+  return start+x/speed;
+ }
+ const end=journeyCut[journeyCut.length-1].end;
+ return end+x/(1920/(239.9666666667-end));
+}
 function visibleRoadY(time:number,x:number,index:number){
- // Sample forward from the left edge: the old x-960 offset clamped
- // the first half of the visible road to time zero and drew a false flat path.
- return pathY(time+x/roadSpeed,index);
+ return pathY(roadTimeAt(time,x),index);
 }
 function FixedHub({time}:{time:number}){
  return <AbsoluteFill style={{background:'radial-gradient(ellipse at 66% 43%,#312017 0%,#121016 60%,#080b12 100%)'}}>
