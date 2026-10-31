@@ -53,3 +53,15 @@ test('traveler X stays continuous and maintains the same speed across HUB to REV
   assert.ok(Math.abs(afterFull-justBeforeFull)<12,w.id+' has no explore teleport');
  }
 });
+
+test('each HUB journey begins exactly at left edge and reaches 60 percent before reveal',()=>{
+ for(let i=0;i<journeyCut.length;i++){
+  const world=journeyCut[i];
+  const hubStart=i===0?0:journeyCut[i-1].end;
+  const start=journeyAt(Math.ceil(hubStart*30));
+  assert.equal(start.phase,'hub');
+  assert.ok(start.travelerX>=0 && start.travelerX<4,'HUB must start at the actual left edge for '+world.id);
+  const before=journeyAt(Math.floor(world.enter*30)-1);
+  assert.ok(before.travelerX>1140 && before.travelerX<1152,'HUB should approach 60% at reveal '+world.id);
+ }
+});
