@@ -3,22 +3,17 @@ import {strict as assert} from 'node:assert';
 import cues from './film-cue-sheet.json';
 import {travelerRevealMotion} from './traveler-reveal-motion';
 
-test('all worlds start with a visible photo reveal motion and settle without jump',()=>{
+test('photo traverse happens with constant scale in each of six worlds',()=>{
  for(const world of cues.worlds){
-  const first=travelerRevealMotion(Math.round(world.entry[0]*30));
-  const middle=travelerRevealMotion(Math.round((world.entry[0]+world.entry[1])/2*30));
-  const settled=travelerRevealMotion(Math.round((world.entry[1]+.1)*30));
-  assert.ok(first.scale>middle.scale,world.id);
-  assert.ok(middle.scale>=settled.scale,world.id);
-  assert.ok(Math.abs(settled.scale-1)<1e-6,world.id);
-  assert.ok(Math.abs(settled.x)<1e-6,world.id);
-  assert.deepEqual(first,travelerRevealMotion(Math.round(world.entry[0]*30)));
- }
-});
-test('destination image is alive during each return without resetting song time',()=>{
- for(const world of cues.worlds){
-  const half=travelerRevealMotion(Math.round((world.exit[0]+world.exit[1])/2*30),'return');
-  assert.ok(half.scale>1);
-  assert.ok(half.scale<1.09);
+  for(const mode of ['entry','return'] as const){
+   const [start,end]=mode==='return'?world.exit:world.entry;
+   const first=travelerRevealMotion(Math.round(start*30),mode);
+   const middle=travelerRevealMotion(Math.round((start+end)/2*30),mode);
+   const last=travelerRevealMotion(Math.round(end*30)-1,mode);
+   assert.equal(first.scale,middle.scale,world.id);
+   assert.equal(middle.scale,last.scale,world.id);
+   assert.ok(first.x<middle.x&&middle.x<=last.x,world.id);
+   assert.deepEqual(first,travelerRevealMotion(Math.round(start*30),mode));
+  }
  }
 });
