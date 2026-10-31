@@ -1,3 +1,4 @@
+import type {ReactNode} from 'react';
 import { DarkFilmAtmosphere } from './DarkFilmAtmosphere';
 import valley from '../../assets/camera-valley-v1.png';
 import paperValley from '../../assets/camera-valley-paper-v1.png';
@@ -27,7 +28,7 @@ function guideValue(time: number, key: (typeof keys)[number]) {
   return first[key] + (second[key] - first[key]) * (position - index);
 }
 
-export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1, revealAdvance = 0, landscapePaper = false, worldImage, roadExtension = 0, travelersOnly = false }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number; revealAdvance?:number; landscapePaper?:boolean; worldImage?:string; roadExtension?:number; travelersOnly?:boolean }) {
+export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1, revealAdvance = 0, landscapePaper = false, worldImage, roadExtension = 0, travelersOnly = false, worldLayer }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number; revealAdvance?:number; landscapePaper?:boolean; worldImage?:string; roadExtension?:number; travelersOnly?:boolean; worldLayer?:ReactNode }) {
   const { fps } = useVideoConfig();
   const time = frame / fps;
   const discovered=travelerRevealMotion(frame*30/fps,'return');
@@ -52,14 +53,9 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = fa
     <>
     <AbsoluteFill data-journey-time={time}>
       <AbsoluteFill style={{width:`${roadWidth/19.2}%`,background:paper?'#dfcdb0':'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)',maskImage:openWorld?outside:undefined,WebkitMaskImage:openWorld?outside:undefined,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}/>
-      {!openWorld&&!travelersOnly&&<AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}><img src={worldImage ?? (paper||landscapePaper?paperValley:valley)} style={{
-        width:'100%',height:'100%',objectFit:'cover',
-        // Optical drift belongs to the photographed material underneath the fixed
-        // emulsion frontier. Keep the image larger than the mask to avoid seams.
-        transform:`scale(${discovered.scale}) translate3d(${discovered.x}%,${discovered.y}%,0)`,
-        filter:`brightness(${discovered.grade}) saturate(${1+discovered.haze*.35})`,
-        transformOrigin:'center center',
-      }}/></AbsoluteFill>}
+      {!openWorld&&!travelersOnly&&<AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}>
+        {worldLayer ?? <img src={worldImage ?? (paper||landscapePaper?paperValley:valley)} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}
+      </AbsoluteFill>}
       <FilmLifeOverlay time={time} amount={0.75} />
       <DarkFilmAtmosphere time={time} intensity={1} />
       {/* The untraveled film is not a flat stationary backdrop: grain stays
