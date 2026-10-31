@@ -17,9 +17,10 @@ const ease=(v:number)=>{const x=clamp(v);return x*x*(3-2*x);};
  */
 function approach(next:typeof journeyCut[number], hubStart:number, time:number){
  const hubDuration=Math.max(.001,next.enter-hubStart);
- const available=Math.max(.001,next.close-next.enter);
- const speed=Math.max(1152/hubDuration,768/available);
- return 1152+(time-next.enter)*speed;
+ // Match the actual start of each HUB passage exactly: x=0 at hubStart.
+ // Never silently increase speed to fit a later 3D shot.
+ const speed=1152/hubDuration;
+ return (time-hubStart)*speed;
 }
 export function journeyAt(frame:number){
  const t=frame/30;
