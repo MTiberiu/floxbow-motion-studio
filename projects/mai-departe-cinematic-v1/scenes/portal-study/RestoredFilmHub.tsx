@@ -9,6 +9,7 @@ import { AbsoluteFill, useVideoConfig } from 'remotion';
 import type { EditableComponent } from '@motion/sdk/editor';
 import type { TimelineClip } from '@motion/sdk/timeline';
 import guides from '../../motion-guides.json';
+import {travelerRevealMotion} from './traveler-reveal-motion';
 
 const colors = ['#db884e', '#aa64d5', '#399cbd'];
 const keys = ['phraseEmotional', 'vocalProsody', 'wordGravity'] as const;
@@ -29,6 +30,7 @@ function guideValue(time: number, key: (typeof keys)[number]) {
 export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1, revealAdvance = 0, landscapePaper = false, worldImage, roadExtension = 0, travelersOnly = false }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number; revealAdvance?:number; landscapePaper?:boolean; worldImage?:string; roadExtension?:number; travelersOnly?:boolean }) {
   const { fps } = useVideoConfig();
   const time = frame / fps;
+  const discovered=travelerRevealMotion(frame*30/fps,'return');
   const horizon = Number(clip.props.horizon ?? 55);
   const speed = 1920 / horizon;
   const roadWidth = 1920 + roadExtension;
@@ -54,7 +56,8 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = fa
         width:'100%',height:'100%',objectFit:'cover',
         // Optical drift belongs to the photographed material underneath the fixed
         // emulsion frontier. Keep the image larger than the mask to avoid seams.
-        transform:`scale(1.045) translate3d(${Math.sin(time*.37)*.65}%,${Math.cos(time*.29)*.55}%,0)`,
+        transform:`scale(${discovered.scale}) translate3d(${discovered.x}%,${discovered.y}%,0)`,
+        filter:`brightness(${discovered.grade}) saturate(${1+discovered.haze*.35})`,
         transformOrigin:'center center',
       }}/></AbsoluteFill>}
       <FilmLifeOverlay time={time} amount={0.75} />
