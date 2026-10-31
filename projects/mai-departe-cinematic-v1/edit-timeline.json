@@ -3006,27 +3006,12 @@
       "props": {}
     },
     {
-      "id": "director-continuous-journey",
-      "trackId": "director-actors",
-      "componentId": "director-journey-reveal-legacy",
-      "from": 900,
-      "durationInFrames": 6299,
-      "label": "Three paths · preserved vector continuation",
-      "content": {},
-      "props": {
-        "horizon": 55,
-        "gain": 0.92,
-        "particles": 70,
-        "offsetSeconds": 30
-      }
-    },
-    {
-      "id": "director-reveal-proof-30s",
+      "id": "director-journey-full-film",
       "trackId": "director-actors",
       "componentId": "director-journey-reveal",
       "from": 0,
-      "durationInFrames": 900,
-      "label": "Three paths · 2.5D landscape reveal proof",
+      "durationInFrames": 7199,
+      "label": "Mai departe — 2D traveler scenes and four music-directed 3D worlds",
       "content": {},
       "props": {
         "horizon": 55,
@@ -3037,4 +3022,3 @@
     }
   ]
 }
-
