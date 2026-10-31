@@ -168,3 +168,21 @@ Always inspect local uncommitted changes and confirm which branch Electron actua
 - New `traveler-reveal-motion.test.ts` checks the shared behavior for all six worlds.
 
 **Important:** This is still **movement of complete images**, not newly split mountains/water/vegetation and not camera direction for each world. The user's next task is to design each individual 3D scene separately. There is no evidence here that the reported frame-black flash is fixed in Electron: visually test 97.80–98.20s and each world boundary, ideally frame-by-frame, before marking it resolved. The full world art / lighting remains pending.
+
+## 2026-10-31 — Live world reveal architecture + shared audio-directed camera (experimental)
+
+**Rollback baseline:** `7b0af777db15d19c5d2de3a84e9d76b0f5baaee1`. This batch changes the active runtime path only and is deliberately separate from the six-world cue timings, soundtrack, subtitles, stored timeline, and original photographic plates.
+
+**Architectural correction:** the three travelers' film must reveal the **actual Three.js world**, not a duplicate HTML `<img>` that later switches to a separate 3D image with different zoom/lighting. `RestoredFilmHub.tsx` now accepts `worldLayer` for a live Three.js view inside its existing organic emulsion mask. `PortalMaterialScene.tsx` provides that live `WorldCanvas` for the destination of a returning film, while the current world's existing Three.js canvas is already visible through the entry film's `openWorld` mask. `WorldCanvas` is shared for both uses: identical plane, material, shader, camera calculations and source image. No extra photo motion or CSS zoom in the active reveal.
+ 
+**Audio camera:** new `world-camera-director.ts` provides a single deterministic `worldCameraAt(frame, worldIndex)` for all six worlds, reading `film-cue-sheet.json`: entry retreat from a closer framing to full landscape by entry end, then a seeded example pan/forward dolly with bounded responses to actual saved accents. Seeded direction provides different movement by world without live randomness, and no additional per-world implementation. This is a **demonstration camera move**, not the final shot direction. It is evaluated at the same global timestamp during a return and the following world's entry, clamped to the next world's start for prewarming.
+
+**World lifecycle:** at the transition, the old world is shown in its existing outgoing clipped layer and the next world's live canvas is shown behind the incoming film mask. Once `state.returning >= 1`, the old world canvas unmounts via existing condition; the destination world remains revealed by the film. Note: the destination canvas is currently instantiated in a different React tree at the subsequent global world boundary, so the renderer/WebGL context can remount. The camera pose comes from the same absolute-time controller, but resource persistence and cache reuse are not yet guaranteed. This is *not* a claim of a single persistent WebGL renderer yet. Future optimization: lift an always-mounted world stage above the two mask regions, preserve the world keyed instance during transition, explicitly manage GPU resource retention and texture disposal.
+
+**Source changes:**
+- `scenes/portal-study/world-camera-director.ts` — shared musical camera.
+- `scenes/portal-study/RestoredFilmHub.tsx` — accepts masked React Three world layer; no photo duplicate in active transition.
+- `scenes/portal-study/PortalMaterialScene.tsx` — live world renderer reused in full and return film; previously existing entry overlay is kept.
+- `scenes/portal-study/world-camera-director.test.ts` — deterministic camera, entry retreat, next-world framing and seek tests.
+
+**Inspect in Electron:** 7–12 s first valley reveal; 52–62 s return into harbor; 93–104 s harbor→desert and specifically 97.867 s for any renderer remount flash; seek backward repeatedly; check exposed image/camera/light and edge alignment. Because the live environment was not available through this GitHub connection, the behavior has NOT been compiled, rendered or observed in Electron. Do not call the flicker fixed until visual frame-by-frame inspection succeeds.
