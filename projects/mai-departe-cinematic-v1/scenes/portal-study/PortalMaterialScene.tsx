@@ -8,7 +8,8 @@ import type {TimelineClip} from '@motion/sdk/timeline';
 import natural from '../../assets/camera-valley-v1.png';
 import paper from '../../assets/camera-valley-paper-v1.png';
 import {RestoredFilmHub,restoredFilmHubModule} from './RestoredFilmHub';
-import {studyState} from './study-state';
+import {studyState,studyTiming} from './study-state';
+import {riftEdge,smooth} from '../RiftPushTransition';
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;varying vec2 vUv;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
@@ -47,15 +48,55 @@ function BackgroundWorld({frame}:{frame:number}){
 /** Reusable reference shot only: the user will separate and place the scenery layers. */
 export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:number}){
  const {width,height,fps}=useVideoConfig();const absolute=(clip.from+frame)*30/fps;const state=studyState(absolute);
- const discovery=Math.max(0,Math.min(1,(state.time-49)/2.8));
- return <AbsoluteFill style={{background:'#110e0c',overflow:'hidden'}} data-portal-study-time={state.time} data-paper-progress={state.paper} data-return-progress={state.returning}>
-  <ThreeCanvas width={width} height={height} style={{position:'absolute',inset:0,width:'100%',height:'100%'}} camera={{fov:50,position:state.position,near:.1,far:200}} gl={{alpha:false,antialias:true}}><BackgroundWorld frame={absolute}/></ThreeCanvas>
+ const departure=studyTiming.return[0],arrival=studyTiming.return[1];
+ const returning=state.time>=departure&&state.time<arrival;
+ // First seam: the original THREE traveling markers return from the LEFT.
+ const firstX=1920*state.returning;
+ const front=riftEdge(firstX,absolute,2);
+ // Second seam follows behind the three travelers and reveals the PAPER material.
+ // It starts after the first seam has travelled far enough to leave visible road.
+ const paperFollow=smooth((state.time-(departure+.65))/(arrival+.9-(departure+.65)));
+ const paperFront=riftEdge(1920*paperFollow,absolute,9);
+ const showReturn=state.time>=departure;
+ const showPaperFollow=state.time>=departure+.65;
+ return <AbsoluteFill style={{background:'#110e0c',overflow:'hidden'}} data-portal-study-time={state.time}
+  data-paper-progress={state.paper} data-return-progress={state.returning}
+  data-active-director="portal-study-two-rifts">
+  {/* The world layer is not zoomed out: it is physically pushed off the right. */}
+  <AbsoluteFill style={{clipPath:showReturn?front.right:undefined,overflow:'hidden'}}>
+   <AbsoluteFill style={{transform:showReturn?`translateX(${state.returning*7}%)`:undefined}}>
+    <ThreeCanvas width={width} height={height} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}
+     camera={{fov:50,position:state.position,near:.1,far:200}} gl={{alpha:false,antialias:true}}>
+     <BackgroundWorld frame={absolute}/>
+    </ThreeCanvas>
+   </AbsoluteFill>
+  </AbsoluteFill>
+  {/* Keep the original 3.7-10.8 second entry zoom and hub composition unchanged. */}
   {state.entry<1&&<AbsoluteFill style={{transform:`translate(${state.entryX/1920*100}%,${state.entryY/1080*100}%) scale(${state.entryScale})`,transformOrigin:'top left'}}>
-   <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}><RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld crossing={state.warp}/></AbsoluteFill>
+   <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
+    <RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld crossing={state.warp}/>
+   </AbsoluteFill>
   </AbsoluteFill>}
-  {discovery>0&&<AbsoluteFill data-return-surface="shared-frontier" style={{transform:`translateX(${state.returnX/1920*100}%)`,opacity:discovery}}>
-   <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}><RestoredFilmHub clip={clip} frame={absolute*fps/30} paper openWorld crossing={state.warp} rails={Math.max(0,Math.min(1,(state.returning-.7)/.3))}/></AbsoluteFill>
+  {showReturn&&<AbsoluteFill style={{clipPath:front.left,overflow:'hidden'}}>
+   <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
+    <RestoredFilmHub clip={clip} frame={absolute*fps/30} openWorld crossing={state.warp} rails={1}/>
+   </AbsoluteFill>
   </AbsoluteFill>}
+  {/* PAPER is the SECOND front, following the travelers. This is not a
+      full-screen image swap: both separators can exist in the same frame. */}
+  {showPaperFollow&&<AbsoluteFill style={{clipPath:paperFront.left,overflow:'hidden'}}>
+   <img src={paper} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+  </AbsoluteFill>}
+  {returning&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none"
+   style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   <path d={front.path} fill="none" stroke="#110a08" strokeWidth="30"/>
+   <path d={front.path} fill="none" stroke="#a86b3e" strokeWidth="7" opacity=".75"/>
+  </svg>}
+  {showPaperFollow&&paperFollow<1&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none"
+   style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   <path d={paperFront.path} fill="none" stroke="#2a211b" strokeWidth="27"/>
+   <path d={paperFront.path} fill="none" stroke="#c9a77a" strokeWidth="6" opacity=".85"/>
+  </svg>}
  </AbsoluteFill>;
 }
 
