@@ -31,6 +31,8 @@ function CameraPlate({frame,index,start,full,end}:{frame:number;index:number;sta
  const time=frame/30;
  const reveal=ease((time-start)/(full-start));
  const explore=ease((time-full)/Math.max(1,end-full));
+ const closeStart=end-(full-start);
+ const closing=ease((time-closeStart)/(end-closeStart));
  const texture=useLoader(THREE.TextureLoader,plates[index]);
  const {camera,invalidate}=useThree();
  const seed=index*1.71+.37;
@@ -40,12 +42,12 @@ function CameraPlate({frame,index,start,full,end}:{frame:number;index:number;sta
  useLayoutEffect(()=>{
   // World already fills screen. Camera retreats during reveal and later
   // moves in a deterministic audio-directed pan / dolly.
-  const x=direction*(1.6*(1-reveal)+2.1*explore);
-  const y=.28*(1-reveal)+.35*Math.sin(seed)*explore;
-  camera.position.set(x,y,33+9*reveal-3*explore-.1*Math.min(1,pulse));
+  const x=direction*(1.6*(1-reveal)+2.1*explore-2.1*closing);
+  const y=.28*(1-reveal)+.35*Math.sin(seed)*(explore-closing);
+  camera.position.set(x,y,33+9*reveal-3*explore-6*closing-.1*Math.min(1,pulse));
   camera.lookAt(x*.1,y*.1,0);
   camera.updateProjectionMatrix();invalidate();
- },[camera,invalidate,frame,reveal,explore,pulse,seed,direction]);
+ },[camera,invalidate,frame,reveal,explore,closing,pulse,seed,direction]);
  return <mesh><planeGeometry args={[78,44]}/><meshBasicMaterial map={texture} toneMapped={false}/></mesh>;
 }
 function WorldStage({frame,index,start,full,end,width,height}:{frame:number;index:number;start:number;full:number;end:number;width:number;height:number}){
