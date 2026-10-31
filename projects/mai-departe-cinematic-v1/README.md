@@ -296,3 +296,8 @@ Preview showed riders at X≈30 near the start and the first ~half of each visib
 - Added start-of-HUB and 60%-entry checks to `journey-cut.test.ts` (not executed in Electron).
 
 This changes the displayed path time window; verify musical subjective feel and the first 0–10 seconds before further art direction. GitHub source edits were not compiled or rendered on the user's Electron machine. Rollback baseline `9b0922315ea816dacb15aae7972ebb93e875bb6f`.
+
+### Follow-up correction: fixed rail is an inverse of absolute song-time rider position
+Further inspection: simply shifting the sample window to `time+x/roadSpeed` still made the road scroll in DATA with current time, even without CSS translation. The active `JourneyCutScene` now uses `roadTimeAt(time,x)`: each fixed X coordinate maps to its immutable absolute music time for that HUB/reveal passage, with the same exact px/s velocity used by `journeyAt().travelerX`. Thus at the actual rider X, the line Y is `pathY(currentSongTime)` by construction. Separate mappings are used for the closure entrance and final HUB. The same function draws lines and all 4 rider circles.
+
+This is the intended architecture for static 2D musical paths; no viewport center offset, global time shift, or reveal progress enters the rider's vertical position. Validate the visuals and tests locally before confirming.
