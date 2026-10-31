@@ -17,12 +17,16 @@ export function worldCameraAt(absoluteFrame:number,index:number){
  const explore=smooth((local-world.explore[0])/(world.explore[1]-world.explore[0]));
  const exit=smooth((local-world.exit[0])/(world.exit[1]-world.exit[0]));
  const seed=world.cameraSeed;
+ const previous=index>0?cues.worlds[index-1]:null;
+ const preStart=previous?.exit[0]??world.start;
+ const preparing=time<world.start&&!!previous;
+ const prelude=preparing?smooth((time-preStart)/Math.max(.001,world.start-preStart)):1;
  const direction=Math.sin(seed)>0?1:-1;
  // The view starts nearer the scene and retreats continuously until reveal
  // completion; afterwards a slow, deterministic pan and forward dolly.
- const z=lerp(34,42,entry)-3.5*explore;
- const x=direction*(.85*(1-entry)+1.45*explore);
- const y=.32*(1-entry)+.46*Math.sin(seed*.17)*explore;
+ const z=lerp(34,42,entry)-3.5*explore+(preparing?1.3*(1-prelude):0);
+ const x=direction*(.85*(1-entry)+1.45*explore)+(preparing?direction*1.35*(1-prelude):0);
+ const y=.32*(1-entry)+.46*Math.sin(seed*.17)*explore+(preparing?-.26*(1-prelude):0);
  let beat=0;
  for(const accent of cues.accents){
   const age=local-accent.time;
