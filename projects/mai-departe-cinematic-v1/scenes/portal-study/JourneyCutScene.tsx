@@ -13,6 +13,7 @@ import forest from '../../assets/camera-forest-v1.png';
 import cloud from '../../assets/camera-cloud-v1.png';
 import {journeyAt,journeyCut,travelerPassage} from './journey-cut';
 import {RiftBoundary} from './RiftBoundary';
+import {travelerPoseAt} from './traveler-choreography';
 
 const plates:Record<number,string>={0:valley,1:harbor,3:forest,5:cloud};
 // Fetch source images early without mounting any world or WebGL context in HUB solo.
@@ -108,15 +109,22 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
   {world&&<AbsoluteFill key={world.id} data-active-world={world.id} style={{clipPath:mask}}>
    <WorldStage frame={globalFrame} index={world.worldIndex} start={world.enter} full={world.full} end={world.end} width={width} height={height}/>
   </AbsoluteFill>}
-  {/* Markers are ABOVE the 3D reveal, following the fixed HUD road. */}
-  {(state.phase!=='explore'||state.travelerX<1920)&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
-   {colors.map((color,i)=><g key={i}>
-    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="28" fill={color} opacity=".1"/>
-    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="12" fill={color} opacity=".5"/>
-    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="6" fill={color}/>
-    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="3" fill="white"/>
-   </g>)}
-  </svg>}
+  {/* Audio-road coordinates never depend on camera, world mask or flight.
+       Each orb detaches, enlarges, explores, then rejoins its own song path. */}
+  <svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+   {colors.map((color,i)=>{
+    const pose=travelerPoseAt(time,i);
+    const roadY=visibleRoadY(time,pose.x,i);
+    const y=roadY+pose.yOffset;
+    return <g key={i} opacity={pose.opacity} transform={`translate(${pose.x} ${y}) scale(${pose.scale})`}>
+     <circle r="28" fill={color} opacity=".1"/>
+     <circle r="12" fill={color} opacity=".5"/>
+     <circle r="6" fill={color}/>
+     <circle r="3" fill="white"/>
+     {pose.detached>.01&&<circle r="18" fill="none" stroke={color} strokeWidth="1.5" opacity={pose.detached*.6}/>}
+    </g>;
+   })}
+  </svg>
   {edgeVisible&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    <RiftBoundary time={time} speed={1920/55} revealX={front}
     intensity={.38+Math.sin(Math.PI*state.phaseProgress)*.40}
