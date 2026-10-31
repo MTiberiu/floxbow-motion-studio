@@ -127,3 +127,19 @@ Always inspect local uncommitted changes and confirm which branch Electron actua
 - `scenes/portal-study/CAMERA-MUSIC-CUE-SHEET.md`: concise current timing reference; JSON is authoritative.
 
 **Bottom line for the incoming developer:** the **six-world scene cycle and transitions already exist** as code and are frozen for now. We are now selecting **exact world designs, lighting, photographic assets, segmented depth layers and human PAPER imagery**, then integrating them in the live composition without breaking continuity. 
+
+## 2026-10-31 — Film transport / edge reveal polish (after handoff commit `1ffe1ae`)
+
+**Snapshot / rollback:** the documentation commit `1ffe1aeb565ba9e336f3385863b123f05a289ba0` is the baseline for this patch. Changes were made in isolated commits; they do not alter the six-world timing file, the edit timeline, soundtrack, subtitles, transition geometry, or source plates.
+
+**11.767-second diagnosis:** active first world is still `assets/camera-valley-v1.png`, not a newly loaded image. Entry finishes at **10.800 s**, removing the `RestoredFilmHub` entrance overlay and leaving the fullscreen ThreeCanvas textured plane. Thus the image can visibly shift from luminous emulsion/reveal styling to the simpler world shader/camera. Actual `camera-valley-paper-v1.png` morph begins at **16.533 s** and ends at **30.533 s**. That composition/lighting seam remains an art-review issue; a screenshot or Electron render is required to judge it visually. No claim of an image switch at 11.767 s.
+
+**Implemented in ACTIVE scene:**
+- `scenes/portal-study/film-transport.ts`: reusable absolute-time film-strip transport based on the **six** cue-sheet entry-complete and exit-start time pairs. Perforations stop when the camera has fully entered a world; restart when travelers reappear. Phase and cumulative paused transport are pure functions; seek-back is stable.
+- `scenes/portal-study/PortalMaterialScene.tsx`: fixed screen-space perforations use `transportSeconds(state.time)` instead of raw music time. Rail geometry stays visible and fixed; only the rolling sprocket pattern parks/resumes. Music/three traveling markers remain driven by original global audio time.
+- `scenes/portal-study/RestoredFilmHub.tsx`: subtle world-photo optical drift inside existing emulsion mask, maintaining the same reveal edge. No new plate, no forced zoom-to-fit, no rebuilt boundaries.
+- `scenes/portal-study/film-transport.test.ts`: source tests for all six stop/start pairs, random seeking, monotonicity.
+
+**Test visually**: 7 s entering first world; 10.7, **11.767**, 12.5 s for world handoff visual mismatch; 15 s for parked rail; 52.3–55 s for film restarting with the three travelers; 62–93 s for second world's frozen sprockets; 209–212 s for finale. Check that the current six-world reveal/frontier geometry is unaltered. No local Electron preview or compile was run through the GitHub-only session, so no runtime passing claim is made.
+
+**Further art work**: If the sudden brightness/rigidity at 11.767 s is still distracting, tune the lighting/texture grade between the emulsion overlay and the actual Three.js background **after looking at a frame-pair from the app**. Avoid substituting a different landscape file or changing transition geometry.
