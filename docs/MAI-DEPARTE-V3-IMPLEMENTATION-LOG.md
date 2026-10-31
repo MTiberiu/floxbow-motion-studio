@@ -176,3 +176,13 @@ Append for each code change:
 - Updated test source with exact boundary/frame assertions and overlap ordering for the two rifts.
 
 **Verification status:** Commits published to GitHub, not compiled or previewed locally in Electron; geometry overlap, animation performance and interaction with actual clip duration must be checked in the application. The code is an integrated first-segment fix, NOT completion of the full 240-second storyboard. It may need phase retiming after user visual review. No changes to audio, subtitle data, project media JSON or edit-timeline JSON.
+
+## 2026-10-31 — Root cause of invisible preview edits; live portal-study wired
+
+**Critical diagnosis:** `Composition.tsx` imports `portalStudyModule` / `portalStudyContinuation` from `scenes/portal-study/PortalMaterialScene.tsx`, with the IDs `director-journey-reveal` and `director-journey-reveal-legacy`. Timeline uses both: 0–900 frames and 900–7199 frames. The prior edits to `scenes/CameraDirector.tsx` and `scenes/JourneyReveal.tsx` were **not used by these clips**, explaining why the user saw no preview change. This diagnosis was confirmed by inspecting imports and exact clip entries, not by a visual guess.
+
+**Fix:** Updated the *active* `scenes/portal-study/PortalMaterialScene.tsx` to use shared `riftEdge` from `scenes/RiftPushTransition.ts`; retain original filmed entry zoom at 3.7–10.8s; exit starts at `studyTiming.return[0]` ≈52.33s and finishes ≈54.97s; a second paper boundary starts .65s after exit begins and follows the three travelers toward right of screen. Camera world is clipped by first boundary and moves right as film returns from left. Paper fills behind second boundary. Existing `camera-valley-paper-v1.png` is still a placeholder, not approved final PAPER art. New test source in `scenes/portal-study/two-rift-handoff.test.ts`.
+
+**Verification:** GitHub commit exists; no local Electron preview or TypeScript test run available. The active Composition and clip mapping are verified, but visuals are not. Do not mistake prior 23–31s timings from inactive CameraDirector for active scene timings.
+
+**Follow-up:** Test visually at ~52–56s (not 23–31), confirm actual film/timebase and second rift ordering; then refine art and continuity on active route only. No audio, subtitle, media or edit-timeline changes.
