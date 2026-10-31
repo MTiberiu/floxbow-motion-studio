@@ -11,6 +11,16 @@ export const journeyCut=[
 export const journeyDuration=239.9666666667;
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const ease=(v:number)=>{const x=clamp(v);return x*x*(3-2*x);};
+/** Rider travel is based on absolute song time, never on reveal progress.
+ * Choose a speed that can reach screen-right before the next world closes;
+ * the same speed remains in effect across HUB -> REVEAL -> EXPLORE.
+ */
+function approach(next:typeof journeyCut[number], hubStart:number, time:number){
+ const hubDuration=Math.max(.001,next.enter-hubStart);
+ const available=Math.max(.001,next.close-next.enter);
+ const speed=Math.max(1152/hubDuration,768/available);
+ return 1152+(time-next.enter)*speed;
+}
 export function journeyAt(frame:number){
  const t=frame/30;
  const i=journeyCut.findIndex(w=>t>=w.enter&&t<w.end);
@@ -19,8 +29,9 @@ export function journeyAt(frame:number){
   const previous=[...journeyCut].reverse().find(w=>w.end<=t);
   const a=previous?.end??0,b=next?.enter??journeyDuration;
   const progress=clamp((t-a)/Math.max(.01,b-a));
+  const travelerX=next?approach(next,a,t):1920*progress;
   return {time:t,phase:'hub' as const,worldIndex:-1,worldId:null,
-   travelerX:progress*1152,progress,mask:0,phaseProgress:progress,worldMount:false};
+   travelerX,progress,mask:0,phaseProgress:progress,worldMount:false};
  }
  const w=journeyCut[i];
  const phase=t<w.full?'reveal':t<w.close?'explore':'close';
@@ -29,8 +40,9 @@ export function journeyAt(frame:number){
    clamp((t-w.close)/(w.end-w.close));
  // Return has its own traveler crossing while the old world closes.
  // Linear motion avoids the previous eased sprint and sudden exit velocity.
- const travelerX=phase==='reveal'?1152+1400*progress:
-  phase==='close'?-120+2240*progress:1920;
+ const previousEnd=i===0?0:journeyCut[i-1].end;
+ const travelerX=phase==='close'?-120+2240*progress:
+  approach(w,previousEnd,t);
  // The organic frontier never catches the travelers: reveal continues after
  // they have left frame, on the recorded musical interval.
  const frontProgress=phase==='reveal'?progress:
