@@ -28,9 +28,13 @@ export function journeyAt(frame:number){
   :phase==='explore'?clamp((t-w.full)/(w.close-w.full)):
    clamp((t-w.close)/(w.end-w.close));
  // Return has its own traveler crossing while the old world closes.
- const travelerX=phase==='reveal'?1152+768*progress:
-  phase==='close'?1920*progress:1920;
- const mask=phase==='reveal'?ease(progress):phase==='close'?1-ease(progress):1;
+ const travelerX=phase==='reveal'?1152+1500*ease(progress/.38):
+  phase==='close'?-120+2240*progress:1920;
+ // The organic frontier never catches the travelers: reveal continues after
+ // they have left frame, on the recorded musical interval.
+ const frontProgress=phase==='reveal'?ease(progress):
+  phase==='close'?ease((progress-.58)/.42):1;
+ const mask=phase==='reveal'?frontProgress:phase==='close'?1-frontProgress:1;
  return {time:t,phase,worldIndex:w.worldIndex,worldId:w.id,
   travelerX,progress,mask,phaseProgress:progress,worldMount:true};
 }
