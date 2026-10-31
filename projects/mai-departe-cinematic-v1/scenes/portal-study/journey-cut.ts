@@ -20,7 +20,7 @@ export function journeyAt(frame:number){
   const a=previous?.end??0,b=next?.enter??journeyDuration;
   const progress=clamp((t-a)/Math.max(.01,b-a));
   return {time:t,phase:'hub' as const,worldIndex:-1,worldId:null,
-   travelerX:progress*1920,progress,mask:0,phaseProgress:progress,worldMount:false};
+   travelerX:progress*1152,progress,mask:0,phaseProgress:progress,worldMount:false};
  }
  const w=journeyCut[i];
  const phase=t<w.full?'reveal':t<w.close?'explore':'close';
