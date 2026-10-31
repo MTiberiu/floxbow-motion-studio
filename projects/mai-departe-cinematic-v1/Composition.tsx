@@ -1,5 +1,5 @@
 import {portalStudyLyrics as v4LyricsModule} from './scenes/portal-study/StudyLyrics';
-import {portalStudyModule as journeyRevealModule, portalStudyContinuation as journeyRevealLegacyModule} from './scenes/portal-study/PortalMaterialScene';
+import {journeyCutModule as journeyRevealModule, journeyCutContinuation as journeyRevealLegacyModule} from './scenes/portal-study/JourneyCutScene';
 
 import { burdenSceneModule } from './scenes/BurdenScene';
 import { phonePerformanceModule } from './scenes/PhonePerformance';
