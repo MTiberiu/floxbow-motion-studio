@@ -103,7 +103,7 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
    <WorldStage frame={globalFrame} index={world.worldIndex} start={world.enter} full={world.full} end={world.end} width={width} height={height}/>
   </AbsoluteFill>}
   {/* Markers are ABOVE the 3D reveal, following the fixed HUD road. */}
-  {state.phase!=='explore'&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
+  {(state.phase!=='explore'||state.travelerX<1920)&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    {colors.map((color,i)=><g key={i}>
     <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="28" fill={color} opacity=".1"/>
     <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="12" fill={color} opacity=".5"/>
