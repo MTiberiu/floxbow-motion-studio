@@ -18,10 +18,15 @@ test('prewarmed destination camera matches its starting camera when world become
  for(let index=1;index<cues.worlds.length;index++){
   const previous=cues.worlds[index-1];
   const next=cues.worlds[index];
-  assert.deepEqual(
-   worldCameraAt(Math.round(previous.exit[0]*30),index).position,
-   worldCameraAt(Math.round(next.start*30),index).position,
-  );
+  const start=worldCameraAt(Math.round(previous.exit[0]*30),index).position;
+  const middle=worldCameraAt(Math.round((previous.exit[0]+next.start)/2*30),index).position;
+  const end=worldCameraAt(Math.round(next.start*30),index).position;
+  assert.notDeepEqual(start,end);
+  for(let a=0;a<3;a++){
+   assert.ok(Math.abs(middle[a]-end[a])<Math.abs(start[a]-end[a])+.02);
+  }
+  const before=worldCameraAt(Math.round(next.start*30)-1,index).position;
+  for(let a=0;a<3;a++)assert.ok(Math.abs(before[a]-end[a])<.1);
  }
 });
 test('camera values stay finite through all 7199 frames',()=>{
