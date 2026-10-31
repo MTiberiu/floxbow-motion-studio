@@ -17,9 +17,10 @@ import {filmState} from './film-state';
 import {RiftBoundary} from './RiftBoundary';
 import {frontierX} from '../emulsion-field';
 import {transportSeconds,filmIsExploring} from './film-transport';
+import {worldRevealDirector} from './world-reveal-director';
 
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
-const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;varying vec2 vUv;
+const fragment=`uniform sampler2D natural;uniform sampler2D paperImage;uniform float progress;uniform float time;uniform float warp;uniform vec2 lens;uniform vec2 worldDrift;uniform float forward;uniform float exposure;uniform float shimmer;uniform float edgeEnergy;varying vec2 vUv;
 float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+1.),f.x),f.y);}
 void main(){
@@ -28,29 +29,51 @@ void main(){
  float material=smoothstep(arrival-.065,arrival+.065,progress*1.15);
  vec2 delta=vUv-lens;
  float distanceToLens=length(delta);
- vec2 uv=clamp(vUv+delta*exp(-distanceToLens*7.)*warp*.12,vec2(.001),vec2(.999));
+ // Depth-graded optical motion on a single plate: near foreground travels more
+ // than distant mountains. This is an interim effect until alpha layers exist.
+ float nearDepth=1.-smoothstep(.12,.72,vUv.y);
+ float motionScale=1.-min(.055,forward*(.2+nearDepth*.8));
+ vec2 uv=(vUv-.5)*motionScale+.5;
+ uv+=worldDrift*vec2(.4+nearDepth*.6,.35+nearDepth*.65);
+ uv+=delta*exp(-distanceToLens*7.)*warp*.12;
+ uv=clamp(uv,vec2(.001),vec2(.999));
  float lake=1.-smoothstep(.23,.31,uv.y);
  uv.x+=sin(uv.y*320.+time*.8)*.00035*lake*(1.-material);
  vec3 a=texture2D(natural,uv).rgb;
  vec3 b=texture2D(paperImage,uv).rgb;
  float seam=(1.-smoothstep(.0,.025,abs(arrival-progress*1.15)))*step(.001,progress)*(1.-step(.999,progress));
  vec3 color=mix(a,b,material)+vec3(.07,.033,.008)*seam;
+ // Local, slow-moving sun/water illumination rather than whole-image flashing.
+ float lightPool=exp(-pow((vUv.x-(.47+.035*sin(time*.23)))/.32,2.))*
+  (.35+.65*smoothstep(.25,.86,vUv.y));
+ float reflected=(1.-smoothstep(.19,.37,vUv.y))*
+  pow(max(0.,sin(vUv.x*105.+time*.82+vUv.y*40.)),10.);
+ color*=1.+exposure*(.38+.62*lightPool);
+ color+=vec3(1.,.66,.34)*(reflected*.028*shimmer+edgeEnergy*.006);
  gl_FragColor=vec4(color,1.);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>
 }`;
 function BackgroundWorld({frame,worldImage}:{frame:number;worldImage:string}){
- const state=filmState(frame);const {camera,invalidate}=useThree();
+ const state=filmState(frame);const reveal=worldRevealDirector(frame);const {camera,invalidate}=useThree();
  const textures=useLoader(THREE.TextureLoader,[worldImage,state.index===0?paper:worldImage]);
- const uniforms=useMemo(()=>({natural:{value:textures[0]},paperImage:{value:textures[1]},progress:{value:0},time:{value:0},warp:{value:0},lens:{value:new THREE.Vector2(.39,.56)}}),[textures]);
+ const uniforms=useMemo(()=>({natural:{value:textures[0]},paperImage:{value:textures[1]},progress:{value:0},time:{value:0},warp:{value:0},lens:{value:new THREE.Vector2(.39,.56)},worldDrift:{value:new THREE.Vector2()},forward:{value:0},exposure:{value:0},shimmer:{value:0},edgeEnergy:{value:0}}),[textures]);
  const material=useRef<THREE.ShaderMaterial>(null);
  useLayoutEffect(()=>{textures.forEach(t=>{t.colorSpace=THREE.SRGBColorSpace;t.needsUpdate=true;});},[textures]);
  useLayoutEffect(()=>{
-  camera.position.set(...state.position);camera.lookAt(state.position[0],state.position[1],0);
-  uniforms.progress.value=state.paper;uniforms.time.value=state.time;uniforms.warp.value=state.warp;uniforms.lens.value.set(state.entry<1?.39:.656,state.entry<1?.56:.64);
+  // Shared soft auto-framing: gradual look-at compensation, not a sudden zoom.
+  camera.position.set(...state.position);
+  camera.lookAt(state.position[0]+reveal.centerX*8,state.position[1]+reveal.centerY*6,0);
+  uniforms.progress.value=state.paper;uniforms.time.value=state.time;
+  uniforms.warp.value=state.warp;uniforms.lens.value.set(state.entry<1?.39:.656,state.entry<1?.56:.64);
+  uniforms.worldDrift.value.set(reveal.driftX,reveal.driftY);
+  uniforms.forward.value=reveal.forward;
+  uniforms.exposure.value=reveal.exposure;
+  uniforms.shimmer.value=reveal.shimmer;
+  uniforms.edgeEnergy.value=reveal.edgeEnergy;
   if(material.current)material.current.uniformsNeedUpdate=true;
   camera.updateProjectionMatrix();invalidate();
- },[camera,invalidate,frame,uniforms,state.paper,state.time,...state.position]);
+ },[camera,invalidate,frame,uniforms,state.paper,state.time,reveal.centerX,reveal.centerY,reveal.driftX,reveal.driftY,reveal.forward,reveal.exposure,reveal.shimmer,reveal.edgeEnergy,...state.position]);
  return <mesh position={[0,0,0]}><planeGeometry args={[68,38.25]}/><shaderMaterial ref={material} uniforms={uniforms} vertexShader={vertex} fragmentShader={fragment} toneMapped={false}/></mesh>;
 }
 /** Complete music-driven world cycle; plates remain ready for user-authored depth layers. */
@@ -59,6 +82,7 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
  const showReturn=state.showReturn;
  const sprocketTime=transportSeconds(state.time);
  const filmParked=filmIsExploring(state.time);
+ const reveal=worldRevealDirector(absolute);
  const worlds=[natural,harbor,desert,forest,ice,cloud];
  const currentImage=worlds[state.index];
  const nextImage=worlds[Math.min(state.index+1,worlds.length-1)];
@@ -81,7 +105,8 @@ export function PortalMaterialScene({clip,frame=0}:{clip:TimelineClip;frame?:num
  const oldWorldClip=`polygon(${edgePoints.map(([x,y])=>`${x/19.2}% ${y/10.8}%`).join(',')},100% 100%,100% 0%)`;
  return <AbsoluteFill style={{background:'#110e0c',overflow:'hidden'}} data-portal-study-time={state.time}
   data-paper-progress={state.paper} data-return-progress={state.returning}
-  data-active-director="continuous-film-cycle" data-film-transport={filmParked?"parked":"running"}>
+  data-active-director="continuous-film-cycle" data-film-transport={filmParked?"parked":"running"}
+  data-world-reveal={reveal.fullReveal?"full":"transition"} data-reveal-energy={reveal.edgeEnergy.toFixed(3)}>
   {showReturn&&!state.finale&&<AbsoluteFill style={{transform:`translateX(${roadOffset/19.2}%)`,overflow:'visible',background:'#100e11'}}>
    <AbsoluteFill style={{transform:'scaleY(1.2342857143)',transformOrigin:'top'}}>
     <RestoredFilmHub clip={clip} frame={absolute*fps/30} worldImage={nextImage} travelersOnly={lastWorld} rails={0} roadExtension={roadExtension}/>
