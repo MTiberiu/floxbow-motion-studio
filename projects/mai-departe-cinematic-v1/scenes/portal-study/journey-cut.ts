@@ -3,10 +3,10 @@
  * Each world runs REVEAL -> EXPLORE -> CLOSE, without overlapping 3D stages.
  */
 export const journeyCut=[
- {id:'valley',worldIndex:0,enter:12.8,full:20.1333333333,close:51.8666666667,end:55.2},
- {id:'harbor',worldIndex:1,enter:62.2666666667,full:69.9333333333,close:94.2666666667,end:97.8666666667},
- {id:'forest',worldIndex:3,enter:108.3,full:118.4666666667,close:163.2666666667,end:167.7333333333},
- {id:'cloud',worldIndex:5,enter:177.2333333333,full:186.9,close:207.0333333333,end:211.4666666667},
+ {id:'valley',worldIndex:0,enter:12.8,full:20.1333333333,close:47.8666666667,end:55.2},
+ {id:'harbor',worldIndex:1,enter:62.2666666667,full:69.9333333333,close:90.2,end:97.8666666667},
+ {id:'forest',worldIndex:3,enter:108.3,full:118.4666666667,close:157.5666666666,end:167.7333333333},
+ {id:'cloud',worldIndex:5,enter:177.2333333333,full:186.9,close:201.8,end:211.4666666667},
 ] as const;
 export const journeyDuration=239.9666666667;
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
@@ -53,7 +53,7 @@ export function journeyAt(frame:number){
  // The organic frontier never catches the travelers: reveal continues after
  // they have left frame, on the recorded musical interval.
  const frontProgress=phase==='reveal'?progress:
-  phase==='close'?clamp((progress-.20)/.80):1;
+  phase==='close'?progress:1;
  const mask=phase==='reveal'?frontProgress:phase==='close'?1-frontProgress:1;
  return {time:t,phase,worldIndex:w.worldIndex,worldId:w.id,
   travelerX,progress,mask,phaseProgress:progress,worldMount:true};
