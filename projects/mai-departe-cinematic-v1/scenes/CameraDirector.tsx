@@ -36,7 +36,7 @@ export function CameraDirector({frame,orangeY,speed,revealX,fps,children,accent=
  const filmVisible=entering||frame>=RETURN_START&&frame<PAPER_END;
  const worldVisible=frame>=240&&frame<RETURN_END;
  const paperVisible=frame>=780;
- const filmClip=entering?'inset(0)':returning?stage.returnEdge.left:
+ const filmClip=returning?stage.returnEdge.left:
   frame>=RETURN_END&&frame<PAPER_END?stage.paperEdge.right:'inset(0)';
  const worldClip=entering?(portal?.polygon??'inset(0 100% 0 0)'):
   returning?stage.returnEdge.right:'inset(0)';
@@ -48,12 +48,13 @@ export function CameraDirector({frame,orangeY,speed,revealX,fps,children,accent=
   {paperVisible&&<AbsoluteFill style={{clipPath:frame<PAPER_END?stage.paperEdge.left:'inset(0)'}}>
    <PaperWorldPlaceholder frame={frame}/>
   </AbsoluteFill>}
+  {entering&&<AbsoluteFill style={{overflow:'hidden'}}>{children}</AbsoluteFill>}
   {worldVisible&&<AbsoluteFill style={{clipPath:worldClip,overflow:'hidden',pointerEvents:'none'}}>
    <AbsoluteFill style={{transform:returning?`translate3d(${stage.returnProgress*145}px,0,0)`:undefined}}>
     <CameraWorld frame={frame} orangeY={orangeY} accent={accent}/>
    </AbsoluteFill>
   </AbsoluteFill>}
-  {filmVisible&&<AbsoluteFill style={{clipPath:filmClip,overflow:'hidden'}}>
+  {!entering&&filmVisible&&<AbsoluteFill style={{clipPath:filmClip,overflow:'hidden'}}>
    {children}
   </AbsoluteFill>}
   {/* During 780..810 two neighboring fronts coexist: PAPER left, traveling film
