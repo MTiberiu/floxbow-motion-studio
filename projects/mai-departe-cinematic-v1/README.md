@@ -257,3 +257,15 @@ This is still *two independent ThreeCanvas instances during overlap*, not yet on
 Inspect 0–13; 26.9–34; 51–56; 69–81; 94–100; 139–145; 167–188; 206–213 and 220–240 s. Confirm at **30 s** that the same ThreeCanvas continues through the old clip split, at **97.867 s** no 3D scene is mounted, that fixed HUB lines never translate, and that every world closure fully removes the scene before next discovery. Check direct seek and reverse seek.
 
 This batch is GitHub-source implementation only; NO Electron playback, TypeScript build, or video export was performed. Do not claim the new design visually passes until local review. The mask edge and film appearance are a simplified proof, not the final prior film texture effects. Future work: decide final 2D storytelling, number/timing of worlds with the song in hand, and cinematic cameras/lighting/assets.
+
+## 2026-10-31 — Rider/reveal synchronization and luminous rupture restored
+
+Following preview screenshots showing the basic single-stroke edge overtaking the three markers, the active four-world cut was updated. **No music, world counts, subtitle cues or 3D world overlap were changed.**
+
+- In `journey-cut.ts`, travelers enter each reveal at X=1152 (60% width), advance beyond the right edge during the first 38% of the musical reveal interval, and then stay offscreen while the reveal contour continues to open on the saved timeline. The new opening edge is music-timed but no longer permitted to overtake on-screen markers.
+- During old-world closure, travelers enter from the left first; the mask begins closing only after about 58% of that crossing. They lead the contour rather than riding a slide.
+- In `JourneyCutScene.tsx`, reinstated the original `RiftBoundary` with its glow, layered filaments, specks and animated strand texture; its `sampleAt` explicitly samples the **same organic edge geometry** as the clipping polygon, avoiding a separately animated ornamental line.
+- Added a unit regression checking separation of frontier and visible riders and checking late closure.
+- This is a provisional choreography; actual Electron preview and tests **were not executed** via GitHub. Verify first reveal 27–34s, later reveals 73–80, 139–145 and 187–194s; check old-world closures as well.
+
+Previous four-world baseline: `5aa398409dd285a5158b1c47987042444bb0d748`.
