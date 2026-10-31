@@ -106,9 +106,9 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
   {state.phase!=='explore'&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    {colors.map((color,i)=><g key={i}>
     <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="28" fill={color} opacity=".1"/>
-    <circle cx={state.travelerX} cy={pathY(time,i)} r="12" fill={color} opacity=".5"/>
-    <circle cx={state.travelerX} cy={pathY(time,i)} r="6" fill={color}/>
-    <circle cx={state.travelerX} cy={pathY(time,i)} r="3" fill="white"/>
+    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="12" fill={color} opacity=".5"/>
+    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="6" fill={color}/>
+    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="3" fill="white"/>
    </g>)}
   </svg>}
   {edgeVisible&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
