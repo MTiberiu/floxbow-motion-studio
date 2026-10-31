@@ -28,7 +28,7 @@ function guideValue(time: number, key: (typeof keys)[number]) {
   return first[key] + (second[key] - first[key]) * (position - index);
 }
 
-export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1, revealAdvance = 0, landscapePaper = false, worldImage, roadExtension = 0, travelersOnly = false, worldLayer }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number; revealAdvance?:number; landscapePaper?:boolean; worldImage?:string; roadExtension?:number; travelersOnly?:boolean; worldLayer?:ReactNode }) {
+export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1, revealAdvance = 0, landscapePaper = false, worldImage, roadExtension = 0, travelersOnly = false, worldLayer, revealFinish = 0 }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number; revealAdvance?:number; landscapePaper?:boolean; worldImage?:string; roadExtension?:number; travelersOnly?:boolean; worldLayer?:ReactNode; revealFinish?:number }) {
   const { fps } = useVideoConfig();
   const time = frame / fps;
   const discovered=travelerRevealMotion(frame*30/fps,'return');
@@ -56,8 +56,12 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = fa
       {!openWorld&&!travelersOnly&&<AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}>
         {worldLayer ?? <img src={worldImage ?? (paper||landscapePaper?paperValley:valley)} style={{width:'100%',height:'100%',objectFit:'cover'}}/>}
       </AbsoluteFill>}
-      <FilmLifeOverlay time={time} amount={0.75} />
-      <DarkFilmAtmosphere time={time} intensity={1} />
+      {/* Grade/film grain fade during world-entry reveal; never cut them off
+          when the transparent film overlay finally unmounts. */}
+      <AbsoluteFill style={{opacity:Math.max(0,1-revealFinish),pointerEvents:'none'}}>
+        <FilmLifeOverlay time={time} amount={0.75} />
+        <DarkFilmAtmosphere time={time} intensity={1} />
+      </AbsoluteFill>
       {/* The untraveled film is not a flat stationary backdrop: grain stays
           attached to the film while low-frequency amber pools travel slowly. */}
       <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
