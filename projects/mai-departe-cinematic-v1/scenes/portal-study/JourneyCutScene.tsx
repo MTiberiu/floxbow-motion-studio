@@ -12,6 +12,7 @@ import harbor from '../../assets/camera-harbor-v1.png';
 import forest from '../../assets/camera-forest-v1.png';
 import cloud from '../../assets/camera-cloud-v1.png';
 import {journeyAt,journeyCut} from './journey-cut';
+import {RiftBoundary} from './RiftBoundary';
 
 const plates:Record<number,string>={0:valley,1:harbor,3:forest,5:cloud};
 // Fetch source images early without mounting any world or WebGL context in HUB solo.
@@ -85,8 +86,8 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
  const globalFrame=(clip.from+frame)*30/fps;
  const state=journeyAt(globalFrame),time=state.time;
  const world=journeyCut.find(w=>w.worldIndex===state.worldIndex);
- const front=state.phase==='reveal'?-80+2080*state.mask:
-  state.phase==='close'?-80+2080*(1-state.mask):2080;
+ const front=state.phase==='reveal'?-100+2240*state.mask:
+  state.phase==='close'?-100+2240*(1-state.mask):2140;
  const mask=state.phase==='close'?edgePolygon(front,time,'right'):edgePolygon(front,time,'left');
  const edgeVisible=state.phase==='reveal'||state.phase==='close';
  const sprocketShift=state.phase==='explore'?0:(time*1920/55)%60;
@@ -105,7 +106,10 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
    </g>)}
   </svg>}
   {edgeVisible&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
-   <polyline points={Array.from({length:75},(_,i)=>{const y=i*1080/74;return `${edgeX(y,front,time)},${y}`;}).join(' ')} fill="none" stroke="#cf9861" strokeWidth="5" opacity=".75"/>
+   <RiftBoundary time={time} speed={1920/55} revealX={front}
+    intensity={Math.sin(Math.PI*state.phaseProgress)*.55}
+    edge={'M'+Array.from({length:100},(_,i)=>{const y=82+i*718/99;return `${edgeX(y,front,time)},${y}`;}).join(' L')}
+    sampleAt={(y)=>edgeX(y,front,time)}/>
   </svg>}
   <svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    <path d="M0 0H1920V80H0Z M0 1005H1920V1080H0Z" fill="#20130f"/>
