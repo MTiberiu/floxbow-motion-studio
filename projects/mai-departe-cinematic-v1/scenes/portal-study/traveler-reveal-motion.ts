@@ -4,9 +4,9 @@ import {filmState} from './film-state';
  * travelers on the film. NOT the camera animation inside a full 3D world.
  * Evaluated from absolute frame time, seek-safe and applied to all six worlds.
  */
-export function travelerRevealMotion(frame:number){
+export function travelerRevealMotion(frame:number,mode:'entry'|'return'='entry'){
  const state=filmState(frame);
- const p=Math.max(0,Math.min(1,state.entry));
+ const p=Math.max(0,Math.min(1,mode==='return'?state.returning:state.entry));
  // Exposure of a landscape increases behind the three travelers. At the
  // first frame of the full 3D view it is already in its settled framing.
  const focus=p*p*(3-2*p);
