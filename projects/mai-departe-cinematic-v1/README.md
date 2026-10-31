@@ -186,3 +186,19 @@ Always inspect local uncommitted changes and confirm which branch Electron actua
 - `scenes/portal-study/world-camera-director.test.ts` — deterministic camera, entry retreat, next-world framing and seek tests.
 
 **Inspect in Electron:** 7–12 s first valley reveal; 52–62 s return into harbor; 93–104 s harbor→desert and specifically 97.867 s for any renderer remount flash; seek backward repeatedly; check exposed image/camera/light and edge alignment. Because the live environment was not available through this GitHub connection, the behavior has NOT been compiled, rendered or observed in Electron. Do not call the flicker fixed until visual frame-by-frame inspection succeeds.
+
+## 2026-10-31 — Continuous reveal grade / destination camera prelude
+
+**Baseline:** `d7584f7ec5c0eb701a2f247b89fffe7ec5459716`.
+
+User reported a static destination landscape while travelers pass, a black frame near successive world switches and color snapping when film reveal becomes fullscreen 3D.
+
+**Confirmed from source and changed:**
+- `RestoredFilmHub.tsx` had `FilmLifeOverlay` and `DarkFilmAtmosphere` fully active until the component vanished. New optional `revealFinish` fades both progressively during the last 40% of the existing entry envelope, using the existing active cue timing. This removes the *abrupt post-effect cut*, but the other film visual elements remain (grid, particles, dark film ground).
+- `PortalMaterialScene.tsx` passes `revealFinish` from its current world's `state.entry`; it does not change cue-sheet data.
+- `world-camera-director.ts` previously used `Math.max(world.start,time)`, freezing the NEXT world camera while it was already visible in the preceding world's return reveal. It now performs a deterministic small camera movement throughout the previous world's exit-to-next-world-start interval, converging continuously to the next world's entry pose. This is real Three.js camera motion in the live world, not an HTML image zoom.
+- `world-camera-director.test.ts` updated to check pre-entry motion and pose continuity.
+
+**Unresolved/important:** There are still separate `ThreeCanvas` component instances for the destination while returning and for full-world exploration after the global world index changes. Unmount/remount may trigger GPU initialization flashes; a guaranteed flash-free pipeline requires a persistent canvas or explicitly managed compositing and prewarming, with Electron frame-by-frame verification. **Do not claim that the reported black frames are resolved by the changes above.** Do not add more duplicate static-image cover-ups or CSS zooms to conceal the issue. Original audio, 3 travelers, stored timings and film boundary geometry remain unchanged.
+
+**Review:** 52.3–62 s and 93.4–104 s, especially 97.867 s, then every world boundary. At entry completion verify that atmospheric color treatment disappears gradually rather than in one frame. GitHub commits alone do not establish runtime behavior.
