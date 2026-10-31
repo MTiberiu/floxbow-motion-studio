@@ -13,18 +13,20 @@ export type TravelerPose={
  */
 export function travelerPoseAt(time:number,index:number):TravelerPose{
  const home=travelerXAt(time);
- const world=journeyCut.find(w=>time>=w.enter-5 && time<w.close);
+ const world=journeyCut.find(w=>time>=w.enter-5 && time<w.end);
  if(!world)return {x:home,yOffset:0,scale:1,detached:0,opacity:1,worldId:null,costume:'orb'};
  const i=journeyCut.findIndex(w=>w.id===world.id);
  const passageStart=i===0?0:journeyCut[i-1].close;
+ // The three actors depart one after the other before the reveal.
  const departure=Math.max(passageStart+7.5,world.enter-4)+index*.78;
- const landing=world.close-4.8+index*.48;
  const leave=smooth((time-departure)/1.6);
- const rejoin=smooth((time-landing)/2);
+ // Re-entry is the same 1.6-second formation in reverse order, distributed
+ // over the same full duration as the reveal. It ends exactly at world.end.
+ const closingDuration=world.end-world.close;
+ const closingProgress=clamp((time-world.close)/closingDuration);
+ const rejoin=smooth((closingProgress-(index*.10)) / (1-index*.10));
  const flight=leave*(1-rejoin);
  const age=Math.max(0,time-departure);
- // Orbs travel inside the world independently; the camera changes only
- // the world layer and cannot add velocity to the musical-road position.
  const flightX=840+index*170+115*Math.sin(age*.39+index*1.3);
  const flightY=[-155,120,-80][index]+38*Math.sin(age*1.1+index*1.7);
  const x=mix(home,flightX,flight);
