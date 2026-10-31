@@ -279,3 +279,11 @@ In `journey-cut.ts` the reveal rider X is now linear over its reserved music int
 `edgeX` now uses irregular multiscale harmonics; both the CSS clip polygon and original `RiftBoundary` filaments/particles draw from the SAME edgeX. Full-height 145 samples align the mask and the rift geometry. Old-world photos and two-ThreeCanvas overlap are not restored.
 
 Commit baseline preceding these changes: `c0085100c636ce1ae08a8b9e7c04e1c11ca7edb5`. Verify in Electron, especially the first reveal at 27–34s, old-world closure at 51–55s and late reveals. No runtime preview or tests were executed through remote GitHub; visually verify the exact edge and camera. The future creative design can introduce physically authored edge textures beyond the current procedural multi-strand glow.
+
+## 2026-10-31 — Actual root cause of split rider marker and scene-entry speed boost
+
+The previous fix updated only the 28px glow circle to `visibleRoadY(time,travelerX,index)`; the three INNER circles still used `pathY(time,index)`, causing visible marker/line desynchronization. Now **all four concentric circles** use the exact same `visibleRoadY` that the displayed line uses.
+
+Previously `journeyAt` computed HUB traveler X from `progress*1152` and reveal X from `1152+1400*revealProgress`. Those had dramatically different px/s velocities and thus produced a boost at reveal begin. Now `approach(next,hubStart,time)` computes X from ABSOLUTE SONG TIME and a per-journey constant px/s speed, used identically for HUB, REVEAL and EXPLORE; 3D camera/reveal variables cannot influence X. Travelers persist into exploration until they leave viewport naturally, instead of popping at the reveal/full threshold. Old-world CLOSE remains a separate entrance choreography requiring future edit against song timing.
+
+Added a regression in `journey-cut.test.ts` for position and velocity continuity at each HUB->REVEAL boundary and position continuity around REVEAL->EXPLORE. NOTE: no local Electron render or test execution available from GitHub edits, and some aesthetic/timing problems may remain. New baseline for this fix: `f855f75bd6377e0dfc05727fae8bc7234cbfbe69`.
