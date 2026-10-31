@@ -11,7 +11,7 @@ import valley from '../../assets/camera-valley-v1.png';
 import harbor from '../../assets/camera-harbor-v1.png';
 import forest from '../../assets/camera-forest-v1.png';
 import cloud from '../../assets/camera-cloud-v1.png';
-import {journeyAt,journeyCut} from './journey-cut';
+import {journeyAt,journeyCut,travelerPassage} from './journey-cut';
 import {RiftBoundary} from './RiftBoundary';
 
 const plates:Record<number,string>={0:valley,1:harbor,3:forest,5:cloud};
@@ -70,23 +70,8 @@ const colors=['#db884e','#aa64d5','#399cbd'];
  * pathY(current song time), without any screen/camera/reveal offsets.
  */
 function roadTimeAt(time:number,x:number){
- const active=journeyAt(time*30);
- const activeIndex=journeyCut.findIndex(w=>w.worldIndex===active.worldIndex);
- if(active.phase==='close' && activeIndex>=0){
-  const w=journeyCut[activeIndex];
-  const speed=2240/(w.end-w.close);
-  return w.close+(x+120)/speed;
- }
- const next=journeyCut.find(w=>w.enter>time)
-  ??(activeIndex>=0 && active.phase!=='close'?journeyCut[activeIndex]:undefined);
- if(next){
-  const index=journeyCut.findIndex(w=>w.id===next.id);
-  const start=index===0?0:journeyCut[index-1].end;
-  const speed=1152/(next.enter-start);
-  return start+x/speed;
- }
- const end=journeyCut[journeyCut.length-1].end;
- return end+x/(1920/(239.9666666667-end));
+ const passage=travelerPassage(time);
+ return passage.start+x/passage.speed;
 }
 function visibleRoadY(time:number,x:number,index:number){
  return pathY(roadTimeAt(time,x),index);
