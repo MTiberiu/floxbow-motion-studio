@@ -37,3 +37,23 @@ test('worlds reveal, explore, then close to return to HUB; masks have no sudden 
   assert.ok(journeyAt(Math.floor(world.end*30)-1).mask>0);
  }
 });
+
+test('traveler markers stay ahead of revealed edge while on screen, and exit before full reveal',()=>{
+ const smooth=(v:number)=>{const x=Math.max(0,Math.min(1,v));return x*x*(3-2*x);};
+ for(const world of journeyCut){
+  for(let n=0;n<=100;n++){
+   const progress=n/100;
+   const t=world.enter+(world.full-world.enter)*progress;
+   const state=journeyAt(Math.floor(t*30));
+   if(state.phase!=='reveal')continue;
+   const front=-100+2240*state.mask;
+   // 42px margin accounts for the organic ripples across its full height.
+   if(state.travelerX<=1920)assert.ok(front+42<state.travelerX,
+    world.id+' at '+progress+' front='+front+' rider='+state.travelerX);
+  }
+  const halfway=journeyAt(Math.round((world.enter+(world.full-world.enter)*.6)*30));
+  assert.ok(halfway.travelerX>1920,'riders must depart before final reveal');
+  const closeStart=journeyAt(Math.ceil(world.close*30));
+  assert.ok(closeStart.mask>.99,'old world stays open as riders first arrive');
+ }
+});
