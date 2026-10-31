@@ -1,4 +1,4 @@
-import {useLayoutEffect,useMemo} from 'react';
+import {useLayoutEffect} from 'react';
 import {AbsoluteFill,useVideoConfig} from 'remotion';
 import {ThreeCanvas} from '@remotion/three';
 import {useLoader,useThree} from '@react-three/fiber';
@@ -42,7 +42,7 @@ function CameraPlate({frame,index,start,full,end}:{frame:number;index:number;sta
   camera.lookAt(x*.1,y*.1,0);
   camera.updateProjectionMatrix();invalidate();
  },[camera,invalidate,frame,reveal,explore,pulse,seed,direction]);
- return <mesh><planeGeometry args={[68,38.25]}/><meshBasicMaterial map={texture} toneMapped={false}/></mesh>;
+ return <mesh><planeGeometry args={[78,44]}/><meshBasicMaterial map={texture} toneMapped={false}/></mesh>;
 }
 function WorldStage({frame,index,start,full,end,width,height}:{frame:number;index:number;start:number;full:number;end:number;width:number;height:number}){
  return <ThreeCanvas width={width} height={height} style={{position:'absolute',inset:0,width:'100%',height:'100%'}}
@@ -60,7 +60,7 @@ function edgePolygon(front:number,time:number,keep:'left'|'right'){
  return `polygon(${pts.join(',')},100% 100%,100% 0%)`;
 }
 const colors=['#db884e','#aa64d5','#399cbd'];
-function FixedHub({time,x}:{time:number;x:number}){
+function FixedHub({time}:{time:number}){
  const speed=1920/55;
  return <AbsoluteFill style={{background:'radial-gradient(ellipse at 66% 43%,#312017 0%,#121016 60%,#080b12 100%)'}}>
   <svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>
@@ -89,7 +89,7 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
  const edgeVisible=state.phase==='reveal'||state.phase==='close';
  const sprocketShift=state.phase==='explore'?0:(time*1920/55)%60;
  return <AbsoluteFill style={{background:'#0b0c10',overflow:'hidden'}} data-active-director="journey-hub-world-v2" data-journey-phase={state.phase} data-world-id={state.worldId??'solo'}>
-  <FixedHub time={time} x={state.travelerX}/>
+  <FixedHub time={time}/>
   {world&&<AbsoluteFill key={world.id} data-active-world={world.id} style={{clipPath:mask}}>
    <WorldStage frame={globalFrame} index={world.worldIndex} start={world.enter} full={world.full} end={world.end} width={width} height={height}/>
   </AbsoluteFill>}
