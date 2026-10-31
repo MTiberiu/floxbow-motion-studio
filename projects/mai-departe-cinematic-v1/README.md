@@ -317,3 +317,15 @@ The four-world song cut, audio, subtitles, textures and masking were not changed
 `traveler-choreography.ts` now provides `travelerPoseAt(time,index)` for three independently staged glowing orbs: detach at staggered times, scale up, make deterministic music-time flights, and blend back to their canonical road coordinates/scale BEFORE world closure. `JourneyCutScene.tsx` draws each performer in its own transformed SVG group over the fixed road and world. Crucially, `journey-cut.ts` remains the authority for musical road time, and no actor poses affect the world mask or camera.
 
 The prototype actors are STILL screen-space SVG orbs layered above the Three.js world; this is **not yet genuine in-world geometry or 3D parallax**. Their future `costume` property is reserved for visual character / alpha-texture substitution without altering the time model. The current screenshots' narrative and world assets remain provisional. Source tests for staggered flight and pre-close rejoin are added, but not executed in Electron. Check first 8–25s and all handoffs for the subjective result.
+
+## 2026-10-31 — Reverse the successful reveal choreography at exit
+
+User confirmed that launch, staggered orb flight, arrival reveal speed, and 3D exploration work; exit was too fast and orbs escaped toward the right instead of rejoining. Active fixes:
+
+- `journey-cut.ts`: every world now starts closing at `end-(full-enter)`, so outgoing mask duration **exactly equals** opening mask duration. Both use the same linear progress curve in reverse (the earlier 20% waiting window on closure is gone). No overlapping WebGL world stages.
+- `traveler-choreography.ts`: three actors stay detached through exploration and **gradually reattach during close**, in reverse departure order, with the same screen-space character flight / scale transitioning back to each orb's exact audio-road `home` position. No separate exit toward the right.
+- `JourneyCutScene.tsx`: camera undoes its reveal/explore framing over the whole closing window rather than instantly cutting or leaving the world zoomed. Note the camera choreography is provisional and still uses a flat photographic 3D plate.
+- `traveler-choreography.test.ts`: assertions updated for reattachment DURING close, inverse stagger, equal close/reveal duration.
+- Exact music, subtitles, four 3D worlds and HUB structure remain unchanged. Scene closing starts earlier to preserve end boundaries, so exploration is shorter by a few seconds; this is intentional.
+
+Preview these exact windows: Valley **47.867–55.200**, Harbor **90.200–97.867**, Forest **157.567–167.733**, Cloud **201.800–211.467**. Confirm at the start of each window points are still free in the 3D world, their scale drops gradually, and their final positions coincide with original song lines; no x-axis sprint. Remote changes were not executed in Electron or via local tests. Baseline before this change: `e82bd7c633cd19522a6373eeb1e5eb78ac29b6e0`.
