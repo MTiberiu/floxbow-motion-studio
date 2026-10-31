@@ -301,3 +301,11 @@ This changes the displayed path time window; verify musical subjective feel and 
 Further inspection: simply shifting the sample window to `time+x/roadSpeed` still made the road scroll in DATA with current time, even without CSS translation. The active `JourneyCutScene` now uses `roadTimeAt(time,x)`: each fixed X coordinate maps to its immutable absolute music time for that HUB/reveal passage, with the same exact px/s velocity used by `journeyAt().travelerX`. Thus at the actual rider X, the line Y is `pathY(currentSongTime)` by construction. Separate mappings are used for the closure entrance and final HUB. The same function draws lines and all 4 rider circles.
 
 This is the intended architecture for static 2D musical paths; no viewport center offset, global time shift, or reveal progress enters the rider's vertical position. Validate the visuals and tests locally before confirming.
+
+## 2026-10-31 — Fixed swapped 2D timelines on CLOSURE → HUB → REVEAL
+
+Four screenshots showed a distinct set of three riders on world closure, followed by a different set on HUB solo; the plotted curves jumped at the transition. This was an actual bug in the preceding `roadTimeAt` function: `close` used `w.close+(x+120)/speed`; HUB used `previousWorld.end+x/speed`; REVEAL used `previousWorld.end+x/speed`. Also `journeyAt` previously reset rider X on close.
+
+**New source-of-truth:** `travelerPassage(time)` in `journey-cut.ts` defines a passage from previous-world **close start** through HUB and the **next** world's reveal/exploration, ending only when that next world begins closing. Both the marker's `travelerXAt(time)` and the plotted curve `roadTimeAt(time,x)` use the same passage start and speed, with song-global absolute time. World camera, renderer and clip masks use separate parameters but cannot change musical line data or traveler velocity. The next passage starts once, at the new world close start, even though that world is still visible.
+
+The four-world song cut, audio, subtitles, textures and masking were not changed in this fix. Added closure→HUB and HUB→REVEAL clock continuity regression source tests (NOT EXECUTED); Electron verification needed at 51.8–55.3s and 94.2–98s, as well as intro and next reveals. Baseline before change: `8dd19fd4a922f96e34980300e4e1a031eb22fedb`.
