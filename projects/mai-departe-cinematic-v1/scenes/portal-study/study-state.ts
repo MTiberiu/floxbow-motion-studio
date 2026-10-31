@@ -8,9 +8,9 @@ export function studyState(frame:number){
  const travel=musicProgress(time,excursion.speed.explore);
  const returning=musicProgress(time,excursion.speed.exit);
  const paper=ease((time-studyTiming.morph[0])/(studyTiming.morph[1]-studyTiming.morph[0]));
- const entryScale=1/(1-.88*entry);
- const entryX=350+(960-350)*entry-350*entryScale;
- const entryY=540-540*entryScale;
+ const entryScale=1;
+ const entryX=0;
+ const entryY=0;
  return {time,entry,paper,returning,entryScale,entryX,entryY,
   returnX:1050*(1-returning),
   warp:Math.sin(Math.PI*entry)*.7+Math.sin(Math.PI*returning),

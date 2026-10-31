@@ -27,3 +27,6 @@ The active preview now uses the simplified scene requested by the user: recovere
 See [the copy/integration guide and verification report](scenes/portal-study/README.md). The paper counterpart preserves composition but is not guaranteed pixel-identical. Existing soundtrack, subtitles, cue/word timing, verification, Timeline and source analysis are unchanged. No video export was run.
 
 The entrance now traverses the original left-side frontier, without creating another hole. Layered filaments and lens displacement replace the thick border. The return at 52.333–54.967 s shares the paper film frontier itself: one mask and contour, no overlapping second hole or duplicated scenery. The three travelers retain global song time.
+
+
+Current film director: six distinct worlds (valley, harbor, desert, forest, ice, cloud citadel), beat/energy-driven deterministic camera movement, fixed scrolling film rails, shared textured reveal boundaries. Outro at 211.467s ends on travelers and their globally timed paths only. Exact cues: scenes/portal-study/CAMERA-MUSIC-CUE-SHEET.md. Images are complete plates prepared for later user-authored 2.5D separation; no volumetric reconstruction is claimed. No render/export performed.

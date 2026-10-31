@@ -46,3 +46,17 @@ Repository validation passes. Global `npm run typecheck` reports existing TS2307
 The prior closed entrance outline is removed. New `RiftBoundary.tsx` is project-local; the existing shared-with-this-project LivingEmulsion source is not edited. Five local tests pass, including inverse-projection checks that all frame corners lie inside the original opening before its surface is removed, and forward return/seek reset checks. Electron inspection covered entry at 6–9 s, return at 53–54 s and backward seek. This is a composited portal illusion with a forward Three.js camera, not a volumetric simulation or a physically reconstructed landscape. No export was run.
 
 The return opening extends beyond the top/bottom of the frame until the film rails arrive; it has no visible rectangular endpoints. The paper frontier and its mask share one field and one transform.
+
+
+Fixed-film correction: entrance no longer scales or translates the film. The existing emulsion frontier advances 1600 design pixels during the saved entry interval. A single screen-space rail overlay stays visible throughout exploration and both return fronts; only sprockets scroll horizontally. Landscape camera motion remains inside the aperture.
+
+Cycle correction: entry moves the travelers and their trailing frontier together. Return translates the entire destination hub from the left, pushing the explored world out; no independent full-screen paper wipe. Final layout is the original hub with paper landscape behind the travelers. The global curves and fixed film rails are preserved.
+
+Exit update: the leading boundary now has a broad directed curved inlet plus film-anchored emulsion detail; mask and edge effects use exactly the same sample function. Both edges use RiftBoundary, with separate SVG filter IDs. The destination hub reveals assets/camera-harbor-v1.png (new lighthouse/harbor world), not the alpine valley or its paper variant. The original valley-to-paper exploration remains intact.
+
+Road coverage: return calculates the rightmost sampled exit contour in destination-local coordinates and extends the road background, grid, and music curves by that amount plus 80px. The landscape image and traveler positions are not stretched. This prevents an uncovered black strip when the curved boundary overtakes the original 1920px road surface.
+
+## Complete film cycle
+The active director now spans all 7199 frames: valley, harbor, desert observatory, forest cathedral, glacial fjord, cloud citadel, then travelers only from 211.467 seconds. See CAMERA-MUSIC-CUE-SHEET.md and film-cue-sheet.json for exact events, frames, lyric meaning and analysis provenance. No original timeline or audio/lyric/curve data changed.
+
+Camera choices use a fixed per-world seed and absolute-frame accent envelopes with energy-weighted progression. These are high-quality complete background plates on a Three plane, not reconstructed volumetric scenery; the user can still split them for true 2.5D parallax. Only the original valley has a matched paper variant. The new worlds retain their cinematic material.

@@ -26,17 +26,18 @@ function guideValue(time: number, key: (typeof keys)[number]) {
   return first[key] + (second[key] - first[key]) * (position - index);
 }
 
-export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1 }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number }) {
+export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = false, crossing = 0, rails = 1, revealAdvance = 0, landscapePaper = false, worldImage, roadExtension = 0, travelersOnly = false }: { clip: TimelineClip; frame?: number; paper?: boolean; openWorld?:boolean; crossing?:number; rails?:number; revealAdvance?:number; landscapePaper?:boolean; worldImage?:string; roadExtension?:number; travelersOnly?:boolean }) {
   const { fps } = useVideoConfig();
   const time = frame / fps;
   const horizon = Number(clip.props.horizon ?? 55);
   const speed = 1920 / horizon;
-  const centerX = 1000;
+  const roadWidth = 1920 + roadExtension;
+  const centerX = 1000 + revealAdvance;
   const gain = Number(clip.props.gain ?? 0.92);
   const density = Math.round(Number(clip.props.particles ?? 70));
   const trailSeconds = Number(clip.props.trailSeconds ?? 6.5);
   const trailPixels = trailSeconds * speed;
-  const revealX = centerX - trailPixels;
+  const revealX = travelersOnly ? -600 : centerX - trailPixels;
   const scales = [32, 50, 46];
   const y = (seconds: number, path: number) => 450 - guideValue(seconds, keys[path]) * scales[path] * gain;
   const offset = time * speed;
@@ -48,15 +49,15 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = fa
   return (
     <>
     <AbsoluteFill data-journey-time={time}>
-      <AbsoluteFill style={{background:paper?'#dfcdb0':'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)',maskImage:openWorld?outside:undefined,WebkitMaskImage:openWorld?outside:undefined,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}/>
-      {!openWorld&&<AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}><img src={paper?paperValley:valley} style={{width:'100%',height:'100%',objectFit:'cover'}}/></AbsoluteFill>}
+      <AbsoluteFill style={{width:`${roadWidth/19.2}%`,background:paper?'#dfcdb0':'radial-gradient(ellipse at 70% 45%, #25201d 0%, #100e11 58%, #070809 100%)',maskImage:openWorld?outside:undefined,WebkitMaskImage:openWorld?outside:undefined,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}/>
+      {!openWorld&&!travelersOnly&&<AbsoluteFill style={{maskImage:`url("${maskImage}")`,WebkitMaskImage:`url("${maskImage}")`,maskSize:'100% 100%',WebkitMaskSize:'100% 100%'}}><img src={worldImage ?? (paper||landscapePaper?paperValley:valley)} style={{width:'100%',height:'100%',objectFit:'cover'}}/></AbsoluteFill>}
       <FilmLifeOverlay time={time} amount={0.75} />
       <DarkFilmAtmosphere time={time} intensity={1} />
       {/* The untraveled film is not a flat stationary backdrop: grain stays
           attached to the film while low-frequency amber pools travel slowly. */}
       <svg viewBox="0 0 1920 1080" aria-hidden="true" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
         <defs>
-          <clipPath id="untraveledFilm"><rect x={revealX+18} y="82" width={Math.max(0,1920-revealX-18)} height="718"/></clipPath>
+          <clipPath id="untraveledFilm"><rect x={revealX+18} y="82" width={Math.max(0,roadWidth-revealX-18)} height="718"/></clipPath>
           <radialGradient id="travelingWarmth">
             <stop offset="0" stopColor="#b45a24" stopOpacity=".30"/>
             <stop offset=".55" stopColor="#6a311a" stopOpacity=".10"/>
@@ -85,18 +86,18 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = fa
           })}
         </g>
       </svg>
-      <svg viewBox="0 0 1920 1080" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+      <svg viewBox="0 0 1920 1080" style={{ overflow: 'visible', position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
         <defs>
-          <clipPath id="futureRoad"><path d={`M0,82 H1920 V800 H0 Z ${area}`} clipRule="evenodd" /></clipPath>
+          <clipPath id="futureRoad"><path d={`M0,82 H${roadWidth} V800 H0 Z ${area}`} clipRule="evenodd" /></clipPath>
           {colors.map((color, index) => <radialGradient key={color} id={`markerGlow${index}`} cx="30%" cy="25%"><stop stopColor="white" /><stop offset=".3" stopColor={color} /><stop offset="1" stopColor={['#8d4427', '#582a87', '#17596e'][index]} /></radialGradient>)}
         </defs>
         <g clipPath="url(#futureRoad)" stroke="#967c61" strokeWidth="1" opacity=".2">
-          {Array.from({ length: 22 }, (_, index) => { const x = index * 100 - (offset % 100); return <path key={`v-${index}`} d={`M${x} 90 V795`} />; })}
-          {Array.from({ length: 8 }, (_, index) => <path key={`h-${index}`} d={`M0 ${95 + index * 100} H1920`} />)}
+          {Array.from({ length: Math.ceil(roadWidth/100)+2 }, (_, index) => { const x = index * 100 - (offset % 100); return <path key={`v-${index}`} d={`M${x} 90 V795`} />; })}
+          {Array.from({ length: 8 }, (_, index) => <path key={`h-${index}`} d={`M0 ${95 + index * 100} H${roadWidth}`} />)}
         </g>
         {keys.map((_, path) => {
           const points: string[] = [];
-          for (let x = 0; x <= 1920; x += 7) {
+          for (let x = 0; x <= roadWidth+7; x += 7) {
             const seconds = clamp(time + (x - centerX) / speed, 0, guides.durationSeconds);
             points.push(`${x} ${y(seconds, path)}`);
           }
@@ -121,7 +122,7 @@ export function RestoredFilmHub({ clip, frame = 0, paper = false, openWorld = fa
 
           </g>
         ))}
-        <RiftBoundary time={time} speed={speed} revealX={revealX} edge={paper?extendedEdge:boundary} intensity={crossing}/>
+        {!travelersOnly&&<RiftBoundary time={time} speed={speed} revealX={revealX} edge={paper?extendedEdge:boundary} intensity={crossing}/>}
         <path opacity={rails} d="M0 80 H1920 M0 805 H1920" stroke="#a66732" strokeWidth="3" />
         {Array.from({ length: 35 }, (_, index) => {
           const x = index * 60 - (offset % 60);

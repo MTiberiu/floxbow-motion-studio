@@ -1,12 +1,15 @@
+import {useId} from 'react';
 import {frontierX} from '../emulsion-field';
 const seed=(i:number)=>{const x=Math.sin(i*127.1+31.7)*43758.5453;return x-Math.floor(x);};
 /** All strands sample the existing arrival-field frontier: no independent entrance hole. */
-export function RiftBoundary({time,speed,revealX,edge,intensity=0}:{time:number;speed:number;revealX:number;edge:string;intensity?:number}){
- const samples=Array.from({length:100},(_,i)=>{const y=82+i*718/99;return {x:frontierX(time,y,speed,revealX),y};});
+export function RiftBoundary({time,speed,revealX,edge,intensity=0,sampleAt}:{time:number;speed:number;revealX:number;edge:string;intensity?:number;sampleAt?:(y:number)=>number}){
+ const bloom=useId().replace(/:/g,'');
+ const at=sampleAt??((y:number)=>frontierX(time,y,speed,revealX));
+ const samples=Array.from({length:100},(_,i)=>{const y=82+i*718/99;return {x:at(y),y};});
  return <g pointerEvents="none">
-  <defs><filter id="riftBloom" x="-100%" width="300%"><feGaussianBlur stdDeviation={5+intensity*5}/></filter></defs>
-  <path d={edge} fill="none" stroke="#080b16" strokeWidth={10+intensity*8} opacity=".8" filter="url(#riftBloom)"/>
-  <path d={edge} fill="none" stroke="#efbd76" strokeWidth={6+intensity*10} opacity={.24+intensity*.22} filter="url(#riftBloom)"/>
+  <defs><filter id={bloom} x="-100%" width="300%"><feGaussianBlur stdDeviation={5+intensity*5}/></filter></defs>
+  <path d={edge} fill="none" stroke="#080b16" strokeWidth={10+intensity*8} opacity=".8" filter={`url(#${bloom})`}/>
+  <path d={edge} fill="none" stroke="#efbd76" strokeWidth={6+intensity*10} opacity={.24+intensity*.22} filter={`url(#${bloom})`}/>
   {Array.from({length:14},(_,k)=>{
    const d='M'+samples.map((p,i)=>{
     const field=Math.sin(p.y*.009+time*.23+k*.7)*Math.sin(p.y*.023+k);
@@ -17,7 +20,7 @@ export function RiftBoundary({time,speed,revealX,edge,intensity=0}:{time:number;
   })}
   {Array.from({length:70},(_,i)=>{
    const age=(time*.3+seed(i))%1,y=84+seed(i+71)*714;
-   const x=frontierX(time,y,speed,revealX)-(age*age)*(12+intensity*70);
+   const x=at(y)-(age*age)*(12+intensity*70);
    return <ellipse key={i} cx={x} cy={y+age*12} rx={.5+intensity*age*7} ry={.35+seed(i+5)} fill={i%3?'#ffd7a2':'#88cddd'} opacity={Math.sin(age*Math.PI)*.55}/>;
   })}
  </g>;
