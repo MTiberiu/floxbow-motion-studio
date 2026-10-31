@@ -154,3 +154,17 @@ Always inspect local uncommitted changes and confirm which branch Electron actua
 - **No changes** to the original film rift geometry, six-world order, music/analysis, subtitle timings, or timeline. **No new image or generated art**. Existing revealed image remains a single textured plane rather than separated alpha-geometry; faux depth motion is a preview-stage enhancement, not true parallax.
 - **Check** 7–12 s for active first reveal and change at 10.8; 25 s for optical life during valley PAPER grading; 53–55 s return; 61–93 s harbor; 103–135 s desert, and one midpoint in every later world. Check that no image drifts outside its frame and that light does not pulse abruptly.
 - **Status:** GitHub commits only; neither local Electron rendering nor TypeScript/test execution is claimed. Verify the result before accepting the animation as finished. The older full-world lighting seam ~11.767 s remains eligible for image-grade matching after screenshot comparison.
+
+## 2026-10-31 — Traveler-led reveal and new-world black-frame protection
+
+**Baseline:** `65ab0d4f3d65f01d3dd8f164821e4b92f59772e7`. Two user-identified separate concerns:
+1. The portion of the *photo already revealed on the travelers' road* seemed static; movement of the full 3D-world camera did not solve that.
+2. Near 97.867s, the transition into the next world sometimes appeared to flash black or wipe into the same landscape twice. This occurs at a world boundary where source images/GL uniforms swap and a new world's entry overlay begins. The exact browser-render cause cannot be confirmed from Git source alone.
+
+**Changes (active scene path):**
+- New shared `scenes/portal-study/traveler-reveal-motion.ts`: returns film-space motion synchronized to entry or return progress in the saved six-world cue sheet; it increases discoverable optical movement at the beginning and **settles to scale 1 and zero translation before full-world arrival**, reducing visual snap. Deterministic on frame seeks.
+- `RestoredFilmHub.tsx`: discovered image uses shared traversal transform and modest exposure, replacing the imperceptible old image drift. The masks/curves still use existing emulsion coordinates.
+- `PortalMaterialScene.tsx`: shared entry motion is also applied to the active image shader. The current full source image sits **below** the transparent ThreeCanvas within the existing world clipping layer, so shader/texture initialization has a matching source picture to show rather than a black backing. Existing active rift geometry and world index logic remain untouched.
+- New `traveler-reveal-motion.test.ts` checks the shared behavior for all six worlds.
+
+**Important:** This is still **movement of complete images**, not newly split mountains/water/vegetation and not camera direction for each world. The user's next task is to design each individual 3D scene separately. There is no evidence here that the reported frame-black flash is fixed in Electron: visually test 97.80–98.20s and each world boundary, ideally frame-by-frame, before marking it resolved. The full world art / lighting remains pending.
