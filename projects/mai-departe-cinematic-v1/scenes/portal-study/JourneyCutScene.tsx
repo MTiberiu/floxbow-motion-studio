@@ -54,23 +54,29 @@ function WorldStage({frame,index,start,full,end,width,height}:{frame:number;inde
  </ThreeCanvas>;
 }
 function edgeX(y:number,front:number,time:number){
- const wobble=27*Math.sin(y*.014+time*.45)+15*Math.sin(y*.037-time*.4);
+ // Multiscale irregular frontier: one geometry feeds clipping AND glowing tears.
+ const wobble=57*Math.sin(y*.011+time*.12)+34*Math.sin(y*.025-time*.07)
+  +18*Math.sin(y*.054+time*.17)+7*Math.sin(y*.129-time*.06);
  return front+wobble;
 }
 function edgePolygon(front:number,time:number,keep:'left'|'right'){
- const pts=Array.from({length:75},(_,i)=>{const y=i*1080/74;return `${edgeX(y,front,time).toFixed(2)}px ${(y/10.8).toFixed(3)}%`;});
+ const pts=Array.from({length:145},(_,i)=>{const y=i*1080/144;return `${edgeX(y,front,time).toFixed(2)}px ${(y/10.8).toFixed(3)}%`;});
  if(keep==='left')return `polygon(0% 0%,${pts.join(',')},0% 100%)`;
  return `polygon(${pts.join(',')},100% 100%,100% 0%)`;
 }
 const colors=['#db884e','#aa64d5','#399cbd'];
+const roadSpeed=1920/55;
+/** The exact same song-time sampling drives rendered curves and their riders. */
+function visibleRoadY(time:number,x:number,index:number){
+ return pathY(Math.max(0,time+(x-960)/roadSpeed),index);
+}
 function FixedHub({time}:{time:number}){
- const speed=1920/55;
  return <AbsoluteFill style={{background:'radial-gradient(ellipse at 66% 43%,#312017 0%,#121016 60%,#080b12 100%)'}}>
   <svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{width:'100%',height:'100%'}}>
    <defs><pattern id="journey-grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M100 0H0V100" stroke="#b89570" strokeWidth=".75" opacity=".20" fill="none"/></pattern></defs>
    <rect x="0" y="80" width="1920" height="925" fill="url(#journey-grid)"/>
    {guideKeys.map((_,i)=>{
-    const pts=Array.from({length:276},(_,n)=>{const px=n*7;return `${px},${pathY(Math.max(0,time+(px-960)/speed),i)}`;});
+    const pts=Array.from({length:276},(_,n)=>{const px=n*7;return `${px},${visibleRoadY(time,px,i)}`;});
     return <g key={i}>
      <path d={`M${pts.join(' L')}`} fill="none" stroke={colors[i]} strokeWidth="3" opacity=".85"/>
     </g>;
@@ -99,7 +105,7 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
   {/* Markers are ABOVE the 3D reveal, following the fixed HUD road. */}
   {state.phase!=='explore'&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    {colors.map((color,i)=><g key={i}>
-    <circle cx={state.travelerX} cy={pathY(time,i)} r="28" fill={color} opacity=".1"/>
+    <circle cx={state.travelerX} cy={visibleRoadY(time,state.travelerX,i)} r="28" fill={color} opacity=".1"/>
     <circle cx={state.travelerX} cy={pathY(time,i)} r="12" fill={color} opacity=".5"/>
     <circle cx={state.travelerX} cy={pathY(time,i)} r="6" fill={color}/>
     <circle cx={state.travelerX} cy={pathY(time,i)} r="3" fill="white"/>
@@ -107,8 +113,8 @@ export function JourneyCutScene({clip,frame=0}:{clip:TimelineClip;frame?:number}
   </svg>}
   {edgeVisible&&<svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
    <RiftBoundary time={time} speed={1920/55} revealX={front}
-    intensity={Math.sin(Math.PI*state.phaseProgress)*.55}
-    edge={'M'+Array.from({length:100},(_,i)=>{const y=82+i*718/99;return `${edgeX(y,front,time)},${y}`;}).join(' L')}
+    intensity={.38+Math.sin(Math.PI*state.phaseProgress)*.40}
+    edge={'M'+Array.from({length:145},(_,i)=>{const y=i*1080/144;return `${edgeX(y,front,time)},${y}`;}).join(' L')}
     sampleAt={(y)=>edgeX(y,front,time)}/>
   </svg>}
   <svg viewBox="0 0 1920 1080" preserveAspectRatio="none" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
