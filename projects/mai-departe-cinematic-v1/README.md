@@ -212,3 +212,48 @@ User-established model: world N+1 must already occupy the FULL screen behind the
 **Active composition change:** `PortalMaterialScene.tsx` now mounts world canvases as stationary fullscreen layers keyed by world index, with visibility windows from previous world's return start to the world's exit completion. Old world receives the existing outgoing-world clip; destination stage remains fixed at (0,0) and is revealed by `RestoredFilmHub`'s `openWorld` mask. The translated element now contains ONLY the film and travelers; `WorldCanvas` is no longer a child of translated `RestoredFilmHub`. During the global world-index switch, destination's world-index React key is preserved so the same ThreeCanvas may remain mounted; camera position continues to be computed from global song time.
 
 This is still *two independent ThreeCanvas instances during overlap*, not yet one permanent WebGL context. GPU initialization and visibility must be tested carefully; the user-reported black frame is not verified resolved in Electron. Note all film FX outside the organic mask and any film atmosphere layers still require visual grade verification. No image, audio, cue timing, or transition contour changed. Verify frame-by-frame at 54.9–55.3 s and 96.9–98.1 s, then remaining world boundaries. If black frames remain, inspect the GPU initialization/scene mounting rather than replacing images or adding more photo zoom effects.
+
+## 2026-10-31 — NEW ACTIVE CUT: four 3D worlds + real traveler-only scenes
+
+**Important: this section supersedes the six-world ACTIVE runtime description above.** Historical files and six landscape assets remain available for rollback and later art direction. The current source path was deliberately switched to a new, smaller scene director.
+
+**Before-edit rollback:** `471cfdf55f496f8ee7968cd723142d89d544256d` (specification after old six-world implementation). All later changes in this batch are separate commits. No audio or subtitle changes.
+
+- `Composition.tsx` now imports `scenes/portal-study/JourneyCutScene.tsx` for the existing visual component IDs.
+- `edit-timeline.json` has ONE continuous `director-journey-full-film` visual clip, frames 0–7198, replacing the old 900-frame proof and 6299-frame legacy continuation to avoid a React/ThreeCanvas reset at 30 seconds. Other 59 clips are retained as they were (captions etc.).
+- `journey-cut.ts` is the new **authoritative proposed cut** (all times at 30fps), with explicit `hub`, `reveal`, `explore`, `close` phases and one 3D stage maximum. Changing world count or lyric timing is a centralized data change.
+- The HUB grid and audio guide curves stay **stationary in screen space**. Only the markers travel in X, with Y from the original saved `motion-guides.json` by global time.
+- During solo HUB, travelers advance from 0 to 60% of the road; **no 3D canvas is mounted**. During the next world reveal, travelers advance from 60% to 100% while a masked, fixed, full-screen 3D scene opens behind them.
+- During a world closure, the travelers cross the frame while the **old world's mask** closes from left to right; the old world unmounts at 0 visible pixels. Only after closing is there a long HUB scene and later a reveal. No old+new world overlap.
+- Camera is a **temporary music-cued proof**: pulls back during reveal, then uses a deterministic per-world pan/dolly and short pulses from the original `film-cue-sheet.json` accents. It is NOT final camera direction or a fully separated 2.5D environment.
+- The old six-world `PortalMaterialScene.tsx`, `film-state.ts`, original `film-cue-sheet.json`, source assets, etc. were not deleted: retained as reference.
+
+### New suggested full-song scene map
+
+| Time (s) | Type | Meaning |
+|---|---|---|
+| 0–27.267 | HUB SOLO | Instrumental opening and first lines; no 3D world |
+| 27.267–33.967 | 3D REVEAL | Valley (burden/promise) |
+| 33.967–51.867 | 3D EXPLORE | Valley; bills, call, hesitation |
+| 51.867–55.200 | 3D CLOSE | Close valley on last burden line |
+| 55.200–73.267 | HUB SOLO | Fear and decision; travelers have narrative space |
+| 73.267–80.300 | 3D REVEAL | Harbor; main chorus begins |
+| 80.300–94.267 | 3D EXPLORE | Harbor; driving forward |
+| 94.267–97.867 | 3D CLOSE | Harbor returns to film |
+| 97.867–139.733 | HUB SOLO | Rejection, learning, persistence, pre-chorus; **no desert 3D stage** |
+| 139.733–144.867 | 3D REVEAL | Forest; chorus |
+| 144.867–163.267 | 3D EXPLORE | Forest; keep going |
+| 163.267–167.733 | 3D CLOSE | Forest recedes |
+| 167.733–186.900 | HUB SOLO | Quiet bridge and opening of final chorus |
+| 186.900–193.700 | 3D REVEAL | Cloud citadel; chorus crescendo |
+| 193.700–207.033 | 3D EXPLORE | Cloud citadel |
+| 207.033–211.467 | 3D CLOSE | Cloud citadel fades to HUB |
+| 211.467–239.967 | HUB SOLO | Ending with only travelers — no next world |
+
+**4 of the previous 6 worlds are used:** Valley, Harbor, Forest, Cloud. Desert and Ice are no longer rendered in the active cut (assets stay available). All boundaries are editorial PROPOSALS based on known source lyric/shot boundaries, awaiting listening and in-app review; not newly validated frame-accurate vocal alignment. No lyric cue was modified.
+
+### Checkpoints and caveats
+
+Inspect 0–13; 26.9–34; 51–56; 69–81; 94–100; 139–145; 167–188; 206–213 and 220–240 s. Confirm at **30 s** that the same ThreeCanvas continues through the old clip split, at **97.867 s** no 3D scene is mounted, that fixed HUB lines never translate, and that every world closure fully removes the scene before next discovery. Check direct seek and reverse seek.
+
+This batch is GitHub-source implementation only; NO Electron playback, TypeScript build, or video export was performed. Do not claim the new design visually passes until local review. The mask edge and film appearance are a simplified proof, not the final prior film texture effects. Future work: decide final 2D storytelling, number/timing of worlds with the song in hand, and cinematic cameras/lighting/assets.
